@@ -96,7 +96,10 @@ Drop sprite sheets on the window at any time to import them.
   mantle, shield and the sword — each in all six states from all 24 views, the
   jeans, shirt and mantle cloth-simulated per animation. Put them on in the
   Wardrobe (or see [the list](assets/sprites/README.md#the-sheets-in-this-folder)
-  for a ready-made `config/wardrobe.json`).
+  for a ready-made `config/wardrobe.json`, and what a full outfit needs in
+  memory).
+
+  <img src="docs/screenshots/rendered-walk.png" width="49%" alt="The rendered character in the full outfit - all 18 layers - walking in the demo">
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
