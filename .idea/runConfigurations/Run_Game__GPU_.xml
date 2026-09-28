@@ -1,0 +1,43 @@
+<component name="ProjectRunConfigurationManager">
+  <!--
+    Runs Larson's Game with GPU acceleration on: the Gradle task `runGpu`
+    (see build.gradle.kts). Every frame - the 3D void, each stacked sprite
+    layer, the menus - is drawn by OpenGL 3.3 on the graphics card.
+
+    What `runGpu` adds over a plain `run`:
+      - asks for the discrete GPU on hybrid Linux laptops (DRI_PRIME / NVIDIA
+        PRIME offload); on Windows set java.exe to "High performance" in
+        Settings > System > Display > Graphics once, macOS switches by itself
+      - vsync on and 4x MSAA
+      - larsons.gpu=required: if the driver turns out to be a software
+        rasteriser the console and the in-game HUD say so in red
+
+    Tweak without editing this file: add e.g. -Dlarsons.gpu.msaa=8 or
+    -Dlarsons.sprites.scale=0.5 to "Run" > "Edit Configurations" > arguments.
+  -->
+  <configuration default="false" name="Run Game (GPU)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="env">
+        <map />
+      </option>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="runGpu" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <method v="2" />
+  </configuration>
+</component>
