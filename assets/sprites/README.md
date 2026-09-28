@@ -265,5 +265,7 @@ it, or halve the resolution:
 ./gradlew run -Dlarsons.sprites.scale=0.5 -Dlarsons.sprites.vramMB=2048
 ```
 
-That was tried with the outfit above and settles at "0 loading". At the
-default 1.5 GB, about four full-size layers fit (see [Memory](#memory)).
+Both were tried with the outfit above and settle at "0 loading" (at full size
+the HUD showed 7162 MB resident). At the default 1.5 GB, about four full-size
+layers fit (see [Memory](#memory)). On a software renderer (llvmpipe, no GPU)
+the textures live in system memory, so the budget comes out of RAM too.
