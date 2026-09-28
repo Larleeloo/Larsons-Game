@@ -3,6 +3,7 @@ package com.larsons.game.sprite;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,10 +18,32 @@ import java.util.List;
  * 3 072 × 2 560 and fits anywhere. Frame order is unchanged: left to right,
  * then top to bottom, exactly how the engine's {@code SpriteSheet} slices.
  *
+ * <p><b>Why crop.</b> Every layer is rendered with the body's framing, so a
+ * hat or an earring is a few dozen pixels in a 512-pixel frame and the rest is
+ * transparent. A sheet read from disk keeps only the box its frames actually
+ * cover (the same box for every frame, plus a transparent gutter), and
+ * remembers where that box sat in the frame, so the layer is drawn on just
+ * that part of the card. The 18-layer outfit in {@code assets/sprites/} takes
+ * under a tenth of the video memory it did as whole frames.
+ *
  * <p>Pure CPU and thread-safe to build — the library decodes sheets on worker
  * threads so a 512-pixel sheet never costs the render thread a frame.
  */
 public final class SheetImage {
+
+    /**
+     * Transparent texels kept round a cropped frame, so linear filtering and
+     * the mip chain never pull in the neighbouring frame of the atlas.
+     */
+    static final int GUTTER = 8;
+
+    /**
+     * Crop edges snap to multiples of this many source pixels. Then halving a
+     * cropped frame (the Half and Quarter sprite resolutions) averages exactly
+     * the pixels that halving the whole frame would, and the layer lands on
+     * the same texels as before cropping.
+     */
+    static final int ALIGN = 8;
 
     private final BufferedImage atlas;
     private final int frameWidth;
@@ -28,21 +51,32 @@ public final class SheetImage {
     private final int frameCount;
     private final int columns;
     private final boolean pixelArt;
+    private final int sourceWidth, sourceHeight;
+    private final int cropX, cropY, cropWidth, cropHeight;
 
     private SheetImage(BufferedImage atlas, int frameWidth, int frameHeight, int frameCount,
-                       int columns, boolean pixelArt) {
+                       int columns, boolean pixelArt, int sourceWidth, int sourceHeight,
+                       int[] crop) {
         this.atlas = atlas;
         this.frameWidth = frameWidth;
         this.frameHeight = frameHeight;
         this.frameCount = frameCount;
         this.columns = columns;
         this.pixelArt = pixelArt;
+        this.sourceWidth = sourceWidth;
+        this.sourceHeight = sourceHeight;
+        this.cropX = crop[0];
+        this.cropY = crop[1];
+        this.cropWidth = crop[2];
+        this.cropHeight = crop[3];
     }
 
     public BufferedImage atlas() { return atlas; }
 
+    /** Width of one frame's cell in the atlas: the cropped frame, after scaling. */
     public int frameWidth() { return frameWidth; }
 
+    /** Height of one frame's cell in the atlas: the cropped frame, after scaling. */
     public int frameHeight() { return frameHeight; }
 
     public int frameCount() { return frameCount; }
@@ -51,6 +85,22 @@ public final class SheetImage {
 
     /** Nearest-neighbour art (the 32-pixel fallback) rather than filtered renders. */
     public boolean pixelArt() { return pixelArt; }
+
+    /**
+     * The part of the whole frame the atlas cells hold, as fractions of the
+     * frame from its top-left corner: {@code {x0, y0, x1, y1}}. The whole frame
+     * is {@code {0, 0, 1, 1}}; a sheet with nothing in it is empty ({@code x1
+     * == x0}). {@code mirrored} gives the box for the frame flipped left to
+     * right, the way a borrowed east/west twin is drawn.
+     */
+    public double[] region(boolean mirrored) {
+        double x0 = cropX / (double) sourceWidth, x1 = (cropX + cropWidth) / (double) sourceWidth;
+        double y0 = cropY / (double) sourceHeight, y1 = (cropY + cropHeight) / (double) sourceHeight;
+        return mirrored ? new double[]{1 - x1, y0, 1 - x0, y1} : new double[]{x0, y0, x1, y1};
+    }
+
+    /** The kept box in source pixels of one frame: {@code {x, y, width, height}}. */
+    public int[] crop() { return new int[]{cropX, cropY, cropWidth, cropHeight}; }
 
     /**
      * The frame size to slice {@code w × h} pixels into, given the size the
@@ -85,6 +135,54 @@ public final class SheetImage {
         return frames;
     }
 
+    /**
+     * The box every frame's visible pixels fit in, {@code {x0, y0, x1, y1}}
+     * with the far edges exclusive, or {@code null} if no frame shows
+     * anything. Alpha of 1/255 and below counts as nothing: the renders mark
+     * an otherwise blank frame with one such pixel so it is not dropped as an
+     * empty trailing cell.
+     */
+    static int[] contentBox(List<BufferedImage> frames) {
+        int w = frames.get(0).getWidth(), h = frames.get(0).getHeight();
+        int x0 = w, y0 = h, x1 = 0, y1 = 0;
+        int[] row = new int[w];
+        for (BufferedImage f : frames) {
+            WritableRaster alpha = f.getAlphaRaster();
+            if (alpha == null && !f.getColorModel().hasAlpha()) return new int[]{0, 0, w, h};
+            for (int y = 0; y < h; y++) {
+                if (alpha != null) {
+                    alpha.getSamples(0, y, w, 1, 0, row);
+                } else {
+                    f.getRGB(0, y, w, 1, row, 0, w);
+                    for (int x = 0; x < w; x++) row[x] >>>= 24;
+                }
+                int first = 0;
+                while (first < w && row[first] <= 1) first++;
+                if (first == w) continue;
+                int last = w - 1;
+                while (row[last] <= 1) last--;
+                x0 = Math.min(x0, first);
+                x1 = Math.max(x1, last + 1);
+                y0 = Math.min(y0, y);
+                y1 = Math.max(y1, y + 1);
+            }
+        }
+        return x1 == 0 ? null : new int[]{x0, y0, x1, y1};
+    }
+
+    /**
+     * {@link #contentBox} grown by {@code gutter} source pixels on every side,
+     * snapped outwards to {@link #ALIGN} and kept inside the {@code w × h}
+     * frame: {@code {x, y, width, height}}.
+     */
+    static int[] cropBox(int[] content, int gutter, int w, int h) {
+        int x0 = Math.max(0, Math.floorDiv(content[0] - gutter, ALIGN) * ALIGN);
+        int y0 = Math.max(0, Math.floorDiv(content[1] - gutter, ALIGN) * ALIGN);
+        int x1 = Math.min(w, -Math.floorDiv(-(content[2] + gutter), ALIGN) * ALIGN);
+        int y1 = Math.min(h, -Math.floorDiv(-(content[3] + gutter), ALIGN) * ALIGN);
+        return new int[]{x0, y0, x1 - x0, y1 - y0};
+    }
+
     static boolean isEmpty(BufferedImage frame) {
         int w = frame.getWidth(), h = frame.getHeight();
         int[] row = new int[w];
@@ -96,21 +194,42 @@ public final class SheetImage {
     }
 
     /**
-     * Decode a sheet: slice it using the profile's frame size, optionally
-     * shrink every frame by {@code scale} (the "sprite resolution" setting),
-     * and repack to fit {@code maxTexture}.
+     * Decode a sheet: slice it using the profile's frame size, crop every
+     * frame to the box they all fit in, optionally shrink them by {@code
+     * scale} (the "sprite resolution" setting), and repack to fit {@code
+     * maxTexture}. A sheet with nothing visible in any frame keeps its frame
+     * count but shrinks to one texel a frame.
      */
     public static SheetImage decode(BufferedImage sheet, int expectedW, int expectedH,
                                     double scale, int maxTexture, boolean pixelArt) {
         int[] size = frameSize(sheet.getWidth(), sheet.getHeight(), expectedW, expectedH);
         List<BufferedImage> frames = slice(sheet, size[0], size[1]);
-        return pack(frames, scale, maxTexture, pixelArt);
+        int[] content = contentBox(frames);
+        int[] crop;
+        List<BufferedImage> kept = new ArrayList<>(frames.size());
+        if (content == null) {
+            crop = new int[]{0, 0, 0, 0};
+            BufferedImage blank = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+            for (int i = 0; i < frames.size(); i++) kept.add(blank);
+        } else {
+            double s = Math.max(0.05, Math.min(1, scale));
+            crop = cropBox(content, (int) Math.ceil(GUTTER / s), size[0], size[1]);
+            for (BufferedImage f : frames) kept.add(f.getSubimage(crop[0], crop[1], crop[2], crop[3]));
+        }
+        return pack(kept, scale, maxTexture, pixelArt, size[0], size[1], crop);
     }
 
     /** Pack same-sized frames into a near-square grid, shrinking if they cannot fit. */
     public static SheetImage pack(List<BufferedImage> frames, double scale, int maxTexture,
                                   boolean pixelArt) {
         if (frames.isEmpty()) throw new IllegalArgumentException("a sheet needs at least one frame");
+        int w = frames.get(0).getWidth(), h = frames.get(0).getHeight();
+        return pack(frames, scale, maxTexture, pixelArt, w, h, new int[]{0, 0, w, h});
+    }
+
+    /** {@link #pack}, for frames that are the {@code crop} part of {@code sourceW × sourceH} ones. */
+    private static SheetImage pack(List<BufferedImage> frames, double scale, int maxTexture,
+                                   boolean pixelArt, int sourceW, int sourceH, int[] crop) {
         int n = frames.size();
         int srcW = frames.get(0).getWidth(), srcH = frames.get(0).getHeight();
         double s = Math.max(0.05, Math.min(1, scale));
@@ -135,7 +254,7 @@ public final class SheetImage {
             g.drawImage(f, (i % cols) * fw, (i / cols) * fh, fw, fh, null);
         }
         g.dispose();
-        return new SheetImage(atlas, fw, fh, n, cols, pixelArt);
+        return new SheetImage(atlas, fw, fh, n, cols, pixelArt, sourceW, sourceH, crop);
     }
 
     /**

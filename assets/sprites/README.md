@@ -172,8 +172,19 @@ With *Wear it after importing* ticked the character puts it on straight away.
 
 A complete 512-pixel item is several gigabytes of pixels, so sheets load on
 demand (only the views the camera is looking at), decode on background threads,
-and are evicted least-recently-used past a video-memory budget of 1.5 GB. For
-smaller GPUs use Settings → Sprite resolution, or launch with
+and are evicted least-recently-used past a video-memory budget of 1.5 GB. Two
+things keep that budget from filling up:
+
+- **The empty part of a frame costs nothing.** As it loads, a sheet is cropped
+  to the box its frames actually cover (plus a thin transparent border), and
+  the layer is drawn on just that part of the frame. An earring rendered in the
+  body's 512-pixel frame takes a few kilobytes a frame instead of a megabyte.
+- **Loading ahead only into spare room.** What the character may need next —
+  this view's other states, the neighbouring directions — is loaded ahead only
+  while the budget has room for it, and never pushes anything out. With a lot of
+  big layers it simply loads less ahead; nothing is loaded over and over.
+
+For smaller GPUs use Settings → Sprite resolution, or launch with
 `-Dlarsons.sprites.scale=0.5` / `-Dlarsons.sprites.vramMB=768`.
 
 ## Trying it without renders
@@ -252,20 +263,8 @@ one go with a `config/wardrobe.json` beside the game:
 
 Leave `carry_right` out to find the sword in the demo and pick it up (E).
 
-**A full outfit needs more than the default memory budget.** For every layer
-the game keeps the sheets on screen ready, plus this view's other five states
-and this state from the two neighbouring directions. For all 18 layers that is
-about 6.9 GB of textures at 512 px, and about 1.7 GB at half resolution. Over
-budget, those prefetched sheets are evicted and loaded again without end
-(the HUD's Sprites line never gets to "0 loading"). So for the whole outfit
-either give it the room, with `-Dlarsons.sprites.vramMB=7168` on a GPU that has
-it, or halve the resolution:
-
-```bash
-./gradlew run -Dlarsons.sprites.scale=0.5 -Dlarsons.sprites.vramMB=2048
-```
-
-Both were tried with the outfit above and settle at "0 loading" (at full size
-the HUD showed 7162 MB resident). At the default 1.5 GB, about four full-size
-layers fit (see [Memory](#memory)). On a software renderer (llvmpipe, no GPU)
-the textures live in system memory, so the budget comes out of RAM too.
+The whole outfit fits the default budget at full size. With every layer's
+sheets for the view on screen loaded, plus that view's other five states and
+the two neighbouring directions, the HUD's Sprites line settles at "162 sheets
+resident (422 MB) · 0 loading"; as whole 512-pixel frames the same sheets would
+be about 4.9 GB (see [Memory](#memory)).

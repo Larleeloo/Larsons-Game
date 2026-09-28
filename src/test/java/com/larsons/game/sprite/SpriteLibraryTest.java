@@ -1,13 +1,18 @@
 package com.larsons.game.sprite;
 
+import com.larsons.game.gfx.Texture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -58,6 +63,141 @@ class SpriteLibraryTest {
         assertNull(lib.resolve(Slot.BODY, "hero", AnimState.RUN, Elevation.SIDE, Facing.EAST));
         assertNull(lib.resolve(Slot.BODY, null, AnimState.WALK, Elevation.SIDE, Facing.EAST),
                 "no item → fallback");
+    }
+
+    // --- the memory budget -----------------------------------------------------------
+
+    /** Bytes one of {@link #opaque}'s sheets takes on the GPU: 64 × 64, mipmapped. */
+    static final long SHEET = Texture.bytesFor(64, 64, false);
+
+    final List<String> uploads = new ArrayList<>();
+
+    /** A one-frame 64 × 64 sheet with no transparent margin, so nothing is cropped. */
+    private void opaque(String rel) throws Exception {
+        Path p = root.resolve(rel);
+        Files.createDirectories(p.getParent());
+        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(Color.ORANGE);
+        g.fillRect(0, 0, 64, 64);
+        g.dispose();
+        ImageIO.write(img, "png", p.toFile());
+    }
+
+    /** A library that "uploads" without GL, and remembers what it uploaded. */
+    private SpriteLibrary budgeted(long budget) {
+        return new SpriteLibrary(root, budget, 1.0, (layout, pixels, source) -> {
+            pixels.free();
+            uploads.add(source);
+            BufferedImage a = layout.atlas();
+            return new SheetTexture(layout, Texture.bytesFor(a.getWidth(), a.getHeight(), false), source);
+        });
+    }
+
+    private SpriteLibrary.Resolved hero(AnimState state) {
+        return lib.resolve(Slot.BODY, "hero", state, Elevation.SIDE, Facing.SOUTH);
+    }
+
+    /**
+     * One game frame, the way {@link LayerStack} drives the library: draw
+     * {@code onScreen}; once all of it is in, prefetch {@code ahead}; then let
+     * the decoders finish and upload what they made.
+     */
+    private boolean frame(List<SpriteLibrary.Resolved> onScreen, List<SpriteLibrary.Resolved> ahead) {
+        lib.beginFrame();
+        boolean all = true;
+        for (SpriteLibrary.Resolved r : onScreen) all &= lib.sheet(r) != null;
+        if (all) for (SpriteLibrary.Resolved r : ahead) lib.prefetch(r);
+        lib.awaitDecodes();
+        lib.pump();
+        return all;
+    }
+
+    private void heroSheets() throws Exception {
+        for (AnimState s : AnimState.values()) opaque("body/hero/" + s.key() + "_side_s.png");
+    }
+
+    private List<SpriteLibrary.Resolved> heroAllBut(AnimState state) {
+        List<SpriteLibrary.Resolved> out = new ArrayList<>();
+        for (AnimState s : AnimState.values()) if (s != state) out.add(hero(s));
+        return out;
+    }
+
+    @Test
+    void prefetchFillsTheSpareRoomAndThenSettles() throws Exception {
+        heroSheets();
+        lib = budgeted(3 * SHEET + SHEET / 2); // room for what is on screen and two more
+        List<SpriteLibrary.Resolved> onScreen = List.of(hero(AnimState.IDLE));
+        List<SpriteLibrary.Resolved> ahead = heroAllBut(AnimState.IDLE);
+        for (int i = 0; i < 10; i++) frame(onScreen, ahead);
+        int settled = uploads.size();
+        for (int i = 0; i < 50; i++) frame(onScreen, ahead);
+
+        assertEquals(3, lib.residentCount(), "the idle sheet and two prefetched ones");
+        assertTrue(lib.residentBytes() <= 3 * SHEET + SHEET / 2);
+        assertEquals(0, lib.pendingCount(), "nothing left loading");
+        assertEquals(settled, uploads.size(), "and nothing loaded again and again");
+        assertTrue(settled <= 4, "at most one prefetch wasted while sizes were unknown: " + uploads);
+    }
+
+    @Test
+    void aStackOverTheBudgetOnItsOwnStopsPrefetching() throws Exception {
+        heroSheets();
+        opaque("hat/cap/idle_side_s.png");
+        lib = budgeted(SHEET + SHEET / 2); // less than the two sheets on screen
+        List<SpriteLibrary.Resolved> onScreen = List.of(hero(AnimState.IDLE),
+                lib.resolve(Slot.HAT, "cap", AnimState.IDLE, Elevation.SIDE, Facing.SOUTH));
+        List<SpriteLibrary.Resolved> ahead = heroAllBut(AnimState.IDLE);
+        for (int i = 0; i < 60; i++) frame(onScreen, ahead);
+
+        assertEquals(2, lib.residentCount(), "what is on screen stays, over budget or not");
+        assertEquals(0, lib.pendingCount());
+        assertEquals(2, uploads.size(), "no prefetch was ever uploaded, let alone evicted and reloaded");
+    }
+
+    @Test
+    void aPrefetchThatArrivesToNoRoomIsDropped() throws Exception {
+        heroSheets();
+        lib = budgeted(2 * SHEET);
+        frame(List.of(hero(AnimState.IDLE)), List.of()); // idle is known: sizes are known
+        // A sheet the camera wants is on its way when a prefetch that fits
+        // right now is queued behind it; by the time the prefetch arrives the
+        // other one has taken the room.
+        lib.beginFrame();
+        assertNotNull(lib.sheet(hero(AnimState.IDLE)));
+        assertNull(lib.sheet(hero(AnimState.WALK)));
+        lib.awaitDecodes();
+        lib.prefetch(hero(AnimState.RUN));
+        lib.awaitDecodes();
+        lib.pump();
+
+        assertEquals(2, lib.residentCount());
+        assertFalse(uploads.stream().anyMatch(u -> u.contains("run_")), "run was dropped, not uploaded");
+        assertEquals(0, lib.pendingCount());
+        // And with idle and walk on screen it is not asked for again.
+        int before = uploads.size();
+        for (int i = 0; i < 20; i++) frame(List.of(hero(AnimState.IDLE), hero(AnimState.WALK)),
+                List.of(hero(AnimState.RUN)));
+        assertEquals(before, uploads.size());
+        assertEquals(0, lib.pendingCount());
+    }
+
+    @Test
+    void aPrefetchWantedOnScreenLoadsWhateverTheBudget() throws Exception {
+        heroSheets();
+        lib = budgeted(2 * SHEET);
+        frame(List.of(hero(AnimState.IDLE)), List.of());
+        lib.beginFrame();
+        lib.sheet(hero(AnimState.IDLE));
+        assertNull(lib.sheet(hero(AnimState.WALK)));    // takes the last of the room…
+        lib.awaitDecodes();
+        lib.prefetch(hero(AnimState.RUN));              // …queued while it still looked free…
+        assertNull(lib.sheet(hero(AnimState.RUN)));     // …and then the camera wants it
+        lib.awaitDecodes();
+        lib.pump();
+
+        assertTrue(uploads.stream().anyMatch(u -> u.contains("run_")), "run is on screen: it loads");
+        assertEquals(3, lib.residentCount());
     }
 
     @Test
