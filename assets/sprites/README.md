@@ -230,8 +230,10 @@ layers stay in step (the game plays one frame index on all of them):
 | attack | 18 | 0.6 | one-shot; a sword slash, kept inside the frame |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
-body for every layer; for the garments only the body (so swapping a shirt for
-another leaves no holes in the layers above); for hair, hat, other and the
+body for every layer; for the garments the body and, where one tucks into or
+slips under another, that one too (the jeans by the boots, the shirt by the
+jeans, the bangle by the gloves) but nothing worn over them, so swapping a shirt
+for another leaves no holes in the layers above; for hair, hat, other and the
 carried items everything worn under them in the outfit above. A layer that is
 out of sight in some frame (the nose from behind, say) still has that frame, a
 blank cell with one pixel of alpha 1/255 so the sheet keeps its frame count.
