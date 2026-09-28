@@ -100,6 +100,7 @@ Drop sprite sheets on the window at any time to import them.
   memory).
 
   <img src="docs/screenshots/rendered-walk.png" width="49%" alt="The rendered character in the full outfit - all 18 layers - walking in the demo">
+  <img src="docs/screenshots/rendered-middle.png" width="49%" alt="The same outfit from the 45-degree sprites: sun hat, shield and sword">
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
