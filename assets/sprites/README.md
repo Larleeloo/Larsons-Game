@@ -191,8 +191,10 @@ see the importer and the layer stack at work.
 
 Everything here is rendered from the rigged feminine model in
 [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) (`generic_feminine_model/`,
-steps 10-13 of its README): one item for every layer, all 144 sheets each, at
-the default framing above (no `profile.json`). She is 1.70 m tall.
+steps 10-13 of its README): at least one item for every layer - and the model's
+other ears, noses, eyes and mouths as alternatives - all 144 sheets each, at the
+default framing above (no `profile.json`). She is 1.70 m tall. The first item
+of each layer below is the outfit the holdouts were cut against.
 
 | Layer | Item | |
 |---|---|---|
@@ -204,11 +206,11 @@ the default framing above (no `profile.json`). She is 1.70 m tall.
 | shirt | `plaid_flannel` | a red plaid flannel shirt, **cloth-simulated** per animation |
 | gloves | `black_leather` | black leather gloves |
 | wristwear | `gold_bangle` | a gold bangle on the right wrist |
-| ears | `round` | human ears |
+| ears | `round`, `pointed`, `elven` | human ears; half-elf points; long, swept-back elven ears |
 | earrings | `gold_hoops` | gold hoops |
-| nose | `straight` | |
-| eyes | `hazel` | |
-| mouth | `full` | lips, teeth and tongue |
+| nose | `straight`, `button`, `aquiline` | |
+| eyes | `hazel`, `ice_blue`, `amber_slit` | the amber eyes have slit pupils and a faint glow |
+| mouth | `full`, `wide`, `heart` | lips, teeth and tongue |
 | hair | `long_waves_brown` | long brown waves (spring-simulated) |
 | hat | `straw_sun_hat` | a wide-brimmed straw hat with a navy ribbon |
 | other | `wool_mantle` | a short red wool mantle over the shoulders, **cloth-simulated** |
