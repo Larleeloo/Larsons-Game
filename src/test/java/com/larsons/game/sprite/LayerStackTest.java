@@ -1,54 +1,57 @@
 package com.larsons.game.sprite;
 
-import com.larsons.game.math.Vec3;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Where a cropped layer's card goes — no GPU involved. */
+/** Where a cropped layer lands on its card — no GPU involved. */
 class LayerStackTest {
 
-    // A whole-frame card: 2.4 m wide, standing up, facing down the z axis.
-    static final Vec3 TOP_LEFT = new Vec3(-1.2, 2.1, 0.3);
-    static final Vec3 RIGHT = new Vec3(2.4, 0, 0);
-    static final Vec3 DOWN = new Vec3(0, -2.4, 0);
-
-    static void assertNear(Vec3 expected, Vec3 actual) {
-        assertEquals(0, expected.distance(actual), 1e-9, expected + " vs " + actual);
-    }
-
-    /** The world point of a spot {@code (u, v)} (fractions) across a card. */
-    static Vec3 at(Vec3[] card, double u, double v) {
-        return card[0].add(card[1].scale(u)).add(card[2].scale(v));
+    /** The texture coordinate at fraction {@code f} across a card whose ends are {@code a} and {@code b}. */
+    static double at(float a, float b, double f) {
+        return a + f * (b - a);
     }
 
     @Test
-    void theWholeFrameIsTheWholeCard() {
-        Vec3[] c = LayerStack.card(TOP_LEFT, RIGHT, DOWN, new double[]{0, 0, 1, 1});
-        assertNear(TOP_LEFT, c[0]);
-        assertNear(RIGHT, c[1]);
-        assertNear(DOWN, c[2]);
+    void aWholeFrameKeepsItsCoordinates() {
+        float[] uv = {0.25f, 0.5f, 0.375f, 0.75f};
+        assertArrayEquals(uv, LayerStack.wholeCardUv(new double[]{0, 0, 1, 1}, uv), 1e-7f);
     }
 
     /**
-     * Every texel of a cropped sheet lands on the world point its pixel had
-     * on the whole-frame card, so a cropped hat still sits on the head — and
-     * the same when the sheet is drawn mirrored as its west-facing twin.
+     * Every pixel of a cropped sheet is drawn at the spot on the whole card
+     * where it was in the frame — so a cropped hat still sits on the head —
+     * and the same when the sheet is drawn mirrored as its west-facing twin.
      */
     @Test
-    void aTexelLandsWhereItsPixelWasOnTheWholeFrame() {
+    void aTexelLandsWhereItsPixelWasInTheFrame() {
         SheetImage s = SheetImage.decode(SheetImageTest.smallItem(), 512, 512, 1.0, 4096, false);
         int[] crop = s.crop();
-        Vec3[] whole = {TOP_LEFT, RIGHT, DOWN};
+        float w = s.atlas().getWidth(), h = s.atlas().getHeight();
+        float cu = s.frameWidth() / w, cv = s.frameHeight() / h;   // frame 0's cell is at the atlas origin
         for (boolean mirrored : new boolean[]{false, true}) {
-            Vec3[] c = LayerStack.card(TOP_LEFT, RIGHT, DOWN, s.region(mirrored));
-            for (int[] texel : new int[][]{{0, 0}, {13, 17}, {79, 63}, {40, 5}}) {
-                // Texel centre, across the cell as the card's uv runs (reversed when mirrored).
-                double u = (texel[0] + 0.5) / s.frameWidth(), v = (texel[1] + 0.5) / s.frameHeight();
-                double x = crop[0] + texel[0] + 0.5, y = crop[1] + texel[1] + 0.5;
-                Vec3 expected = mirrored ? at(whole, 1 - x / 512, y / 512) : at(whole, x / 512, y / 512);
-                assertNear(expected, at(c, mirrored ? 1 - u : u, v));
+            float[] uv = mirrored ? new float[]{cu, 0, 0, cv} : new float[]{0, 0, cu, cv};
+            float[] card = LayerStack.wholeCardUv(s.region(mirrored), uv);
+            for (int[] px : new int[][]{{192, 288}, {205, 305}, {271, 351}, {240, 300}}) {
+                double fx = (px[0] + 0.5) / 512, fy = (px[1] + 0.5) / 512;
+                if (mirrored) fx = 1 - fx;
+                assertEquals((px[0] - crop[0] + 0.5) / w, at(card[0], card[2], fx), 1e-6,
+                        "u of pixel " + px[0] + "," + px[1] + (mirrored ? " mirrored" : ""));
+                assertEquals((px[1] - crop[1] + 0.5) / h, at(card[1], card[3], fy), 1e-6,
+                        "v of pixel " + px[0] + "," + px[1] + (mirrored ? " mirrored" : ""));
             }
         }
+    }
+
+    /** The cell's own edges fall exactly on the edges of the part of the card it covers. */
+    @Test
+    void theCellFillsItsRegionAndTheClipIsItsEdges() {
+        double[] region = {0.375, 0.5625, 0.53125, 0.6875};
+        float[] uv = {0.1f, 0.2f, 0.3f, 0.35f};
+        float[] card = LayerStack.wholeCardUv(region, uv);
+        assertEquals(uv[0], at(card[0], card[2], region[0]), 1e-6);
+        assertEquals(uv[2], at(card[0], card[2], region[2]), 1e-6);
+        assertEquals(uv[1], at(card[1], card[3], region[1]), 1e-6);
+        assertEquals(uv[3], at(card[1], card[3], region[3]), 1e-6);
     }
 }

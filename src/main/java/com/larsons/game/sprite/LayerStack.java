@@ -206,10 +206,18 @@ public final class LayerStack {
     /**
      * Draw the stack as a camera-facing billboard in the 3D world, placed so
      * the feet in the picture land on {@code feet} (see {@link SpriteProfile}
-     * for why that keeps them on the shadow from any angle). Every layer lies
-     * on the same card, the whole frame, each on just the part of it its
-     * cropped sheet covers ({@link #card}); drawn in order with a {@code
-     * LEQUAL} depth test, each one lands on top of the last.
+     * for why that keeps them on the shadow from any angle). Every layer is
+     * the same quad, the whole frame, with the very same corners; drawn in
+     * order with a {@code LEQUAL} depth test, each one lands on top of the
+     * last. A cropped sheet's texture coordinates are stretched over the whole
+     * card so its cell lands where it sat in the frame ({@link #wholeCardUv}),
+     * and the rest of the card is clipped away.
+     *
+     * <p>The layers must not be drawn on quads of their own, however exactly
+     * those line up: corners computed separately round differently, the
+     * depths of two layers then differ in the last bit, and wherever the
+     * upper one comes out a hair deeper it fails the depth test and the layer
+     * beneath shows through — flickering as the character moves.
      */
     public static void drawBillboard(Batch batch, Result r, Vec3 feet, Vec3 cameraRight,
                                      Vec3 cameraUp, float alpha) {
@@ -221,24 +229,31 @@ public final class LayerStack {
         for (Layer l : r.layers()) {
             double[] region = l.sheet().region(l.mirrored());
             if (region[2] <= region[0] || region[3] <= region[1]) continue; // nothing in it
-            Vec3[] c = card(topLeft, right, down, region);
             float[] uv = l.sheet().uv(l.frame(), l.mirrored());
-            batch.quad(l.sheet().texture(), c[0], c[1], c[2], uv[0], uv[1], uv[2], uv[3],
+            float[] card = wholeCardUv(region, uv);
+            batch.quadClipped(l.sheet().texture(), topLeft, right, down,
+                    card[0], card[1], card[2], card[3],
+                    Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]),
+                    Math.max(uv[0], uv[2]), Math.max(uv[1], uv[3]),
                     1, 1, 1, alpha);
         }
     }
 
     /**
-     * The part {@code region} ({@code {x0, y0, x1, y1}}, fractions of the
-     * frame, see {@link SheetTexture#region}) of the whole-frame card with
-     * corner {@code topLeft} and edges {@code right} and {@code down}, as
-     * {@code {topLeft, right, down}} of its own.
+     * Texture coordinates for the whole card, {@code {u0, v0, u1, v1}} at its
+     * top-left and bottom-right corners, that put a frame's cell exactly on
+     * the part of the card it covers: {@code region} ({@code {x0, y0, x1,
+     * y1}}, fractions of the card, see {@link SheetTexture#region}), with the
+     * cell's coordinates {@code uv} ({@link SheetTexture#uv}) at that part's
+     * corners. Beyond the cell they run on into the rest of the atlas, which
+     * the draw clips away.
      */
-    static Vec3[] card(Vec3 topLeft, Vec3 right, Vec3 down, double[] region) {
-        return new Vec3[]{
-                topLeft.add(right.scale(region[0])).add(down.scale(region[1])),
-                right.scale(region[2] - region[0]),
-                down.scale(region[3] - region[1])};
+    static float[] wholeCardUv(double[] region, float[] uv) {
+        double du = (uv[2] - uv[0]) / (region[2] - region[0]);
+        double dv = (uv[3] - uv[1]) / (region[3] - region[1]);
+        return new float[]{
+                (float) (uv[0] - region[0] * du), (float) (uv[1] - region[1] * dv),
+                (float) (uv[0] + (1 - region[0]) * du), (float) (uv[1] + (1 - region[1]) * dv)};
     }
 
     /**

@@ -22,9 +22,10 @@ import java.util.List;
  * hat or an earring is a few dozen pixels in a 512-pixel frame and the rest is
  * transparent. A sheet read from disk keeps only the box its frames actually
  * cover (the same box for every frame, plus a transparent gutter), and
- * remembers where that box sat in the frame, so the layer is drawn on just
- * that part of the card. The 18-layer outfit in {@code assets/sprites/} takes
- * under a tenth of the video memory it did as whole frames.
+ * remembers where that box sat in the frame, so the layer's texture is laid
+ * on the card with the box back in its place. The 18-layer outfit in {@code
+ * assets/sprites/} takes under a tenth of the video memory it did as whole
+ * frames.
  *
  * <p>Pure CPU and thread-safe to build — the library decodes sheets on worker
  * threads so a 512-pixel sheet never costs the render thread a frame.
