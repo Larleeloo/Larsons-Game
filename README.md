@@ -96,8 +96,7 @@ Drop sprite sheets on the window at any time to import them.
   mantle, shield and the sword — each in all six states from all 24 views, the
   jeans, shirt and mantle cloth-simulated per animation. Put them on in the
   Wardrobe (or see [the list](assets/sprites/README.md#the-sheets-in-this-folder)
-  for a ready-made `config/wardrobe.json`, and what a full outfit needs in
-  memory).
+  for a ready-made `config/wardrobe.json`).
 
   <img src="docs/screenshots/rendered-walk.png" width="49%" alt="The rendered character in the full outfit - all 18 layers - walking in the demo">
   <img src="docs/screenshots/rendered-middle.png" width="49%" alt="The same outfit from the 45-degree sprites: sun hat, shield and sword">
@@ -149,10 +148,12 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
 - **Fallbacks.** No body sheet for a view → the generated 32-pixel body for that
   view. No cosmetic sheet → that layer is left blank. A missing west-facing view
   borrows the east-facing one mirrored.
-- **Loading.** Sheets load on demand, decode on worker threads and live in a
-  video-memory budget with least-recently-used eviction; a layer change is only
-  shown once every layer of it is ready, so a sword is never a frame out of step
-  with the arm holding it.
+- **Loading.** Sheets load on demand, decode on worker threads, are cropped to
+  the part of the frame they use and live in a video-memory budget with
+  least-recently-used eviction; what may be needed next (the other states, the
+  neighbouring directions) is loaded ahead only into room the budget has spare.
+  A layer change is only shown once every layer of it is ready, so a sword is
+  never a frame out of step with the arm holding it.
 
 ### Importing sprite sheets
 

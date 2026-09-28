@@ -10,16 +10,30 @@ public final class SheetTexture implements AutoCloseable {
 
     private final Texture texture;
     private final int frameWidth, frameHeight, frameCount, columns;
+    private final double[] region, mirroredRegion;
+    private final long bytes;
     private final String source;
     private boolean closed;
     long lastUsedFrame;
 
     public SheetTexture(Texture texture, SheetImage layout, String source) {
+        this(texture, layout, texture.bytes(), source);
+    }
+
+    /** Bookkeeping only, no texture: for tests of the library, which run without GL. */
+    SheetTexture(SheetImage layout, long bytes, String source) {
+        this(null, layout, bytes, source);
+    }
+
+    private SheetTexture(Texture texture, SheetImage layout, long bytes, String source) {
         this.texture = texture;
         this.frameWidth = layout.frameWidth();
         this.frameHeight = layout.frameHeight();
         this.frameCount = layout.frameCount();
         this.columns = layout.columns();
+        this.region = layout.region(false);
+        this.mirroredRegion = layout.region(true);
+        this.bytes = bytes;
         this.source = source;
     }
 
@@ -50,7 +64,16 @@ public final class SheetTexture implements AutoCloseable {
         return mirrored ? new float[]{u1, v0, u0, v1} : new float[]{u0, v0, u1, v1};
     }
 
-    public long bytes() { return texture.bytes(); }
+    /**
+     * The part of the frame this sheet's cells cover, as fractions of the
+     * whole frame from its top-left: {@code {x0, y0, x1, y1}} (see {@link
+     * SheetImage#region}). Empty for a sheet with nothing visible.
+     */
+    public double[] region(boolean mirrored) {
+        return (mirrored ? mirroredRegion : region).clone();
+    }
+
+    public long bytes() { return bytes; }
 
     /** Whether the GPU texture has been released (evicted, reloaded or shut down). */
     public boolean closed() { return closed; }
@@ -58,6 +81,6 @@ public final class SheetTexture implements AutoCloseable {
     @Override
     public void close() {
         closed = true;
-        texture.close();
+        if (texture != null) texture.close();
     }
 }

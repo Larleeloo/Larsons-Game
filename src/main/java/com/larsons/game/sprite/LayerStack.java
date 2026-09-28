@@ -97,9 +97,15 @@ public final class LayerStack {
             if (file != null) {
                 sheet = lib.sheet(file);
                 if (sheet == null) missing = true;
-                prefetch(lib, slot, item, state, elev, facing);
             }
             wants.add(new Want(slot, item, file, sheet));
+        }
+        // Only once what is on screen is all in: until then the decoders work
+        // on nothing else.
+        if (!missing) {
+            for (Want w : wants) {
+                if (w.file() != null) prefetch(lib, w.slot(), w.item(), state, elev, facing);
+            }
         }
         if (missing && memory.last != null && usable(memory.last)) {
             for (Layer l : memory.last.layers()) lib.touch(l.sheet());
@@ -182,15 +188,17 @@ public final class LayerStack {
      * Queue what the character is likely to need next: every other state from
      * this view (it may start walking or swinging at any moment), and this
      * state from the two neighbouring directions (the camera or the character
-     * may turn). Queued loads are cheap to ask for twice.
+     * may turn). Queued loads are cheap to ask for twice, and the library only
+     * takes them while the memory budget has room (see {@link
+     * SpriteLibrary#prefetch}).
      */
     private static void prefetch(SpriteLibrary lib, Slot slot, String item, AnimState state,
                                  Elevation elev, Facing facing) {
         for (AnimState other : AnimState.values()) {
-            if (other != state) lib.request(lib.resolve(slot, item, other, elev, facing));
+            if (other != state) lib.prefetch(lib.resolve(slot, item, other, elev, facing));
         }
-        lib.request(lib.resolve(slot, item, state, elev, facing.clockwise()));
-        lib.request(lib.resolve(slot, item, state, elev, facing.counterClockwise()));
+        lib.prefetch(lib.resolve(slot, item, state, elev, facing.clockwise()));
+        lib.prefetch(lib.resolve(slot, item, state, elev, facing.counterClockwise()));
     }
 
     // --- drawing ---------------------------------------------------------------------
@@ -198,9 +206,10 @@ public final class LayerStack {
     /**
      * Draw the stack as a camera-facing billboard in the 3D world, placed so
      * the feet in the picture land on {@code feet} (see {@link SpriteProfile}
-     * for why that keeps them on the shadow from any angle). Every layer is
-     * the same quad; drawn in order with a {@code LEQUAL} depth test, each one
-     * lands on top of the last.
+     * for why that keeps them on the shadow from any angle). Every layer lies
+     * on the same card, the whole frame, each on just the part of it its
+     * cropped sheet covers ({@link #card}); drawn in order with a {@code
+     * LEQUAL} depth test, each one lands on top of the last.
      */
     public static void drawBillboard(Batch batch, Result r, Vec3 feet, Vec3 cameraRight,
                                      Vec3 cameraUp, float alpha) {
@@ -210,10 +219,26 @@ public final class LayerStack {
         Vec3 right = cameraRight.scale(w);
         Vec3 down = cameraUp.scale(-h);
         for (Layer l : r.layers()) {
+            double[] region = l.sheet().region(l.mirrored());
+            if (region[2] <= region[0] || region[3] <= region[1]) continue; // nothing in it
+            Vec3[] c = card(topLeft, right, down, region);
             float[] uv = l.sheet().uv(l.frame(), l.mirrored());
-            batch.quad(l.sheet().texture(), topLeft, right, down, uv[0], uv[1], uv[2], uv[3],
+            batch.quad(l.sheet().texture(), c[0], c[1], c[2], uv[0], uv[1], uv[2], uv[3],
                     1, 1, 1, alpha);
         }
+    }
+
+    /**
+     * The part {@code region} ({@code {x0, y0, x1, y1}}, fractions of the
+     * frame, see {@link SheetTexture#region}) of the whole-frame card with
+     * corner {@code topLeft} and edges {@code right} and {@code down}, as
+     * {@code {topLeft, right, down}} of its own.
+     */
+    static Vec3[] card(Vec3 topLeft, Vec3 right, Vec3 down, double[] region) {
+        return new Vec3[]{
+                topLeft.add(right.scale(region[0])).add(down.scale(region[1])),
+                right.scale(region[2] - region[0]),
+                down.scale(region[3] - region[1])};
     }
 
     /**
@@ -226,8 +251,12 @@ public final class LayerStack {
         double[] anchor = r.framing().anchor(r.view().elevation());
         float x = footX - (float) anchor[0] * w, y = footY - (float) anchor[1] * h;
         for (Layer l : r.layers()) {
+            double[] region = l.sheet().region(l.mirrored());
+            if (region[2] <= region[0] || region[3] <= region[1]) continue; // nothing in it
             float[] uv = l.sheet().uv(l.frame(), l.mirrored());
-            batch.rect(l.sheet().texture(), x, y, w, h, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1);
+            batch.rect(l.sheet().texture(), x + (float) region[0] * w, y + (float) region[1] * h,
+                    (float) (region[2] - region[0]) * w, (float) (region[3] - region[1]) * h,
+                    uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1);
         }
     }
 }

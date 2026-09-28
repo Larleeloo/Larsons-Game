@@ -36,7 +36,6 @@ public final class Texture implements AutoCloseable {
                 GL_RGBA, GL_UNSIGNED_BYTE, data.buffer());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        long bytes = data.bytes();
         if (pixelArt) {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -44,11 +43,19 @@ public final class Texture implements AutoCloseable {
             glGenerateMipmap(GL_TEXTURE_2D);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            bytes = bytes * 4 / 3; // the mip chain
         }
         int w = data.width(), h = data.height();
         data.free();
-        return new Texture(id, w, h, bytes);
+        return new Texture(id, w, h, bytesFor(w, h, pixelArt));
+    }
+
+    /**
+     * The video memory a {@code width × height} texture takes once uploaded:
+     * four bytes a texel, plus a third for the mip chain unless it is pixel art.
+     */
+    public static long bytesFor(int width, int height, boolean pixelArt) {
+        long bytes = (long) width * height * 4;
+        return pixelArt ? bytes : bytes * 4 / 3;
     }
 
     /** Convenience for small images made on the GL thread. */

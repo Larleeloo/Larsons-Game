@@ -13,10 +13,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,11 +46,13 @@ import java.util.stream.Stream;
  * <h2>On the GPU</h2>
  * A full character is 6 states × 24 views of 512-pixel frames — gigabytes if it
  * were all resident at once. So sheets are loaded <b>on demand</b>, decoded
- * on worker threads, uploaded a few per frame, and evicted least-recently-used
+ * on worker threads, cropped to the part of the frame they use ({@link
+ * SheetImage}), uploaded a few per frame, and evicted least-recently-used
  * once the video-memory budget ({@code -Dlarsons.sprites.vramMB}, default
- * 1536) is exceeded. Only what the camera is actually looking at stays
- * loaded. {@code -Dlarsons.sprites.scale=0.5} halves every frame on load for
- * smaller GPUs.
+ * 1536) is exceeded. What the camera is looking at always loads; what it may
+ * look at next is {@linkplain #prefetch prefetched} only into room the budget
+ * has spare. {@code -Dlarsons.sprites.scale=0.5} halves every frame on load
+ * for smaller GPUs.
  */
 public final class SpriteLibrary implements AutoCloseable {
 
@@ -72,13 +76,29 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private record Decoded(Path file, int epoch, SheetImage layout, PixelData pixels, String error) {}
 
+    /** Puts a decoded sheet on the GPU. Tests, which have no GL, pass their own. */
+    @FunctionalInterface
+    interface Uploader {
+        SheetTexture upload(SheetImage layout, PixelData pixels, String source);
+    }
+
+    private static final Uploader GL = (layout, pixels, source) ->
+            new SheetTexture(Texture.upload(pixels, layout.pixelArt()), layout, source);
+
     private final Path root;
     private volatile Map<Slot, Map<String, Entry>> index = new EnumMap<>(Slot.class);
     private volatile int generation;
 
     private final ExecutorService workers;
+    private final int threads;
+    private final Uploader uploader;
     private final LinkedHashMap<Path, SheetTexture> textures = new LinkedHashMap<>(64, 0.75f, true);
     private final Map<Path, CompletableFuture<Void>> pending = new HashMap<>();
+    /** The pending loads that are prefetches nobody has asked to draw yet. */
+    private final Set<Path> prefetching = new HashSet<>();
+    /** Video memory each sheet took the last time it was decoded. */
+    private final Map<Path, Long> sizes = new HashMap<>();
+    private long sizesTotal;
     private final ConcurrentLinkedQueue<Decoded> decoded = new ConcurrentLinkedQueue<>();
     private final Map<Path, String> failed = new HashMap<>();
     private final Map<String, SheetTexture> fallback = new HashMap<>();
@@ -95,10 +115,15 @@ public final class SpriteLibrary implements AutoCloseable {
     private volatile int epoch;
 
     public SpriteLibrary(Path root, long budgetBytes, double scale) {
+        this(root, budgetBytes, scale, GL);
+    }
+
+    SpriteLibrary(Path root, long budgetBytes, double scale, Uploader uploader) {
         this.root = root;
         this.budgetBytes = budgetBytes;
         this.scale = scale;
-        int threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
+        this.uploader = uploader;
+        threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
         workers = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "sprite-decoder");
             t.setDaemon(true);
@@ -224,6 +249,7 @@ public final class SpriteLibrary implements AutoCloseable {
             t.lastUsedFrame = frame;
             return t;
         }
+        prefetching.remove(r.file()); // wanted on screen now: it loads whatever the budget
         request(r);
         return null;
     }
@@ -233,12 +259,36 @@ public final class SpriteLibrary implements AutoCloseable {
         t.lastUsedFrame = frame;
     }
 
+    /**
+     * Start loading {@code r} ahead of need, into room the budget has spare —
+     * a prefetch never pushes the library over its budget. If it did, nothing
+     * would hold it: it is not on screen, so it would be evicted as soon as it
+     * arrived, asked for again the next frame, and so on for ever (with an
+     * 18-layer outfit of uncropped sheets, that was every prefetch, all the
+     * time). So a prefetch is queued only while its size (known once it has
+     * been decoded; the average sheet's until then) fits beside what is
+     * resident and what is already on the way, and no more than one per
+     * decoder thread is on the way at a time; and one that arrives to find no
+     * room after all is dropped instead of uploaded, so it is not asked for
+     * again until room appears.
+     */
+    public void prefetch(Resolved r) {
+        if (r == null || !loadable(r.file()) || prefetching.size() >= threads) return;
+        long typical = sizes.isEmpty() ? 0 : sizesTotal / sizes.size();
+        long need = sizes.getOrDefault(r.file(), typical);
+        for (Path p : prefetching) need += sizes.getOrDefault(p, typical);
+        if (residentBytes + need > budgetBytes) return;
+        prefetching.add(r.file());
+        request(r);
+    }
+
+    private boolean loadable(Path file) {
+        return !textures.containsKey(file) && !pending.containsKey(file) && !failed.containsKey(file);
+    }
+
     /** Start loading {@code r} in the background if it is not already resident. */
-    public void request(Resolved r) {
-        if (r == null || textures.containsKey(r.file()) || pending.containsKey(r.file())
-                || failed.containsKey(r.file())) {
-            return;
-        }
+    private void request(Resolved r) {
+        if (r == null || !loadable(r.file())) return;
         Path file = r.file();
         SpriteProfile profile = r.profile();
         double s = scale;
@@ -275,20 +325,27 @@ public final class SpriteLibrary implements AutoCloseable {
                 continue;
             }
             pending.remove(d.file());
+            boolean ahead = prefetching.remove(d.file());
             if (d.error() != null) {
                 failed.put(d.file(), d.error());
                 System.err.println("[sprites] cannot load " + d.file() + ": " + d.error());
             } else {
-                SheetTexture t = new SheetTexture(
-                        Texture.upload(d.pixels(), d.layout().pixelArt()), d.layout(),
-                        d.file().toString());
-                t.lastUsedFrame = frame;
-                SheetTexture old = textures.put(d.file(), t);
-                if (old != null) {
-                    residentBytes -= old.bytes();
-                    old.close();
+                BufferedImage atlas = d.layout().atlas();
+                long bytes = Texture.bytesFor(atlas.getWidth(), atlas.getHeight(), d.layout().pixelArt());
+                Long before = sizes.put(d.file(), bytes);
+                sizesTotal += bytes - (before == null ? 0 : before);
+                if (ahead && residentBytes + bytes > budgetBytes) {
+                    d.pixels().free(); // a prefetch with no room left for it
+                } else {
+                    SheetTexture t = uploader.upload(d.layout(), d.pixels(), d.file().toString());
+                    t.lastUsedFrame = frame;
+                    SheetTexture old = textures.put(d.file(), t);
+                    if (old != null) {
+                        residentBytes -= old.bytes();
+                        old.close();
+                    }
+                    residentBytes += t.bytes();
                 }
-                residentBytes += t.bytes();
             }
             if (System.nanoTime() > deadline) break;
         }
@@ -312,6 +369,11 @@ public final class SpriteLibrary implements AutoCloseable {
         return !pending.isEmpty() || !decoded.isEmpty();
     }
 
+    /** Block until every queued decode has finished; {@link #pump()} still uploads them. For tests. */
+    void awaitDecodes() {
+        CompletableFuture.allOf(pending.values().toArray(CompletableFuture[]::new)).join();
+    }
+
     /**
      * Forget every loaded sheet and every failure, so the next draw re-reads
      * the files. After an import has written new sheets, or the resolution
@@ -323,6 +385,9 @@ public final class SpriteLibrary implements AutoCloseable {
         residentBytes = 0;
         failed.clear();
         pending.clear();
+        prefetching.clear();
+        sizes.clear();
+        sizesTotal = 0;
         epoch++;
         rescan();
     }
