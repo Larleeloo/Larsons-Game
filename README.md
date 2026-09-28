@@ -89,6 +89,14 @@ Drop sprite sheets on the window at any time to import them.
   through the eight directions, tip through the three heights and play in every
   state.
 - **Drag-and-drop importing** of sprite sheets into the repository.
+- **A rendered character** in `assets/sprites/`: the rigged feminine model from
+  [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) with an item for every
+  one of the 18 layers — body, briefs, bralette, boots, jeans, flannel shirt,
+  gloves, bangle, ears, hoop earrings, nose, eyes, mouth, long hair, sun hat,
+  mantle, shield and the sword — each in all six states from all 24 views, the
+  jeans, shirt and mantle cloth-simulated per animation. Put them on in the
+  Wardrobe (or see [the list](assets/sprites/README.md#the-sheets-in-this-folder)
+  for a ready-made `config/wardrobe.json`).
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
