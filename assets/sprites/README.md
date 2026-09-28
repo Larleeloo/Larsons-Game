@@ -186,3 +186,86 @@ writes a complete stand-in set to `build/sample-sprites/` — a body, a red cap
 and the sword on separate held-out layers, plus one animation as loose frames —
 rendered from the fallback figure at 256 px. Drop its folders on the window to
 see the importer and the layer stack at work.
+
+## The sheets in this folder
+
+Everything here is rendered from the rigged feminine model in
+[3D-Modeling](https://github.com/Larleeloo/3D-Modeling) (`generic_feminine_model/`,
+steps 10-13 of its README): at least one item for every layer - and the model's
+other ears, noses, eyes and mouths as alternatives - all 144 sheets each, at the
+default framing above (no `profile.json`). She is 1.70 m tall. The first item
+of each layer below is the outfit the holdouts were cut against.
+
+| Layer | Item | |
+|---|---|---|
+| body | `feminine` | the base body with brows (nude; the face's cut-outs are capped, so it is whole even with the nose, mouth and eye layers empty) |
+| underwear | `cotton_briefs` | lavender cotton briefs |
+| bra | `leather_bralette` | a lace-up leather bralette |
+| shoes | `leather_ankle_boots` | brown leather ankle boots |
+| pants | `denim_jeans` | jeans, **cloth-simulated** per animation |
+| shirt | `plaid_flannel` | a red plaid flannel shirt, **cloth-simulated** per animation |
+| gloves | `black_leather` | black leather gloves |
+| wristwear | `gold_bangle` | a gold bangle on the right wrist |
+| ears | `round`, `pointed`, `elven` | human ears; half-elf points; long, swept-back elven ears |
+| earrings | `gold_hoops` | gold hoops |
+| nose | `straight`, `button`, `aquiline` | |
+| eyes | `hazel`, `ice_blue`, `amber_slit` | the amber eyes have slit pupils and a faint glow |
+| mouth | `full`, `wide`, `heart` | lips, teeth and tongue |
+| hair | `long_waves_brown` | long brown waves (spring-simulated) |
+| hat | `straw_sun_hat` | a wide-brimmed straw hat with a navy ribbon |
+| other | `wool_mantle` | a short red wool mantle over the shoulders, **cloth-simulated** |
+| carry_left | `round_shield` | a round wooden shield strapped to the left forearm |
+| carry_right | `sword` | a short arming sword - the demo's pick-up sword (`items/sword/icon.png` is its pickup) |
+
+**The animations.** Every item has the same frame count per state, so the
+layers stay in step (the game plays one frame index on all of them):
+
+| state | frames | seconds | notes |
+|---|---|---|---|
+| idle | 60 | 2.0 | loops |
+| walk | 28 | 0.93 | loops; the stride is timed to the player's 1.7 m/s, so the planted foot stays put on the ground |
+| run | 20 | 0.67 | loops; 4.2 m/s |
+| sprint | 16 | 0.53 | loops; 7.0 m/s |
+| jump | 27 | 0.9 | one-shot; leaves the ground at 20 % and lands at 82 % of the clip, as `Player` expects, and stays at ground height in the picture - the game does the rising (to 0.58 m) |
+| attack | 18 | 0.6 | one-shot; a sword slash, kept inside the frame |
+
+**Holdouts.** Each layer was rendered with what can hide it set to holdout: the
+body for every layer; for the garments the body and, where one tucks into or
+slips under another, that one too (the jeans by the boots, the shirt by the
+jeans, the bangle by the gloves) but nothing worn over them, so swapping a shirt
+for another leaves no holes in the layers above; for hair, hat, other and the
+carried items everything worn under them in the outfit above. A layer that is
+out of sight in some frame (the nose from behind, say) still has that frame, a
+blank cell with one pixel of alpha 1/255 so the sheet keeps its frame count.
+
+**Wearing it.** Pick the items in Pause → Wardrobe, or dress the character in
+one go with a `config/wardrobe.json` beside the game:
+
+```json
+{"body": "feminine", "underwear": "cotton_briefs", "bra": "leather_bralette",
+ "shoes": "leather_ankle_boots", "pants": "denim_jeans", "shirt": "plaid_flannel",
+ "gloves": "black_leather", "wristwear": "gold_bangle", "ears": "round",
+ "earrings": "gold_hoops", "nose": "straight", "eyes": "hazel", "mouth": "full",
+ "hair": "long_waves_brown", "hat": "straw_sun_hat", "other": "wool_mantle",
+ "carry_left": "round_shield", "carry_right": "sword"}
+```
+
+Leave `carry_right` out to find the sword in the demo and pick it up (E).
+
+**A full outfit needs more than the default memory budget.** For every layer
+the game keeps the sheets on screen ready, plus this view's other five states
+and this state from the two neighbouring directions. For all 18 layers that is
+about 6.9 GB of textures at 512 px, and about 1.7 GB at half resolution. Over
+budget, those prefetched sheets are evicted and loaded again without end
+(the HUD's Sprites line never gets to "0 loading"). So for the whole outfit
+either give it the room, with `-Dlarsons.sprites.vramMB=7168` on a GPU that has
+it, or halve the resolution:
+
+```bash
+./gradlew run -Dlarsons.sprites.scale=0.5 -Dlarsons.sprites.vramMB=2048
+```
+
+Both were tried with the outfit above and settle at "0 loading" (at full size
+the HUD showed 7162 MB resident). At the default 1.5 GB, about four full-size
+layers fit (see [Memory](#memory)). On a software renderer (llvmpipe, no GPU)
+the textures live in system memory, so the budget comes out of RAM too.
