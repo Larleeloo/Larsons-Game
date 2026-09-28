@@ -250,6 +250,20 @@ one go with a `config/wardrobe.json` beside the game:
  "carry_left": "round_shield", "carry_right": "sword"}
 ```
 
-Leave `carry_right` out to find the sword in the demo and pick it up (E). A
-full outfit is a lot of pixels: if a small GPU struggles, lower Settings →
-Sprite resolution (see [Memory](#memory)).
+Leave `carry_right` out to find the sword in the demo and pick it up (E).
+
+**A full outfit needs more than the default memory budget.** For every layer
+the game keeps the sheets on screen ready, plus this view's other five states
+and this state from the two neighbouring directions. For all 18 layers that is
+about 6.9 GB of textures at 512 px, and about 1.7 GB at half resolution. Over
+budget, those prefetched sheets are evicted and loaded again without end
+(the HUD's Sprites line never gets to "0 loading"). So for the whole outfit
+either give it the room, with `-Dlarsons.sprites.vramMB=7168` on a GPU that has
+it, or halve the resolution:
+
+```bash
+./gradlew run -Dlarsons.sprites.scale=0.5 -Dlarsons.sprites.vramMB=2048
+```
+
+That was tried with the outfit above and settles at "0 loading". At the
+default 1.5 GB, about four full-size layers fit (see [Memory](#memory)).
