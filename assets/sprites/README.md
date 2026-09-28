@@ -177,8 +177,9 @@ things keep that budget from filling up:
 
 - **The empty part of a frame costs nothing.** As it loads, a sheet is cropped
   to the box its frames actually cover (plus a thin transparent border), and
-  the layer is drawn on just that part of the frame. An earring rendered in the
-  body's 512-pixel frame takes a few kilobytes a frame instead of a megabyte.
+  put back in its place in the frame when it is drawn. An earring rendered in
+  the body's 512-pixel frame takes a few kilobytes a frame instead of a
+  megabyte.
 - **Loading ahead only into spare room.** What the character may need next —
   this view's other states, the neighbouring directions — is loaded ahead only
   while the budget has room for it, and never pushes anything out. With a lot of
