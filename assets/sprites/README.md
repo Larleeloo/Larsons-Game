@@ -117,13 +117,17 @@ instead of re-rendering:
   "pivotHeight": 0.9,
   "fps": 30,
   "stateFps": { "idle": 24 },
-  "anchors": { "side": [0.5, 0.9], "middle": [0.5, 0.8], "top": [0.5, 0.5] }
+  "anchors": { "side": [0.5, 0.9], "middle": [0.5, 0.8], "top": [0.5, 0.5] },
+  "pixelArt": false
 }
 ```
 
 Every field is optional. `anchors` is where the feet are in a frame of each
 elevation, as fractions of the frame from its top-left corner — set it and the
-pivot numbers no longer matter.
+pivot numbers no longer matter. `pixelArt` draws the sheets with hard pixel
+edges (no smoothing, no mipmaps) and never shrinks them for the sprite
+resolution setting; frames of 64 pixels or fewer are pixel art without saying
+so, bigger pixel art (the 128-pixel sheets below) needs `"pixelArt": true`.
 
 ## Layers
 
@@ -263,6 +267,18 @@ one go with a `config/wardrobe.json` beside the game:
 ```
 
 Leave `carry_right` out to find the sword in the demo and pick it up (E).
+
+**Pixel art.** Every item above is here twice more, drawn as pixel art from the
+same model and animations: in 128 x 128 frames (`<item>_px128/`) and in 64 x 64
+frames (`<item>_px64/`), all 144 sheets each, with the same frame counts and
+framing, cel-shaded in vivid colours with one-pixel line art, and all of them
+together in one palette of 64 colours (they are palette PNGs). How they are made
+is step 14 of the 3D-Modeling README. To wear them, pick a **style** in Pause →
+Wardrobe - *512 px*, *Pixel 128* or *Pixel 64* - which draws every worn item
+from its version in that style (an item without one is drawn as it is); the
+items keep their names, so the lists show each item once. In
+`config/wardrobe.json` it is `"style": "px128"` or `"px64"`, and in a demo
+script `style px64`.
 
 The whole outfit fits the default budget at full size. With every layer's
 sheets for the view on screen loaded, plus that view's other five states and
