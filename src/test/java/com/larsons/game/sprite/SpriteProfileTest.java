@@ -34,6 +34,24 @@ class SpriteProfileTest {
     }
 
     @Test
+    void pixelArtIsSmallFramesOrWhatTheProfileSays(@TempDir Path dir) throws Exception {
+        assertFalse(SpriteProfile.defaults().pixelArt(), "512-pixel renders are filtered");
+        assertTrue(SpriteProfile.defaults().withFrameSize(32, 32).pixelArt(), "the fallback is pixel art");
+        Files.writeString(dir.resolve("profile.json"), """
+                { "frameWidth": 128, "frameHeight": 128, "pixelArt": true }
+                """);
+        SpriteProfile p = SpriteProfile.load(dir, SpriteProfile.defaults());
+        assertTrue(p.pixelArt(), "128-pixel pixel art, as its profile says");
+        assertEquals(true, p.toJson().get("pixelArt"));
+        assertTrue(p.copy().pixelArt());
+        Files.writeString(dir.resolve("profile.json"), """
+                { "frameWidth": 64, "frameHeight": 64, "pixelArt": false }
+                """);
+        assertFalse(SpriteProfile.load(dir, SpriteProfile.defaults()).pixelArt());
+        assertFalse(SpriteProfile.defaults().toJson().containsKey("pixelArt"));
+    }
+
+    @Test
     void wardrobeRoundTrips(@TempDir Path dir) {
         Wardrobe w = new Wardrobe();
         w.set(Slot.HAT, "red_cap");
@@ -43,5 +61,22 @@ class SpriteProfileTest {
         assertEquals("red_cap", back.get(Slot.HAT));
         assertTrue(back.wearing(Slot.CARRY_RIGHT, "sword"));
         assertNull(back.get(Slot.BODY));
+        assertEquals(Wardrobe.Style.RENDERED, back.style());
+    }
+
+    @Test
+    void theStyleIsSavedAndTheItemsKeepTheirNames(@TempDir Path dir) {
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.CARRY_RIGHT, "sword");
+        w.setStyle(Wardrobe.Style.PIXEL_64);
+        w.save(dir.resolve("w.json"));
+        Wardrobe back = Wardrobe.load(dir.resolve("w.json"));
+        assertEquals(Wardrobe.Style.PIXEL_64, back.style());
+        assertTrue(back.wearing(Slot.CARRY_RIGHT, "sword"), "the sword in hand is still the sword");
+        assertEquals(Wardrobe.Style.PIXEL_64, back.copy().style());
+        assertEquals("sword_px128", Wardrobe.Style.PIXEL_128.folder("sword"));
+        assertTrue(Wardrobe.Style.isVersion("straw_sun_hat_px64"));
+        assertFalse(Wardrobe.Style.isVersion("straw_sun_hat"));
+        assertEquals(Wardrobe.Style.PIXEL_128, Wardrobe.Style.byKey("px128"));
     }
 }

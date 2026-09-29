@@ -32,6 +32,12 @@ import java.util.Map;
  * <p>Renders framed some other way are described with a {@code profile.json}
  * next to the sheets (see {@code assets/sprites/README.md}); anything it leaves
  * out keeps the default.
+ *
+ * <p><b>Pixel art</b> is drawn with hard pixel edges (nearest-neighbour, no
+ * mipmaps) and never shrunk by the sprite-resolution setting. Frames of 64
+ * pixels or fewer are taken to be pixel art; {@code "pixelArt": true} says so
+ * for bigger ones (the 128-pixel renders), {@code false} for small renders
+ * that are not.
  */
 public final class SpriteProfile {
 
@@ -42,6 +48,7 @@ public final class SpriteProfile {
     private double frameWorldSize = 2.4;
     private double pivotHeight = 0.9;
     private double fps = AnimState.DEFAULT_FPS;
+    private Boolean pixelArt;                        // null: decided by the frame size
     private final Map<AnimState, Double> stateFps = new EnumMap<>(AnimState.class);
     private final Map<Elevation, double[]> anchors = new EnumMap<>(Elevation.class);
 
@@ -65,6 +72,7 @@ public final class SpriteProfile {
         p.frameWorldSize = frameWorldSize;
         p.pivotHeight = pivotHeight;
         p.fps = fps;
+        p.pixelArt = pixelArt;
         p.stateFps.putAll(stateFps);
         anchors.forEach((k, v) -> p.anchors.put(k, v.clone()));
         return p;
@@ -73,6 +81,11 @@ public final class SpriteProfile {
     public int frameWidth() { return frameWidth; }
 
     public int frameHeight() { return frameHeight; }
+
+    /** Whether the sheets are pixel art: hard pixel edges, never shrunk (see the class notes). */
+    public boolean pixelArt() {
+        return pixelArt != null ? pixelArt : frameWidth <= 64;
+    }
 
     /** Metres of world one frame is wide. */
     public double frameWorldSize() { return frameWorldSize; }
@@ -123,6 +136,7 @@ public final class SpriteProfile {
         frameWorldSize = Json.num(json, "frameWorldSize", frameWorldSize);
         pivotHeight = Json.num(json, "pivotHeight", pivotHeight);
         fps = Json.num(json, "fps", fps);
+        if (json.get("pixelArt") instanceof Boolean b) pixelArt = b;
         Map<String, Object> perState = Json.obj(json, "stateFps");
         if (perState != null) {
             for (AnimState s : AnimState.values()) {
@@ -153,6 +167,7 @@ public final class SpriteProfile {
         out.put("frameWorldSize", frameWorldSize);
         out.put("pivotHeight", pivotHeight);
         out.put("fps", fps);
+        if (pixelArt != null) out.put("pixelArt", pixelArt);
         return out;
     }
 }

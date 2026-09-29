@@ -10,6 +10,7 @@ import com.larsons.game.sprite.Elevation;
 import com.larsons.game.sprite.Facing;
 import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.ItemDef;
@@ -324,6 +325,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "resume" -> pause.close();
             case "hud" -> game.settings().showHud = !argument.equals("off");
             case "props" -> game.settings().showProps = !argument.equals("off");
+            case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             default -> {
                 return false;
             }
