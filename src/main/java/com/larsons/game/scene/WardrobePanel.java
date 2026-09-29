@@ -22,6 +22,10 @@ import java.util.List;
  * preview that can be turned through the eight directions, tipped through the
  * three elevations and played in all six states.
  *
+ * <p>A style row switches the whole character between the 512-pixel renders
+ * and the pixel art made of them ({@link Wardrobe.Style}); the items' versions
+ * in a style are not listed as items of their own.
+ *
  * <p>Changes apply to the character immediately and are saved to
  * {@code config/wardrobe.json} when the menu closes.
  */
@@ -43,7 +47,7 @@ final class WardrobePanel {
     static List<String> options(SpriteLibrary lib, Slot slot, Player player) {
         List<String> out = new ArrayList<>();
         out.add(null);
-        out.addAll(lib.items(slot));
+        for (String item : lib.items(slot)) if (!Wardrobe.Style.isVersion(item)) out.add(item);
         if (slot.carried()) {
             for (String held : player.inventory()) if (!out.contains(held)) out.add(held);
         }
@@ -96,6 +100,17 @@ final class WardrobePanel {
         ui.paragraph(ui.small, "Items are the folders in assets/sprites/<layer>/. "
                         + "Drop new sheets on the window to add more; empty layers are not drawn.",
                 x, listBottom, colW * 2 + 16, Theme.ITEM_DISABLED);
+
+        // --- the style: the renders, or the pixel art made of them -------------------
+        float sy = listBottom + 44;
+        ui.text(ui.body, "Style", x, sy + 6, Theme.ITEM);
+        Wardrobe.Style[] styles = Wardrobe.Style.values();
+        for (int i = 0; i < styles.length; i++) {
+            if (ui.button(styles[i].label(), x + 70 + i * 116, sy, 110, 30,
+                    wardrobe.style() == styles[i], true)) {
+                wardrobe.setStyle(styles[i]);
+            }
+        }
 
         // --- the preview ------------------------------------------------------------
         float px = x + w - 340, pw = 340, ph = h - 110;

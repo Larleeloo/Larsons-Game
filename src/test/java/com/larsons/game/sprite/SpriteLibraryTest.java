@@ -201,6 +201,19 @@ class SpriteLibraryTest {
     }
 
     @Test
+    void aStyleDrawsAnItemsVersionInItWhenThereIsOne() throws Exception {
+        png("hat/cap/walk_side_e.png");
+        png("hat/cap_px64/walk_side_e.png");
+        png("body/hero/walk_side_e.png");
+        lib = new SpriteLibrary(root, 1L << 30, 1.0);
+        assertEquals("cap_px64", lib.styled(Slot.HAT, "cap", Wardrobe.Style.PIXEL_64));
+        assertEquals("cap", lib.styled(Slot.HAT, "cap", Wardrobe.Style.RENDERED));
+        assertEquals("hero", lib.styled(Slot.BODY, "hero", Wardrobe.Style.PIXEL_64),
+                "no 64-pixel hero: the hero as it is");
+        assertNull(lib.styled(Slot.BODY, null, Wardrobe.Style.PIXEL_64));
+    }
+
+    @Test
     void rescanPicksUpNewFolders() throws Exception {
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         int before = lib.generation();

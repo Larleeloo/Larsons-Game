@@ -90,7 +90,7 @@ public final class LayerStack {
 
         List<Want> wants = new ArrayList<>();
         for (Slot slot : Slot.values()) {
-            String item = wardrobe.get(slot);
+            String item = lib.styled(slot, wardrobe.get(slot), wardrobe.style());
             if (item == null) continue;
             SpriteLibrary.Resolved file = lib.resolve(slot, item, state, elev, facing);
             SheetTexture sheet = null;
@@ -164,7 +164,8 @@ public final class LayerStack {
      */
     public static double duration(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                   SpriteView view) {
-        SpriteLibrary.Resolved r = lib.resolve(Slot.BODY, wardrobe.get(Slot.BODY), state,
+        SpriteLibrary.Resolved r = lib.resolve(Slot.BODY,
+                lib.styled(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style()), state,
                 view.elevation(), view.facing());
         if (r != null) {
             SheetTexture t = lib.sheet(r);

@@ -203,6 +203,16 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     /**
+     * The folder to draw {@code item} from in {@code style}: its version in
+     * that style when there is one ({@code straw_sun_hat_px64}), else itself.
+     */
+    public String styled(Slot slot, String item, Wardrobe.Style style) {
+        if (item == null || style == Wardrobe.Style.RENDERED) return item;
+        String version = style.folder(item);
+        return entry(slot, version) != null ? version : item;
+    }
+
+    /**
      * The file to draw for one view of one item, or {@code null} if there is
      * none. A missing west-facing sheet borrows its east-facing twin flipped
      * (and vice versa), the engine's rule for directional art.
@@ -303,7 +313,7 @@ public final class SpriteLibrary implements AutoCloseable {
         try {
             BufferedImage img = ImageIO.read(file.toFile());
             if (img == null) return new Decoded(file, epoch, null, null, "not an image ImageIO can read");
-            boolean pixelArt = profile.frameWidth() <= 64;
+            boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),
                     pixelArt ? 1.0 : scale, maxTexture, pixelArt);
             return new Decoded(file, epoch, layout, PixelData.of(layout.atlas()), null);

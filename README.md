@@ -96,10 +96,15 @@ Drop sprite sheets on the window at any time to import them.
   mantle, shield and the sword — each in all six states from all 24 views, the
   jeans, shirt and mantle cloth-simulated per animation. Put them on in the
   Wardrobe (or see [the list](assets/sprites/README.md#the-sheets-in-this-folder)
-  for a ready-made `config/wardrobe.json`).
+  for a ready-made `config/wardrobe.json`). Every item also comes as **pixel
+  art**, in 128- and 64-pixel frames in one 64-colour palette: Pause → Wardrobe
+  → Style switches the whole character between the renders and the two pixel
+  sizes.
 
   <img src="docs/screenshots/rendered-walk.png" width="49%" alt="The rendered character in the full outfit - all 18 layers - walking in the demo">
   <img src="docs/screenshots/rendered-middle.png" width="49%" alt="The same outfit from the 45-degree sprites: sun hat, shield and sword">
+  <img src="docs/screenshots/pixel-128-walk.png" width="49%" alt="The same outfit as 128-pixel pixel art, walking">
+  <img src="docs/screenshots/pixel-64-walk.png" width="49%" alt="The same outfit as 64-pixel pixel art, walking">
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
@@ -275,7 +280,8 @@ xvfb-run ./gradlew run -Dlarsons.script="scene demo; wait 1; pitch 12; state wal
 Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `teleport`, `pickup`,
-`dropitem`, `pause`, `resume`, `hud`, `props`.
+`dropitem`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
+`px64`).
 
 ---
 
