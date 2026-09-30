@@ -59,9 +59,9 @@ public final class SpriteLibrary implements AutoCloseable {
     /** Folder of world sprites for pickups, beside the slot folders. */
     public static final String ITEMS_FOLDER = "items";
 
-    /** One cosmetic (or body) folder and the sheets found in it. */
+    /** One cosmetic (or body) folder and the sheets found in it, and the colours it can take (or null). */
     public record Entry(Slot slot, String name, Path folder, SpriteProfile profile,
-                        Map<String, Path> sheets, List<String> skipped) {
+                        Map<String, Path> sheets, List<String> skipped, Variants variants) {
 
         public Path sheet(AnimState state, Elevation elevation, Facing facing) {
             return sheets.get(key(state, elevation, facing));
@@ -71,10 +71,35 @@ public final class SpriteLibrary implements AutoCloseable {
         public int count() { return sheets.size(); }
     }
 
-    /** A sheet to draw: the file, and whether it is a mirrored twin standing in. */
-    public record Resolved(Path file, boolean mirrored, SpriteProfile profile) {}
+    /**
+     * A sheet to draw: the file, whether it is drawn mirrored (a twin standing
+     * in, or the left-handed character), and the palette swap it is drawn with
+     * (null: its own colours).
+     */
+    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
 
-    private record Decoded(Path file, int epoch, SheetImage layout, PixelData pixels, String error) {}
+        public Resolved(Path file, boolean mirrored, SpriteProfile profile) {
+            this(file, mirrored, profile, null);
+        }
+
+        /** What the library keeps it under: the file, in these colours. */
+        public Key key() {
+            return new Key(file, recolor == null ? "" : recolor.key());
+        }
+
+        public Resolved withRecolor(Variants.Recolor r) {
+            return new Resolved(file, mirrored, profile, r);
+        }
+
+        public Resolved flipped() {
+            return new Resolved(file, !mirrored, profile, recolor);
+        }
+    }
+
+    /** A decoded sheet's identity: one file, in one set of colours. */
+    public record Key(Path file, String colours) {}
+
+    private record Decoded(Key key, int epoch, SheetImage layout, PixelData pixels, String error) {}
 
     /** Puts a decoded sheet on the GPU. Tests, which have no GL, pass their own. */
     @FunctionalInterface
@@ -92,14 +117,15 @@ public final class SpriteLibrary implements AutoCloseable {
     private final ExecutorService workers;
     private final int threads;
     private final Uploader uploader;
-    private final LinkedHashMap<Path, SheetTexture> textures = new LinkedHashMap<>(64, 0.75f, true);
-    private final Map<Path, CompletableFuture<Void>> pending = new HashMap<>();
+    private final LinkedHashMap<Key, SheetTexture> textures = new LinkedHashMap<>(64, 0.75f, true);
+    private final Map<Key, CompletableFuture<Void>> pending = new HashMap<>();
     /** The pending loads that are prefetches nobody has asked to draw yet. */
-    private final Set<Path> prefetching = new HashSet<>();
+    private final Set<Key> prefetching = new HashSet<>();
     /** Video memory each sheet took the last time it was decoded. */
-    private final Map<Path, Long> sizes = new HashMap<>();
+    private final Map<Key, Long> sizes = new HashMap<>();
     private long sizesTotal;
     private final ConcurrentLinkedQueue<Decoded> decoded = new ConcurrentLinkedQueue<>();
+    /** Files that would not decode (in any colours). */
     private final Map<Path, String> failed = new HashMap<>();
     private final Map<String, SheetTexture> fallback = new HashMap<>();
     private final Map<String, CompletableFuture<FallbackSprites.Pair>> fallbackJobs =
@@ -189,7 +215,7 @@ public final class SpriteLibrary implements AutoCloseable {
             skipped.add("(unreadable: " + e.getMessage() + ")");
         }
         return new Entry(slot, dir.getFileName().toString(), dir, profile,
-                Collections.unmodifiableMap(sheets), List.copyOf(skipped));
+                Collections.unmodifiableMap(sheets), List.copyOf(skipped), Variants.load(dir));
     }
 
     /** Item names in a slot, sorted. */
@@ -205,11 +231,93 @@ public final class SpriteLibrary implements AutoCloseable {
     /**
      * The folder to draw {@code item} from in {@code style}: its version in
      * that style when there is one ({@code straw_sun_hat_px64}), else itself.
+     * An item that exists only as pixel art ({@code beanie_px128} but no
+     * {@code beanie}) is drawn from its 128-pixel version in the rendered
+     * style.
      */
     public String styled(Slot slot, String item, Wardrobe.Style style) {
-        if (item == null || style == Wardrobe.Style.RENDERED) return item;
+        if (item == null) return null;
+        style = drawnIn(slot, item, style);
+        if (style == Wardrobe.Style.RENDERED) return item;
         String version = style.folder(item);
         return entry(slot, version) != null ? version : item;
+    }
+
+    /** The style {@code item} is drawn in when {@code style} is asked for (see {@link #styled}). */
+    private Wardrobe.Style drawnIn(Slot slot, String item, Wardrobe.Style style) {
+        if (style == Wardrobe.Style.RENDERED && entry(slot, item) == null
+                && entry(slot, Wardrobe.Style.PIXEL_128.folder(item)) != null) {
+            return Wardrobe.Style.PIXEL_128;
+        }
+        return style;
+    }
+
+    /**
+     * Where a worn item's sheets come from: a slot's folder, drawn mirrored or
+     * not. For the left-handed character ({@link Wardrobe#leftHanded()}) that
+     * is, among the renders, the item's 512-pixel version in the slot's {@link
+     * Slot#twin() twin}, mirrored - the left-hand sword is the right-hand
+     * sword seen in a mirror (and from the mirrored direction); else the
+     * style's left-handed version ({@code sword_px128_lh}) when there is one,
+     * drawn as it is; otherwise the twin's, mirrored.
+     */
+    public record Source(Slot slot, String folder, boolean mirrored) {}
+
+    public Source source(Slot slot, String item, Wardrobe.Style style, boolean leftHanded) {
+        if (item == null) return null;
+        if (!leftHanded) return new Source(slot, styled(slot, item, style), false);
+        Slot twin = slot.twin();
+        // among the renders, the 512-pixel twin in a mirror before any pixel art
+        if (style == Wardrobe.Style.RENDERED && entry(twin, item) != null) return new Source(twin, item, true);
+        Wardrobe.Style drawn = drawnIn(slot, item, style);
+        if (drawn != Wardrobe.Style.RENDERED && entry(slot, drawn.leftFolder(item)) != null) {
+            return new Source(slot, drawn.leftFolder(item), false);
+        }
+        String folder = styled(twin, item, style);
+        if (entry(twin, folder) != null) return new Source(twin, folder, true);
+        return new Source(slot, styled(slot, item, style), true);
+    }
+
+    /** One view of a {@link #source}: a mirrored source is its mirrored view, flipped. */
+    public Resolved resolve(Source src, AnimState state, Elevation elevation, Facing facing) {
+        if (src == null) return null;
+        if (!src.mirrored()) return resolve(src.slot(), src.folder(), state, elevation, facing);
+        Resolved r = resolve(src.slot(), src.folder(), state, elevation, facing.mirrorOf());
+        return r == null ? null : r.flipped();
+    }
+
+    /**
+     * The palette swap that draws a source in the colours picked for the slot
+     * it is worn in ({@link Wardrobe#colour}) and the skin tone ({@link
+     * Wardrobe#skin}), or null for its own colours.
+     */
+    public Variants.Recolor recolor(Source src, Slot wornIn, Wardrobe wardrobe) {
+        if (src == null) return null;
+        Entry e = entry(src.slot(), src.folder());
+        if (e == null || e.variants() == null) return null;
+        Map<String, String> choice = new HashMap<>();
+        String own = wardrobe.colour(wornIn);
+        if (own != null && wornIn != Slot.BODY) choice.put(Variants.OWN, own);
+        String skin = wardrobe.skin();
+        if (skin != null) choice.put(Variants.SKIN, skin);
+        return e.variants().recolor(choice);
+    }
+
+    /** The colour options the item worn in {@code slot} has for its own colour, in this style (may be empty). */
+    public List<String> colourOptions(Slot slot, String item, Wardrobe.Style style) {
+        Entry e = entry(slot, styled(slot, item, style));
+        if (e == null || e.variants() == null) return List.of();
+        Variants.Channel c = e.variants().channel(slot == Slot.BODY ? Variants.SKIN : Variants.OWN);
+        return c == null ? List.of() : c.names();
+    }
+
+    /** The colour an option shows as (a swatch, RGB), or -1. */
+    public int swatch(Slot slot, String item, Wardrobe.Style style, String option) {
+        Entry e = entry(slot, styled(slot, item, style));
+        if (e == null || e.variants() == null) return -1;
+        Variants.Channel c = e.variants().channel(slot == Slot.BODY ? Variants.SKIN : Variants.OWN);
+        Integer rgb = c == null ? null : c.swatch().get(option);
+        return rgb == null ? -1 : rgb;
     }
 
     /**
@@ -254,12 +362,12 @@ public final class SpriteLibrary implements AutoCloseable {
      */
     public SheetTexture sheet(Resolved r) {
         if (r == null) return null;
-        SheetTexture t = textures.get(r.file());
+        SheetTexture t = textures.get(r.key());
         if (t != null) {
             t.lastUsedFrame = frame;
             return t;
         }
-        prefetching.remove(r.file()); // wanted on screen now: it loads whatever the budget
+        prefetching.remove(r.key()); // wanted on screen now: it loads whatever the budget
         request(r);
         return null;
     }
@@ -283,42 +391,44 @@ public final class SpriteLibrary implements AutoCloseable {
      * again until room appears.
      */
     public void prefetch(Resolved r) {
-        if (r == null || !loadable(r.file()) || prefetching.size() >= threads) return;
+        if (r == null || !loadable(r.key()) || prefetching.size() >= threads) return;
         long typical = sizes.isEmpty() ? 0 : sizesTotal / sizes.size();
-        long need = sizes.getOrDefault(r.file(), typical);
-        for (Path p : prefetching) need += sizes.getOrDefault(p, typical);
+        long need = sizes.getOrDefault(r.key(), typical);
+        for (Key p : prefetching) need += sizes.getOrDefault(p, typical);
         if (residentBytes + need > budgetBytes) return;
-        prefetching.add(r.file());
+        prefetching.add(r.key());
         request(r);
     }
 
-    private boolean loadable(Path file) {
-        return !textures.containsKey(file) && !pending.containsKey(file) && !failed.containsKey(file);
+    private boolean loadable(Key key) {
+        return !textures.containsKey(key) && !pending.containsKey(key) && !failed.containsKey(key.file());
     }
 
     /** Start loading {@code r} in the background if it is not already resident. */
     private void request(Resolved r) {
-        if (r == null || !loadable(r.file())) return;
-        Path file = r.file();
+        if (r == null || !loadable(r.key())) return;
+        Key key = r.key();
+        Variants.Recolor recolor = r.recolor();
         SpriteProfile profile = r.profile();
         double s = scale;
         int max = maxTexture;
         int ep = epoch;
-        pending.put(file, CompletableFuture.runAsync(
-                () -> decoded.add(decode(file, ep, profile, s, max)), workers));
+        pending.put(key, CompletableFuture.runAsync(
+                () -> decoded.add(decode(key, recolor, ep, profile, s, max)), workers));
     }
 
-    private static Decoded decode(Path file, int epoch, SpriteProfile profile, double scale,
-                                  int maxTexture) {
+    private static Decoded decode(Key key, Variants.Recolor recolor, int epoch, SpriteProfile profile,
+                                  double scale, int maxTexture) {
         try {
-            BufferedImage img = ImageIO.read(file.toFile());
-            if (img == null) return new Decoded(file, epoch, null, null, "not an image ImageIO can read");
+            BufferedImage img = ImageIO.read(key.file().toFile());
+            if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
+            img = Variants.apply(img, recolor);
             boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),
                     pixelArt ? 1.0 : scale, maxTexture, pixelArt);
-            return new Decoded(file, epoch, layout, PixelData.of(layout.atlas()), null);
+            return new Decoded(key, epoch, layout, PixelData.of(layout.atlas()), null);
         } catch (IOException | RuntimeException | OutOfMemoryError e) {
-            return new Decoded(file, epoch, null, null, e.toString());
+            return new Decoded(key, epoch, null, null, e.toString());
         }
     }
 
@@ -334,22 +444,23 @@ public final class SpriteLibrary implements AutoCloseable {
                 if (d.pixels() != null) d.pixels().free();
                 continue;
             }
-            pending.remove(d.file());
-            boolean ahead = prefetching.remove(d.file());
+            pending.remove(d.key());
+            boolean ahead = prefetching.remove(d.key());
             if (d.error() != null) {
-                failed.put(d.file(), d.error());
-                System.err.println("[sprites] cannot load " + d.file() + ": " + d.error());
+                failed.put(d.key().file(), d.error());
+                System.err.println("[sprites] cannot load " + d.key().file() + ": " + d.error());
             } else {
                 BufferedImage atlas = d.layout().atlas();
                 long bytes = Texture.bytesFor(atlas.getWidth(), atlas.getHeight(), d.layout().pixelArt());
-                Long before = sizes.put(d.file(), bytes);
+                Long before = sizes.put(d.key(), bytes);
                 sizesTotal += bytes - (before == null ? 0 : before);
                 if (ahead && residentBytes + bytes > budgetBytes) {
                     d.pixels().free(); // a prefetch with no room left for it
                 } else {
-                    SheetTexture t = uploader.upload(d.layout(), d.pixels(), d.file().toString());
+                    String source = d.key().file() + (d.key().colours().isEmpty() ? "" : " [" + d.key().colours() + "]");
+                    SheetTexture t = uploader.upload(d.layout(), d.pixels(), source);
                     t.lastUsedFrame = frame;
-                    SheetTexture old = textures.put(d.file(), t);
+                    SheetTexture old = textures.put(d.key(), t);
                     if (old != null) {
                         residentBytes -= old.bytes();
                         old.close();
@@ -364,7 +475,7 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private void evict() {
         if (residentBytes <= budgetBytes) return;
-        Iterator<Map.Entry<Path, SheetTexture>> it = textures.entrySet().iterator();
+        Iterator<Map.Entry<Key, SheetTexture>> it = textures.entrySet().iterator();
         while (residentBytes > budgetBytes && it.hasNext()) {
             SheetTexture t = it.next().getValue();
             if (t.lastUsedFrame >= frame - 1) continue; // on screen right now

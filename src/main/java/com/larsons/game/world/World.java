@@ -1,5 +1,7 @@
 package com.larsons.game.world;
 
+import com.larsons.game.sprite.Slot;
+
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Wardrobe;
@@ -74,19 +76,23 @@ public final class World {
     public void pickUp(GroundItem item) {
         items.remove(item);
         player.inventory().add(item.def.id());
-        player.wardrobe().set(item.def.carrySlot(), item.def.id());
+        // a left-handed character takes it in the other hand
+        Slot slot = player.wardrobe().hand() == Wardrobe.Hand.LEFT ? item.def.carrySlot().twin()
+                : item.def.carrySlot();
+        player.wardrobe().set(slot, item.def.id());
     }
 
-    /** Put down whatever is in the right (then left) hand; returns it, or null. */
+    /** Put down whatever is in the hand it goes in (then the other hand); returns it, or null. */
     public ItemDef dropHeld() {
         for (ItemDef def : ItemDef.ALL) {
-            if (player.inventory().contains(def.id())
-                    && player.wardrobe().wearing(def.carrySlot(), def.id())) {
-                player.inventory().remove(def.id());
-                player.wardrobe().clear(def.carrySlot());
-                Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
-                spawn(def, player.ground().add(ahead));
-                return def;
+            for (Slot slot : new Slot[]{def.carrySlot(), def.carrySlot().twin()}) {
+                if (player.inventory().contains(def.id()) && player.wardrobe().wearing(slot, def.id())) {
+                    player.inventory().remove(def.id());
+                    player.wardrobe().clear(slot);
+                    Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
+                    spawn(def, player.ground().add(ahead));
+                    return def;
+                }
             }
         }
         return null;

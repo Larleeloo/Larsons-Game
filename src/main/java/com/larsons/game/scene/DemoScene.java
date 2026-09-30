@@ -326,6 +326,21 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "hud" -> game.settings().showHud = !argument.equals("off");
             case "props" -> game.settings().showProps = !argument.equals("off");
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
+            case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
+            case "wear" -> {
+                // wear <slot> [item]: put an item on, or take the slot's off
+                String[] a = argument.trim().split("\\s+", 2);
+                com.larsons.game.sprite.Slot slot = com.larsons.game.sprite.Slot.byKey(a[0]);
+                if (slot == null) return false;
+                p.wardrobe().set(slot, a.length > 1 ? a[1] : null);
+            }
+            case "colour", "color" -> {
+                // colour <slot> [option]: the slot's colour (body: the skin), or its own
+                String[] a = argument.trim().split("\\s+", 2);
+                com.larsons.game.sprite.Slot slot = com.larsons.game.sprite.Slot.byKey(a[0]);
+                if (slot == null) return false;
+                p.wardrobe().setColour(slot, a.length > 1 ? a[1] : null);
+            }
             default -> {
                 return false;
             }

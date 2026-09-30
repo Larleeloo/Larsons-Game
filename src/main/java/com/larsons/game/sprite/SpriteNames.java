@@ -117,6 +117,14 @@ public final class SpriteNames {
             Map.entry("cap", Slot.HAT), Map.entry("helmet", Slot.HAT),
             Map.entry("other", Slot.OTHER), Map.entry("misc", Slot.OTHER),
             Map.entry("accessory", Slot.OTHER),
+            Map.entry("belt", Slot.BELT), Map.entry("belts", Slot.BELT),
+            Map.entry("necklace", Slot.NECKLACE), Map.entry("necklaces", Slot.NECKLACE),
+            Map.entry("pendant", Slot.NECKLACE), Map.entry("chain", Slot.NECKLACE),
+            Map.entry("sheath", Slot.SHEATH), Map.entry("sheaths", Slot.SHEATH),
+            Map.entry("scabbard", Slot.SHEATH),
+            Map.entry("eyebrows", Slot.EYEBROWS), Map.entry("eyebrow", Slot.EYEBROWS),
+            Map.entry("brows", Slot.EYEBROWS), Map.entry("brow", Slot.EYEBROWS),
+            Map.entry("makeup", Slot.MAKEUP),
             Map.entry("lefthand", Slot.CARRY_LEFT), Map.entry("righthand", Slot.CARRY_RIGHT));
 
     private static final Pattern SPLIT = Pattern.compile("[\\\\/._\\-\\s]+");

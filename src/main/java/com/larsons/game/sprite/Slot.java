@@ -23,12 +23,18 @@ public enum Slot {
     SHOES("shoes", "Shoes"),
     PANTS("pants", "Pants"),
     SHIRT("shirt", "Shirt"),
+    BELT("belt", "Belt"),
+    NECKLACE("necklace", "Necklace"),
     GLOVES("gloves", "Gloves"),
-    WRISTWEAR("wristwear", "Wristwear"),
+    WRISTWEAR("wristwear", "Right wrist"),
+    WRISTWEAR_LEFT("wristwear_left", "Left wrist"),
+    SHEATH("sheath", "Sheath"),
     EARS("ears", "Ears"),
     EARRINGS("earrings", "Earrings"),
     NOSE("nose", "Nose"),
     EYES("eyes", "Eyes"),
+    EYEBROWS("eyebrows", "Eyebrows"),
+    MAKEUP("makeup", "Makeup"),
     MOUTH("mouth", "Mouth"),
     HAIR("hair", "Hair"),
     HAT("hat", "Hat"),
@@ -54,6 +60,23 @@ public enum Slot {
 
     /** Whether this slot holds a carried item rather than something worn. */
     public boolean carried() { return this == CARRY_LEFT || this == CARRY_RIGHT; }
+
+    /**
+     * The same place on the other side of the body: the other hand, the other
+     * wrist; every other slot is its own twin. A left-handed character is the
+     * right-handed one in a mirror, so what it has in a slot is drawn as the
+     * mirror image of the same item in that slot's twin (the sword in the left
+     * hand is the right-hand sword, mirrored).
+     */
+    public Slot twin() {
+        return switch (this) {
+            case CARRY_LEFT -> CARRY_RIGHT;
+            case CARRY_RIGHT -> CARRY_LEFT;
+            case WRISTWEAR -> WRISTWEAR_LEFT;
+            case WRISTWEAR_LEFT -> WRISTWEAR;
+            default -> this;
+        };
+    }
 
     public static Slot byKey(String key) {
         if (key == null) return null;

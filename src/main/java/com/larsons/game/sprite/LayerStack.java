@@ -24,8 +24,17 @@ import java.util.List;
  *       with the body's frame count; if one is not, its frame is scaled
  *       proportionally so it still starts and ends with the body.</li>
  *   <li>A cosmetic with no sheet for this view is not drawn. The one
- *       exception is the sword in the right hand, which has a generated
+ *       exception is the sword in the weapon hand, which has a generated
  *       fallback that matches the fallback body frame for frame.</li>
+ *   <li>Each layer is drawn in the colours the wardrobe picked for its slot
+ *       (and the skin tone, wherever it shows skin): a palette swap of its
+ *       pixel-art sheets from the item's {@code variants.json}
+ *       ({@link Variants}), so one set of sheets draws every colour.</li>
+ *   <li>A left-handed character draws the {@code _lh} version of every item
+ *       (the right-handed art mirrored, from the mirrored direction), and its
+ *       hands swap in the draw order ({@link #drawOrder}); where an item has
+ *       no {@code _lh} version, its right-handed twin slot's art is mirrored
+ *       instead.</li>
  *   <li>While any layer's sheet is still decoding, the whole previous stack is
  *       held, so nothing blinks and no layer is ever out of step with the
  *       body.</li>
@@ -68,8 +77,24 @@ public final class LayerStack {
 
     private LayerStack() {}
 
-    /** A layer's file and, once resident, its texture. */
-    private record Want(Slot slot, String item, SpriteLibrary.Resolved file, SheetTexture sheet) {}
+    /** A layer's source and file and, once resident, its texture. */
+    private record Want(Slot slot, String item, SpriteLibrary.Source source, SpriteLibrary.Resolved file,
+                        SheetTexture sheet) {}
+
+    /**
+     * The slots in the order they are drawn: {@link Slot}'s, except that a
+     * left-handed character's two hands swap - its left hand draws the right
+     * hand's art, mirrored, which was cut against what the other hand holds.
+     */
+    static Slot[] drawOrder(boolean leftHanded) {
+        Slot[] order = Slot.values().clone();
+        if (leftHanded) {
+            int l = Slot.CARRY_LEFT.ordinal(), r = Slot.CARRY_RIGHT.ordinal();
+            order[l] = Slot.CARRY_RIGHT;
+            order[r] = Slot.CARRY_LEFT;
+        }
+        return order;
+    }
 
     /**
      * Resolve the stack for one frame.
@@ -87,24 +112,27 @@ public final class LayerStack {
         Elevation elev = view.elevation();
         Facing facing = view.facing();
         boolean missing = false;
+        boolean left = wardrobe.leftHanded();
 
         List<Want> wants = new ArrayList<>();
-        for (Slot slot : Slot.values()) {
-            String item = lib.styled(slot, wardrobe.get(slot), wardrobe.style());
+        for (Slot slot : drawOrder(left)) {
+            String item = wardrobe.get(slot);
             if (item == null) continue;
-            SpriteLibrary.Resolved file = lib.resolve(slot, item, state, elev, facing);
+            SpriteLibrary.Source src = lib.source(slot, item, wardrobe.style(), left);
+            SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
+            if (file != null) file = file.withRecolor(lib.recolor(src, slot, wardrobe));
             SheetTexture sheet = null;
             if (file != null) {
                 sheet = lib.sheet(file);
                 if (sheet == null) missing = true;
             }
-            wants.add(new Want(slot, item, file, sheet));
+            wants.add(new Want(slot, item, src, file, sheet));
         }
         // Only once what is on screen is all in: until then the decoders work
         // on nothing else.
         if (!missing) {
             for (Want w : wants) {
-                if (w.file() != null) prefetch(lib, w.slot(), w.item(), state, elev, facing);
+                if (w.file() != null) prefetch(lib, w.source(), w.file().recolor(), state, elev, facing);
             }
         }
         if (missing && memory.last != null && usable(memory.last)) {
@@ -124,7 +152,9 @@ public final class LayerStack {
             framing = bodyWant.file().profile();
             fallbackBody = false;
         } else {
-            body = lib.fallback(state, elev, facing, false);
+            // (the left-handed fallback: the right-handed one from the other side, mirrored)
+            body = lib.fallback(state, elev, left ? facing.mirrorOf() : facing, false);
+            mirrored = left;
             framing = FallbackSprites.PROFILE;
             fallbackBody = true;
         }
@@ -140,10 +170,10 @@ public final class LayerStack {
             if (w.sheet() != null) {
                 layers.add(new Layer(w.slot(), w.item(), w.sheet(),
                         mapFrame(frame, frames, w.sheet().frameCount()), w.file().mirrored()));
-            } else if (w.file() == null && w.slot() == Slot.CARRY_RIGHT && fallbackBody
-                    && FALLBACK_SWORD.equals(w.item())) {
-                layers.add(new Layer(w.slot(), w.item(), lib.fallback(state, elev, facing, true),
-                        frame, false));
+            } else if (w.file() == null && w.slot() == (left ? Slot.CARRY_LEFT : Slot.CARRY_RIGHT)
+                    && fallbackBody && FALLBACK_SWORD.equals(w.item())) {
+                layers.add(new Layer(w.slot(), w.item(),
+                        lib.fallback(state, elev, left ? facing.mirrorOf() : facing, true), frame, left));
             }
         }
         Result result = new Result(layers, framing, view, state, frame, frames, fps, fallbackBody, missing);
@@ -164,9 +194,10 @@ public final class LayerStack {
      */
     public static double duration(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                   SpriteView view) {
-        SpriteLibrary.Resolved r = lib.resolve(Slot.BODY,
-                lib.styled(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style()), state,
-                view.elevation(), view.facing());
+        SpriteLibrary.Resolved r = lib.resolve(lib.source(Slot.BODY, wardrobe.get(Slot.BODY),
+                wardrobe.style(), wardrobe.leftHanded()), state, view.elevation(), view.facing());
+        if (r != null) r = r.withRecolor(lib.recolor(lib.source(Slot.BODY, wardrobe.get(Slot.BODY),
+                wardrobe.style(), wardrobe.leftHanded()), Slot.BODY, wardrobe));
         if (r != null) {
             SheetTexture t = lib.sheet(r);
             if (t != null) return AnimState.duration(t.frameCount(), r.profile().fps(state));
@@ -193,13 +224,17 @@ public final class LayerStack {
      * takes them while the memory budget has room (see {@link
      * SpriteLibrary#prefetch}).
      */
-    private static void prefetch(SpriteLibrary lib, Slot slot, String item, AnimState state,
-                                 Elevation elev, Facing facing) {
+    private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src, Variants.Recolor colours,
+                                 AnimState state, Elevation elev, Facing facing) {
         for (AnimState other : AnimState.values()) {
-            if (other != state) lib.prefetch(lib.resolve(slot, item, other, elev, facing));
+            if (other != state) lib.prefetch(recoloured(lib.resolve(src, other, elev, facing), colours));
         }
-        lib.prefetch(lib.resolve(slot, item, state, elev, facing.clockwise()));
-        lib.prefetch(lib.resolve(slot, item, state, elev, facing.counterClockwise()));
+        lib.prefetch(recoloured(lib.resolve(src, state, elev, facing.clockwise()), colours));
+        lib.prefetch(recoloured(lib.resolve(src, state, elev, facing.counterClockwise()), colours));
+    }
+
+    private static SpriteLibrary.Resolved recoloured(SpriteLibrary.Resolved r, Variants.Recolor c) {
+        return r == null ? null : r.withRecolor(c);
     }
 
     // --- drawing ---------------------------------------------------------------------
