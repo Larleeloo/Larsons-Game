@@ -98,13 +98,15 @@ class VariantsTest {
         palettePng("carry_right/sword/attack_side_w.png");
         palettePng("carry_left/sword_px128_lh/attack_side_e.png");
         palettePng("carry_right/sword_px128/attack_side_e.png");
+        palettePng("carry_left/sword_px128/attack_side_e.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         assertEquals(List.of(), lib.items(Slot.CARRY_LEFT).stream().filter(i -> !Wardrobe.Style.isVersion(i)).toList(),
                 "the left-handed version is not an item of its own");
         // pixel art: the left-handed version, as it is
         SpriteLibrary.Source px = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_128, true);
         assertEquals(new SpriteLibrary.Source(Slot.CARRY_LEFT, "sword_px128_lh", false), px);
-        // the renders have none: the right hand's sword, from the other side, mirrored
+        // the renders have none: the right hand's sword, from the other side, mirrored (not
+        // the pixel art, although the left hand has some)
         SpriteLibrary.Source r = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.RENDERED, true);
         assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword", true), r);
         SpriteLibrary.Resolved east = lib.resolve(r, AnimState.ATTACK, Elevation.SIDE, Facing.EAST);

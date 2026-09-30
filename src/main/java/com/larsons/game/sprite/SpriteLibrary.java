@@ -255,21 +255,24 @@ public final class SpriteLibrary implements AutoCloseable {
     /**
      * Where a worn item's sheets come from: a slot's folder, drawn mirrored or
      * not. For the left-handed character ({@link Wardrobe#leftHanded()}) that
-     * is the style's left-handed version ({@code sword_px128_lh}) when there is
-     * one, drawn as it is; otherwise the same item in the slot's {@link
+     * is, among the renders, the item's 512-pixel version in the slot's {@link
      * Slot#twin() twin}, mirrored - the left-hand sword is the right-hand
-     * sword seen in a mirror (and from the mirrored direction).
+     * sword seen in a mirror (and from the mirrored direction); else the
+     * style's left-handed version ({@code sword_px128_lh}) when there is one,
+     * drawn as it is; otherwise the twin's, mirrored.
      */
     public record Source(Slot slot, String folder, boolean mirrored) {}
 
     public Source source(Slot slot, String item, Wardrobe.Style style, boolean leftHanded) {
         if (item == null) return null;
         if (!leftHanded) return new Source(slot, styled(slot, item, style), false);
+        Slot twin = slot.twin();
+        // among the renders, the 512-pixel twin in a mirror before any pixel art
+        if (style == Wardrobe.Style.RENDERED && entry(twin, item) != null) return new Source(twin, item, true);
         Wardrobe.Style drawn = drawnIn(slot, item, style);
         if (drawn != Wardrobe.Style.RENDERED && entry(slot, drawn.leftFolder(item)) != null) {
             return new Source(slot, drawn.leftFolder(item), false);
         }
-        Slot twin = slot.twin();
         String folder = styled(twin, item, style);
         if (entry(twin, folder) != null) return new Source(twin, folder, true);
         return new Source(slot, styled(slot, item, style), true);
