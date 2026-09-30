@@ -113,6 +113,9 @@ Drop sprite sheets on the window at any time to import them.
   <img src="docs/screenshots/rendered-middle.png" width="49%" alt="The same outfit from the 45-degree sprites: sun hat, shield and sword">
   <img src="docs/screenshots/pixel-128-walk.png" width="49%" alt="The same outfit as 128-pixel pixel art, walking">
   <img src="docs/screenshots/pixel-64-walk.png" width="49%" alt="The same outfit as 64-pixel pixel art, walking">
+  <img src="docs/screenshots/pixel-128-beanie.png" width="49%" alt="Pixel art: long royal-blue hair under a platinum beanie, the laced shirt, belt, scabbard and a silver necklace">
+  <img src="docs/screenshots/pixel-128-dress.png" width="49%" alt="Pixel art: the laced dress, a short side-parted cut in copper and a honey-blonde skin tone">
+  <img src="docs/screenshots/pixel-128-left-handed.png" width="49%" alt="A left-handed character: the sword in the left hand, the shield on the right arm, attacking">
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
@@ -124,7 +127,7 @@ Drop sprite sheets on the window at any time to import them.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe: 18 cosmetic layers and a live preview">
+  <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe: 23 cosmetic layers with colour swatches, the colour row, style and hand, and a live preview">
   <img src="docs/screenshots/import.png" width="49%" alt="The drag-and-drop importer reviewing 144 sheets">
   <br><sub>Pause → Wardrobe, and the importer after a folder of sheets was dropped on the window.
   (Captured headlessly by a scripted run on a software renderer — hence the red GPU line.)</sub>
@@ -294,7 +297,10 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `teleport`, `pickup`,
 `dropitem`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
-`px64`).
+`px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
+(the body's colour is the skin tone; no option: the item's own colours) and
+`hand` (`auto`, `right`, `left`). Opening the wardrobe saves the outfit to
+`config/wardrobe.json` when it closes, a scripted run included.
 
 ---
 
