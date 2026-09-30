@@ -345,8 +345,9 @@ Engine. Each section is broken up into chunks, or tasks to be done.
 - [x] Create room for cosmetics as sprite-sheet layers over the base character
       sheet — shirts, pants, underwear, bras, shoes, hairs, noses, eyes, mouths,
       ears, earrings, wristwear, gloves, hats, carried items (left and right
-      hand) and "other" — all editable from a generic pause menu — *18 layers
-      under `assets/sprites/`, edited in Pause → Wardrobe*
+      hand) and "other" — all editable from a generic pause menu — *24 layers
+      under `assets/sprites/` (belts, necklaces, a left wrist, sheaths, eyebrows
+      and makeup since), edited in Pause → Wardrobe*
 - [x] Render one pick-up-able item in the scene — *a sword that hovers over its
       shadow and renders in hand when equipped (E / G)*
 - [x] Create a fallback profile for each animation for when the base player
