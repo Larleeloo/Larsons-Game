@@ -19,7 +19,10 @@ import java.util.Map;
  * left blank, as the design asks.
  *
  * <p>The wardrobe also has a {@link Style}: the whole character drawn from the
- * 512-pixel renders, or from the pixel art made of them.
+ * 512-pixel renders, or from the pixel art made of them; a colour per slot
+ * (an option of the item's {@code variants.json} - the body's colour is the
+ * skin tone of every layer); and a {@link Hand}: right- or left-handed, or
+ * whichever hand the sword is in.
  */
 public final class Wardrobe {
 

@@ -17,13 +17,19 @@ assets/sprites/
 ├── bra/             <item>/
 ├── shoes/           <item>/
 ├── pants/           <item>/
-├── shirt/           <item>/
+├── shirt/           <item>/   shirts, and dresses
+├── belt/            <item>/
+├── necklace/        <item>/
 ├── gloves/          <item>/
-├── wristwear/       <item>/
+├── wristwear/       <item>/   on the right wrist
+├── wristwear_left/  <item>/   on the left wrist
+├── sheath/          <item>/   scabbards and the like, worn at the hip
 ├── ears/            <item>/
 ├── earrings/        <item>/
 ├── nose/            <item>/
 ├── eyes/            <item>/
+├── eyebrows/        <item>/
+├── makeup/          <item>/
 ├── mouth/           <item>/
 ├── hair/            <item>/
 ├── hat/             <item>/
@@ -134,8 +140,9 @@ so, bigger pixel art (the 128-pixel sheets below) needs `"pixelArt": true`.
 The layers draw in this order, bottom to top:
 
 ```
-body → underwear → bra → shoes → pants → shirt → gloves → wristwear → ears →
-earrings → nose → eyes → mouth → hair → hat → other → carry_left → carry_right
+body → underwear → bra → shoes → pants → shirt → belt → necklace → gloves →
+wristwear → wristwear_left → sheath → ears → earrings → nose → eyes → eyebrows →
+makeup → mouth → hair → hat → other → carry_left → carry_right
 ```
 
 Two rules make the stack line up from all 24 views:
@@ -153,6 +160,46 @@ Two rules make the stack line up from all 24 views:
 A missing west-facing sheet (`w`, `nw`, `sw`) borrows its east-facing twin,
 mirrored, and vice versa — a set rendered facing only one way still turns.
 Mind that a mirrored sword swaps hands.
+
+## Colours
+
+An item can come in more colours than it was drawn in. A `variants.json` beside
+its sheets lists them; the sheets must then be **palette PNGs** (indexed colour)
+whose palette entries are the item's colour *labels* — entry 0 transparent,
+entry 1 the empty-frame marker, label `i` at entry `i + 2`:
+
+```json
+{"version": 1, "labels": 36, "default": {"own": "brown"},
+ "channels": {
+   "own":  {"labels": [0, 1, 2, 3, 4, 5],
+            "options": {"black": ["#141112", "#231d1e", ...], "royal_blue": [...], ...},
+            "swatch":  {"black": "#231d1e", "royal_blue": "#2b4bb6", ...}},
+   "skin": {"labels": [6, 7, 8, 9, 10, 11], "options": {...}, "swatch": {...}}}}
+```
+
+A **channel** is a set of labels that change colour together: `own` is what the
+slot's colour picks (a shirt's cloth, the lips of a mouth, the hair, the gold of
+an earring), `skin` is skin wherever an item shows it (the body, ears, nose, the
+mouth round the lips) and follows the body's colour, the skin tone. For every
+option the file gives each of the channel's labels a colour, in label order;
+recolouring is swapping those palette entries as the sheet is decoded, so one
+set of sheets draws every colour. Labels in no channel (teeth, a brass buckle)
+never change. `default` is the choice the sheets were drawn in (no entry: the
+item's own colours), and `swatch` the colour a wardrobe shows for an option.
+
+## Left-handed versions
+
+An item folder with `_lh` after its name (`carry_left/sword_px64_lh/`) is the
+same item drawn for a **left-handed** character: the right-handed character in
+a mirror. Its sheets for a direction are the mirror image of the right-handed
+art for the mirrored direction (`e` ↔ `w`, `ne` ↔ `nw`, `se` ↔ `sw`), taken
+from the item's twin on the other side of the body — `carry_left/sword_lh` is
+`carry_right/sword` mirrored, `wristwear/gold_bangle_lh` is
+`wristwear_left/gold_bangle` mirrored, `sheath/sword_left_hip_lh` is
+`sheath/sword_right_hip` mirrored — so an item stays where its name says,
+and a left-handed attack is a mirrored slash with the sword in the left hand.
+A left-handed character draws the `_lh` versions and swaps its hands in the
+draw order. Without an `_lh` version the game mirrors the twin itself.
 
 ## Fallbacks
 
@@ -205,33 +252,63 @@ see the importer and the layer stack at work.
 
 ## The sheets in this folder
 
-Everything here is rendered from the rigged feminine model in
+Everything here is made from the rigged feminine model in
 [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) (`generic_feminine_model/`,
-steps 10-13 of its README): at least one item for every layer - and the model's
-other ears, noses, eyes and mouths as alternatives - all 144 sheets each, at the
-default framing above (no `profile.json`). She is 1.70 m tall. The first item
-of each layer below is the outfit the holdouts were cut against.
+steps 10-14 of its README), all 144 sheets an item, at the default framing
+above. She is 1.70 m tall. The first item of each layer below is the outfit the
+holdouts were cut against.
+
+- **Pixel art**, every item: in 128 x 128 frames (`<item>_px128/`) and 64 x 64
+  frames (`<item>_px64/`), each also left-handed (`<item>_px128_lh/`,
+  `<item>_px64_lh/`, see [Left-handed versions](#left-handed-versions)), with a
+  `profile.json` and a `variants.json` (see [Colours](#colours)). They are
+  cel-shaded palette PNGs with one-pixel line art, all in one palette of 128
+  colours.
+- **512-pixel renders** (`<item>/`, no `profile.json`): the first outfit's
+  items, marked ● below. They were rendered before the pixel art's round of
+  fixes (the briefs' cut, the mantle, the shield, the knees, the sword's
+  clearance) and have the arched brows painted on the body.
 
 | Layer | Item | |
 |---|---|---|
-| body | `feminine` | the base body with brows (nude; the face's cut-outs are capped, so it is whole even with the nose, mouth and eye layers empty) |
-| underwear | `cotton_briefs` | lavender cotton briefs |
-| bra | `leather_bralette` | a lace-up leather bralette |
-| shoes | `leather_ankle_boots` | brown leather ankle boots |
-| pants | `denim_jeans` | jeans, **cloth-simulated** per animation |
-| shirt | `plaid_flannel` | a red plaid flannel shirt, **cloth-simulated** per animation |
-| gloves | `black_leather` | black leather gloves |
-| wristwear | `gold_bangle` | a gold bangle on the right wrist |
-| ears | `round`, `pointed`, `elven` | human ears; half-elf points; long, swept-back elven ears |
-| earrings | `gold_hoops` | gold hoops |
-| nose | `straight`, `button`, `aquiline` | |
-| eyes | `hazel`, `ice_blue`, `amber_slit` | the amber eyes have slit pupils and a faint glow |
-| mouth | `full`, `wide`, `heart` | lips, teeth and tongue |
-| hair | `long_waves_brown` | long brown waves (spring-simulated) |
-| hat | `straw_sun_hat` | a wide-brimmed straw hat with a navy ribbon |
-| other | `wool_mantle` | a short red wool mantle over the shoulders, **cloth-simulated** |
-| carry_left | `round_shield` | a round wooden shield strapped to the left forearm |
-| carry_right | `sword` | a short arming sword - the demo's pick-up sword (`items/sword/icon.png` is its pickup) |
+| body | `feminine` ● | the base body, nude (the face's cut-outs are capped, so it is whole with the nose, mouth and eye layers empty); in the pixel art without brows, which are the eyebrows layer |
+| underwear | `cotton_briefs` ● | lavender cotton briefs |
+| bra | `leather_bralette` ● | a lace-up leather bralette |
+| shoes | `leather_ankle_boots` ● | brown leather ankle boots |
+| pants | `denim_jeans` ● | jeans, **cloth-simulated** per animation |
+| shirt | `plaid_flannel` ●, `laced_shirt`, `laced_dress` | a red plaid flannel shirt; a plain linen shirt, the V at the throat laced with a leather cord; a dress - the laced bodice over a flared wool skirt to mid-calf. All **cloth-simulated** |
+| belt | `leather_belt` | a leather belt with a brass buckle |
+| necklace | `gold_pendant` | a gold chain with a drop pendant |
+| gloves | `black_leather` ● | black leather gloves |
+| wristwear | `gold_bangle` ● | a gold bangle on the right wrist |
+| wristwear_left | `gold_bangle` | the same on the left wrist |
+| sheath | `sword_left_hip`, `sword_right_hip` | a leather scabbard for the sword, hung from the belt on the left or the right hip |
+| ears | `round` ●, `pointed` ●, `elven` ● | human ears; half-elf points; long, swept-back elven ears |
+| earrings | `gold_hoops` ● | gold hoops |
+| nose | `straight` ●, `button` ●, `aquiline` ● | |
+| eyes | `hazel` ●, `ice_blue` ●, `amber_slit` ● | the amber eyes have slit pupils and a faint glow; in the pixel art an eye is coloured whole |
+| eyebrows | `arched`, `soft`, `thin` | |
+| makeup | `noir`, `rose`, `plum` | liner, shadow and lipstick |
+| mouth | `full` ●, `wide` ●, `heart` ● | lips, teeth and tongue |
+| hair | `long_waves` ●, `bob`, `ponytail`, `pixie`, `braids`, `curls`, `crew_cut`, `side_part`, `undercut`, `beanie_long`, `beanie_short` | long waves; a blunt bob with a fringe; a high ponytail; a pixie cut; two plaits; spiral curls; a crew cut; a short side parting; an undercut; long hair and a crew cut for under the beanie. All spring-simulated where they hang free |
+| hat | `straw_sun_hat` ●, `beanie` | a wide-brimmed straw hat with a navy ribbon; a knitted beanie (wear it with `beanie_long` or `beanie_short`) |
+| other | `wool_mantle` ● | a short red wool mantle, **cloth-simulated**, swinging out behind as she runs |
+| carry_left | `round_shield` ●, `sword` | a round wooden shield strapped to the left forearm; the sword in the left hand |
+| carry_right | `sword` ●, `round_shield` | a short arming sword - the demo's pick-up sword (`items/sword/icon.png` is its pickup); the shield on the right forearm |
+
+**Colours.** The pixel art can be recoloured (Pause → Wardrobe: the swatch
+beside the item). The hair, the shirts and dress, jeans, briefs, bralette,
+boots, gloves, beanie and mantle, and the eyes (coloured whole), brows, makeup
+and lips come in the fourteen hair colours - `brown`, `black`, `auburn`,
+`copper`, `honey_blonde`, `platinum`, `cherry_red`, `pink`, `electric_blue`,
+`violet_ombre`, `emerald`, `mint`, `green_ombre` and `royal_blue` (hair keeps
+its roots-to-ends shading, the ombres included); the necklace and earrings in
+`gold` or `silver`, the bangles in those and the hair colours. The body's colour
+is the **skin tone**, in the same fourteen, and every layer that shows skin
+(ears, nose, the mouth round the lips) follows it. Trims keep their own colours
+(laces, soles, the mantle's border, hair ties, teeth), and so do the belt, the
+scabbards, the sun hat, the sword and the shield. Without a pick an item is
+drawn in its own colours, and the hair brown.
 
 **The animations.** Every item has the same frame count per state, so the
 layers stay in step (the game plays one frame index on all of them):
@@ -250,7 +327,9 @@ body for every layer; for the garments the body and, where one tucks into or
 slips under another, that one too (the jeans by the boots, the shirt by the
 jeans, the bangle by the gloves) but nothing worn over them, so swapping a shirt
 for another leaves no holes in the layers above; for hair, hat, other and the
-carried items everything worn under them in the outfit above. A layer that is
+carried items everything worn under them in the outfit above (the beanie is cut
+against `beanie_long`, the hair it goes with, and the laced shirt and dress
+only against the body). A layer that is
 out of sight in some frame (the nose from behind, say) still has that frame, a
 blank cell with one pixel of alpha 1/255 so the sheet keeps its frame count.
 
@@ -259,28 +338,30 @@ one go with a `config/wardrobe.json` beside the game:
 
 ```json
 {"body": "feminine", "underwear": "cotton_briefs", "bra": "leather_bralette",
- "shoes": "leather_ankle_boots", "pants": "denim_jeans", "shirt": "plaid_flannel",
- "gloves": "black_leather", "wristwear": "gold_bangle", "ears": "round",
- "earrings": "gold_hoops", "nose": "straight", "eyes": "hazel", "mouth": "full",
- "hair": "long_waves_brown", "hat": "straw_sun_hat", "other": "wool_mantle",
- "carry_left": "round_shield", "carry_right": "sword"}
+ "shoes": "leather_ankle_boots", "pants": "denim_jeans", "shirt": "laced_shirt",
+ "belt": "leather_belt", "necklace": "gold_pendant", "wristwear_left": "gold_bangle",
+ "sheath": "sword_right_hip", "ears": "round", "earrings": "gold_hoops",
+ "nose": "straight", "eyes": "hazel", "eyebrows": "arched", "mouth": "full",
+ "hair": "beanie_long", "hat": "beanie", "other": "wool_mantle",
+ "carry_left": "sword", "carry_right": "round_shield",
+ "style": "px128", "hand": "left",
+ "colours": {"hair": "royal_blue", "hat": "platinum", "shirt": "honey_blonde",
+             "necklace": "silver", "wristwear_left": "silver"}}
 ```
 
-Leave `carry_right` out to find the sword in the demo and pick it up (E).
+Leave the sword out to find it in the demo and pick it up (E).
 
-**Pixel art.** Every item above is here twice more, drawn as pixel art from the
-same model and animations: in 128 x 128 frames (`<item>_px128/`) and in 64 x 64
-frames (`<item>_px64/`), all 144 sheets each, with the same frame counts and
-framing, cel-shaded in vivid colours with one-pixel line art, and all of them
-together in one palette of 64 colours (they are palette PNGs). How they are made
-is step 14 of the 3D-Modeling README. To wear them, pick a **style** in Pause →
-Wardrobe - *512 px*, *Pixel 128* or *Pixel 64* - which draws every worn item
-from its version in that style (an item without one is drawn as it is); the
-items keep their names, so the lists show each item once. In
-`config/wardrobe.json` it is `"style": "px128"` or `"px64"`, and in a demo
-script `style px64`.
+**Styles.** Pick a **style** in Pause → Wardrobe - *512 px*, *Pixel 128* or
+*Pixel 64* - to draw every worn item from its version in that style: an item
+without one is drawn as it is, and in *512 px* an item that is only pixel art
+is drawn from its 128-pixel version. The items keep their names, so the lists
+show each item once. In `config/wardrobe.json` it is `"style": "px128"` or
+`"px64"` (leave it out for the renders), `"hand": "left"` / `"right"` (leave it
+out for the hand the sword is in) and `"colours"` by layer; in a demo script
+`style px64`, `hand left`, `wear hat beanie` and `colour hair royal_blue`. How
+the pixel art is made is step 14 of the 3D-Modeling README.
 
-The whole outfit fits the default budget at full size. With every layer's
+The first outfit fits the default budget at full size. With every layer's
 sheets for the view on screen loaded, plus that view's other five states and
 the two neighbouring directions, the HUD's Sprites line settles at "162 sheets
 resident (422 MB) · 0 loading"; as whole 512-pixel frames the same sheets would

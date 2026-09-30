@@ -79,27 +79,35 @@ Drop sprite sheets on the window at any time to import them.
   drawing, and a gauge at the top right shows the camera's angle against the
   three height zones.
 - **A sword** hovering over its shadow nearby. Walk up, press **E**, and it is
-  in the character's right hand — its own sprite layer, playing frame for frame
-  with the body. **G** puts it down again.
+  in the character's weapon hand — its own sprite layer, playing frame for
+  frame with the body. **G** puts it down again. A left-handed character
+  (Pause → Wardrobe → Hand) takes it in the left hand and fights left-handed.
 - **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
   geometry, depth-tested against the sprites so the character can walk behind a
   tree.
-- **A pause menu** with the **Wardrobe**: all 18 cosmetic layers, each cycling
-  through the items found for it on disk, with a live preview you can turn
-  through the eight directions, tip through the three heights and play in every
-  state.
+- **A pause menu** with the **Wardrobe**: all 23 cosmetic layers, each cycling
+  through the items found for it on disk and, for the pixel-art items, through
+  the colours they come in (swatches beside the item; the body's colour is the
+  skin tone of every layer), plus the drawing style and the hand - with a live
+  preview you can turn through the eight directions, tip through the three
+  heights and play in every state.
 - **Drag-and-drop importing** of sprite sheets into the repository.
 - **A rendered character** in `assets/sprites/`: the rigged feminine model from
-  [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) with an item for every
-  one of the 18 layers — body, briefs, bralette, boots, jeans, flannel shirt,
-  gloves, bangle, ears, hoop earrings, nose, eyes, mouth, long hair, sun hat,
-  mantle, shield and the sword — each in all six states from all 24 views, the
-  jeans, shirt and mantle cloth-simulated per animation. Put them on in the
+  [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) with 52 items for the
+  24 layers — eleven haircuts, three shirts (flannel, a laced linen shirt, a
+  laced dress), jeans, briefs, bralette, boots, gloves, a belt, a necklace,
+  bangles on either wrist, scabbards on either hip, a sun hat and a beanie, a
+  mantle, a sword and a shield for either hand, and the face's ears, noses,
+  eyes, eyebrows, makeup and mouths — each in all six states from all 24 views,
+  the clothes and mantle cloth-simulated per animation. They are **pixel art**,
+  in 128- and 64-pixel frames in one 128-colour palette, right- and
+  left-handed, and every one can be recoloured: fourteen hair colours (royal
+  blue among them) for the hair, the clothes, the eyes, lips, brows and makeup
+  and the skin, gold or silver for the jewellery. The first outfit's 26 items
+  are also 512-pixel renders; Pause → Wardrobe → Style switches the whole
+  character between the renders and the two pixel sizes. Put them on in the
   Wardrobe (or see [the list](assets/sprites/README.md#the-sheets-in-this-folder)
-  for a ready-made `config/wardrobe.json`). Every item also comes as **pixel
-  art**, in 128- and 64-pixel frames in one 64-colour palette: Pause → Wardrobe
-  → Style switches the whole character between the renders and the two pixel
-  sizes.
+  for a ready-made `config/wardrobe.json`).
 
   <img src="docs/screenshots/rendered-walk.png" width="49%" alt="The rendered character in the full outfit - all 18 layers - walking in the demo">
   <img src="docs/screenshots/rendered-middle.png" width="49%" alt="The same outfit from the 45-degree sprites: sun hat, shield and sword">
@@ -143,13 +151,18 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
 - **Frames.** 512 × 512, 30 fps, any count per state, left to right then top to
   bottom.
 - **Layers** draw in a fixed order — body, underwear, bra, shoes, pants, shirt,
-  gloves, wristwear, ears, earrings, nose, eyes, mouth, hair, hat, other, left
-  hand, right hand — every one on the body's frame index. Each is rendered in
+  belt, necklace, gloves, right and left wrist, sheath, ears, earrings, nose,
+  eyes, eyebrows, makeup, mouth, hair, hat, other, left hand, right hand (the
+  hands swap for a left-handed character) — every one on the body's frame
+  index. Each is rendered in
   Blender with the body as a **holdout**, so the sword is already cut away where
   the hand grips it and the game only has to draw layers on top of each other.
 - **Placement.** Each frame is a camera-facing card placed so the feet in the
   picture land on the character's spot on the ground — the feet stay on the
   shadow from every angle and every zoom.
+- **Colours.** An item with a `variants.json` can be drawn in any of the
+  colours it lists: its sheets are palette PNGs, and a colour is a swap of
+  palette entries as they decode — one set of sheets for every colour.
 - **Fallbacks.** No body sheet for a view → the generated 32-pixel body for that
   view. No cosmetic sheet → that layer is left blank. A missing west-facing view
   borrows the east-facing one mirrored.

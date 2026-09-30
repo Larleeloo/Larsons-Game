@@ -231,11 +231,25 @@ public final class SpriteLibrary implements AutoCloseable {
     /**
      * The folder to draw {@code item} from in {@code style}: its version in
      * that style when there is one ({@code straw_sun_hat_px64}), else itself.
+     * An item that exists only as pixel art ({@code beanie_px128} but no
+     * {@code beanie}) is drawn from its 128-pixel version in the rendered
+     * style.
      */
     public String styled(Slot slot, String item, Wardrobe.Style style) {
-        if (item == null || style == Wardrobe.Style.RENDERED) return item;
+        if (item == null) return null;
+        style = drawnIn(slot, item, style);
+        if (style == Wardrobe.Style.RENDERED) return item;
         String version = style.folder(item);
         return entry(slot, version) != null ? version : item;
+    }
+
+    /** The style {@code item} is drawn in when {@code style} is asked for (see {@link #styled}). */
+    private Wardrobe.Style drawnIn(Slot slot, String item, Wardrobe.Style style) {
+        if (style == Wardrobe.Style.RENDERED && entry(slot, item) == null
+                && entry(slot, Wardrobe.Style.PIXEL_128.folder(item)) != null) {
+            return Wardrobe.Style.PIXEL_128;
+        }
+        return style;
     }
 
     /**
@@ -251,8 +265,9 @@ public final class SpriteLibrary implements AutoCloseable {
     public Source source(Slot slot, String item, Wardrobe.Style style, boolean leftHanded) {
         if (item == null) return null;
         if (!leftHanded) return new Source(slot, styled(slot, item, style), false);
-        if (style != Wardrobe.Style.RENDERED && entry(slot, style.leftFolder(item)) != null) {
-            return new Source(slot, style.leftFolder(item), false);
+        Wardrobe.Style drawn = drawnIn(slot, item, style);
+        if (drawn != Wardrobe.Style.RENDERED && entry(slot, drawn.leftFolder(item)) != null) {
+            return new Source(slot, drawn.leftFolder(item), false);
         }
         Slot twin = slot.twin();
         String folder = styled(twin, item, style);

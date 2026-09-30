@@ -214,6 +214,18 @@ class SpriteLibraryTest {
     }
 
     @Test
+    void anItemThatIsOnlyPixelArtIsDrawnFromItsBiggerVersionInTheRenderedStyle() throws Exception {
+        png("hat/beanie_px128/walk_side_e.png");
+        png("hat/beanie_px64/walk_side_e.png");
+        png("hat/beanie_px128_lh/walk_side_e.png");
+        lib = new SpriteLibrary(root, 1L << 30, 1.0);
+        assertEquals("beanie_px128", lib.styled(Slot.HAT, "beanie", Wardrobe.Style.RENDERED));
+        assertEquals("beanie_px64", lib.styled(Slot.HAT, "beanie", Wardrobe.Style.PIXEL_64));
+        assertEquals(new SpriteLibrary.Source(Slot.HAT, "beanie_px128_lh", false),
+                lib.source(Slot.HAT, "beanie", Wardrobe.Style.RENDERED, true));
+    }
+
+    @Test
     void rescanPicksUpNewFolders() throws Exception {
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         int before = lib.generation();

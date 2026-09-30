@@ -24,8 +24,17 @@ import java.util.List;
  *       with the body's frame count; if one is not, its frame is scaled
  *       proportionally so it still starts and ends with the body.</li>
  *   <li>A cosmetic with no sheet for this view is not drawn. The one
- *       exception is the sword in the right hand, which has a generated
+ *       exception is the sword in the weapon hand, which has a generated
  *       fallback that matches the fallback body frame for frame.</li>
+ *   <li>Each layer is drawn in the colours the wardrobe picked for its slot
+ *       (and the skin tone, wherever it shows skin): a palette swap of its
+ *       pixel-art sheets from the item's {@code variants.json}
+ *       ({@link Variants}), so one set of sheets draws every colour.</li>
+ *   <li>A left-handed character draws the {@code _lh} version of every item
+ *       (the right-handed art mirrored, from the mirrored direction), and its
+ *       hands swap in the draw order ({@link #drawOrder}); where an item has
+ *       no {@code _lh} version, its right-handed twin slot's art is mirrored
+ *       instead.</li>
  *   <li>While any layer's sheet is still decoding, the whole previous stack is
  *       held, so nothing blinks and no layer is ever out of step with the
  *       body.</li>

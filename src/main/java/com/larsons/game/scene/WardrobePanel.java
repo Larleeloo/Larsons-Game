@@ -25,7 +25,9 @@ import java.util.Locale;
  *
  * <p>A style row switches the whole character between the 512-pixel renders
  * and the pixel art made of them ({@link Wardrobe.Style}); the items' versions
- * in a style are not listed as items of their own. An item with a colour
+ * in a style are not listed as items of their own, and an item that is only
+ * pixel art is drawn from its 128-pixel version among the renders (marked
+ * "(pixel art)"). An item with a colour
  * choice in the style (its {@code variants.json}) shows a swatch beside it:
  * click the swatch (or the layer's name) and pick the colour in the colour
  * row - for the base body that is the skin tone, which every item showing
@@ -108,7 +110,10 @@ final class WardrobePanel {
             String current = wardrobe.get(slot);
             int idx = Math.max(0, opts.indexOf(current));
             boolean missing = current != null && !opts.contains(current);
-            boolean hasArt = current == null || lib.entry(slot, lib.styled(slot, current, style)) != null;
+            String folder = current == null ? null : lib.styled(slot, current, style);
+            boolean hasArt = current == null || lib.entry(slot, folder) != null;
+            // an item that is only pixel art is drawn from it among the renders
+            boolean asPixels = hasArt && current != null && style == Wardrobe.Style.RENDERED && !current.equals(folder);
 
             String name = slot == Slot.BODY ? "Base body · skin" : slot.label();
             if (ui.clicked(cx, cy, colW, 16)) focus = slot;
@@ -120,7 +125,8 @@ final class WardrobePanel {
             }
             List<String> colours = current == null ? List.of() : lib.colourOptions(slot, current, style);
             float swW = colours.isEmpty() ? 0 : 24;
-            String text = missing ? current + " (missing)" : !hasArt ? current + " (pixel art)" : label(slot, current);
+            String text = missing ? current + " (missing)" : !hasArt ? current + " (no art)"
+                    : asPixels ? label(slot, current) + " (pixel art)" : label(slot, current);
             float[] c = missing || !hasArt ? Theme.WARNING : current == null ? Theme.ITEM_DISABLED : Theme.ITEM_SELECTED;
             ui.text(ui.body, fit(ui, text, colW - 60 - swW), cx + 28, cy + 18, c);
             if (ui.button(">", cx + colW - 26 - swW, cy + 18, 22, 20, false, any)) {

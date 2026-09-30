@@ -82,8 +82,8 @@ class VariantsTest {
         w.set(Slot.SHIRT, "tunic");
         assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", w.style()));
         assertEquals(0x1020a0, lib.swatch(Slot.SHIRT, "tunic", w.style(), "royal_blue"));
-        assertTrue(lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.RENDERED).isEmpty(),
-                "no 512-pixel version, no colours");
+        assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.RENDERED),
+                "no 512-pixel version: the rendered style draws the 128-pixel one, in its colours");
         SpriteLibrary.Source src = lib.source(Slot.SHIRT, "tunic", w.style(), false);
         assertNull(lib.recolor(src, Slot.SHIRT, w));
         w.setColour(Slot.SHIRT, "black");
