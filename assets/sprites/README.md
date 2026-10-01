@@ -273,7 +273,8 @@ holdouts were cut against.
   colours.
 - **512-pixel renders** (`<item>/`, no `profile.json`): the first outfit's
   items, marked ● below. They were rendered before the pixel art's round of
-  fixes (the briefs' cut, the mantle, the shield, the knees, the sword's
+  fixes (the briefs' cut, the mantle - still the short one there, cut against
+  the long waves and the sun hat - the shield, the knees, the sword's
   clearance) and have the arched brows painted on the body.
 
 | Layer | Item | |
