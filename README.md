@@ -97,6 +97,9 @@ Drop sprite sheets on the window at any time to import them.
   in any colour, with lines that type themselves out, colours that fade
   mid-sentence and warm and cold light. **Cutscene** in the menu plays it
   full screen. See [Cutscenes](#cutscenes).
+
+  <img src="docs/screenshots/main-menu.png" width="49%" alt="The main menu: the player's own character - long waves, straw sun hat, leather gloves - explaining to Bryn behind it">
+  <img src="docs/screenshots/cutscene.png" width="49%" alt="The cutscene full screen: the player's hair fading to pink mid-line while Bryn talks, both close up in 128-pixel pixel art">
 - **Drag-and-drop importing** of sprite sheets into the repository.
 - **A rendered character** in `assets/sprites/`: the rigged feminine model from
   [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) with 52 items for the
