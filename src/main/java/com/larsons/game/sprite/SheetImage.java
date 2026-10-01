@@ -3,6 +3,9 @@ package com.larsons.game.sprite;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.IndexColorModel;
+import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +30,13 @@ import java.util.List;
  * assets/sprites/} takes under a tenth of the video memory it did as whole
  * frames.
  *
+ * <p><b>Palette sheets stay palettes.</b> The pixel art is drawn as palette
+ * PNGs whose entries are an item's colour labels ({@link Variants}). Such a
+ * sheet is repacked as its palette indices ({@link #indexed()}, one byte a
+ * texel, never resampled but by nearest neighbour) with its palette beside
+ * them ({@link #palette()}): the GPU colours it at draw time, in whatever
+ * colours the layer is worn in.
+ *
  * <p>Pure CPU and thread-safe to build — the library decodes sheets on worker
  * threads so a 512-pixel sheet never costs the render thread a frame.
  */
@@ -47,6 +57,8 @@ public final class SheetImage {
     static final int ALIGN = 8;
 
     private final BufferedImage atlas;
+    private final byte[] indices;
+    private final int[] palette;
     private final int frameWidth;
     private final int frameHeight;
     private final int frameCount;
@@ -58,7 +70,16 @@ public final class SheetImage {
     private SheetImage(BufferedImage atlas, int frameWidth, int frameHeight, int frameCount,
                        int columns, boolean pixelArt, int sourceWidth, int sourceHeight,
                        int[] crop) {
+        this(atlas, null, null, frameWidth, frameHeight, frameCount, columns, pixelArt, sourceWidth,
+                sourceHeight, crop);
+    }
+
+    private SheetImage(BufferedImage atlas, byte[] indices, int[] palette, int frameWidth, int frameHeight,
+                       int frameCount, int columns, boolean pixelArt, int sourceWidth, int sourceHeight,
+                       int[] crop) {
         this.atlas = atlas;
+        this.indices = indices;
+        this.palette = palette;
         this.frameWidth = frameWidth;
         this.frameHeight = frameHeight;
         this.frameCount = frameCount;
@@ -73,6 +94,18 @@ public final class SheetImage {
     }
 
     public BufferedImage atlas() { return atlas; }
+
+    /** Whether the atlas holds palette indices ({@link #indices()}, {@link #palette()}). */
+    public boolean indexed() { return indices != null; }
+
+    /** The atlas's palette indices, one a texel, row major; null unless {@link #indexed()}. */
+    public byte[] indices() { return indices; }
+
+    /**
+     * The sheet's own palette, straight ARGB, 256 entries (index {@code i} is
+     * entry {@code i}); null unless {@link #indexed()}.
+     */
+    public int[] palette() { return palette == null ? null : palette.clone(); }
 
     /** Width of one frame's cell in the atlas: the cropped frame, after scaling. */
     public int frameWidth() { return frameWidth; }
@@ -203,6 +236,9 @@ public final class SheetImage {
      */
     public static SheetImage decode(BufferedImage sheet, int expectedW, int expectedH,
                                     double scale, int maxTexture, boolean pixelArt) {
+        if (pixelArt && sheet.getColorModel() instanceof IndexColorModel icm) {
+            return decodeIndexed(sheet, icm, expectedW, expectedH, maxTexture);
+        }
         int[] size = frameSize(sheet.getWidth(), sheet.getHeight(), expectedW, expectedH);
         List<BufferedImage> frames = slice(sheet, size[0], size[1]);
         int[] content = contentBox(frames);
@@ -282,6 +318,70 @@ public final class SheetImage {
         g.drawImage(src, 0, 0, w, h, null);
         g.dispose();
         return out;
+    }
+
+    /**
+     * {@link #decode} for a palette sheet: the same slicing, cropping and
+     * packing, on its palette indices.
+     */
+    private static SheetImage decodeIndexed(BufferedImage sheet, IndexColorModel icm, int expectedW,
+                                            int expectedH, int maxTexture) {
+        int[] size = frameSize(sheet.getWidth(), sheet.getHeight(), expectedW, expectedH);
+        List<BufferedImage> frames = slice(sheet, size[0], size[1]);
+        int[] content = contentBox(frames);
+        int[] crop = content == null ? new int[]{0, 0, 1, 1}
+                : cropBox(content, GUTTER, size[0], size[1]);
+        int n = frames.size(), w = crop[2], h = crop[3];
+        int[] palette = new int[256];
+        int[] rgbs = new int[icm.getMapSize()];
+        icm.getRGBs(rgbs);
+        System.arraycopy(rgbs, 0, palette, 0, Math.min(256, rgbs.length));
+        if (content == null) {
+            // nothing visible in any frame: one transparent texel a frame
+            crop = new int[]{0, 0, 0, 0};
+            w = h = 1;
+        }
+        double s = 1.0;
+        int fw, fh, cols, rows;
+        while (true) {
+            fw = Math.max(1, (int) Math.round(w * s));
+            fh = Math.max(1, (int) Math.round(h * s));
+            cols = Math.max(1, (int) Math.ceil(Math.sqrt(n * (double) fh / fw)));
+            cols = Math.min(cols, Math.max(1, maxTexture / fw));
+            rows = (int) Math.ceil(n / (double) cols);
+            if ((long) rows * fh <= maxTexture && (long) cols * fw <= maxTexture) break;
+            s *= 0.75; // does not fit even packed: shrink rather than fail
+        }
+        int aw = cols * fw, ah = rows * fh;
+        byte[] out = new byte[aw * ah];
+        int transparent = transparentIndex(palette);
+        if (transparent != 0) java.util.Arrays.fill(out, (byte) transparent);
+        if (content != null) {
+            int[] src = new int[w * h];
+            for (int i = 0; i < n; i++) {
+                Raster r = frames.get(i).getRaster();
+                r.getPixels(crop[0], crop[1], w, h, src);
+                int ox = (i % cols) * fw, oy = (i / cols) * fh;
+                for (int y = 0; y < fh; y++) {
+                    int sy = fw == w && fh == h ? y : Math.min(h - 1, (int) ((y + 0.5) * h / fh));
+                    for (int x = 0; x < fw; x++) {
+                        int sx = fw == w ? x : Math.min(w - 1, (int) ((x + 0.5) * w / fw));
+                        out[(oy + y) * aw + ox + x] = (byte) src[sy * w + sx];
+                    }
+                }
+            }
+        }
+        IndexColorModel model = new IndexColorModel(8, 256, palette, 0, true, -1, DataBufferByte.TYPE_BYTE);
+        WritableRaster raster = Raster.createInterleavedRaster(new DataBufferByte(out, out.length), aw, ah, aw,
+                1, new int[]{0}, null);
+        BufferedImage atlas = new BufferedImage(model, raster, false, null);
+        return new SheetImage(atlas, out, palette, fw, fh, n, cols, true, size[0], size[1], crop);
+    }
+
+    /** The first fully transparent palette entry (0 by convention), for empty texels. */
+    private static int transparentIndex(int[] palette) {
+        for (int i = 0; i < palette.length; i++) if ((palette[i] >>> 24) == 0) return i;
+        return 0;
     }
 
     /** A sheet from frames already at their final size (the fallback generator). */

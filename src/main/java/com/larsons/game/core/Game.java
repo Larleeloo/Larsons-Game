@@ -6,6 +6,7 @@ import com.larsons.game.gfx.Window;
 import com.larsons.game.input.Input;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
+import com.larsons.game.cutscene.CloseupLibrary;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.ImportPanel;
@@ -46,6 +47,7 @@ public final class Game implements AutoCloseable {
     private final Batch batch;
     private final Ui ui;
     private final SpriteLibrary sprites;
+    private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
     private final Props props;
     private final WorldRenderer worldRenderer;
@@ -83,6 +85,7 @@ public final class Game implements AutoCloseable {
         sprites = new SpriteLibrary(settings.spritesDir(), settings.vramBytes, settings.spriteScale);
         sprites.setMaxTexture(Math.min(gpu.maxTexture(), 16384));
         sprites.warmFallbacks();
+        closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
         voidRenderer = new VoidRenderer();
         props = new Props();
         worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites);
@@ -174,6 +177,7 @@ public final class Game implements AutoCloseable {
     public void switchTo(String name) {
         Scene next = switch (name.trim().toLowerCase()) {
             case "demo" -> new DemoScene(this);
+            case "cutscene" -> new com.larsons.game.scene.CutsceneScene(this);
             default -> new MainMenuScene(this);
         };
         if (scene != null) scene.exit();
@@ -219,6 +223,12 @@ public final class Game implements AutoCloseable {
     public Batch batch() { return batch; }
 
     public SpriteLibrary sprites() { return sprites; }
+
+    /** The cutscene close-ups (assets/closeups/), drawn through {@link #sprites()}. */
+    public CloseupLibrary closeups() { return closeups; }
+
+    /** The main menu's cutscene script. */
+    public java.nio.file.Path menuCutscene() { return settings.assets.resolve("cutscenes").resolve("menu.cut"); }
 
     public WorldRenderer worldRenderer() { return worldRenderer; }
 

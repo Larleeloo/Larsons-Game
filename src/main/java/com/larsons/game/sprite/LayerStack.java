@@ -29,7 +29,9 @@ import java.util.List;
  *   <li>Each layer is drawn in the colours the wardrobe picked for its slot
  *       (and the skin tone, wherever it shows skin): a palette swap of its
  *       pixel-art sheets from the item's {@code variants.json}
- *       ({@link Variants}), so one set of sheets draws every colour.</li>
+ *       ({@link Variants}), made on the GPU as the layer is drawn
+ *       ({@link Layer#palette()}), so one set of sheets - one texture - draws
+ *       every colour.</li>
  *   <li>A left-handed character draws the {@code _lh} version of every item
  *       (the right-handed art mirrored, from the mirrored direction), and its
  *       hands swap in the draw order ({@link #drawOrder}); where an item has
@@ -45,8 +47,22 @@ public final class LayerStack {
     /** The item name whose missing right-hand sheets fall back to the generated sword. */
     public static final String FALLBACK_SWORD = "sword";
 
-    /** One layer to draw: a frame of a sheet, possibly mirrored. */
-    public record Layer(Slot slot, String item, SheetTexture sheet, int frame, boolean mirrored) {}
+    /**
+     * One layer to draw: a frame of a sheet, possibly mirrored, and the
+     * palette its pixel art is coloured from (straight ARGB; null for an RGBA
+     * sheet, drawn as it is).
+     */
+    public record Layer(Slot slot, String item, SheetTexture sheet, int frame, boolean mirrored, int[] palette) {
+
+        public Layer(Slot slot, String item, SheetTexture sheet, int frame, boolean mirrored) {
+            this(slot, item, sheet, frame, mirrored, sheet == null ? null : sheet.palette());
+        }
+
+        /** This layer in other colours (null: the sheet's own). */
+        public Layer withPalette(int[] p) {
+            return new Layer(slot, item, sheet, frame, mirrored, p);
+        }
+    }
 
     /**
      * The whole stack for one frame.
@@ -95,7 +111,7 @@ public final class LayerStack {
      *       and hat - long hair falls over it - and the hands.</li>
      * </ul>
      */
-    static Slot[] drawOrder(boolean leftHanded, Elevation elevation, Facing facing) {
+    public static Slot[] drawOrder(boolean leftHanded, Elevation elevation, Facing facing) {
         List<Slot> order = new ArrayList<>(List.of(Slot.values()));
         order.remove(Slot.OTHER);
         order.add(facesCamera(elevation, facing) ? 0 : order.indexOf(Slot.HAIR), Slot.OTHER);
@@ -150,7 +166,7 @@ public final class LayerStack {
         // on nothing else.
         if (!missing) {
             for (Want w : wants) {
-                if (w.file() != null) prefetch(lib, w.source(), w.file().recolor(), state, elev, facing);
+                if (w.file() != null) prefetch(lib, w.source(), state, elev, facing);
             }
         }
         if (missing && memory.last != null && usable(memory.last)) {
@@ -186,14 +202,19 @@ public final class LayerStack {
         // --- every layer in draw order, the body where it falls in it --------------
         for (Slot slot : order) {
             if (slot == Slot.BODY) {
-                layers.add(new Layer(Slot.BODY, bodyWant == null ? null : bodyWant.item(), body, frame, mirrored));
+                Layer bodyLayer = new Layer(Slot.BODY, bodyWant == null ? null : bodyWant.item(), body, frame, mirrored);
+                if (bodyWant != null && bodyWant.sheet() == body) {
+                    bodyLayer = bodyLayer.withPalette(Variants.recolored(body.palette(), bodyWant.file().recolor()));
+                }
+                layers.add(bodyLayer);
                 continue;
             }
             Want w = wanted.get(slot);
             if (w == null) continue;
             if (w.sheet() != null) {
                 layers.add(new Layer(w.slot(), w.item(), w.sheet(),
-                        mapFrame(frame, frames, w.sheet().frameCount()), w.file().mirrored()));
+                        mapFrame(frame, frames, w.sheet().frameCount()), w.file().mirrored(),
+                        Variants.recolored(w.sheet().palette(), w.file().recolor())));
             } else if (w.file() == null && w.slot() == (left ? Slot.CARRY_LEFT : Slot.CARRY_RIGHT)
                     && fallbackBody && FALLBACK_SWORD.equals(w.item())) {
                 layers.add(new Layer(w.slot(), w.item(),
@@ -248,17 +269,13 @@ public final class LayerStack {
      * takes them while the memory budget has room (see {@link
      * SpriteLibrary#prefetch}).
      */
-    private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src, Variants.Recolor colours,
+    private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src,
                                  AnimState state, Elevation elev, Facing facing) {
         for (AnimState other : AnimState.values()) {
-            if (other != state) lib.prefetch(recoloured(lib.resolve(src, other, elev, facing), colours));
+            if (other != state) lib.prefetch(lib.resolve(src, other, elev, facing));
         }
-        lib.prefetch(recoloured(lib.resolve(src, state, elev, facing.clockwise()), colours));
-        lib.prefetch(recoloured(lib.resolve(src, state, elev, facing.counterClockwise()), colours));
-    }
-
-    private static SpriteLibrary.Resolved recoloured(SpriteLibrary.Resolved r, Variants.Recolor c) {
-        return r == null ? null : r.withRecolor(c);
+        lib.prefetch(lib.resolve(src, state, elev, facing.clockwise()));
+        lib.prefetch(lib.resolve(src, state, elev, facing.counterClockwise()));
     }
 
     // --- drawing ---------------------------------------------------------------------
@@ -295,7 +312,7 @@ public final class LayerStack {
                     card[0], card[1], card[2], card[3],
                     Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]),
                     Math.max(uv[0], uv[2]), Math.max(uv[1], uv[3]),
-                    1, 1, 1, alpha);
+                    1, 1, 1, alpha, batch.palette(l.sheet().indexed() ? l.palette() : null));
         }
     }
 
@@ -331,7 +348,8 @@ public final class LayerStack {
             float[] uv = l.sheet().uv(l.frame(), l.mirrored());
             batch.rect(l.sheet().texture(), x + (float) region[0] * w, y + (float) region[1] * h,
                     (float) (region[2] - region[0]) * w, (float) (region[3] - region[1]) * h,
-                    uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1);
+                    uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1,
+                    batch.palette(l.sheet().indexed() ? l.palette() : null));
         }
     }
 }

@@ -98,6 +98,9 @@ public final class SpriteProfile {
     /** How far above the feet the render camera was aimed, in metres. */
     public double pivotHeight() { return pivotHeight; }
 
+    /** Playback rate of sheets with no rate of their own state's (a cutscene's clips). */
+    public double fps() { return fps; }
+
     /** Playback rate for one state's sheets. */
     public double fps(AnimState state) {
         return stateFps.getOrDefault(state, fps);
