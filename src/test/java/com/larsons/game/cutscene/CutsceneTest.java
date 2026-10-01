@@ -56,6 +56,19 @@ class CutsceneTest {
     }
 
     @Test
+    void windowsLineEndingsReadTheSame() throws Exception {
+        // git on Windows checks the scripts out with \r\n line endings
+        String script = Files.readString(Path.of("assets/cutscenes/menu.cut"), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n").replace("\n", "\r\n");
+        Wardrobe mine = player();
+        Cutscene cs = Cutscene.parse(script, () -> mine);
+        assertEquals(List.of("you", "bryn"), cs.actors().stream().map(Actor::id).toList());
+        assertEquals(List.of("colour", "you", "hair", "#3b7fe8", "1.2"),
+                Cutscene.tokens("colour you hair #3b7fe8 1.2\r"));
+        assertEquals(List.of("tint", "all", "#ffb070"), Cutscene.tokens("tint all #ffb070\r"));
+    }
+
+    @Test
     void sayPlaysItsClipForTheLineAndTheOthersListen() {
         Cutscene cs = Cutscene.parse("""
                 actor a "Ada" body=feminine

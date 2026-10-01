@@ -88,7 +88,7 @@ public final class Cutscene {
      */
     public static Cutscene parse(String script, Supplier<Wardrobe> player) {
         Cutscene cs = new Cutscene(player);
-        String[] lines = script.split("\n");
+        String[] lines = script.split("\\R");      // \n, or \r\n as git on Windows checks it out
         for (int i = 0; i < lines.length; i++) {
             String raw = lines[i];
             List<String> t = tokens(raw);
@@ -348,7 +348,7 @@ public final class Cutscene {
                 cur.setLength(0);
                 cur.append(c);
                 quoted = true;
-            } else if (c == '#' && cur.isEmpty() && !line.substring(i).matches("#[0-9a-fA-F]{6}(\\s.*)?")) {
+            } else if (c == '#' && cur.isEmpty() && !colourAt(line, i)) {
                 break;                 // a comment; a word that is a colour (#rrggbb) is not one
             } else if (Character.isWhitespace(c)) {
                 if (!cur.isEmpty()) out.add(cur.toString());
@@ -360,6 +360,16 @@ public final class Cutscene {
         if (quoted) throw new IllegalArgumentException("unclosed quote");
         if (!cur.isEmpty()) out.add(cur.toString());
         return out;
+    }
+
+    /** Whether a {@code #rrggbb} colour - a word, not a comment - starts at {@code i} of the line. */
+    private static boolean colourAt(String line, int i) {
+        int end = i + 7;
+        if (end > line.length() || (end < line.length() && !Character.isWhitespace(line.charAt(end)))) return false;
+        for (int j = i + 1; j < end; j++) {
+            if (Character.digit(line.charAt(j), 16) < 0) return false;
+        }
+        return true;
     }
 
 }
