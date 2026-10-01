@@ -97,9 +97,10 @@ Drop sprite sheets on the window at any time to import them.
   24 layers — eleven haircuts, three shirts (flannel, a laced linen shirt, a
   laced dress), jeans, briefs, bralette, boots, gloves, a belt, a necklace,
   bangles on either wrist, scabbards on either hip, a sun hat and a beanie, a
-  long mantle (a cape to the ankles), a sword and a shield for either hand, and the face's ears, noses,
-  eyes, eyebrows, makeup and mouths — each in all six states from all 24 views,
-  the clothes and mantle cloth-simulated per animation. They are **pixel art**,
+  long mantle (a cape to the ankles), a sword and a shield for either hand,
+  and the face's ears, noses, eyes, eyebrows, makeup and mouths — each in all
+  six states from all 24 views, the clothes and mantle cloth-simulated per
+  animation. They are **pixel art**,
   in 128- and 64-pixel frames in one 128-colour palette, right- and
   left-handed, and every one can be recoloured: fourteen hair colours (royal
   blue among them) for the hair, the clothes, the eyes, lips, brows and makeup
