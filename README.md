@@ -156,7 +156,8 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
 - **Layers** draw in a fixed order — body, underwear, bra, shoes, pants, shirt,
   belt, necklace, gloves, right and left wrist, sheath, ears, earrings, nose,
   eyes, eyebrows, makeup, mouth, hair, hat, other, left hand, right hand (the
-  hands swap for a left-handed character) — every one on the body's frame
+  hands swap for a left-handed character; the cape draws first when she faces
+  the camera and just under the hair otherwise) — every one on the body's frame
   index. Each is rendered in
   Blender with the body as a **holdout**, so the sword is already cut away where
   the hand grips it and the game only has to draw layers on top of each other.

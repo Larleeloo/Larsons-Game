@@ -127,10 +127,33 @@ class VariantsTest {
         assertFalse(w.leftHanded(), "a sword in each hand: right-handed");
         w.setHand(Wardrobe.Hand.LEFT);
         assertTrue(w.leftHanded());
-        Slot[] order = LayerStack.drawOrder(true);
+        Slot[] order = LayerStack.drawOrder(true, Elevation.SIDE, Facing.NORTH);
         assertTrue(indexOf(order, Slot.CARRY_RIGHT) < indexOf(order, Slot.CARRY_LEFT),
                 "left-handed, the left hand is drawn last");
         assertEquals(Slot.values().length, order.length);
+    }
+
+    @Test
+    void aCapeIsUnderEverythingFromTheFrontAndOverTheClothesFromBehind() {
+        for (Facing f : new Facing[] {Facing.SOUTH, Facing.SOUTH_EAST, Facing.SOUTH_WEST}) {
+            for (Elevation e : new Elevation[] {Elevation.SIDE, Elevation.MIDDLE}) {
+                Slot[] order = LayerStack.drawOrder(false, e, f);
+                assertEquals(Slot.OTHER, order[0], "facing the camera: behind the body and all");
+                assertEquals(Slot.values().length, order.length);
+            }
+        }
+        for (Facing f : new Facing[] {Facing.NORTH, Facing.EAST, Facing.WEST, Facing.NORTH_WEST}) {
+            Slot[] order = LayerStack.drawOrder(false, Elevation.SIDE, f);
+            int cape = indexOf(order, Slot.OTHER);
+            for (Slot s : new Slot[] {Slot.BODY, Slot.SHIRT, Slot.PANTS, Slot.SHEATH, Slot.MOUTH}) {
+                assertTrue(indexOf(order, s) < cape, s + " is under the cape from behind");
+            }
+            for (Slot s : new Slot[] {Slot.HAIR, Slot.HAT, Slot.CARRY_LEFT, Slot.CARRY_RIGHT}) {
+                assertTrue(indexOf(order, s) > cape, s + " is over the cape");
+            }
+        }
+        assertTrue(indexOf(LayerStack.drawOrder(false, Elevation.TOP, Facing.SOUTH), Slot.OTHER) > 0,
+                "from above the cape is on the back, over the clothes");
     }
 
     private static int indexOf(Slot[] a, Slot s) {

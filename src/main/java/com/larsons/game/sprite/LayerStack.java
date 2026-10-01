@@ -82,18 +82,35 @@ public final class LayerStack {
                         SheetTexture sheet) {}
 
     /**
-     * The slots in the order they are drawn: {@link Slot}'s, except that a
-     * left-handed character's two hands swap - its left hand draws the right
-     * hand's art, mirrored, which was cut against what the other hand holds.
+     * The slots in the order they are drawn: {@link Slot}'s, except that
+     * <ul>
+     *   <li>a left-handed character's two hands swap - its left hand draws the
+     *       right hand's art, mirrored, which was cut against what the other
+     *       hand holds;</li>
+     *   <li>{@link Slot#OTHER} - a cape, worn on the back - goes under
+     *       everything, the body included, while the character faces the
+     *       camera ({@link #facesCamera}): it is behind all of it, whatever
+     *       is worn. From the side, from behind and from above it goes over
+     *       everything worn (it is cut only against the body), under the hair
+     *       and hat - long hair falls over it - and the hands.</li>
+     * </ul>
      */
-    static Slot[] drawOrder(boolean leftHanded) {
-        Slot[] order = Slot.values().clone();
+    static Slot[] drawOrder(boolean leftHanded, Elevation elevation, Facing facing) {
+        List<Slot> order = new ArrayList<>(List.of(Slot.values()));
+        order.remove(Slot.OTHER);
+        order.add(facesCamera(elevation, facing) ? 0 : order.indexOf(Slot.HAIR), Slot.OTHER);
         if (leftHanded) {
-            int l = Slot.CARRY_LEFT.ordinal(), r = Slot.CARRY_RIGHT.ordinal();
-            order[l] = Slot.CARRY_RIGHT;
-            order[r] = Slot.CARRY_LEFT;
+            int l = order.indexOf(Slot.CARRY_LEFT), r = order.indexOf(Slot.CARRY_RIGHT);
+            order.set(l, Slot.CARRY_RIGHT);
+            order.set(r, Slot.CARRY_LEFT);
         }
-        return order;
+        return order.toArray(new Slot[0]);
+    }
+
+    /** Whether the character's front is towards the camera: the south views, from the side or at 45 degrees. */
+    static boolean facesCamera(Elevation elevation, Facing facing) {
+        return elevation != Elevation.TOP
+                && (facing == Facing.SOUTH || facing == Facing.SOUTH_EAST || facing == Facing.SOUTH_WEST);
     }
 
     /**
@@ -115,7 +132,8 @@ public final class LayerStack {
         boolean left = wardrobe.leftHanded();
 
         List<Want> wants = new ArrayList<>();
-        for (Slot slot : drawOrder(left)) {
+        Slot[] order = drawOrder(left, elev, facing);
+        for (Slot slot : order) {
             String item = wardrobe.get(slot);
             if (item == null) continue;
             SpriteLibrary.Source src = lib.source(slot, item, wardrobe.style(), left);
@@ -141,7 +159,9 @@ public final class LayerStack {
         }
 
         // --- the body ----------------------------------------------------------------
-        Want bodyWant = wants.isEmpty() || wants.get(0).slot() != Slot.BODY ? null : wants.get(0);
+        java.util.Map<Slot, Want> wanted = new java.util.EnumMap<>(Slot.class);
+        for (Want w : wants) wanted.put(w.slot(), w);
+        Want bodyWant = wanted.get(Slot.BODY);
         SheetTexture body;
         boolean mirrored = false;
         SpriteProfile framing;
@@ -162,11 +182,15 @@ public final class LayerStack {
         int frames = body.frameCount();
         int frame = state.frameAt(time, fps, frames);
         List<Layer> layers = new ArrayList<>();
-        layers.add(new Layer(Slot.BODY, bodyWant == null ? null : bodyWant.item(), body, frame, mirrored));
 
-        // --- cosmetics, in slot order ------------------------------------------------
-        for (Want w : wants) {
-            if (w.slot() == Slot.BODY) continue;
+        // --- every layer in draw order, the body where it falls in it --------------
+        for (Slot slot : order) {
+            if (slot == Slot.BODY) {
+                layers.add(new Layer(Slot.BODY, bodyWant == null ? null : bodyWant.item(), body, frame, mirrored));
+                continue;
+            }
+            Want w = wanted.get(slot);
+            if (w == null) continue;
             if (w.sheet() != null) {
                 layers.add(new Layer(w.slot(), w.item(), w.sheet(),
                         mapFrame(frame, frames, w.sheet().frameCount()), w.file().mirrored()));
