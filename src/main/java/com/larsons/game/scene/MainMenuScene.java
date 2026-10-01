@@ -86,9 +86,10 @@ public final class MainMenuScene implements Scene {
         Ui ui = game.ui();
         if (cutscene != null) {
             ui.begin();
-            CutsceneStage.backdrop(ui, 0, 0, ui.width(), ui.height());
-            stage.actors(ui, cutscene, 420, 0, ui.width() - 420, ui.height());
-            stage.dialogue(ui, cutscene, 540, 0, ui.width() - 540, ui.height());
+            float h = ui.height(), stand = h - CutsceneStage.boxHeight(h) - 44;
+            CutsceneStage.backdrop(ui, 0, 0, ui.width(), h);
+            stage.actors(ui, cutscene, 400, 0, ui.width() - 400, stand);
+            stage.dialogue(ui, cutscene, 540, 0, ui.width() - 540, h);
         } else {
             var w = game.window();
             game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight(),

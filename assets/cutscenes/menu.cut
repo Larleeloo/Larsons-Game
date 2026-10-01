@@ -4,7 +4,7 @@
 # src/main/java/com/larsons/game/cutscene/Cutscene.java and assets/cutscenes/README.md.
 
 actor you  "You"  player
-actor bryn "Bryn" body=feminine shirt=laced_shirt ears=elven nose=button eyes=ice_blue eyebrows=soft mouth=wide hair=side_part colour.body=#d9a074 colour.hair=platinum colour.shirt=royal_blue colour.eyes=emerald
+actor bryn "Bryn" body=feminine shirt=laced_shirt ears=elven nose=button eyes=ice_blue eyebrows=soft mouth=wide hair=side_part colour.body=#d9a074 colour.hair=platinum colour.shirt=royal_blue
 
 stand you left
 stand bryn right

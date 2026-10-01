@@ -32,9 +32,9 @@ import java.util.Map;
 public final class CutsceneStage {
 
     /** Where the actors stand, as a fraction of the stage's width from its left edge. */
-    private static final float LEFT_X = 0.30f, RIGHT_X = 0.74f;
-    /** How much of the stage's height an actor's frame may take at most. */
-    private static final float HEIGHT = 0.80f;
+    private static final float LEFT_X = 0.35f, RIGHT_X = 0.68f;
+    /** The dialogue box's margin round it, and its height (at least, and as a share of the stage). */
+    private static final float PAD = 22, BOX_MIN = 118, BOX_SHARE = 0.2f;
 
     private record Drawn(SheetTexture sheet, int frame, boolean mirrored, int[] palette) {}
 
@@ -51,19 +51,28 @@ public final class CutsceneStage {
 
     public CloseupLibrary closeups() { return closeups; }
 
-    /** Draw the scene filling {@code (x, y, w, h)} of the UI (y down); actors stand on its bottom edge. */
+    /**
+     * Draw the scene filling {@code (x, y, w, h)} of the UI (y down): the
+     * actors stand on the dialogue box along the bottom, so it never hides
+     * their hands.
+     */
     public void draw(Ui ui, Cutscene cs, float x, float y, float w, float h) {
         backdrop(ui, x, y, w, h);
-        actors(ui, cs, x, y, w, h);
+        actors(ui, cs, x, y, w, h - boxHeight(h) - 2 * PAD);
         dialogue(ui, cs, x, y, w, h);
     }
 
-    /** The actors, standing on the bottom edge of {@code (x, y, w, h)}. */
+    /** The height the dialogue box of a stage {@code h} tall takes (without its margins). */
+    public static float boxHeight(float h) {
+        return Math.max(BOX_MIN, h * BOX_SHARE);
+    }
+
+    /** The actors, standing on the bottom edge of {@code (x, y, w, h)}, as big as whole pixels let them. */
     public void actors(Ui ui, Cutscene cs, float x, float y, float w, float h) {
         for (Actor a : cs.actors()) {
             Stack s = stack(a);
             if (s == null || s.layers().isEmpty()) continue;
-            int zoom = Math.max(1, (int) (h * HEIGHT / s.frameSize()));
+            int zoom = Math.max(1, (int) (h / s.frameSize()));
             float size = s.frameSize() * zoom;
             float cx = x + w * (a.side() == Actor.Side.LEFT ? LEFT_X : RIGHT_X);
             drawActor(ui.batch(), a, s, Math.round(cx - size / 2), Math.round(y + h - size), size);
@@ -147,27 +156,31 @@ public final class CutsceneStage {
         }
     }
 
-    /** A dusky room: a gradient from the ceiling's shadow to a warm wall, and a lamp's glow behind the actors. */
+    /**
+     * A dusky room: a gradient from the ceiling's shadow down to a warm wall,
+     * lighter in the middle where the actors stand (a lamp between them) and
+     * darker towards the sides.
+     */
     public static void backdrop(Ui ui, float x, float y, float w, float h) {
-        int bands = 32;
-        for (int i = 0; i < bands; i++) {
-            float t = i / (float) (bands - 1);
-            float[] c = {mix(0.10f, 0.33f, t), mix(0.10f, 0.25f, t), mix(0.17f, 0.24f, t), 1};
-            ui.rect(x, y + h * i / bands, w, h / bands + 1, c);
+        int rows = 48, cols = 32;
+        float cw = w / cols, rh = h / rows;
+        for (int j = 0; j < rows; j++) {
+            float t = j / (float) (rows - 1);
+            for (int i = 0; i < cols; i++) {
+                float u = (i + 0.5f) / cols - 0.5f, v = t - 0.45f;
+                float glow = (float) Math.exp(-(u * u * 5.5f + v * v * 4.0f));
+                float[] c = {mix(0.09f, 0.30f, t) + 0.16f * glow, mix(0.09f, 0.22f, t) + 0.11f * glow,
+                        mix(0.15f, 0.22f, t) + 0.05f * glow, 1};
+                ui.rect(x + i * cw, y + j * rh, cw + 1, rh + 1, c);
+            }
         }
-        for (int i = 0; i < 6; i++) {
-            float k = 1 - i / 6f;
-            float gw = w * (0.30f + 0.45f * k), gh = h * (0.25f + 0.45f * k);
-            ui.rect(x + w * 0.52f - gw / 2, y + h * 0.42f - gh / 2, gw, gh, new float[]{1f, 0.78f, 0.52f, 0.035f});
-        }
-        ui.rect(x, y + h * 0.86f, w, h * 0.14f, new float[]{0.05f, 0.04f, 0.06f, 0.35f});
     }
 
     private static float mix(float a, float b, float t) { return a + (b - a) * t; }
 
     /** The line: a box along the bottom, the speaker's name on a tab, the text typing itself out. */
     private static void dialogue(Ui ui, Cutscene.Line line, double now, float x, float y, float w, float h) {
-        float pad = 22, bh = Math.max(118, h * 0.2f);
+        float pad = PAD, bh = boxHeight(h);
         float bx = x + pad, by = y + h - bh - pad, bw = w - 2 * pad;
         ui.rect(bx, by, bw, bh, new float[]{0.06f, 0.06f, 0.10f, 0.86f});
         ui.outline(bx, by, bw, bh, 2, Theme.withAlpha(Theme.ACCENT, 0.55f));

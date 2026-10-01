@@ -189,10 +189,19 @@ slot's colour picks (a shirt's cloth, the lips of a mouth, the hair, the gold of
 an earring), `skin` is skin wherever an item shows it (the body, ears, nose, the
 mouth round the lips) and follows the body's colour, the skin tone. For every
 option the file gives each of the channel's labels a colour, in label order;
-recolouring is swapping those palette entries as the sheet is decoded, so one
-set of sheets draws every colour. Labels in no channel (teeth, a brass buckle)
-never change. `default` is the choice the sheets were drawn in (no entry: the
-item's own colours), and `swatch` the colour a wardrobe shows for an option.
+recolouring is swapping those palette entries, so one set of sheets draws every
+colour. Labels in no channel (teeth, a brass buckle) never change. `default` is
+the choice the sheets were drawn in (no entry: the item's own colours), and
+`swatch` the colour a wardrobe shows for an option. A colour can also be any
+`#rrggbb` (in `config/wardrobe.json`, a demo script or a cutscene): the
+channel's labels are then shaded like its first option, round that colour.
+
+The swap happens on the GPU. A palette PNG of pixel art is uploaded once, as
+its palette indices, and each layer is drawn through a palette of its own - the
+sheet's, with the wardrobe's colours swapped in - which the sprite shader looks
+the indices up in. A sheet is one texture whatever colours it is worn in, and
+the colours can change from one frame to the next (the cutscenes fade and
+flash them) without anything being decoded again.
 
 ## Left-handed versions
 

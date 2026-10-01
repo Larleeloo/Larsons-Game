@@ -91,6 +91,12 @@ Drop sprite sheets on the window at any time to import them.
   skin tone of every layer), plus the drawing style and the hand - with a live
   preview you can turn through the eight directions, tip through the three
   heights and play in every state.
+- **A cutscene** behind the main menu: **your own character** - exactly as
+  the wardrobe has her - talking with Bryn, close up, so their faces show:
+  every character a stack of close-up layers, one per item she wears, each
+  in any colour, with lines that type themselves out, colours that fade
+  mid-sentence and warm and cold light. **Cutscene** in the menu plays it
+  full screen. See [Cutscenes](#cutscenes).
 - **Drag-and-drop importing** of sprite sheets into the repository.
 - **A rendered character** in `assets/sprites/`: the rigged feminine model from
   [3D-Modeling](https://github.com/Larleeloo/3D-Modeling) with 52 items for the
@@ -166,8 +172,12 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
   picture land on the character's spot on the ground — the feet stay on the
   shadow from every angle and every zoom.
 - **Colours.** An item with a `variants.json` can be drawn in any of the
-  colours it lists: its sheets are palette PNGs, and a colour is a swap of
-  palette entries as they decode — one set of sheets for every colour.
+  colours it lists - or any colour at all, `#rrggbb`, shaded like the item's
+  own. Its sheets are palette PNGs, uploaded once as their palette indices
+  (a byte a texel); the sprite shader colours each layer from a palette of
+  its own as it draws it (`gfx/PaletteAtlas`), so every colour of a sheet is
+  one texture, two characters can wear it in different colours in the same
+  draw call, and a colour can change every frame.
 - **Fallbacks.** No body sheet for a view → the generated 32-pixel body for that
   view. No cosmetic sheet → that layer is left blank. A missing west-facing view
   borrows the east-facing one mirrored.
@@ -193,6 +203,40 @@ manager onto the game window. The importer:
    **inside the repository**, ready to commit;
 4. reloads the library and, if *Wear it after importing* is ticked, puts the new
    item on the character.
+
+## Cutscenes
+
+A cutscene is a script of actors and lines, played over close-up layers:
+
+```
+assets/cutscenes/<scene>.cut                          the script (menu.cut: the main menu's)
+assets/closeups/<layer>/<item>_px128/<clip>_side_se.png    one layer's clip, close up (and _px64)
+```
+
+- **Close-ups** are the wardrobe's items again, rendered waist-up and close
+  from the front-left three-quarter view - a face about 50 pixels tall in a
+  128-pixel frame instead of 12 - for five looping conversation clips:
+  `listen`, `talk`, `explain`, `laugh` and `surprise`, with mouth shapes,
+  blinks, brows, nods and gestures. Every item of a layer that can show in
+  the frame has them (shoes, trousers and what the hands carry are below it
+  or put away), each its own layer cut against the outfit like the game
+  sprites, so **any character - the player's own included - can play a
+  cutscene**, in any items and any colours. A character on the right of a
+  two-shot is drawn mirrored, so the two face each other.
+- **Actors** (`cutscene/Actor`) are a wardrobe each - a copy of the player's,
+  or dressed in the script - playing clips, and what the scene does to their
+  look: a layer's colour fading to another (an option or any `#rrggbb`), a
+  flash, a tint (warm light, cold light) and a fade. All of it is palette and
+  vertex-colour work at draw time; no sheet is ever re-uploaded.
+- **The script** (`cutscene/Cutscene`): `actor`, `stand`, `say`, `clip`,
+  `colour`, `wear`, `flash`, `tint`, `fade`, `wait`, `loop` - see
+  [`assets/cutscenes/README.md`](assets/cutscenes/README.md). `say` plays the
+  speaker's clip for the length of the line while the others listen.
+- **The stage** (`cutscene/CutsceneStage`) draws it: a backdrop, the actors'
+  layers in the game's draw order at whole-pixel zoom, and the line in a box
+  with the speaker's name. Layers load through the sprite library (its memory
+  budget, its decoders); an actor's other clips load ahead, and while a new
+  clip is still loading the actor holds its last complete frame.
 
 ## GPU acceleration
 
@@ -237,19 +281,24 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 src/main/java/com/larsons/game/
   Main.java                 entry point (headless AWT, macOS first-thread relaunch)
   core/                     Game (window, loop, overlays), Settings, Scene, Autopilot, Screenshot
-  gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, Font, Mesh, GpuInfo
+  gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
+                            Mesh, GpuInfo
   math/                     Vec3, Mat4
   input/                    Input — keys, mouse, typed text, dropped files
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
-                            SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe
+                            SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe,
+                            Variants, Palettes
+  cutscene/                 CloseupLibrary, Actor, Cutscene (the script), CutsceneStage
   sprite/fallback/          the 32×32 fallback: Puppet (rigged box figure), PuppetRaster, FallbackSprites
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Props, VoidRenderer, WorldRenderer
-  scene/                    MainMenuScene, DemoScene, PauseMenu, WardrobePanel
+  scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract
+assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
+assets/cutscenes/           cutscene scripts (menu.cut) and their language
 .idea/runConfigurations/    Run Game (GPU), Tests
 ```
 
@@ -285,7 +334,11 @@ of which need a GPU: view selection for all 8 × 3 views, the zone boundaries,
 file-name parsing, sheet slicing and packing, the fallback character (all 144
 views, and that body + held-out sword composites to exactly the picture of both
 rendered together), the importer (copying, stitching, layer/name guessing), the
-library's lookup and mirroring rules, the camera and the player's state machine.
+library's lookup and mirroring rules, palette sheets staying palette indices
+(one texture whatever the colours), palette swaps and custom colours, the
+palette rows a batch shares, cutscene scripts and their timeline, actors'
+colour fades and flashes, the close-up folders, the camera and the player's
+state machine.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -300,7 +353,8 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `teleport`, `pickup`,
 `dropitem`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
-(the body's colour is the skin tone; no option: the item's own colours) and
+(an option or any `#rrggbb`; the body's colour is the skin tone; no option:
+the item's own colours) and
 `hand` (`auto`, `right`, `left`). Opening the wardrobe saves the outfit to
 `config/wardrobe.json` when it closes, a scripted run included.
 
