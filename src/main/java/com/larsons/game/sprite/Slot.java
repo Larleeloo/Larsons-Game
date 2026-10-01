@@ -12,8 +12,11 @@ package com.larsons.game.sprite;
  * fixed order gives the right occlusion from all 24 view angles without the
  * game knowing anything about depth.
  *
- * <p>The enum order <em>is</em> the draw order. Carried items come last
- * because their cut-outs already account for the hand and body.
+ * <p>The enum order <em>is</em> the draw order, with one exception: the cape
+ * ({@link #OTHER}) hangs behind her, so it draws first when she faces the
+ * camera and just under the hair otherwise (see
+ * {@link LayerStack#drawOrder}). Carried items come last because their
+ * cut-outs already account for the hand and body.
  */
 public enum Slot {
 

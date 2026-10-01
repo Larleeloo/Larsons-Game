@@ -145,6 +145,13 @@ wristwear → wristwear_left → sheath → ears → earrings → nose → eyes 
 makeup → mouth → hair → hat → other → carry_left → carry_right
 ```
 
+except for the cape (`other`), which hangs behind her: when she faces the
+camera (`s`, `se`, `sw` from the side or the middle) it draws first, under the
+body, and otherwise right after `mouth`, over the clothes but under the hair,
+the hat and the carried items. Long hair falls over it and short hair does not
+reach it, so it is cut against the body alone and nothing else is cut against
+it.
+
 Two rules make the stack line up from all 24 views:
 
 1. **Same frames as the body.** A layer's sheet for a state has the same frame
@@ -266,7 +273,8 @@ holdouts were cut against.
   colours.
 - **512-pixel renders** (`<item>/`, no `profile.json`): the first outfit's
   items, marked ● below. They were rendered before the pixel art's round of
-  fixes (the briefs' cut, the mantle, the shield, the knees, the sword's
+  fixes (the briefs' cut, the mantle - still the short one there, cut against
+  the long waves and the sun hat - the shield, the knees, the sword's
   clearance) and have the arched brows painted on the body.
 
 | Layer | Item | |
@@ -292,7 +300,7 @@ holdouts were cut against.
 | mouth | `full` ●, `wide` ●, `heart` ● | lips, teeth and tongue |
 | hair | `long_waves` ●, `bob`, `ponytail`, `pixie`, `braids`, `curls`, `crew_cut`, `side_part`, `undercut`, `beanie_long`, `beanie_short` | long waves; a blunt bob with a fringe; a high ponytail; a pixie cut; two plaits; spiral curls; a crew cut; a short side parting; an undercut; long hair and a crew cut for under the beanie. All spring-simulated where they hang free |
 | hat | `straw_sun_hat` ●, `beanie` | a wide-brimmed straw hat with a navy ribbon; a knitted beanie (wear it with `beanie_long` or `beanie_short`) |
-| other | `wool_mantle` ● | a short red wool mantle, **cloth-simulated**, swinging out behind as she runs |
+| other | `wool_mantle` ● | a long red wool cape down to the ankles, **cloth-simulated**, flowing out behind as she runs |
 | carry_left | `round_shield` ●, `sword` | a round wooden shield strapped to the left forearm; the sword in the left hand |
 | carry_right | `sword` ●, `round_shield` | a short arming sword - the demo's pick-up sword (`items/sword/icon.png` is its pickup); the shield on the right forearm |
 
@@ -326,10 +334,11 @@ layers stay in step (the game plays one frame index on all of them):
 body for every layer; for the garments the body and, where one tucks into or
 slips under another, that one too (the jeans by the boots, the shirt by the
 jeans, the bangle by the gloves) but nothing worn over them, so swapping a shirt
-for another leaves no holes in the layers above; for hair, hat, other and the
-carried items everything worn under them in the outfit above (the beanie is cut
-against `beanie_long`, the hair it goes with, and the laced shirt and dress
-only against the body). A layer that is
+for another leaves no holes in the layers above; for hair, hat and the carried
+items everything worn under them in the outfit above (the beanie is cut against
+`beanie_long`, the hair it goes with, and the laced shirt and dress only
+against the body); the cape only against the body, so another hair or no hat
+leaves no hole in it (see Layers). A layer that is
 out of sight in some frame (the nose from behind, say) still has that frame, a
 blank cell with one pixel of alpha 1/255 so the sheet keeps its frame count.
 
