@@ -1,0 +1,37 @@
+# The main menu's cutscene: your own character - dressed and coloured as the
+# wardrobe has it - talking with Bryn. Every character is a stack of close-up
+# layers, one per item, drawn in any colours; the commands are described in
+# src/main/java/com/larsons/game/cutscene/Cutscene.java and assets/cutscenes/README.md.
+
+actor you  "You"  player
+actor bryn "Bryn" body=feminine shirt=laced_shirt ears=elven nose=button eyes=ice_blue eyebrows=soft mouth=wide hair=side_part colour.body=#d9a074 colour.hair=platinum colour.shirt=royal_blue colour.eyes=emerald
+
+stand you left
+stand bryn right
+wait 1.2
+say bryn "Hey! You look different today."
+say you laugh "Same me. New palette."
+say bryn surprise "Wait... the colours aren't painted on?"
+say you explain "Every pixel of me is a label, not a colour. The game looks the colour up as it draws me."
+colour you hair #3b7fe8 1.2
+say you "So my hair can be blue..."
+colour you hair #e2588f 1.2
+say you "...or pink, without redrawing a single frame."
+clip bryn laugh 2.0
+wait 1.8
+say bryn explain "And every layer is its own sprite: hair, eyes, shirt, ears. Swap any of them."
+wear bryn hair pixie
+colour bryn hair #f2c14e 0.8
+say bryn "That's how a cutscene can star anyone. Even you, just as you made yourself."
+tint all #ffb070 0.35 1.5
+say you "Warm light for the good news..."
+tint all #5a78ff 0.45 1.2
+say bryn surprise "...and cold for the bad!"
+tint all none 1.0
+flash you #ffffff 0.5
+say you laugh "Let's stick to good news."
+colour you hair reset 1.0
+wear bryn hair side_part
+colour bryn hair platinum 0.8
+wait 2.5
+loop

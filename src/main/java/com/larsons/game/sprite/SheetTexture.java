@@ -4,13 +4,16 @@ import com.larsons.game.gfx.Texture;
 
 /**
  * A sprite sheet on the GPU: one texture holding every frame of one
- * (layer, state, elevation, direction), and where each frame is in it.
+ * (layer, state, elevation, direction), and where each frame is in it - and,
+ * for pixel art, the palette its texture's indices are coloured from unless
+ * a layer is drawn in other colours ({@link #palette()}).
  */
 public final class SheetTexture implements AutoCloseable {
 
     private final Texture texture;
     private final int frameWidth, frameHeight, frameCount, columns;
     private final double[] region, mirroredRegion;
+    private final int[] palette;
     private final long bytes;
     private final String source;
     private boolean closed;
@@ -33,11 +36,21 @@ public final class SheetTexture implements AutoCloseable {
         this.columns = layout.columns();
         this.region = layout.region(false);
         this.mirroredRegion = layout.region(true);
+        this.palette = layout.palette();
         this.bytes = bytes;
         this.source = source;
     }
 
     public Texture texture() { return texture; }
+
+    /** Whether the texture holds palette indices, drawn through a palette ({@link #palette()}). */
+    public boolean indexed() { return palette != null; }
+
+    /**
+     * The sheet's own palette (straight ARGB, 256 entries) - its colours as
+     * drawn - for the layer to start its own from; null for an RGBA sheet.
+     */
+    public int[] palette() { return palette == null ? null : palette.clone(); }
 
     public int frameCount() { return frameCount; }
 

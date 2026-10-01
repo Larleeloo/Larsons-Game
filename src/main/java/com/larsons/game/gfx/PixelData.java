@@ -7,7 +7,8 @@ import java.nio.ByteBuffer;
 
 /**
  * RGBA pixels, <b>premultiplied by alpha</b>, in off-heap memory ready for
- * {@code glTexImage2D}.
+ * {@code glTexImage2D} - or, for pixel art in a palette, one byte a texel:
+ * the palette index, coloured on the GPU ({@link PaletteAtlas}).
  *
  * <p>Built on a worker thread (decoding a 512×512×30 frame sheet is tens of
  * milliseconds that must not land on the render thread) and consumed exactly
@@ -24,12 +25,14 @@ public final class PixelData {
 
     private final int width;
     private final int height;
+    private final boolean indexed;
     private ByteBuffer pixels;
 
-    private PixelData(int width, int height, ByteBuffer pixels) {
+    private PixelData(int width, int height, ByteBuffer pixels, boolean indexed) {
         this.width = width;
         this.height = height;
         this.pixels = pixels;
+        this.indexed = indexed;
     }
 
     /** Convert (and premultiply) an image. Safe to call from any thread. */
@@ -55,15 +58,25 @@ public final class PixelData {
             buf.put((byte) r).put((byte) g).put((byte) b).put((byte) a);
         }
         buf.flip();
-        return new PixelData(w, h, buf);
+        return new PixelData(w, h, buf, false);
+    }
+
+    /** Palette indices, one a texel, row major from the top. Safe to call from any thread. */
+    public static PixelData ofIndices(byte[] indices, int w, int h) {
+        ByteBuffer buf = MemoryUtil.memAlloc(w * h);
+        buf.put(indices, 0, w * h).flip();
+        return new PixelData(w, h, buf, true);
     }
 
     public int width() { return width; }
 
     public int height() { return height; }
 
+    /** Whether the texels are palette indices (one byte each) rather than RGBA. */
+    public boolean indexed() { return indexed; }
+
     /** Bytes this will occupy on the GPU (without mipmaps). */
-    public long bytes() { return (long) width * height * 4; }
+    public long bytes() { return (long) width * height * (indexed ? 1 : 4); }
 
     ByteBuffer buffer() { return pixels; }
 

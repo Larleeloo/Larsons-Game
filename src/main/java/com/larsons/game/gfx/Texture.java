@@ -11,6 +11,11 @@ import static org.lwjgl.opengl.GL33C.*;
  * 512-pixel Blender renders are minified, so they get trilinear mipmaps; the
  * 32-pixel fallback sprites and item icons are magnified many times over, so
  * they get nearest-neighbour sampling and keep their hard pixel edges.
+ *
+ * <p>A third kind holds pixel art as palette indices, one byte a texel
+ * ({@link PixelData#indexed()}): always nearest-neighbour (an index between
+ * two others means nothing), coloured by the sprite shader from a palette
+ * ({@link PaletteAtlas}).
  */
 public final class Texture implements AutoCloseable {
 
@@ -18,25 +23,34 @@ public final class Texture implements AutoCloseable {
     private final int width;
     private final int height;
     private final long bytes;
+    private final boolean indexed;
     private boolean closed;
 
-    private Texture(int id, int width, int height, long bytes) {
+    private Texture(int id, int width, int height, long bytes, boolean indexed) {
         this.id = id;
         this.width = width;
         this.height = height;
         this.bytes = bytes;
+        this.indexed = indexed;
     }
 
     /** Upload and free {@code data}. Must be called on the GL thread. */
     public static Texture upload(PixelData data, boolean pixelArt) {
         int id = glGenTextures();
         glBindTexture(GL_TEXTURE_2D, id);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, data.width(), data.height(), 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, data.buffer());
+        if (data.indexed()) {
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, data.width(), data.height(), 0,
+                    GL_RED, GL_UNSIGNED_BYTE, data.buffer());
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        } else {
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, data.width(), data.height(), 0,
+                    GL_RGBA, GL_UNSIGNED_BYTE, data.buffer());
+        }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        if (pixelArt) {
+        if (pixelArt || data.indexed()) {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         } else {
@@ -45,8 +59,9 @@ public final class Texture implements AutoCloseable {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         }
         int w = data.width(), h = data.height();
+        boolean indexed = data.indexed();
         data.free();
-        return new Texture(id, w, h, bytesFor(w, h, pixelArt));
+        return new Texture(id, w, h, bytesFor(w, h, pixelArt, indexed), indexed);
     }
 
     /**
@@ -54,8 +69,13 @@ public final class Texture implements AutoCloseable {
      * four bytes a texel, plus a third for the mip chain unless it is pixel art.
      */
     public static long bytesFor(int width, int height, boolean pixelArt) {
-        long bytes = (long) width * height * 4;
-        return pixelArt ? bytes : bytes * 4 / 3;
+        return bytesFor(width, height, pixelArt, false);
+    }
+
+    /** {@link #bytesFor(int, int, boolean)}, or one byte a texel for palette indices. */
+    public static long bytesFor(int width, int height, boolean pixelArt, boolean indexed) {
+        long bytes = (long) width * height * (indexed ? 1 : 4);
+        return pixelArt || indexed ? bytes : bytes * 4 / 3;
     }
 
     /** Convenience for small images made on the GL thread. */
@@ -74,6 +94,9 @@ public final class Texture implements AutoCloseable {
     }
 
     public int id() { return id; }
+
+    /** Whether the texels are palette indices, drawn through a palette ({@link Batch}). */
+    public boolean indexed() { return indexed; }
 
     public int width() { return width; }
 

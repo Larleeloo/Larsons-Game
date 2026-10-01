@@ -62,7 +62,46 @@ class VariantsTest {
         assertEquals(0xf0c828, out.getRGB(3, 0) & 0xFFFFFF, "fixed labels keep their colour");
         assertEquals(0xFF, out.getRGB(3, 0) >>> 24);
         assertNull(v.recolor(Map.of("own", "no_such_colour")), "an option the item lacks changes nothing");
-        assertNotEquals(v.recolor(Map.of("own", "black")).key(), rc.key(), "each choice decodes separately");
+        assertNotEquals(v.recolor(Map.of("own", "black")).key(), rc.key(), "each choice is a palette of its own");
+    }
+
+    @Test
+    void aSwapIsMadeOnTheLayersPaletteAndKeepsItsAlpha() {
+        Variants v = Variants.parse(JSON);
+        int[] base = {0x00000000, 0x01000000, 0xFFC80A0A, 0xFF640505, 0xFFB48C64, 0xFFF0C828};
+        int[] p = Variants.recolored(base, v.recolor(Map.of("own", "royal_blue", "skin", "mint")));
+        assertArrayEquals(new int[]{0x00000000, 0x01000000, 0xFF1020A0, 0xFF081050, 0xFF80E0A0, 0xFFF0C828}, p);
+        assertEquals(0xFFC80A0A, base[2], "the sheet's own palette is untouched");
+        assertSame(base, Variants.recolored(base, null), "no choice: the sheet's own colours");
+    }
+
+    @Test
+    void everyColourOfASheetIsOneTexture() throws Exception {
+        palettePng("shirt/tunic_px128/walk_side_e.png");
+        Files.writeString(root.resolve("shirt/tunic_px128/variants.json"), JSON, StandardCharsets.UTF_8);
+        Files.writeString(root.resolve("shirt/tunic_px128/profile.json"),
+                "{\"frameWidth\": 4, \"frameHeight\": 1, \"pixelArt\": true}", StandardCharsets.UTF_8);
+        lib = new SpriteLibrary(root, 1L << 30, 1.0, (layout, pixels, source) -> {
+            assertTrue(pixels.indexed(), "a palette sheet goes up as its indices");
+            assertEquals(pixels.width() * (long) pixels.height(), pixels.bytes());
+            pixels.free();
+            return new SheetTexture(layout, SpriteLibrary.bytesOf(layout), source);
+        });
+        Variants v = Variants.parse(JSON);
+        SpriteLibrary.Source src = lib.source(Slot.SHIRT, "tunic", Wardrobe.Style.PIXEL_128, false);
+        SpriteLibrary.Resolved file = lib.resolve(src, AnimState.WALK, Elevation.SIDE, Facing.EAST);
+        SpriteLibrary.Resolved blue = file.withRecolor(v.recolor(Map.of("own", "royal_blue")));
+        SpriteLibrary.Resolved black = file.withRecolor(v.recolor(Map.of("own", "black")));
+        assertEquals(blue.key(), black.key());
+        assertNull(lib.sheet(blue));
+        lib.awaitDecodes();
+        lib.pump();
+        SheetTexture t = lib.sheet(black);
+        assertNotNull(t, "already resident: the blue one is the same texture");
+        assertEquals(1, lib.residentCount());
+        assertTrue(t.indexed());
+        assertEquals(0xFFC80A0A, t.palette()[2], "the sheet's own colours, label 0");
+        assertEquals(0xFF050505, Variants.recolored(t.palette(), black.recolor())[3], "black, label 1");
     }
 
     private void palettePng(String rel) throws Exception {

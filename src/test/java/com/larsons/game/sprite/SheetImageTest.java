@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,6 +22,32 @@ class SheetImageTest {
         }
         g.dispose();
         return img;
+    }
+
+    @Test
+    void aPaletteSheetKeepsItsIndicesAndItsPalette() {
+        // entries 2 and 3 are the same colour - two labels that happen to match
+        byte[] r = {0, 0, 50, 50, 9}, g = {0, 0, 60, 60, 8}, b = {0, 0, 70, 70, 7};
+        byte[] a = {0, 1, (byte) 255, (byte) 255, (byte) 255};
+        IndexColorModel cm = new IndexColorModel(8, 5, r, g, b, a);
+        BufferedImage img = new BufferedImage(16, 8, BufferedImage.TYPE_BYTE_INDEXED, cm);
+        img.getRaster().setSample(3, 3, 0, 2);
+        img.getRaster().setSample(4, 3, 0, 3);
+        img.getRaster().setSample(8 + 2, 2, 0, 4);
+        SheetImage s = SheetImage.decode(img, 8, 8, 1.0, 4096, true);
+        assertTrue(s.indexed());
+        assertEquals(2, s.frameCount());
+        int[] crop = s.crop();
+        int w = s.atlas().getWidth();
+        byte[] idx = s.indices();
+        assertEquals(2, idx[(3 - crop[1]) * w + 3 - crop[0]]);
+        assertEquals(3, idx[(3 - crop[1]) * w + 4 - crop[0]], "the same colour, but its own label");
+        int f1 = (1 % s.columns()) * s.frameWidth(), r1 = (1 / s.columns()) * s.frameHeight();
+        assertEquals(4, idx[(r1 + 2 - crop[1]) * w + f1 + 2 - crop[0]]);
+        assertEquals(0xFF323C46, s.palette()[2]);
+        assertEquals(0, s.palette()[0] >>> 24, "entry 0 transparent");
+        assertFalse(SheetImage.decode(img, 8, 8, 1.0, 4096, false).indexed(),
+                "a render that is not pixel art is decoded to colours");
     }
 
     @Test

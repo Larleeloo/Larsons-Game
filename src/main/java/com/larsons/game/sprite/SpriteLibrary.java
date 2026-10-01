@@ -74,7 +74,8 @@ public final class SpriteLibrary implements AutoCloseable {
     /**
      * A sheet to draw: the file, whether it is drawn mirrored (a twin standing
      * in, or the left-handed character), and the palette swap it is drawn with
-     * (null: its own colours).
+     * (null: its own colours). The colours are applied when the layer is drawn
+     * ({@link Variants#recolored}), so every colour of a sheet is one texture.
      */
     public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
 
@@ -82,9 +83,9 @@ public final class SpriteLibrary implements AutoCloseable {
             this(file, mirrored, profile, null);
         }
 
-        /** What the library keeps it under: the file, in these colours. */
+        /** What the library keeps it under: the file (whatever its colours). */
         public Key key() {
-            return new Key(file, recolor == null ? "" : recolor.key());
+            return new Key(file);
         }
 
         public Resolved withRecolor(Variants.Recolor r) {
@@ -96,8 +97,8 @@ public final class SpriteLibrary implements AutoCloseable {
         }
     }
 
-    /** A decoded sheet's identity: one file, in one set of colours. */
-    public record Key(Path file, String colours) {}
+    /** A decoded sheet's identity: one file. */
+    public record Key(Path file) {}
 
     private record Decoded(Key key, int epoch, SheetImage layout, PixelData pixels, String error) {}
 
@@ -109,6 +110,12 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private static final Uploader GL = (layout, pixels, source) ->
             new SheetTexture(Texture.upload(pixels, layout.pixelArt()), layout, source);
+
+    /** The GPU memory a decoded sheet will take. */
+    static long bytesOf(SheetImage layout) {
+        BufferedImage atlas = layout.atlas();
+        return Texture.bytesFor(atlas.getWidth(), atlas.getHeight(), layout.pixelArt(), layout.indexed());
+    }
 
     private final Path root;
     private volatile Map<Slot, Map<String, Entry>> index = new EnumMap<>(Slot.class);
@@ -408,25 +415,26 @@ public final class SpriteLibrary implements AutoCloseable {
     private void request(Resolved r) {
         if (r == null || !loadable(r.key())) return;
         Key key = r.key();
-        Variants.Recolor recolor = r.recolor();
         SpriteProfile profile = r.profile();
         double s = scale;
         int max = maxTexture;
         int ep = epoch;
         pending.put(key, CompletableFuture.runAsync(
-                () -> decoded.add(decode(key, recolor, ep, profile, s, max)), workers));
+                () -> decoded.add(decode(key, ep, profile, s, max)), workers));
     }
 
-    private static Decoded decode(Key key, Variants.Recolor recolor, int epoch, SpriteProfile profile,
-                                  double scale, int maxTexture) {
+    private static Decoded decode(Key key, int epoch, SpriteProfile profile, double scale, int maxTexture) {
         try {
             BufferedImage img = ImageIO.read(key.file().toFile());
             if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
-            img = Variants.apply(img, recolor);
             boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),
                     pixelArt ? 1.0 : scale, maxTexture, pixelArt);
-            return new Decoded(key, epoch, layout, PixelData.of(layout.atlas()), null);
+            BufferedImage atlas = layout.atlas();
+            PixelData pixels = layout.indexed()
+                    ? PixelData.ofIndices(layout.indices(), atlas.getWidth(), atlas.getHeight())
+                    : PixelData.of(atlas);
+            return new Decoded(key, epoch, layout, pixels, null);
         } catch (IOException | RuntimeException | OutOfMemoryError e) {
             return new Decoded(key, epoch, null, null, e.toString());
         }
@@ -450,15 +458,13 @@ public final class SpriteLibrary implements AutoCloseable {
                 failed.put(d.key().file(), d.error());
                 System.err.println("[sprites] cannot load " + d.key().file() + ": " + d.error());
             } else {
-                BufferedImage atlas = d.layout().atlas();
-                long bytes = Texture.bytesFor(atlas.getWidth(), atlas.getHeight(), d.layout().pixelArt());
+                long bytes = bytesOf(d.layout());
                 Long before = sizes.put(d.key(), bytes);
                 sizesTotal += bytes - (before == null ? 0 : before);
                 if (ahead && residentBytes + bytes > budgetBytes) {
                     d.pixels().free(); // a prefetch with no room left for it
                 } else {
-                    String source = d.key().file() + (d.key().colours().isEmpty() ? "" : " [" + d.key().colours() + "]");
-                    SheetTexture t = uploader.upload(d.layout(), d.pixels(), source);
+                    SheetTexture t = uploader.upload(d.layout(), d.pixels(), d.key().file().toString());
                     t.lastUsedFrame = frame;
                     SheetTexture old = textures.put(d.key(), t);
                     if (old != null) {
