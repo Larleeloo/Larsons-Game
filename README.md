@@ -51,14 +51,19 @@ The main menu has one entry, **Demo**, which loads the void.
 | Key | Action |
 |---|---|
 | **W A S D** | walk, relative to the camera |
-| **Shift** / **Ctrl** (while moving) | run / sprint |
-| **Space** | jump |
-| **Left click** or **F** | attack |
-| **E** / **G** | pick up the item you are standing by / drop what you are holding |
+| **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
+| **C** | crouch / stand up |
+| **Space** | jump (with the sword) |
+| **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
+| **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
+| **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
+| **1 – 4** | take up the sword and shield, the battle axe, the bow or the crossbow (once picked up) |
+| **5 – 8** | laugh, cry, surprise, anger |
+| **E** / **G** | pick up the item you are standing by (she reaches for it) / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **Mouse wheel**, **+ / −** | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
-| **1 – 6** | loop idle, walk, run, sprint, jump or attack in place |
+| **[ / ]** | loop the previous / next of all 53 states in place |
 | **0** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -73,15 +78,27 @@ Drop sprite sheets on the window at any time to import them.
 - **A blank 3D void** — an endless floor with a metre grid fading into a soft
   sky, drawn in a single full-screen GPU pass that ray-casts the ground plane
   per pixel, so it has no edge and a clean horizon at any zoom.
-- **The character**, standing in the middle as a stack of sprite layers, in six
-  animation states — **idle, walk, run, sprint, jump, attack** — each from
-  **8 directions × 3 heights**. The HUD names the exact sheet each layer is
-  drawing, and a gauge at the top right shows the camera's angle against the
-  three height zones.
-- **A sword** hovering over its shadow nearby. Walk up, press **E**, and it is
-  in the character's weapon hand — its own sprite layer, playing frame for
-  frame with the body. **G** puts it down again. A left-handed character
-  (Pause → Wardrobe → Hand) takes it in the left hand and fights left-handed.
+- **The character**, standing in the middle as a stack of sprite layers, in
+  **53 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
+  reaching down to pick something up, standing or crouched; four emotes -
+  laughing, crying, surprise and anger; the sword's spin attack and parry and
+  the shield held ready and bashed; and the three weapons' stances below. The
+  HUD names the exact sheet each layer is drawing (and, where a set has no
+  sheets for a state, the state it is shown as instead), and a gauge at the
+  top right shows the camera's angle against the three height zones.
+- **A sword, a battle axe, a longbow and a crossbow** hovering over their
+  shadows nearby. Walk up and press **E**: she reaches out for it (crouched,
+  if she is) and it is hers as her hand closes on it. The sword goes into her
+  weapon hand - its own sprite layer, playing frame for frame with the body.
+  The others are each a **stance** of its own, with its own idle, walk, run,
+  sprint, crouch and crouch walk: the **battle axe** in both hands (an attack,
+  a heavy overhead blow, a spin attack, a crouched sweep, a parry, a block),
+  the **bow** (drawn while the attack is held, loosed when it is let go, crouched
+  too; a parry and a block), the **crossbow** (a shot, crouched too; a parry and
+  a block). **1 – 4** switch between them, **G** puts down what she holds. A
+  left-handed character (Pause → Wardrobe → Hand) takes everything in the other
+  hand and fights left-handed.
 - **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
   geometry, depth-tested against the sprites so the character can walk behind a
   tree.
@@ -108,8 +125,9 @@ Drop sprite sheets on the window at any time to import them.
   bangles on either wrist, scabbards on either hip, a sun hat and a beanie, a
   long mantle (a cape to the ankles), a sword and a shield for either hand,
   and the face's ears, noses, eyes, eyebrows, makeup and mouths — each in all
-  six states from all 24 views, the clothes and mantle cloth-simulated per
-  animation. They are **pixel art**,
+  53 states from all 24 views (a carried item in the states of its stance),
+  the clothes and mantle cloth-simulated per animation; and the battle axe,
+  the longbow and the crossbow in theirs. They are **pixel art**,
   in 128- and 64-pixel frames in one 128-colour palette, right- and
   left-handed, and every one can be recoloured: fourteen hair colours (royal
   blue among them) for the hair, the clothes, the eyes, lips, brows and makeup
@@ -181,13 +199,26 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
   its own as it draws it (`gfx/PaletteAtlas`), so every colour of a sheet is
   one texture, two characters can wear it in different colours in the same
   draw call, and a colour can change every frame.
-- **Fallbacks.** No body sheet for a view → the generated 32-pixel body for that
-  view. No cosmetic sheet → that layer is left blank. A missing west-facing view
-  borrows the east-facing one mirrored.
+- **Stances.** Every state has a stance - what is in her hands while it plays
+  (`sprite/Stance`): the wardrobe's own carried items (the sword and shield),
+  the battle axe, the bow or the crossbow, or nothing at all (the emotes and the
+  pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
+  `carry_right/battle_axe`, `carry_left/longbow` or `carry_right/crossbow` (the
+  twin hand, mirrored, for a left-handed character) whatever the wardrobe holds,
+  and the other hand is empty.
+- **Fallbacks.** No body sheet for a state from a view → the first state along
+  its fallbacks that has one (a crouch walk is shown as the walk, the axe's
+  block as the axe's idle and then the idle; every chain ends in one of the
+  first six), and every layer plays that state with it - so the 512-pixel
+  renders, made before the new states, still play them all. No body sheet at
+  all → the generated 32-pixel body for that view. No cosmetic sheet → that
+  layer is left blank. A missing west-facing view borrows the east-facing one
+  mirrored.
 - **Loading.** Sheets load on demand, decode on worker threads, are cropped to
   the part of the frame they use and live in a video-memory budget with
-  least-recently-used eviction; what may be needed next (the other states, the
-  neighbouring directions) is loaded ahead only into room the budget has spare.
+  least-recently-used eviction; what may be needed next (the other states of
+  the same stance, the neighbouring directions) is loaded ahead only into room
+  the budget has spare.
   A layer change is only shown once every layer of it is ready, so a sword is
   never a frame out of step with the arm holding it.
 
@@ -353,7 +384,9 @@ xvfb-run ./gradlew run -Dlarsons.script="scene demo; wait 1; pitch 12; state wal
 
 Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
-`yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `teleport`, `pickup`,
+`yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
+bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
+`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow>`, `teleport`, `pickup`,
 `dropitem`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
@@ -400,7 +433,9 @@ Engine. Each section is broken up into chunks, or tasks to be done.
 - [x] Create a blank 3D void area that can render the animations (all 8 points
       and 3 heights for each) for the character sprite in the states idle, walk,
       run, sprint, jump and attack — *the Demo scene; preview any state with
-      1–6, turn with `, .` or `T`, change height with `Tab`*
+      `[ ]`, turn with `, .` or `T`, change height with `Tab` - and since then
+      47 more states: crouching, pick-ups, emotes, the sword's and shield's
+      moves and the battle axe's, bow's and crossbow's stances*
 - [x] Create room for cosmetics as sprite-sheet layers over the base character
       sheet — shirts, pants, underwear, bras, shoes, hairs, noses, eyes, mouths,
       ears, earrings, wristwear, gloves, hats, carried items (left and right

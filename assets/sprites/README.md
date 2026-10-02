@@ -51,11 +51,14 @@ An *item* is any folder name — `body/hero`, `hat/straw_boater`,
 
 | Part | Values |
 |---|---|
-| state | `idle` `walk` `run` `sprint` `jump` `attack` |
+| state | `idle` `walk` `run` `sprint` `jump` `attack` - the first six - and the 47 after them (see **The animations** below): `crouch_idle`, `axe_heavy_attack`, `bow_crouch_draw`, ... |
 | elevation | `side` (rendered at 0°) · `middle` (45°) · `top` (90°, birds-eye) |
 | direction | `s` `se` `e` `ne` `n` `nw` `w` `sw` |
 
-That is 6 × 3 × 8 = **144 sheets** for a complete item.
+That is 6 × 3 × 8 = **144 sheets** for an item with the first six, which is all
+an item needs: a state it has no sheets for is shown as one of the first six
+(see [Fallbacks](#fallbacks)). The feminine model's pixel-art items have all 53
+states, 1,272 sheets an item (a carried item the states of its stance).
 
 The **direction is the way the character faces in the picture**: `s` faces the
 camera, `n` shows its back, `e` faces the viewer's right, `w` the viewer's left,
@@ -219,9 +222,14 @@ draw order. Without an `_lh` version the game mirrors the twin itself.
 
 ## Fallbacks
 
+- **A state the body has no sheet for** (from that view) is shown as the
+  first state along its fallbacks that it has: a crouch walk as the walk, the
+  bow's draw as the bow's idle and then the idle, an emote as the idle. Every
+  chain ends in one of the first six. Every layer plays the state the body
+  shows.
 - **No body sheets** (or a view missing from them): the game draws its own
-  32 × 32 fallback character for that view, scaled up — every state, all 24
-  views, generated at start-up.
+  32 × 32 fallback character for that view, scaled up — the first six, all 24
+  views, generated at start-up (the other states shown as theirs).
 - **The sword** has a matching 32-pixel fallback layer, used while the body is
   the fallback.
 - **Cosmetics without sheets are not drawn.**
@@ -312,6 +320,17 @@ holdouts were cut against.
 | other | `wool_mantle` ● | a long red wool cape down to the ankles, **cloth-simulated**, flowing out behind as she runs |
 | carry_left | `round_shield` ●, `sword` | a round wooden shield strapped to the left forearm; the sword in the left hand |
 | carry_right | `sword` ●, `round_shield` | a short arming sword - the demo's pick-up sword (`items/sword/icon.png` is its pickup); the shield on the right forearm |
+| carry_right | `battle_axe` | an ornate two-handed battle axe, 95 cm - the axe stance's weapon, pixel art only, drawn only in the `axe_*` states |
+| carry_left | `longbow` | a 1.30 m recurve bow, its string drawn and an arrow nocked in the draw - the bow stance's, in the `bow_*` states |
+| carry_right | `crossbow` | an 85 cm crossbow with a bolt that goes when it is shot - the crossbow stance's, in the `crossbow_*` states |
+
+The three weapons are not worn: they are a **stance** each (`sprite/Stance` in
+the game), held by picking them up (their pickups are `items/battle_axe/`,
+`items/longbow/`, `items/crossbow/`). While a state of a weapon stance plays,
+its weapon is drawn in its hand and the other hand is empty, whatever the
+wardrobe carries; the emotes and the pick-ups are played with empty hands; the
+wardrobe's own carried items (the sword and the shield) are drawn in the sword
+stance's states only.
 
 **Colours.** The pixel art can be recoloured (Pause → Wardrobe: the swatch
 beside the item). The hair, the shirts and dress, jeans, briefs, bralette,
@@ -338,6 +357,14 @@ layers stay in step (the game plays one frame index on all of them):
 | sprint | 16 | 0.53 | loops; 7.0 m/s |
 | jump | 27 | 0.9 | one-shot; leaves the ground at 20 % and lands at 82 % of the clip, as `Player` expects, and stays at ground height in the picture - the game does the rising (to 0.58 m) |
 | attack | 18 | 0.6 | one-shot; a sword slash, kept inside the frame |
+| crouch_idle, crouch_walk, crouch_walk_fast | 48, 32, 24 | | loops; crouched with the sword and shield, 0.9 and 1.8 m/s |
+| pickup, crouch_pickup | 30 | 1.0 | one-shot, empty hands; the hand closes on the item half way through |
+| emote_laugh, emote_cry, emote_surprise, emote_angry | 48, 60, 36, 48 | | one-shots, empty hands |
+| spin_attack, parry, shield_ready, shield_bash | 24, 18, 30, 20 | | the sword and shield; `shield_ready` loops |
+| axe_idle, axe_walk, axe_run, axe_sprint, axe_crouch_idle, axe_crouch_walk | 48, 28, 20, 16, 48, 32 | | loops, the walks at the first six's speeds (crouched 0.9 m/s); the same six for `bow_` and `crossbow_` |
+| axe_attack, axe_heavy_attack, axe_spin_attack, axe_crouch_attack, axe_parry, axe_block | 24, 32, 30, 24, 18, 30 | | `axe_block` loops |
+| bow_draw, bow_fire, bow_crouch_draw, bow_crouch_fire, bow_parry, bow_block | 24, 18, 24, 18, 18, 30 | | the draw ends held at full draw; `bow_block` loops |
+| crossbow_fire, crossbow_crouch_fire, crossbow_parry, crossbow_block | 30, 30, 18, 30 | | `crossbow_block` loops |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
 body for every layer; for the garments the body and, where one tucks into or
