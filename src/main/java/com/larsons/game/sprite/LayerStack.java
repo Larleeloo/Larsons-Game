@@ -18,6 +18,15 @@ import java.util.List;
  *       otherwise that view falls back to the 32×32 generated body. The
  *       fallback is per view, so a half-finished set of renders is still
  *       playable.</li>
+ *   <li>A state the body has no sheet for from this view is shown as the
+ *       first of its {@link AnimState#fallback() fallbacks} it has one for -
+ *       a 512-pixel set rendered before the crouch existed crouches as it
+ *       stands - and every layer plays that state with it.</li>
+ *   <li>What is drawn in the hands is the state's {@link Stance}'s: the
+ *       wardrobe's carried items for the sword stance, the stance's own
+ *       weapon in its hand (and nothing in the other) for the axe, the bow
+ *       and the crossbow, and nothing at all for the emotes and pick-ups
+ *       ({@link Stance#carried}).</li>
  *   <li>The body's sheet decides the frame: {@code frame = time × fps},
  *       wrapped (looping states) or held on the last frame (jump, attack).</li>
  *   <li>Every cosmetic plays the <em>same</em> frame index. They are authored
@@ -73,7 +82,7 @@ public final class LayerStack {
      * @param loading      whether this is the previous stack, held while the new one loads
      */
     public record Result(List<Layer> layers, SpriteProfile framing, SpriteView view,
-                         AnimState state, int frame, int frames, double fps,
+                         AnimState state, AnimState asked, int frame, int frames, double fps,
                          boolean fallbackBody, boolean loading) {
 
         /** Seconds one pass of this state's animation lasts. */
@@ -81,8 +90,13 @@ public final class LayerStack {
             return AnimState.duration(frames, fps);
         }
 
+        /** Whether the state asked for is shown as one of its fallbacks. */
+        public boolean substituted() {
+            return state != asked;
+        }
+
         Result held() {
-            return new Result(layers, framing, view, state, frame, frames, fps, fallbackBody, true);
+            return new Result(layers, framing, view, state, asked, frame, frames, fps, fallbackBody, true);
         }
     }
 
@@ -130,6 +144,21 @@ public final class LayerStack {
     }
 
     /**
+     * The state shown for {@code state} from this view: itself where the body
+     * ({@code body}, a {@link SpriteLibrary#source}) has a sheet for it, else
+     * the first of its fallbacks that has one, else the first six's state at
+     * the end of the chain. Without a body (the generated one), the chain's
+     * end: the generated body only knows the first six.
+     */
+    public static AnimState shown(SpriteLibrary lib, SpriteLibrary.Source body, AnimState state,
+                                  Elevation elevation, Facing facing) {
+        if (body == null) return state.root();
+        AnimState s = state;
+        while (s.fallback() != null && lib.resolve(body, s, elevation, facing) == null) s = s.fallback();
+        return s;
+    }
+
+    /**
      * Resolve the stack for one frame.
      *
      * <p><b>Stacks switch atomically.</b> When the view or the state changes
@@ -146,11 +175,14 @@ public final class LayerStack {
         Facing facing = view.facing();
         boolean missing = false;
         boolean left = wardrobe.leftHanded();
+        AnimState asked = state;
+        state = shown(lib, lib.source(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style(), left),
+                asked, elev, facing);
 
         List<Want> wants = new ArrayList<>();
         Slot[] order = drawOrder(left, elev, facing);
         for (Slot slot : order) {
-            String item = wardrobe.get(slot);
+            String item = slot.carried() ? asked.stance().carried(slot, wardrobe) : wardrobe.get(slot);
             if (item == null) continue;
             SpriteLibrary.Source src = lib.source(slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
@@ -166,7 +198,7 @@ public final class LayerStack {
         // on nothing else.
         if (!missing) {
             for (Want w : wants) {
-                if (w.file() != null) prefetch(lib, w.source(), state, elev, facing);
+                if (w.file() != null) prefetch(lib, w.source(), state, asked.stance(), elev, facing);
             }
         }
         if (missing && memory.last != null && usable(memory.last)) {
@@ -189,7 +221,7 @@ public final class LayerStack {
             fallbackBody = false;
         } else {
             // (the left-handed fallback: the right-handed one from the other side, mirrored)
-            body = lib.fallback(state, elev, left ? facing.mirrorOf() : facing, false);
+            body = lib.fallback(state.root(), elev, left ? facing.mirrorOf() : facing, false);
             mirrored = left;
             framing = FallbackSprites.PROFILE;
             fallbackBody = true;
@@ -218,10 +250,10 @@ public final class LayerStack {
             } else if (w.file() == null && w.slot() == (left ? Slot.CARRY_LEFT : Slot.CARRY_RIGHT)
                     && fallbackBody && FALLBACK_SWORD.equals(w.item())) {
                 layers.add(new Layer(w.slot(), w.item(),
-                        lib.fallback(state, elev, left ? facing.mirrorOf() : facing, true), frame, left));
+                        lib.fallback(state.root(), elev, left ? facing.mirrorOf() : facing, true), frame, left));
             }
         }
-        Result result = new Result(layers, framing, view, state, frame, frames, fps, fallbackBody, missing);
+        Result result = new Result(layers, framing, view, state, asked, frame, frames, fps, fallbackBody, missing);
         if (!missing) memory.last = result;
         return result;
     }
@@ -234,19 +266,22 @@ public final class LayerStack {
 
     /**
      * How long one pass of {@code state} lasts for this wardrobe from this
-     * view — from the body's sheet when it is loaded, otherwise from the
-     * fallback's frame count. Does not touch any character's memory.
+     * view — from the body's sheet of the state {@link #shown} for it when
+     * that is loaded, otherwise from the fallback's frame count. Does not
+     * touch any character's memory.
      */
     public static double duration(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                   SpriteView view) {
-        SpriteLibrary.Resolved r = lib.resolve(lib.source(Slot.BODY, wardrobe.get(Slot.BODY),
-                wardrobe.style(), wardrobe.leftHanded()), state, view.elevation(), view.facing());
-        if (r != null) r = r.withRecolor(lib.recolor(lib.source(Slot.BODY, wardrobe.get(Slot.BODY),
-                wardrobe.style(), wardrobe.leftHanded()), Slot.BODY, wardrobe));
+        SpriteLibrary.Source body = lib.source(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style(),
+                wardrobe.leftHanded());
+        state = shown(lib, body, state, view.elevation(), view.facing());
+        SpriteLibrary.Resolved r = lib.resolve(body, state, view.elevation(), view.facing());
+        if (r != null) r = r.withRecolor(lib.recolor(body, Slot.BODY, wardrobe));
         if (r != null) {
             SheetTexture t = lib.sheet(r);
             if (t != null) return AnimState.duration(t.frameCount(), r.profile().fps(state));
         }
+        state = state.root();
         return AnimState.duration(state.defaultFrames(), FallbackSprites.PROFILE.fps(state));
     }
 
@@ -262,17 +297,19 @@ public final class LayerStack {
     }
 
     /**
-     * Queue what the character is likely to need next: every other state from
-     * this view (it may start walking or swinging at any moment), and this
-     * state from the two neighbouring directions (the camera or the character
-     * may turn). Queued loads are cheap to ask for twice, and the library only
-     * takes them while the memory budget has room (see {@link
-     * SpriteLibrary#prefetch}).
+     * Queue what the character is likely to need next: every other state of
+     * the same stance from this view (it may start walking or swinging at any
+     * moment - though not drop the axe for the bow), and this state from the
+     * two neighbouring directions (the camera or the character may turn).
+     * Queued loads are cheap to ask for twice, and the library only takes them
+     * while the memory budget has room (see {@link SpriteLibrary#prefetch}).
      */
     private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src,
-                                 AnimState state, Elevation elev, Facing facing) {
+                                 AnimState state, Stance stance, Elevation elev, Facing facing) {
         for (AnimState other : AnimState.values()) {
-            if (other != state) lib.prefetch(lib.resolve(src, other, elev, facing));
+            if (other != state && other.stance() == stance) {
+                lib.prefetch(lib.resolve(src, other, elev, facing));
+            }
         }
         lib.prefetch(lib.resolve(src, state, elev, facing.clockwise()));
         lib.prefetch(lib.resolve(src, state, elev, facing.counterClockwise()));

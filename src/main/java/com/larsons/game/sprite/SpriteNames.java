@@ -58,7 +58,15 @@ public final class SpriteNames {
             Map.entry("jump", AnimState.JUMP), Map.entry("jumping", AnimState.JUMP),
             Map.entry("attack", AnimState.ATTACK), Map.entry("attacking", AnimState.ATTACK),
             Map.entry("atk", AnimState.ATTACK), Map.entry("slash", AnimState.ATTACK),
-            Map.entry("swing", AnimState.ATTACK), Map.entry("strike", AnimState.ATTACK));
+            Map.entry("swing", AnimState.ATTACK), Map.entry("strike", AnimState.ATTACK),
+            Map.entry("crouch", AnimState.CROUCH_IDLE), Map.entry("crouching", AnimState.CROUCH_IDLE),
+            Map.entry("sneak", AnimState.CROUCH_WALK), Map.entry("sneaking", AnimState.CROUCH_WALK),
+            Map.entry("pickup", AnimState.PICKUP),
+            Map.entry("laugh", AnimState.EMOTE_LAUGH), Map.entry("laughing", AnimState.EMOTE_LAUGH),
+            Map.entry("cry", AnimState.EMOTE_CRY), Map.entry("crying", AnimState.EMOTE_CRY),
+            Map.entry("surprise", AnimState.EMOTE_SURPRISE), Map.entry("surprised", AnimState.EMOTE_SURPRISE),
+            Map.entry("angry", AnimState.EMOTE_ANGRY), Map.entry("anger", AnimState.EMOTE_ANGRY),
+            Map.entry("parry", AnimState.PARRY), Map.entry("block", AnimState.SHIELD_READY));
 
     private static final Map<String, Elevation> ELEVATIONS = Map.ofEntries(
             Map.entry("side", Elevation.SIDE), Map.entry("low", Elevation.SIDE),
@@ -188,6 +196,17 @@ public final class SpriteNames {
                 continue;
             }
 
+            // A state's own name, however many words it runs to - the longest
+            // that fits ("crouch walk fast" before "crouch walk" before "walk").
+            if (state == null) {
+                int words = stateAt(t, i);
+                if (words > 0) {
+                    state = stateOf(t, i, words);
+                    i += words - 1;
+                    continue;
+                }
+            }
+
             if (a.chars().allMatch(Character::isDigit)) {
                 numbers.add(a);
             } else if (STATES.containsKey(a) && state == null) {
@@ -222,6 +241,31 @@ public final class SpriteNames {
         }
         return new Parsed(slot, state, elevation, facing, frame, leftovers);
     }
+
+    /** The longest run of tokens from {@code i} (two words or more) that names a state; 0 if none. */
+    private static int stateAt(List<String> t, int i) {
+        for (int n = Math.min(MAX_STATE_WORDS, t.size() - i); n >= 2; n--) {
+            if (stateOf(t, i, n) != null) return n;
+        }
+        return 0;
+    }
+
+    private static AnimState stateOf(List<String> t, int i, int n) {
+        String joined = String.join("_", t.subList(i, i + n));
+        AnimState s = AnimState.byKey(joined);
+        return s != null ? s : PHRASES.get(joined);
+    }
+
+    /** The most words any state's name runs to ({@code crossbow_crouch_fire}: 3). */
+    private static final int MAX_STATE_WORDS = 3;
+
+    /** Other ways of writing the many-word states. */
+    private static final Map<String, AnimState> PHRASES = Map.ofEntries(
+            Map.entry("pick_up", AnimState.PICKUP), Map.entry("crouch_pick_up", AnimState.CROUCH_PICKUP),
+            Map.entry("crouched_idle", AnimState.CROUCH_IDLE), Map.entry("crouching_idle", AnimState.CROUCH_IDLE),
+            Map.entry("crouched_walk", AnimState.CROUCH_WALK), Map.entry("crouch_walking", AnimState.CROUCH_WALK),
+            Map.entry("spin_attack", AnimState.SPIN_ATTACK), Map.entry("shield_up", AnimState.SHIELD_READY),
+            Map.entry("heavy_attack", AnimState.AXE_HEAVY_ATTACK));
 
     private static Slot hand(String a, String b) {
         boolean carry = a.equals("carry") || a.equals("held") || a.equals("hand");

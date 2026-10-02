@@ -539,9 +539,14 @@ public final class SpriteLibrary implements AutoCloseable {
         return s.key() + "_" + e.key() + "_" + f.key();
     }
 
-    /** Generate every fallback view in the background, so none costs a frame later. */
+    /**
+     * Generate every fallback view in the background, so none costs a frame
+     * later: those of the first six - every other state is shown as one of
+     * them on the generated body ({@link AnimState#root()}).
+     */
     public void warmFallbacks() {
         for (AnimState s : AnimState.values()) {
+            if (s.root() != s) continue;
             for (Elevation e : Elevation.values()) {
                 for (Facing f : Facing.values()) fallbackJob(s, e, f);
             }
@@ -580,7 +585,9 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     public static int fallbackTotal() {
-        return AnimState.values().length * Elevation.values().length * Facing.values().length;
+        int roots = 0;
+        for (AnimState s : AnimState.values()) if (s.root() == s) roots++;
+        return roots * Elevation.values().length * Facing.values().length;
     }
 
     // --- pickups ---------------------------------------------------------------------

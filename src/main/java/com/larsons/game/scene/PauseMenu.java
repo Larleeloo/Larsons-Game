@@ -22,16 +22,21 @@ final class PauseMenu {
     static final String[][] CONTROLS = {
             {"W A S D", "walk (relative to the camera)"},
             {"Shift / Ctrl", "run / sprint while moving"},
-            {"Space", "jump"},
-            {"Left click / F", "attack"},
-            {"E / G", "pick up / drop the held item"},
+            {"C", "crouch / stand (Shift: fast crouch walk)"},
+            {"Space", "jump (with the sword)"},
+            {"Left click / F", "attack (bow: hold to draw, let go)"},
+            {"X / R / Q", "heavy attack / spin attack / parry"},
+            {"B (held) / V", "block / shield bash"},
+            {"1 – 4", "sword and shield, axe, bow, crossbow"},
+            {"5 – 8", "laugh, cry, surprise, anger"},
+            {"E / G", "pick up / drop what you hold"},
             {"Right drag / arrows", "orbit the camera"},
             {"Mouse wheel / + -", "zoom"},
             {"Tab", "camera height: side → 45° → top-down"},
-            {"1 – 6", "preview idle, walk, run, sprint, jump, attack in place"},
+            {"[ / ]", "preview the previous / next state"},
             {"0", "stop previewing"},
             {", / .", "turn the character 45°"},
-            {"T", "turntable: step through all 8 directions"},
+            {"T", "turntable: all 8 directions"},
             {"H / P", "toggle the HUD / the 3D props"},
             {"F12", "screenshot"},
             {"Esc", "this menu"},
@@ -160,7 +165,7 @@ final class PauseMenu {
         for (String[] row : CONTROLS) {
             ui.text(ui.body, row[0], x, y, Theme.ITEM_SELECTED);
             ui.text(ui.body, row[1], x + 240, y, Theme.ITEM);
-            y += 30;
+            y += 26;
         }
     }
 
@@ -176,7 +181,8 @@ final class PauseMenu {
         ui.text(ui.large, "    <layer>/<name>/<state>_<elevation>_<direction>.png", x, y, Theme.ACCENT);
         y += 44;
         used = ui.paragraph(ui.body,
-                "state: idle walk run sprint jump attack    elevation: side middle top (or 0 45 90)\n"
+                "state: idle walk run sprint jump attack (and crouch_idle, axe_walk, bow_draw ... - see "
+                        + "assets/sprites/README.md)    elevation: side middle top (or 0 45 90)\n"
                         + "direction: n ne e se s sw w nw — the way the character faces in the picture "
                         + "(s = toward the camera, e = to the viewer's right)\n\n"
                         + "Frames are 512×512 at 30 fps, left to right then top to bottom. Every layer "

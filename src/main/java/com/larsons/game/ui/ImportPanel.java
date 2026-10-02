@@ -172,6 +172,8 @@ public final class ImportPanel {
         Map<AnimState, Integer> views = plan.viewsPerState();
         for (AnimState s : AnimState.values()) {
             Integer n = views.get(s);
+            // the first six always (what a set needs); any other only when the drop has it
+            if (n == null && s.root() != s) continue;
             String frames = plan.sheets().stream().filter(p -> p.state() == s).findFirst()
                     .map(p -> {
                         int[] fs = p.frameSize(d.frameWidth(), d.frameHeight());

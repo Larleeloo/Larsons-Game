@@ -5,6 +5,7 @@ import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Facing;
 import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 
 import java.util.LinkedHashSet;
@@ -15,36 +16,74 @@ import java.util.function.ToDoubleFunction;
  * The player character: a position on the ground, a heading, a little jump
  * physics, and the animation state machine that picks which sprite set plays.
  *
+ * <p>What plays depends on her {@link Stance} - what she holds: the
+ * wardrobe's sword and shield, or a battle axe, a bow or a crossbow she has
+ * picked up - and on whether she is crouched (C toggles it):
+ *
  * <pre>
- *   airborne or mid-jump  → jump
- *   swinging              → attack
- *   moving                → walk / run (Shift) / sprint (Ctrl)
- *   otherwise             → idle
+ *   airborne or mid-jump          → jump (the sword stance only)
+ *   an action under way           → it (attack, heavy, spin, parry, bash,
+ *                                   the bow's draw and loose, an emote, a pick-up)
+ *   blocking (held)               → the stance's block / the shield up
+ *   moving                        → the stance's walk / run (Shift) / sprint (Ctrl),
+ *                                   or its crouch walk (fast with Shift)
+ *   otherwise                     → the stance's idle, or its crouch
  * </pre>
  *
+ * <p>Actions play once, in place: she does not move until they end, except
+ * that moving cuts an emote short. The bow's attack is held: the draw plays
+ * and holds at full draw while the attack is held, and letting go looses the
+ * arrow - or, before the draw is most of the way back, lets the string down.
+ * She moves at the speed her locomotion state's feet travel at
+ * ({@link AnimState#speed()}).
+ *
  * <p>For looking at the art rather than playing, a state can be
- * <em>previewed</em>: it loops in place (jump and attack included) until the
+ * <em>previewed</em>: it loops in place (the one-shots included) until the
  * player moves or clears it.
  */
 public final class Player {
 
-    public static final double WALK_SPEED = 1.7;
-    public static final double RUN_SPEED = 4.2;
-    public static final double SPRINT_SPEED = 7.0;
+    public static final double WALK_SPEED = AnimState.WALK.speed();
+    public static final double RUN_SPEED = AnimState.RUN.speed();
+    public static final double SPRINT_SPEED = AnimState.SPRINT.speed();
     public static final double GRAVITY = 15.0;
     public static final double TURN_RATE = 14.0;
     /** When a jump leaves the ground, as a fraction of its animation — after the crouch. */
     public static final double JUMP_LAUNCH = 0.2;
     /** How much of the jump animation is spent in the air. */
     public static final double JUMP_AIRTIME = 0.62;
+    /** When a pick-up's hand closes on the item, as a fraction of its animation. */
+    public static final double GRAB_AT = 0.5;
+    /** How far back the bow must be drawn (a fraction of the draw) for letting go to loose it. */
+    public static final double DRAW_READY = 0.7;
 
-    /** What the controls ask for this frame. */
+    /**
+     * What the controls ask for this frame. The one-frame requests ({@code
+     * jump}, {@code attack}, {@code crouch}, {@code heavy}, {@code spin},
+     * {@code parry}, {@code bash}, {@code emote}) are true on the frame the key
+     * goes down; {@code attackHeld} and {@code block} for as long as it is held.
+     *
+     * @param crouch toggles crouching
+     * @param emote  an emote to play ({@link AnimState#EMOTE_LAUGH} ...), or null
+     */
     public record Intent(double moveX, double moveZ, boolean run, boolean sprint,
-                         boolean jump, boolean attack) {
+                         boolean jump, boolean attack, boolean attackHeld, boolean crouch,
+                         boolean heavy, boolean spin, boolean parry, boolean block, boolean bash,
+                         AnimState emote) {
         public static final Intent NONE = new Intent(0, 0, false, false, false, false);
+
+        /** Moving, running, jumping and attacking only. */
+        public Intent(double moveX, double moveZ, boolean run, boolean sprint, boolean jump, boolean attack) {
+            this(moveX, moveZ, run, sprint, jump, attack, attack, false, false, false, false, false, false, null);
+        }
 
         boolean moving() {
             return Math.abs(moveX) > 1e-3 || Math.abs(moveZ) > 1e-3;
+        }
+
+        /** Whether it asks for anything to happen besides moving. */
+        boolean acts() {
+            return jump || attack || crouch || heavy || spin || parry || block || bash || emote != null;
         }
     }
 
@@ -59,8 +98,14 @@ public final class Player {
     private double stateTime;
     private AnimState preview;
 
+    private Stance stance = Stance.SWORD;
+    private boolean crouched;
     private boolean jumping, launched;
+    /** The one-shot under way (null: none), and how long it lasts. */
+    private AnimState action;
     private double actionDuration = 0.6;
+    private boolean drawing;
+    private Runnable grab;
 
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
@@ -73,10 +118,10 @@ public final class Player {
     /**
      * Advance one frame. {@code durations} says how long each state's
      * animation lasts for this character right now (from its sprite sheets),
-     * which is how long a jump or a swing takes.
+     * which is how long a jump, a swing or an emote takes.
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
-        if (preview != null && (in.moving() || in.jump() || in.attack())) preview = null;
+        if (preview != null && (in.moving() || in.acts())) preview = null;
         if (preview != null) {
             velocity = Vec3.ZERO;
             setState(preview);
@@ -88,29 +133,77 @@ public final class Player {
         }
 
         boolean grounded = height <= 1e-6 && vy <= 0;
-        boolean attacking = state == AnimState.ATTACK && stateTime < actionDuration;
+        Stance st = stance;
 
-        if (in.attack() && grounded && !attacking && !jumping) {
-            setState(AnimState.ATTACK);
-            attacking = true;
-            actionDuration = durations.applyAsDouble(AnimState.ATTACK);
+        // --- what is under way ---------------------------------------------------------
+        if (action != null && in.moving() && isEmote(action)) action = null;   // moving cuts an emote short
+        if (action != null && !drawing && stateTime >= actionDuration) action = null;
+        if (drawing && !in.attackHeld()) {
+            // the bow: let go - loosed if drawn far enough, else the string let down
+            drawing = false;
+            boolean ready = stateTime >= DRAW_READY * actionDuration;
+            action = null;
+            if (ready) start(st.release(crouched), durations);
         }
-        if (in.jump() && grounded && !jumping && !attacking) {
-            jumping = true;
-            launched = false;
-            setState(AnimState.JUMP);
-            actionDuration = durations.applyAsDouble(AnimState.JUMP);
+        if (action != null && grab != null && stateTime >= GRAB_AT * actionDuration) {
+            Runnable g = grab;
+            grab = null;
+            g.run();
+            st = stance;            // (what she picked up may be a weapon of another stance)
         }
+        boolean busy = action != null || jumping;
 
-        // Movement, relative to the camera (the caller already rotated it).
-        double speed = in.sprint() ? SPRINT_SPEED : in.run() ? RUN_SPEED : WALK_SPEED;
+        // --- crouching ---------------------------------------------------------------------
+        if (in.crouch() && grounded && !jumping) crouched = !crouched;
+        if (in.sprint() && in.moving() && !busy) crouched = false;           // sprinting stands her up
+
+        // --- starting something ----------------------------------------------------------
+        boolean blocking = false;
+        if (!busy && grounded) {
+            AnimState next = null;
+            if (in.emote() != null) {
+                next = in.emote();
+                crouched = false;
+            } else if (in.parry()) {
+                next = st.parry();
+            } else if (in.spin() && st.spin() != null) {
+                next = st.spin();
+                crouched = false;
+            } else if (in.heavy() && st.heavy() != null) {
+                next = st.heavy();
+                crouched = false;
+            } else if (st.bash() != null && (in.bash() || in.block() && in.attack())) {
+                next = st.bash();
+                crouched = false;
+            } else if (in.attack() && st.attack(crouched) != null) {
+                if (st == Stance.SWORD) crouched = false;                     // she stands to swing
+                next = st.attack(crouched);
+                drawing = st.drawn() && in.attackHeld();
+            } else if (in.jump() && st.canJump()) {
+                crouched = false;
+                jumping = true;
+                launched = false;
+                setState(AnimState.JUMP);
+                actionDuration = durations.applyAsDouble(AnimState.JUMP);
+            } else if (in.block() && st.block() != null) {
+                blocking = true;
+                crouched = false;
+            }
+            if (next != null) start(next, durations);
+        }
+        busy = action != null || jumping;
+
+        // --- movement, relative to the camera (the caller already rotated it) -----------
+        Stance.Pace pace = in.sprint() ? Stance.Pace.SPRINT : in.run() ? Stance.Pace.RUN : Stance.Pace.WALK;
+        AnimState moving = st.moving(pace, crouched);
         Vec3 wish = new Vec3(in.moveX(), 0, in.moveZ());
         if (wish.length() > 1) wish = wish.normalize();
-        if (attacking) wish = Vec3.ZERO;
-        Vec3 target = wish.scale(speed);
+        boolean rooted = (busy && !jumping) || blocking;
+        if (rooted) wish = Vec3.ZERO;
+        Vec3 target = wish.scale(moving.speed());
         velocity = velocity.lerp(target, 1 - Math.exp(-dt * (grounded ? 14 : 3)));
         position = position.add(velocity.scale(dt));
-        if (in.moving() && !attacking) wantHeading = SpriteView.headingOf(wish.x(), wish.z());
+        if (in.moving() && !rooted) wantHeading = SpriteView.headingOf(wish.x(), wish.z());
 
         // The jump: crouch, then launch with just enough speed to come down
         // as the animation reaches its landing.
@@ -129,12 +222,24 @@ public final class Player {
 
         AnimState next;
         if (jumping) next = AnimState.JUMP;
-        else if (attacking) next = AnimState.ATTACK;
-        else if (velocity.horizontalLength() > 0.25 && in.moving()) {
-            next = in.sprint() ? AnimState.SPRINT : in.run() ? AnimState.RUN : AnimState.WALK;
-        } else next = AnimState.IDLE;
+        else if (action != null) next = action;
+        else if (blocking) next = st.block();
+        else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
+        else next = st.idle(crouched);
         setState(next);
         stateTime += dt;
+    }
+
+    private void start(AnimState s, ToDoubleFunction<AnimState> durations) {
+        if (s == null) return;
+        action = s;
+        actionDuration = durations.applyAsDouble(s);
+        setState(s);
+        stateTime = 0;
+    }
+
+    private static boolean isEmote(AnimState s) {
+        return s.key().startsWith("emote_");
     }
 
     private void setState(AnimState s) {
@@ -150,6 +255,37 @@ public final class Player {
         heading += d * (1 - Math.exp(-dt * TURN_RATE));
     }
 
+    // --- stances and picking things up ------------------------------------------------
+
+    /** What she holds: the sword stance (the wardrobe's), or a weapon she picked up. */
+    public Stance stance() { return stance; }
+
+    /** Take up {@code s} (interrupting whatever she was doing with the last weapon). */
+    public void setStance(Stance s) {
+        if (s == null || s == Stance.FREE || s == stance) return;
+        stance = s;
+        if (action != null && !isEmote(action)) action = null;
+        drawing = false;
+    }
+
+    public boolean crouched() { return crouched; }
+
+    /**
+     * Reach down and pick something up: the pick-up plays (crouched, if she
+     * is), and {@code grab} runs as her hand closes on it. Returns false (and
+     * does nothing) while she is busy - mid-air or mid-action.
+     */
+    public boolean pickUp(Runnable grab, ToDoubleFunction<AnimState> durations) {
+        if (action != null || jumping || height > 0) return false;
+        preview = null;
+        this.grab = grab;
+        start(crouched ? AnimState.CROUCH_PICKUP : AnimState.PICKUP, durations);
+        return true;
+    }
+
+    /** The one-shot under way, or null. */
+    public AnimState action() { return action; }
+
     // --- preview and posing ----------------------------------------------------------
 
     /** Loop {@code s} in place (null to go back to live states). */
@@ -157,6 +293,9 @@ public final class Player {
         preview = s;
         if (s != null) {
             jumping = false;
+            action = null;
+            drawing = false;
+            grab = null;
             setState(s);
             stateTime = 0;
         }

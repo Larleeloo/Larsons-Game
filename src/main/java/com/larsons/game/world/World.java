@@ -4,6 +4,7 @@ import com.larsons.game.sprite.Slot;
 
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 
 import java.util.ArrayList;
@@ -72,29 +73,62 @@ public final class World {
         return best;
     }
 
-    /** Pick {@code item} up: into the inventory and straight into its hand. */
+    /**
+     * Pick {@code item} up: into the inventory and straight into her hands -
+     * the sword into its hand in the wardrobe (and she takes up the sword
+     * stance), a weapon with a stance of its own by taking up that stance.
+     */
     public void pickUp(GroundItem item) {
         items.remove(item);
         player.inventory().add(item.def.id());
-        // a left-handed character takes it in the other hand
-        Slot slot = player.wardrobe().hand() == Wardrobe.Hand.LEFT ? item.def.carrySlot().twin()
-                : item.def.carrySlot();
-        player.wardrobe().set(slot, item.def.id());
+        if (!item.def.held()) {
+            // a left-handed character takes it in the other hand
+            Slot slot = player.wardrobe().hand() == Wardrobe.Hand.LEFT ? item.def.carrySlot().twin()
+                    : item.def.carrySlot();
+            player.wardrobe().set(slot, item.def.id());
+        }
+        player.setStance(item.def.stance());
     }
 
-    /** Put down whatever is in the hand it goes in (then the other hand); returns it, or null. */
+    /**
+     * Put down what she holds: the weapon of her stance (she goes back to the
+     * sword stance), else a worn item in the hand it goes in (then the other
+     * hand); returns it, or null.
+     */
     public ItemDef dropHeld() {
+        ItemDef weapon = ItemDef.of(player.stance());
+        if (weapon != null && player.inventory().remove(weapon.id())) {
+            player.setStance(Stance.SWORD);
+            spawnAhead(weapon);
+            return weapon;
+        }
         for (ItemDef def : ItemDef.ALL) {
+            if (def.held()) continue;
             for (Slot slot : new Slot[]{def.carrySlot(), def.carrySlot().twin()}) {
                 if (player.inventory().contains(def.id()) && player.wardrobe().wearing(slot, def.id())) {
                     player.inventory().remove(def.id());
                     player.wardrobe().clear(slot);
-                    Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
-                    spawn(def, player.ground().add(ahead));
+                    spawnAhead(def);
                     return def;
                 }
             }
         }
         return null;
+    }
+
+    private void spawnAhead(ItemDef def) {
+        Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
+        spawn(def, player.ground().add(ahead));
+    }
+
+    /**
+     * Take up {@code stance} with a weapon she carries: true if she has it
+     * (the sword stance needs nothing - it is the wardrobe's).
+     */
+    public boolean wield(Stance stance) {
+        ItemDef weapon = ItemDef.of(stance);
+        if (weapon != null && !player.inventory().contains(weapon.id())) return false;
+        player.setStance(stance);
+        return true;
     }
 }

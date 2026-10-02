@@ -100,6 +100,46 @@ public final class FallbackSprites {
         return image(frame.sword());
     }
 
+    /**
+     * A stand-in world sprite for a stance weapon ({@code battle_axe},
+     * {@code longbow}, {@code crossbow}) until it has an {@code icon.png}: a
+     * few boxes, like the sword's.
+     */
+    public static BufferedImage weaponIcon(String item) {
+        PuppetRaster raster = new PuppetRaster(SIZE, 1.5, 0);
+        List<Box> boxes = new ArrayList<>();
+        Mat4 t = Mat4.rotationZ(Math.toRadians(-45)).mul(Mat4.rotationX(Math.toRadians(90)));
+        switch (item) {
+            case "battle_axe" -> {
+                boxes.add(new Box(t, 0.025, 0.025, 0.45, Puppet.GRIP, Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0.12, 0, -0.34)), 0.12, 0.015, 0.12, Puppet.BLADE,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(-0.08, 0, -0.34)), 0.08, 0.015, 0.09, Puppet.BLADE,
+                        Box.Layer.SWORD));
+            }
+            case "longbow" -> {
+                // the limbs as a bent chain of staves on an arc, the string across its tips
+                double r = 0.8;
+                for (int i = -4; i <= 4; i++) {
+                    double a = i * 0.16;
+                    boxes.add(new Box(t.mul(Mat4.translation(r * (1 - Math.cos(a)) - 0.08, 0, r * Math.sin(a)))
+                            .mul(Mat4.rotationY(-a)), 0.022, 0.022, 0.07, Puppet.GRIP, Box.Layer.SWORD));
+                }
+                boxes.add(new Box(t.mul(Mat4.translation(r * (1 - Math.cos(0.64)) - 0.08, 0, 0)),
+                        0.006, 0.006, r * Math.sin(0.64), Puppet.BLADE, Box.Layer.SWORD));
+            }
+            default -> {
+                boxes.add(new Box(t, 0.035, 0.03, 0.36, Puppet.GRIP, Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.3)), 0.34, 0.02, 0.025, Puppet.SHOES,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0.035, -0.05)), 0.008, 0.008, 0.25, Puppet.BLADE,
+                        Box.Layer.SWORD));
+            }
+        }
+        PuppetRaster.Frame frame = raster.render(boxes, Elevation.SIDE, Facing.NORTH);
+        return image(frame.sword());
+    }
+
     private static BufferedImage image(int[] argb) {
         return image(argb, SIZE);
     }

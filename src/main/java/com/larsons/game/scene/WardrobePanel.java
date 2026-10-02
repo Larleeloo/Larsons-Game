@@ -8,6 +8,7 @@ import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
@@ -53,16 +54,23 @@ final class WardrobePanel {
         this.game = game;
     }
 
-    /** The choices for a slot: nothing (or the fallback body), then every item folder. */
+    /**
+     * The choices for a slot: nothing (or the fallback body), then every item
+     * folder - but not the stances' weapons (the battle axe, the bow, the
+     * crossbow), which are held by picking them up, not worn.
+     */
     static List<String> options(SpriteLibrary lib, Slot slot, Player player) {
         List<String> out = new ArrayList<>();
         out.add(null);
         for (String item : lib.items(slot)) {
             String base = Wardrobe.Style.base(item);
+            if (Stance.ofItem(base) != null) continue;
             if (!out.contains(base)) out.add(base);        // (an item with only pixel art is listed too)
         }
         if (slot.carried()) {
-            for (String held : player.inventory()) if (!out.contains(held)) out.add(held);
+            for (String held : player.inventory()) {
+                if (!out.contains(held) && Stance.ofItem(held) == null) out.add(held);
+            }
         }
         return out;
     }
@@ -226,14 +234,17 @@ final class WardrobePanel {
             if (ui.button(e.key(), px + 160 + i * 60, by, 56, 30, e == elevation, true)) elevation = e;
         }
         by += 36;
+        // the state: one of many, stepped through
         AnimState[] states = AnimState.values();
-        float sw = (pw - 5 * 4) / states.length;
-        for (int i = 0; i < states.length; i++) {
-            if (ui.button(states[i].key(), px + i * (sw + 4), by, sw, 30, states[i] == state, true)) {
-                state = states[i];
-                time = 0;
-            }
+        int at = state.ordinal(), step = 0;
+        if (ui.button("<", px, by, 34, 30)) step = -1;
+        if (ui.button(">", px + pw - 34, by, 34, 30)) step = 1;
+        if (step != 0) {
+            state = states[Math.floorMod(at + step, states.length)];
+            time = 0;
         }
+        ui.textCentered(ui.body, state.label() + "   (" + (state.ordinal() + 1) + " / " + states.length + ")",
+                px + pw / 2f, by + 5, Theme.ITEM);
     }
 
     private static String fit(Ui ui, String s, float width) {
