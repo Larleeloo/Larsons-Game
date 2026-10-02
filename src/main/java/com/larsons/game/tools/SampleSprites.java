@@ -45,8 +45,10 @@ public final class SampleSprites {
                 sword = out.resolve("carry_right/sword"), loose = out.resolve("loose-frames/puppet_hd");
         for (Path p : List.of(body, hat, sword, loose)) Files.createDirectories(p);
 
-        int total = AnimState.values().length * Elevation.values().length * Facing.values().length, done = 0;
-        for (AnimState s : AnimState.values()) {
+        // the first six: the puppet poses every other state as one of them
+        List<AnimState> states = java.util.Arrays.stream(AnimState.values()).filter(s -> s.root() == s).toList();
+        int total = states.size() * Elevation.values().length * Facing.values().length, done = 0;
+        for (AnimState s : states) {
             System.out.printf("  %-6s  (%d / %d sheets)%n", s.key(), done, total);
             for (Elevation e : Elevation.values()) {
                 for (Facing f : Facing.values()) {

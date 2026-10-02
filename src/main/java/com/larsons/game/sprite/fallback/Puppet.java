@@ -154,6 +154,8 @@ final class Puppet {
             case SPRINT -> gait(phase, 0.95, 0.35, 1.60, 1.15, 1.50, 0.30, 0.07);
             case JUMP -> jump(phase);
             case ATTACK -> attack(phase);
+            // the generated body only knows the first six; the rest are shown as theirs
+            default -> pose(state.root(), phase);
         };
     }
 

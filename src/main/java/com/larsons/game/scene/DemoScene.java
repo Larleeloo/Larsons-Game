@@ -10,6 +10,7 @@ import com.larsons.game.sprite.Elevation;
 import com.larsons.game.sprite.Facing;
 import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
@@ -24,20 +25,35 @@ import java.util.StringJoiner;
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * The demo: a blank 3D void with the character in the middle, a sword lying
- * nearby, and a few 3D props round the edge.
+ * The demo: a blank 3D void with the character in the middle, a sword, a
+ * battle axe, a longbow and a crossbow lying about, and a few 3D props round
+ * the edge.
  *
- * <p>It is a viewer as much as a level. Walk, run, sprint, jump and attack to
- * see the states play live; or press 1–6 to loop one in place, {@code , .} or
- * {@code T} to turn the character through its eight directions, and
- * {@code Tab} or a right-drag to swing the camera through the three
- * elevations. The HUD says exactly which sheet of which layer is on screen,
- * and whether it came from {@code assets/sprites} or the fallback.
+ * <p>It is a viewer as much as a level. Walk, run, sprint, crouch, jump and
+ * attack to see the states play live; pick the weapons up (each plays the
+ * pick-up) and switch between them with 1–4 to play each one's stance -
+ * its idle, walk, run, sprint, crouch, attacks, parry and block; play the
+ * emotes with 5–8. Or step through every state with {@code [ ]} to loop one
+ * in place, {@code , .} or {@code T} to turn the character through its eight
+ * directions, and {@code Tab} or a right-drag to swing the camera through
+ * the three elevations. The HUD says exactly which sheet of which layer is on
+ * screen, and whether it came from {@code assets/sprites} or the fallback.
  */
 public final class DemoScene implements Scene, Autopilot.Scriptable {
 
-    private static final int[] STATE_KEYS = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4,
-            GLFW_KEY_5, GLFW_KEY_6};
+    /** 1–4: the stances, in this order. */
+    private static final int[] STANCE_KEYS = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4};
+    private static final Stance[] STANCES = {Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW};
+    /** 5–8: the emotes. */
+    private static final int[] EMOTE_KEYS = {GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7, GLFW_KEY_8};
+    private static final AnimState[] EMOTES = {AnimState.EMOTE_LAUGH, AnimState.EMOTE_CRY,
+            AnimState.EMOTE_SURPRISE, AnimState.EMOTE_ANGRY};
+    /** Where the weapons lie at the start (the sword, unless it is already in hand). */
+    private static final Vec3 SWORD_AT = new Vec3(1.4, 0, -2.2);
+    private static final Object[][] WEAPONS_AT = {
+            {ItemDef.BATTLE_AXE, new Vec3(-1.9, 0, -1.7)},
+            {ItemDef.LONGBOW, new Vec3(2.5, 0, 1.0)},
+            {ItemDef.CROSSBOW, new Vec3(-2.3, 0, 1.6)}};
 
     private final Game game;
     private final World world;
@@ -47,18 +63,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private double turntableTimer;
     private double frameDt;
     private Player.Intent scripted;
+    /** Scripted held controls: the attack (the bow's draw) and the block. */
+    private boolean scriptDraw, scriptBlock;
 
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe());
         this.pause = new PauseMenu(game);
-        // The sword lies a couple of metres ahead, unless it is already in hand.
+        // The sword lies a couple of metres ahead, unless it is already in
+        // hand; the stances' weapons lie round about.
         Player p = world.player();
-        if (game.wardrobe().wearing(ItemDef.SWORD.carrySlot(), ItemDef.SWORD.id())) {
+        if (game.wardrobe().wearing(ItemDef.SWORD.carrySlot(), ItemDef.SWORD.id())
+                || game.wardrobe().wearing(ItemDef.SWORD.carrySlot().twin(), ItemDef.SWORD.id())) {
             p.inventory().add(ItemDef.SWORD.id());
         } else {
-            world.spawn(ItemDef.SWORD, new Vec3(1.4, 0, -2.2));
+            world.spawn(ItemDef.SWORD, SWORD_AT);
         }
+        for (Object[] w : WEAPONS_AT) world.spawn((ItemDef) w[0], (Vec3) w[1]);
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
 
@@ -106,9 +127,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
 
         // --- viewer keys ------------------------------------------------------------
-        for (int i = 0; i < STATE_KEYS.length; i++) {
-            if (in.pressed(STATE_KEYS[i])) p.preview(AnimState.values()[i]);
-        }
+        if (in.repeated(GLFW_KEY_LEFT_BRACKET)) stepPreview(-1);
+        if (in.repeated(GLFW_KEY_RIGHT_BRACKET)) stepPreview(1);
         if (in.pressed(GLFW_KEY_0)) p.preview(null);
         if (in.repeated(GLFW_KEY_COMMA)) p.turnSteps(1);
         if (in.repeated(GLFW_KEY_PERIOD)) p.turnSteps(-1);
@@ -126,17 +146,46 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_H)) game.settings().showHud = !game.settings().showHud;
         if (in.pressed(GLFW_KEY_P)) game.settings().showProps = !game.settings().showProps;
 
-        // --- items ------------------------------------------------------------------
+        // --- items and stances -------------------------------------------------------
         if (in.pressed(GLFW_KEY_E)) pickUp();
         if (in.pressed(GLFW_KEY_G)) drop();
+        for (int i = 0; i < STANCE_KEYS.length; i++) {
+            if (in.pressed(STANCE_KEYS[i])) wield(STANCES[i]);
+        }
 
         // --- the character ----------------------------------------------------------
         Player.Intent intent = scripted != null ? scripted : intent(in);
-        SpriteView view = currentView();
-        p.update(dt, intent, s -> LayerStack.duration(game.sprites(), p.wardrobe(), s, view));
-        if (scripted != null && (scripted.jump() || scripted.attack())) scripted = null; // one-shots
+        p.update(dt, intent, durations());
+        if (scripted != null) {
+            // the one-shots happen once; with nothing left moving or held, the keys take over again
+            scripted = held(scripted);
+            if (scripted.moveX() == 0 && scripted.moveZ() == 0 && !scriptDraw && !scriptBlock) scripted = null;
+        }
         world.tick(dt);
         camera.update(dt, pivot());
+    }
+
+    /** How long each state lasts for the player as seen from here (from the sheets). */
+    private java.util.function.ToDoubleFunction<AnimState> durations() {
+        Player p = world.player();
+        SpriteView view = currentView();
+        return s -> LayerStack.duration(game.sprites(), p.wardrobe(), s, view);
+    }
+
+    /** A scripted intent after its frame: still moving and holding, nothing pressed. */
+    private Player.Intent held(Player.Intent i) {
+        return new Player.Intent(i.moveX(), i.moveZ(), i.run(), i.sprint(), false, false, scriptDraw, false,
+                false, false, false, scriptBlock, false, null);
+    }
+
+    /** Loop the state {@code step} after (or before) the one on screen, through all of them. */
+    private void stepPreview(int step) {
+        Player p = world.player();
+        AnimState[] all = AnimState.values();
+        AnimState from = p.previewing() != null ? p.previewing() : p.state();
+        AnimState s = all[Math.floorMod(from.ordinal() + step, all.length)];
+        p.preview(s);
+        game.toast("Preview: " + s.label() + "  (" + (s.ordinal() + 1) + " / " + all.length + ")", Theme.HINT);
     }
 
     private Player.Intent intent(Input in) {
@@ -149,7 +198,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         boolean ctrl = in.down(GLFW_KEY_LEFT_CONTROL) || in.down(GLFW_KEY_RIGHT_CONTROL);
         boolean shift = in.down(GLFW_KEY_LEFT_SHIFT) || in.down(GLFW_KEY_RIGHT_SHIFT);
         boolean attack = in.pressed(GLFW_KEY_F) || in.mousePressed(GLFW_MOUSE_BUTTON_LEFT);
-        return new Player.Intent(move.x(), move.z(), shift && !ctrl, ctrl, in.pressed(GLFW_KEY_SPACE), attack);
+        boolean attackHeld = in.down(GLFW_KEY_F) || in.mouseDown(GLFW_MOUSE_BUTTON_LEFT);
+        AnimState emote = null;
+        for (int i = 0; i < EMOTE_KEYS.length; i++) if (in.pressed(EMOTE_KEYS[i])) emote = EMOTES[i];
+        return new Player.Intent(move.x(), move.z(), shift && !ctrl, ctrl, in.pressed(GLFW_KEY_SPACE), attack,
+                attackHeld, in.pressed(GLFW_KEY_C), in.pressed(GLFW_KEY_X), in.pressed(GLFW_KEY_R),
+                in.pressed(GLFW_KEY_Q), in.down(GLFW_KEY_B), in.pressed(GLFW_KEY_V), emote);
     }
 
     private SpriteView currentView() {
@@ -157,16 +211,35 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         return SpriteView.of(camera.eye(), pivot(), p.heading(), camera.yaw());
     }
 
+    /** Reach for the nearest item: the pick-up plays, and it is hers as her hand closes on it. */
     private void pickUp() {
         World.GroundItem g = world.reachable();
         if (g == null) return;
-        world.pickUp(g);
-        game.saveWardrobe();
-        boolean inHand = game.sprites().resolve(g.def.carrySlot(), g.def.id(), AnimState.IDLE,
-                Elevation.MIDDLE, Facing.SOUTH) != null || world.player().wardrobe().get(
-                com.larsons.game.sprite.Slot.BODY) == null;
-        game.toast("Picked up " + g.def.name() + (inHand ? " — it's in your "
-                + g.def.carrySlot().label().toLowerCase() : " — no in-hand sheets for it yet"), Theme.OK);
+        world.player().pickUp(() -> {
+            if (!world.items().contains(g)) return;
+            world.pickUp(g);
+            game.saveWardrobe();
+            ItemDef d = g.def;
+            var lib = game.sprites();
+            String folder = lib.styled(d.carrySlot(), d.id(), world.player().wardrobe().style());
+            boolean inHand = lib.resolve(d.carrySlot(), folder, d.stance().idle(false),
+                    Elevation.MIDDLE, Facing.SOUTH) != null
+                    || world.player().wardrobe().get(com.larsons.game.sprite.Slot.BODY) == null;
+            String where = d.held() ? " — in both hands (" + (java.util.Arrays.asList(STANCES).indexOf(d.stance()) + 1)
+                    + " to take it up again)" : " — it's in your " + d.carrySlot().label().toLowerCase();
+            game.toast("Picked up " + d.name() + (inHand ? where : " — no in-hand sheets for it yet"), Theme.OK);
+        }, durations());
+    }
+
+    /** Take up a stance with a weapon she carries. */
+    private void wield(Stance s) {
+        if (world.wield(s)) {
+            game.toast(s.label(), Theme.HINT);
+        } else {
+            ItemDef d = ItemDef.of(s);
+            game.toast("No " + (d == null ? s.label() : d.name()).toLowerCase()
+                    + " in hand — find it lying about and press E", Theme.WARNING);
+        }
     }
 
     private void drop() {
@@ -196,7 +269,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private void prompt(Ui ui) {
         World.GroundItem g = world.reachable();
         if (g == null || pause.open()) return;
-        String text = "E   Pick up " + g.def.name();
+        String text = "E   Pick up " + g.def.name() + (world.player().crouched() ? " (crouched)" : "");
         float tw = ui.large.width(text) + 40;
         float x = (ui.width() - tw) / 2, y = ui.height() * 0.72f;
         ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
@@ -212,7 +285,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         var lib = game.sprites();
 
         float x = 14, y = 12, lh = 20;
-        ui.rect(x - 6, y - 6, 660, 170, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
+        ui.rect(x - 6, y - 6, 660, 190, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
         ui.text(ui.body, "Demo void", x, y, Theme.ACCENT);
         ui.text(ui.small, String.format("%.0f fps", game.fps()), x + 590, y + 3, Theme.ITEM_DISABLED);
         y += lh + 4;
@@ -225,10 +298,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         v.elevation().label(), (int) v.elevation().renderAngle()),
                 x, y, Theme.ITEM);
         y += lh;
-        ui.text(ui.small, String.format("Player  %s%s  frame %d/%d @ %.0f fps  facing %s",
-                        r.state().label(), p.previewing() != null ? " (preview)" : "",
+        ui.text(ui.small, String.format("Player  %s%s%s  frame %d/%d @ %.0f fps  facing %s",
+                        r.asked().label(), r.substituted() ? " (shown as " + r.state().label() + ": no sheets)" : "",
+                        p.previewing() != null ? " (preview)" : "",
                         r.frame() + 1, r.frames(), r.fps(), v.facing().key().toUpperCase()),
-                x, y, Theme.ITEM);
+                x, y, r.substituted() ? Theme.WARNING : Theme.ITEM);
+        y += lh;
+        StringJoiner carried = new StringJoiner(", ");
+        for (String id : p.inventory()) {
+            ItemDef d = ItemDef.byId(id);
+            carried.add(d == null ? id : d.name());
+        }
+        ui.text(ui.small, String.format("Stance  %s%s   ·   carrying %s", p.stance().label(),
+                p.crouched() ? ", crouched" : "", carried.length() == 0 ? "nothing" : carried), x, y, Theme.ITEM);
         y += lh;
         StringJoiner layers = new StringJoiner("  ·  ");
         for (LayerStack.Layer l : r.layers()) {
@@ -246,9 +328,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         elevationGauge(ui, ui.width() - 70, 20, v.elevationDegrees());
 
-        String help = "WASD move · Shift run · Ctrl sprint · Space jump · Click/F attack · E pick up · "
-                + "G drop · Right-drag orbit · Wheel zoom · Tab height · 1-6 preview · , . turn · "
-                + "T turntable · H HUD · Esc menu";
+        String help = "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold) · "
+                + "X heavy · R spin · Q parry · B block · V bash · E pick up · G drop · 1-4 weapon · 5-8 emote · "
+                + "[ ] preview · 0 live · , . turn · T turntable · Tab height · H HUD · Esc menu";
         float hw = Math.min(ui.width() - 28, ui.small.width(help) + 20);
         ui.rect((ui.width() - hw) / 2, ui.height() - 34, hw, 26, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
         ui.textCentered(ui.small, help, ui.width() / 2f, ui.height() - 29, Theme.HINT);
@@ -276,6 +358,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     // --- scripting -------------------------------------------------------------------
+
+    /** A scripted frame pressing these (and holding whatever is held). */
+    private Player.Intent press(boolean attack, boolean crouch, boolean heavy, boolean spin, boolean parry,
+                                AnimState emote) {
+        return new Player.Intent(0, 0, false, false, false, attack, attack || scriptDraw, crouch, heavy, spin,
+                parry, scriptBlock, false, emote);
+    }
 
     @Override
     public boolean command(String command, String argument) {
@@ -312,7 +401,45 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "jump" -> scripted = new Player.Intent(0, 0, false, false, true, false);
             case "attack" -> scripted = new Player.Intent(0, 0, false, false, false, true);
-            case "idle" -> scripted = null;
+            case "idle" -> {
+                scripted = null;
+                scriptDraw = scriptBlock = false;
+            }
+            // draw: the bow's draw, held until "loose"; block on|off: held
+            case "draw" -> {
+                scriptDraw = true;
+                scripted = press(true, false, false, false, false, null);
+            }
+            case "loose" -> {
+                scriptDraw = false;
+                scripted = held(scripted == null ? Player.Intent.NONE : scripted);
+            }
+            case "block" -> {
+                scriptBlock = !argument.equals("off");
+                scripted = held(scripted == null ? Player.Intent.NONE : scripted);
+            }
+            case "crouch" -> {
+                boolean want = !argument.equals("off");
+                if (argument.isBlank() || p.crouched() != want) scripted = press(false, true, false, false, false, null);
+            }
+            case "heavy" -> scripted = press(false, false, true, false, false, null);
+            case "spin" -> scripted = press(false, false, false, true, false, null);
+            case "parry" -> scripted = press(false, false, false, false, true, null);
+            case "bash" -> scripted = new Player.Intent(0, 0, false, false, false, false, false, false, false,
+                    false, false, false, true, null);
+            case "emote" -> {
+                AnimState e = AnimState.byKey(argument.startsWith("emote_") ? argument : "emote_" + argument);
+                if (e == null) return false;
+                scripted = press(false, false, false, false, false, e);
+            }
+            case "stance" -> {
+                Stance s = Stance.byKey(argument);
+                if (s == null) return false;
+                // (scripts may take up a stance without the weapon lying about first)
+                ItemDef d = ItemDef.of(s);
+                if (d != null) p.inventory().add(d.id());
+                world.wield(s);
+            }
             case "teleport" -> {
                 String[] a = argument.split("[ ,]+");
                 p.setPosition(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
