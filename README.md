@@ -99,6 +99,8 @@ Drop sprite sheets on the window at any time to import them.
   a block). **1 – 4** switch between them, **G** puts down what she holds. A
   left-handed character (Pause → Wardrobe → Hand) takes everything in the other
   hand and fights left-handed.
+
+  <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
 - **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
   geometry, depth-tested against the sprites so the character can walk behind a
   tree.
