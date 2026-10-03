@@ -192,8 +192,19 @@ public enum Stance {
         return this == SWORD ? AnimState.SHIELD_BASH : null;
     }
 
-    /** Whether she can jump: only the sword stance has a jump. */
-    public boolean canJump() { return this == SWORD; }
+    /** The jump: the first six's with the sword and shield, each weapon's own with it; none with empty hands. */
+    public AnimState jump() {
+        return switch (this) {
+            case SWORD -> AnimState.JUMP;
+            case AXE -> AnimState.AXE_JUMP;
+            case BOW -> AnimState.BOW_JUMP;
+            case CROSSBOW -> AnimState.CROSSBOW_JUMP;
+            case FREE -> null;
+        };
+    }
+
+    /** Whether she can jump holding what this stance holds. */
+    public boolean canJump() { return jump() != null; }
 
     // --- lookups ---------------------------------------------------------------------
 
