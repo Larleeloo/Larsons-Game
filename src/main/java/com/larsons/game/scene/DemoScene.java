@@ -285,7 +285,22 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         var lib = game.sprites();
 
         float x = 14, y = 12, lh = 20;
-        ui.rect(x - 6, y - 6, 660, 190, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
+        // the layers: every one plays the same sheet as the body, so its name
+        // is given once and only what differs is said per layer
+        String sheet = r.layers().isEmpty() ? "" : sheetName(r.layers().get(0));
+        for (LayerStack.Layer l : r.layers()) {
+            if (l.slot() == com.larsons.game.sprite.Slot.BODY) sheet = sheetName(l);
+        }
+        StringJoiner layers = new StringJoiner("  ·  ");
+        for (LayerStack.Layer l : r.layers()) {
+            String src = sheetName(l);
+            layers.add(l.slot().key() + (l.item() != null ? ":" + l.item() : "")
+                    + (src.equals(sheet) ? "" : " ← " + src) + (l.mirrored() ? " (mirrored)" : ""));
+        }
+        if (r.loading()) layers.add("(holding while the next sheets load)");
+        String layerText = "Layers  (" + sheet + ")  " + layers;
+        float layerH = ui.paragraphHeight(ui.small, layerText, 640);
+        ui.rect(x - 6, y - 6, 660, 128 + layerH + lh, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
         ui.text(ui.body, "Demo void", x, y, Theme.ACCENT);
         ui.text(ui.small, String.format("%.0f fps", game.fps()), x + 590, y + 3, Theme.ITEM_DISABLED);
         y += lh + 4;
@@ -312,28 +327,31 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         ui.text(ui.small, String.format("Stance  %s%s   ·   carrying %s", p.stance().label(),
                 p.crouched() ? ", crouched" : "", carried.length() == 0 ? "nothing" : carried), x, y, Theme.ITEM);
         y += lh;
-        StringJoiner layers = new StringJoiner("  ·  ");
-        for (LayerStack.Layer l : r.layers()) {
-            String src = l.sheet().source().startsWith("fallback") ? "fallback"
-                    : Path.of(l.sheet().source()).getFileName().toString();
-            layers.add(l.slot().key() + (l.item() != null ? ":" + l.item() : "") + " ← " + src
-                    + (l.mirrored() ? " (mirrored)" : ""));
-        }
-        if (r.loading()) layers.add("(holding while the next sheets load)");
-        ui.paragraph(ui.small, "Layers  " + layers, x, y, 640, Theme.ITEM);
-        y += lh * 2;
+        y += ui.paragraph(ui.small, layerText, x, y, 640, Theme.ITEM) + 2;
         ui.text(ui.small, String.format("Sprites  %d sheets resident (%d MB)  ·  %d loading  ·  scale %.2f",
                         lib.residentCount(), lib.residentBytes() >> 20, lib.pendingCount(), lib.scale()),
                 x, y, Theme.HINT);
 
         elevationGauge(ui, ui.width() - 70, 20, v.elevationDegrees());
 
-        String help = "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold) · "
-                + "X heavy · R spin · Q parry · B block · V bash · E pick up · G drop · 1-4 weapon · 5-8 emote · "
-                + "[ ] preview · 0 live · , . turn · T turntable · Tab height · H HUD · Esc menu";
-        float hw = Math.min(ui.width() - 28, ui.small.width(help) + 20);
-        ui.rect((ui.width() - hw) / 2, ui.height() - 34, hw, 26, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
-        ui.textCentered(ui.small, help, ui.width() / 2f, ui.height() - 29, Theme.HINT);
+        String[] help = {
+                "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold to draw) · "
+                        + "X heavy · R spin · Q parry · B block · V bash",
+                "E pick up · G drop · 1-4 weapon · 5-8 emote · [ ] preview · 0 live · , . turn · T turntable · "
+                        + "Tab height · Right-drag orbit · H HUD · Esc menu"};
+        float hw = 0;
+        for (String h : help) hw = Math.max(hw, ui.small.width(h) + 20);
+        hw = Math.min(ui.width() - 28, hw);
+        float top = ui.height() - 14 - 22 * help.length;
+        ui.rect((ui.width() - hw) / 2, top, hw, 22 * help.length + 6, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
+        for (int i = 0; i < help.length; i++) {
+            ui.textCentered(ui.small, help[i], ui.width() / 2f, top + 5 + 22 * i, Theme.HINT);
+        }
+    }
+
+    private static String sheetName(LayerStack.Layer l) {
+        return l.sheet().source().startsWith("fallback") ? "fallback"
+                : Path.of(l.sheet().source()).getFileName().toString();
     }
 
     /**

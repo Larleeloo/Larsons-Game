@@ -108,6 +108,15 @@ public final class Ui implements AutoCloseable {
      * Explicit newlines start new paragraphs.
      */
     public float paragraph(Font font, String s, float x, float y, float width, float[] c) {
+        return paragraph(font, s, x, y, width, c, true);
+    }
+
+    /** The height {@link #paragraph} would take, drawing nothing. */
+    public float paragraphHeight(Font font, String s, float width) {
+        return paragraph(font, s, 0, 0, width, null, false);
+    }
+
+    private float paragraph(Font font, String s, float x, float y, float width, float[] c, boolean draw) {
         float line = font.lineHeight() + 3;
         float cy = y;
         for (String para : s.split("\n", -1)) {
@@ -115,14 +124,14 @@ public final class Ui implements AutoCloseable {
             for (String word : para.split(" ")) {
                 String next = cur.isEmpty() ? word : cur + " " + word;
                 if (font.width(next) > width && !cur.isEmpty()) {
-                    text(font, cur.toString(), x, cy, c);
+                    if (draw) text(font, cur.toString(), x, cy, c);
                     cy += line;
                     cur = new StringBuilder(word);
                 } else {
                     cur = new StringBuilder(next);
                 }
             }
-            text(font, cur.toString(), x, cy, c);
+            if (draw) text(font, cur.toString(), x, cy, c);
             cy += line;
         }
         return cy - y;
