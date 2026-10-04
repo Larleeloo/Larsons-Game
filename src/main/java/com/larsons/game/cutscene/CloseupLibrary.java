@@ -162,6 +162,24 @@ public final class CloseupLibrary {
         return e != null ? e : items.get(second.folder(item));
     }
 
+    /**
+     * The close-up of an item worn by a body whose game sprites are in the
+     * folder {@code key} ({@link SpriteLibrary#rootOf}): it comes from that
+     * folder's close-ups ({@code closeups_<key>/}, the default's for the default
+     * folder), or from nowhere - a body whose folder has no close-ups (yet) has
+     * nothing of another body's drawn on it.
+     */
+    public Entry entryIn(String key, Slot slot, String item, Wardrobe.Style style) {
+        if (item == null) return null;
+        Map<Slot, Map<String, Entry>> idx = roots.get(key == null ? SpriteLibrary.DEFAULT_ROOT : key);
+        if (idx == null) return null;
+        Map<String, Entry> items = idx.getOrDefault(slot, Map.of());
+        Wardrobe.Style first = style == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_64 : Wardrobe.Style.PIXEL_128;
+        Wardrobe.Style second = first == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_128 : Wardrobe.Style.PIXEL_64;
+        Entry e = items.get(first.folder(item));
+        return e != null ? e : items.get(second.folder(item));
+    }
+
     /** Every clip some item has, sorted. */
     public List<String> clips() {
         TreeSet<String> all = new TreeSet<>();

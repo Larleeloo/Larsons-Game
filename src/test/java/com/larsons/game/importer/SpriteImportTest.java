@@ -63,6 +63,25 @@ class SpriteImportTest {
     }
 
     @Test
+    void sheetsCanGoIntoABodysOwnFolderWhileThePickupIconStaysInTheDefaultOne() throws Exception {
+        Path drop = tmp.resolve("hat/beret");
+        png(drop.resolve("idle_side_s.png"), 512 * 4, 512);
+        png(drop.resolve("icon.png"), 64, 64);
+        SpriteImport.Plan plan = SpriteImport.plan(List.of(drop));
+        Path sprites = tmp.resolve("assets/sprites");
+        Path his = tmp.resolve("assets/sprites_masculine");
+        assertEquals(0, SpriteImport.wouldReplace(plan, his, sprites, Slot.HAT, "beret"));
+        SpriteImport.Result r = SpriteImport.save(plan, his, sprites, Slot.HAT, "beret", null);
+        assertEquals(2, r.written(), r.problems().toString());
+        assertEquals(his.resolve("hat/beret"), r.folder());
+        assertTrue(Files.exists(his.resolve("hat/beret/idle_side_s.png")));
+        assertTrue(Files.exists(sprites.resolve("items/beret/icon.png")), "pickups are always the default folder's");
+        assertFalse(Files.exists(sprites.resolve("hat/beret")));
+        assertEquals(2, SpriteImport.wouldReplace(plan, his, sprites, Slot.HAT, "beret"));
+        assertEquals(1, SpriteImport.wouldReplace(plan, sprites, Slot.HAT, "beret"), "only the icon is in the default folder");
+    }
+
+    @Test
     void looseNumberedFramesAreStitchedInOrderWithTheirFrameSize() throws Exception {
         Path drop = tmp.resolve("frames");
         // Written out of order on purpose.

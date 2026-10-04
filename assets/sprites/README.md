@@ -62,8 +62,13 @@ a body found in `assets/sprites_<name>/body/` uses that folder, any other
 every folder under **Base body**, so a character can switch body and keep
 its outfit - the items keep their names (`hair: bob` is his bob on him, hers
 on her). An item that one body's folder does not have is simply not drawn on
-that body. Pickup icons (`items/`) are always this folder's. The cutscene
-close-ups do the same: `assets/closeups/` and `assets/closeups_<body>/`.
+that body. Pickup icons (`items/`) are always this folder's. Importing saves
+a layer into the folder of the body being worn (so it can be worn straight
+away), a body into the folder it is already in (a new body: this one), and a
+pickup icon here. The cutscene close-ups do the same: `assets/closeups/` and
+`assets/closeups_<body>/`, the folder going with the body's sprites folder -
+a body whose sprites folder has no close-ups yet has none of another body's
+drawn on it.
 
 ## File names
 

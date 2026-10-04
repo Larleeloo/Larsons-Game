@@ -201,5 +201,12 @@ class CutsceneTest {
         assertEquals(root.resolve("closeups_masculine/hair/bob_px128/talk_side_se.png"), his);
         assertEquals(root.resolve("closeups/hair/bob_px128/talk_side_se.png"), hers);
         assertNotNull(lib.entry("feminine", Slot.BODY, "masculine", Wardrobe.Style.PIXEL_128));
+        // found by the folder the body's game sprites are in
+        assertEquals(his, lib.entryIn("masculine", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk"));
+        assertEquals(hers, lib.entryIn("", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_64).clips().get("talk"));
+        assertEquals(hers, lib.entryIn(null, Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk"));
+        // a body whose sprites folder has no close-ups (yet) has none of hers drawn on it
+        assertNull(lib.entryIn("other", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128));
+        assertNull(lib.entryIn("other", Slot.BODY, "other", Wardrobe.Style.PIXEL_128));
     }
 }
