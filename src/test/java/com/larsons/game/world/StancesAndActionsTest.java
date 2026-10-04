@@ -62,7 +62,14 @@ class StancesAndActionsTest {
         assertEquals(AnimState.AXE_HEAVY_ATTACK, p.state());
         run(p, 120, Player.Intent.NONE);
         run(p, 1, in(0, "jump"));
-        assertNotEquals(AnimState.JUMP, p.state(), "no jump with the axe");
+        assertEquals(AnimState.AXE_JUMP, p.state(), "the axe's own jump");
+        double peak = 0;
+        for (int i = 0; i < 120; i++) {
+            p.update(DT, Player.Intent.NONE, DUR);
+            peak = Math.max(peak, p.height());
+        }
+        assertTrue(peak > 0.2, "left the ground: " + peak);
+        assertEquals(AnimState.AXE_IDLE, p.state());
         assertEquals(ItemDef.BATTLE_AXE, w.dropHeld());
         assertEquals(Stance.SWORD, p.stance());
         assertFalse(w.wield(Stance.AXE), "not carried any more");

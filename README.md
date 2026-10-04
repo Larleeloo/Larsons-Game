@@ -53,7 +53,7 @@ The main menu has one entry, **Demo**, which loads the void.
 | **W A S D** | walk, relative to the camera |
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
-| **Space** | jump (with the sword) |
+| **Space** | jump - with the sword, the axe, the bow or the crossbow |
 | **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
 | **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
@@ -63,7 +63,7 @@ The main menu has one entry, **Demo**, which loads the void.
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **Mouse wheel**, **+ / −** | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
-| **[ / ]** | loop the previous / next of all 53 states in place |
+| **[ / ]** | loop the previous / next of all 56 states in place |
 | **0** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -79,7 +79,7 @@ Drop sprite sheets on the window at any time to import them.
   sky, drawn in a single full-screen GPU pass that ray-casts the ground plane
   per pixel, so it has no edge and a clean horizon at any zoom.
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **53 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **56 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
@@ -92,7 +92,7 @@ Drop sprite sheets on the window at any time to import them.
   if she is) and it is hers as her hand closes on it. The sword goes into her
   weapon hand - its own sprite layer, playing frame for frame with the body.
   The others are each a **stance** of its own, with its own idle, walk, run,
-  sprint, crouch and crouch walk: the **battle axe** in both hands (an attack,
+  sprint, jump, crouch and crouch walk: the **battle axe** in both hands (an attack,
   a heavy overhead blow, a spin attack, a crouched sweep, a parry, a block),
   the **bow** (drawn while the attack is held, loosed when it is let go, crouched
   too; a parry and a block), the **crossbow** (a shot, crouched too; a parry and
@@ -127,7 +127,7 @@ Drop sprite sheets on the window at any time to import them.
   bangles on either wrist, scabbards on either hip, a sun hat and a beanie, a
   long mantle (a cape to the ankles), a sword and a shield for either hand,
   and the face's ears, noses, eyes, eyebrows, makeup and mouths — each in all
-  53 states from all 24 views (a carried item in the states of its stance),
+  56 states from all 24 views (a carried item in the states of its stance),
   the clothes and mantle cloth-simulated per animation; and the battle axe,
   the longbow and the crossbow in theirs. They are **pixel art**,
   in 128- and 64-pixel frames in one 128-colour palette, right- and
@@ -436,7 +436,7 @@ Engine. Each section is broken up into chunks, or tasks to be done.
       and 3 heights for each) for the character sprite in the states idle, walk,
       run, sprint, jump and attack — *the Demo scene; preview any state with
       `[ ]`, turn with `, .` or `T`, change height with `Tab` - and since then
-      47 more states: crouching, pick-ups, emotes, the sword's and shield's
+      50 more states: crouching, pick-ups, emotes, the sword's and shield's
       moves and the battle axe's, bow's and crossbow's stances*
 - [x] Create room for cosmetics as sprite-sheet layers over the base character
       sheet — shirts, pants, underwear, bras, shoes, hairs, noses, eyes, mouths,

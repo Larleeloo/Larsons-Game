@@ -51,14 +51,14 @@ An *item* is any folder name — `body/hero`, `hat/straw_boater`,
 
 | Part | Values |
 |---|---|
-| state | `idle` `walk` `run` `sprint` `jump` `attack` - the first six - and the 47 after them (see **The animations** below): `crouch_idle`, `axe_heavy_attack`, `bow_crouch_draw`, ... |
+| state | `idle` `walk` `run` `sprint` `jump` `attack` - the first six - and the 50 after them (see **The animations** below): `crouch_idle`, `axe_heavy_attack`, `bow_crouch_draw`, ... |
 | elevation | `side` (rendered at 0°) · `middle` (45°) · `top` (90°, birds-eye) |
 | direction | `s` `se` `e` `ne` `n` `nw` `w` `sw` |
 
 That is 6 × 3 × 8 = **144 sheets** for an item with the first six, which is all
 an item needs: a state it has no sheets for is shown as one of the first six
-(see [Fallbacks](#fallbacks)). The feminine model's pixel-art items have all 53
-states, 1,272 sheets an item (a carried item the states of its stance).
+(see [Fallbacks](#fallbacks)). The feminine model's pixel-art items have all 56
+states, 1,344 sheets an item (a carried item the states of its stance).
 
 The **direction is the way the character faces in the picture**: `s` faces the
 camera, `n` shows its back, `e` faces the viewer's right, `w` the viewer's left,
@@ -365,6 +365,7 @@ layers stay in step (the game plays one frame index on all of them):
 | axe_attack, axe_heavy_attack, axe_spin_attack, axe_crouch_attack, axe_parry, axe_block | 24, 32, 30, 24, 18, 30 | | `axe_block` loops |
 | bow_draw, bow_fire, bow_crouch_draw, bow_crouch_fire, bow_parry, bow_block | 24, 18, 24, 18, 18, 30 | | the draw ends held at full draw; `bow_block` loops |
 | crossbow_fire, crossbow_crouch_fire, crossbow_parry, crossbow_block | 30, 30, 18, 30 | | `crossbow_block` loops |
+| axe_jump, bow_jump, crossbow_jump | 27 | 0.9 | one-shots: the jump's take-off and landing, the weapon held through it |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
 body for every layer; for the garments the body and, where one tucks into or

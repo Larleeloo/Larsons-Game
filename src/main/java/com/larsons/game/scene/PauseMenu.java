@@ -23,7 +23,7 @@ final class PauseMenu {
             {"W A S D", "walk (relative to the camera)"},
             {"Shift / Ctrl", "run / sprint while moving"},
             {"C", "crouch / stand (Shift: fast crouch walk)"},
-            {"Space", "jump (with the sword)"},
+            {"Space", "jump"},
             {"Left click / F", "attack (bow: hold to draw, let go)"},
             {"X / R / Q", "heavy attack / spin attack / parry"},
             {"B (held) / V", "block / shield bash"},

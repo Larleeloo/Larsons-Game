@@ -21,7 +21,7 @@ import java.util.function.ToDoubleFunction;
  * picked up - and on whether she is crouched (C toggles it):
  *
  * <pre>
- *   airborne or mid-jump          → jump (the sword stance only)
+ *   airborne or mid-jump          → the stance's jump
  *   an action under way           → it (attack, heavy, spin, parry, bash,
  *                                   the bow's draw and loose, an emote, a pick-up)
  *   blocking (held)               → the stance's block / the shield up
@@ -101,6 +101,8 @@ public final class Player {
     private Stance stance = Stance.SWORD;
     private boolean crouched;
     private boolean jumping, launched;
+    /** The jump under way: the stance's own (they all leave the ground on the same frames). */
+    private AnimState jumpState = AnimState.JUMP;
     /** The one-shot under way (null: none), and how long it lasts. */
     private AnimState action;
     private double actionDuration = 0.6;
@@ -183,8 +185,9 @@ public final class Player {
                 crouched = false;
                 jumping = true;
                 launched = false;
-                setState(AnimState.JUMP);
-                actionDuration = durations.applyAsDouble(AnimState.JUMP);
+                jumpState = st.jump();
+                setState(jumpState);
+                actionDuration = durations.applyAsDouble(jumpState);
             } else if (in.block() && st.block() != null) {
                 blocking = true;
                 crouched = false;
@@ -221,7 +224,7 @@ public final class Player {
         turnToward(dt);
 
         AnimState next;
-        if (jumping) next = AnimState.JUMP;
+        if (jumping) next = jumpState;
         else if (action != null) next = action;
         else if (blocking) next = st.block();
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;

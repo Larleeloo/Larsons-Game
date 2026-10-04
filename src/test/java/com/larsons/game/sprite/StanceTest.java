@@ -55,6 +55,8 @@ class StanceTest {
                 }
             }
             assertEquals(st, st.parry().stance());
+            assertEquals(st, st.jump().stance());
+            assertEquals(AnimState.JUMP, st.jump().root());
             assertEquals(st, st.block().stance());
             assertTrue(st.block().loops());
         }
@@ -65,7 +67,9 @@ class StanceTest {
         assertNull(Stance.BOW.spin());
         assertEquals(AnimState.AXE_HEAVY_ATTACK, Stance.AXE.heavy());
         assertTrue(Stance.SWORD.canJump());
-        assertFalse(Stance.CROSSBOW.canJump());
+        assertEquals(AnimState.JUMP, Stance.SWORD.jump());
+        assertEquals(AnimState.CROSSBOW_JUMP, Stance.CROSSBOW.jump());
+        assertFalse(Stance.FREE.canJump());
         for (AnimState s : new AnimState[]{AnimState.PICKUP, AnimState.CROUCH_PICKUP, AnimState.EMOTE_LAUGH,
                 AnimState.EMOTE_CRY, AnimState.EMOTE_SURPRISE, AnimState.EMOTE_ANGRY}) {
             assertTrue(s.handsFree(), s.key());
