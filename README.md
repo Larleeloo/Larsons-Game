@@ -176,6 +176,10 @@ assets/sprites/carry_right/sword/attack_top_s.png
 assets/sprites/items/sword/icon.png                 (the pickup, lying in the world)
 ```
 
+- **Bodies.** A body can have its own sprites folder beside `assets/sprites/`,
+  named after it (`assets/sprites_masculine/`), holding every item drawn on
+  that body under the same names; the body a character wears picks the folder
+  its items come from, so one outfit (`hair: bob`) fits either body.
 - **Views.** The camera's angle above the character picks the set: **side**
   (rendered at 0°) from 0° to 33°, **middle** (45°) from 34° to 75°, **top**
   (90°, birds-eye) from 75° to 90°. The direction is worked out per character

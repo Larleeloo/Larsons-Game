@@ -43,6 +43,28 @@ An *item* is any folder name — `body/hero`, `hat/straw_boater`,
 `carry_right/sword`. Every item folder shows up in the pause menu's
 **Wardrobe** for its layer.
 
+### Bodies
+
+Everything worn has to be drawn for the body that wears it - a shirt drawn on
+one body does not fit another. So a body can have a sprites folder of its
+own beside this one, named after it, with the body and every item drawn on
+it under the same slot and item names:
+
+```
+assets/sprites/                  the default body's: body/feminine/, hair/bob_px128/, ...
+assets/sprites_masculine/        his: body/masculine/, hair/bob_px128/, shirt/laced_dress_px64_lh/, ...
+assets/sprites_<body>/           any other body's, in its folder's name
+```
+
+The body a character wears decides which folder all of its items come from:
+a body found in `assets/sprites_<name>/body/` uses that folder, any other
+(and the generated fallback body) this one. The Wardrobe lists the bodies of
+every folder under **Base body**, so a character can switch body and keep
+its outfit - the items keep their names (`hair: bob` is his bob on him, hers
+on her). An item that one body's folder does not have is simply not drawn on
+that body. Pickup icons (`items/`) are always this folder's. The cutscene
+close-ups do the same: `assets/closeups/` and `assets/closeups_<body>/`.
+
 ## File names
 
 ```
