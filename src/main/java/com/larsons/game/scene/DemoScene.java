@@ -221,9 +221,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.saveWardrobe();
             ItemDef d = g.def;
             var lib = game.sprites();
-            String folder = lib.styled(d.carrySlot(), d.id(), world.player().wardrobe().style());
-            boolean inHand = lib.resolve(d.carrySlot(), folder, d.stance().idle(false),
-                    Elevation.MIDDLE, Facing.SOUTH) != null
+            var worn = world.player().wardrobe();
+            var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
+                    worn.style(), false);
+            boolean inHand = lib.resolve(src, d.stance().idle(false), Elevation.MIDDLE, Facing.SOUTH) != null
                     || world.player().wardrobe().get(com.larsons.game.sprite.Slot.BODY) == null;
             String where = d.held() ? " — in both hands (" + (java.util.Arrays.asList(STANCES).indexOf(d.stance()) + 1)
                     + " to take it up again)" : " — it's in your " + d.carrySlot().label().toLowerCase();

@@ -94,7 +94,7 @@ public final class CutsceneStage {
         boolean missing = false;
         SheetTexture body = null;
         for (Slot slot : LayerStack.drawOrder(false, Elevation.SIDE, Facing.SOUTH_EAST)) {
-            CloseupLibrary.Entry e = closeups.entry(slot, w.get(slot), w.style());
+            CloseupLibrary.Entry e = closeups.entry(w.get(Slot.BODY), slot, w.get(slot), w.style());
             SpriteLibrary.Resolved r = closeups.resolve(e, a.clip(), Actor.IDLE_CLIP, a.mirrored());
             if (r == null) continue;               // nothing of this slot shows close up
             SheetTexture t = sprites.sheet(r);
