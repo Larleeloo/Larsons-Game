@@ -82,6 +82,22 @@ class SpriteImportTest {
     }
 
     @Test
+    void aDropOfOnlyAnIconMakesNoItemFolder() throws Exception {
+        Path drop = tmp.resolve("sword");
+        png(drop.resolve("icon.png"), 64, 64);
+        SpriteImport.Plan plan = SpriteImport.plan(List.of(drop));
+        assertTrue(plan.sheets().isEmpty());
+        Path sprites = tmp.resolve("assets/sprites");
+        Path his = tmp.resolve("assets/sprites_masculine");
+        SpriteImport.Result r = SpriteImport.save(plan, his, sprites, Slot.CARRY_RIGHT, "sword", null);
+        assertEquals(1, r.written(), r.problems().toString());
+        assertTrue(Files.exists(sprites.resolve("items/sword/icon.png")));
+        assertEquals(sprites.resolve("items/sword"), r.folder(), "the folder named is where the icon went");
+        assertFalse(Files.exists(his.resolve("carry_right/sword")), "no empty item folder to stand in for its art");
+        assertFalse(Files.exists(sprites.resolve("carry_right/sword")));
+    }
+
+    @Test
     void looseNumberedFramesAreStitchedInOrderWithTheirFrameSize() throws Exception {
         Path drop = tmp.resolve("frames");
         // Written out of order on purpose.

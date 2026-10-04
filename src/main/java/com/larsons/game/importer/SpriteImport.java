@@ -335,12 +335,16 @@ public final class SpriteImport {
      */
     public static Result save(Plan plan, Path sheetsRoot, Path iconRoot, Slot slot, String item,
                               IntConsumer progress) {
-        Path dir = target(sheetsRoot, slot, item);
+        // a drop of only a pickup icon makes no item folder (an empty one would
+        // stand in for the item's pixel art) and reports where the icon went
+        boolean sheets = !plan.sheets().isEmpty() || plan.profile() != null;
+        Path dir = sheets || plan.icon() == null ? target(sheetsRoot, slot, item)
+                : iconTarget(iconRoot, item).getParent();
         List<String> problems = new ArrayList<>();
         int written = 0, replaced = 0;
         int[] frameSize = null;
         try {
-            Files.createDirectories(dir);
+            if (sheets) Files.createDirectories(dir);
         } catch (IOException e) {
             return new Result(dir, 0, 0, List.of("cannot create " + dir + ": " + e.getMessage()));
         }
@@ -374,7 +378,7 @@ public final class SpriteImport {
             }
         }
         try {
-            writeProfile(plan, dir, frameSize);
+            if (sheets) writeProfile(plan, dir, frameSize);
         } catch (IOException | RuntimeException e) {
             problems.add(SpriteProfile.FILE_NAME + ": " + e.getMessage());
         }

@@ -4,6 +4,7 @@ import com.larsons.game.core.Game;
 import com.larsons.game.importer.SpriteImport;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Slot;
+import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteNames;
 import com.larsons.game.sprite.SpriteProfile;
 
@@ -247,7 +248,8 @@ public final class ImportPanel {
         SpriteImport.Plan p = plan;
         Path root = sheetsRoot(game, s, item);
         Path icons = game.sprites().root();
-        target = root;
+        // (only an icon: it goes to the default folder's items/)
+        target = p.sheets().isEmpty() ? icons.resolve(SpriteLibrary.ITEMS_FOLDER) : root;
         progress.set(0);
         phase = Phase.SAVING;
         saving = CompletableFuture.supplyAsync(() -> SpriteImport.save(p, root, icons, s, item, progress::set));
@@ -255,7 +257,8 @@ public final class ImportPanel {
 
     private void saving(Ui ui, Game game, float cx, float cy, float inner) {
         int total = Math.max(1, plan.sheets().size());
-        ui.text(ui.body, "Writing sheets into " + game.relative(target) + " …  " + progress.get() + " / " + total,
+        ui.text(ui.body, (plan.sheets().isEmpty() ? "Writing the icon into " : "Writing sheets into ")
+                + game.relative(target) + " …  " + progress.get() + " / " + total,
                 cx, cy, Theme.ITEM);
         ui.rect(cx, cy + 34, inner, 14, Theme.BUTTON);
         ui.rect(cx, cy + 34, inner * progress.get() / total, 14, Theme.ACCENT);
