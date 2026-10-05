@@ -439,3 +439,19 @@ sheets for the view on screen loaded, plus that view's other five states and
 the two neighbouring directions, the HUD's Sprites line settles at "162 sheets
 resident (422 MB) · 0 loading"; as whole 512-pixel frames the same sheets would
 be about 4.9 GB (see [Memory](#memory)).
+
+### His sheets (`assets/sprites_masculine/`)
+
+The same items drawn on the masculine body, `body/masculine`, made from
+3D-Modeling's `generic_masculine_model/` (its README's *The masculine
+model*): her finished body fitted to his shape, everything of hers moved
+onto him and her scripts run on his rig. He is 1.80 m tall at the same
+scale, so he stands a little taller in the same frame. Every item in the
+table above is there under the same name - the laced dress, the bralette,
+the makeup and the long hair styles too - as pixel art only (`_px128`,
+`_px64` and their `_lh`; in the *512 px* style his items are drawn from
+their 128-pixel versions), in the same 56 states and frame counts, cut
+against the same outfit, in the same palette and with the same colour
+options. His close-ups are in `assets/closeups_masculine/`. Wear him with
+Pause → Wardrobe → Base body, or `"body": "masculine"` in
+`config/wardrobe.json`; the rest of the outfit carries over as it is.
