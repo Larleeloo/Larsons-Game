@@ -149,9 +149,10 @@ Drop sprite sheets on the window at any time to import them.
 - **A second body**, the masculine model (1.80 m) from 3D-Modeling's
   `generic_masculine_model/`, in `assets/sprites_masculine/`: every one of
   the 52 items - the laced dress, the bralette, the makeup and the long hair
-  styles too - and the three weapons drawn on him in the same 56 states, 24
-  views, 128- and 64-pixel frames, right- and left-handed, in the same
-  palette and colours, with his own cutscene close-ups. Pause → Wardrobe →
+  styles too - and the three weapons drawn on him as they are on her: the
+  same states (a carried item in its stance's) from the same 24 views, in
+  128- and 64-pixel frames, right- and left-handed, in the same palette and
+  colours, with his own cutscene close-ups. Pause → Wardrobe →
   Base body switches body, and the outfit carries over: each item is drawn
   for the body that wears it.
 

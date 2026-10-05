@@ -450,7 +450,8 @@ scale, so he stands a little taller in the same frame. Every item in the
 table above is there under the same name - the laced dress, the bralette,
 the makeup and the long hair styles too - as pixel art only (`_px128`,
 `_px64` and their `_lh`; in the *512 px* style his items are drawn from
-their 128-pixel versions), in the same 56 states and frame counts, cut
+their 128-pixel versions), in the same states and frame counts (a carried
+item in its stance's), cut
 against the same outfit, in the same palette and with the same colour
 options. His close-ups are in `assets/closeups_masculine/`. Wear him with
 Pause → Wardrobe → Base body, or `"body": "masculine"` in
