@@ -62,7 +62,8 @@ final class WardrobePanel {
     static List<String> options(SpriteLibrary lib, Slot slot, Player player) {
         List<String> out = new ArrayList<>();
         out.add(null);
-        for (String item : lib.items(slot)) {
+        // the items drawn for the body worn (every body under the body itself)
+        for (String item : lib.items(player.wardrobe().get(Slot.BODY), slot)) {
             String base = Wardrobe.Style.base(item);
             if (Stance.ofItem(base) != null) continue;
             if (!out.contains(base)) out.add(base);        // (an item with only pixel art is listed too)
@@ -95,6 +96,7 @@ final class WardrobePanel {
         Wardrobe wardrobe = player.wardrobe();
         SpriteLibrary lib = game.sprites();
         Wardrobe.Style style = wardrobe.style();
+        String body = wardrobe.get(Slot.BODY);
         time += dt;
         if (spin) {
             spinTimer += dt;
@@ -118,8 +120,8 @@ final class WardrobePanel {
             String current = wardrobe.get(slot);
             int idx = Math.max(0, opts.indexOf(current));
             boolean missing = current != null && !opts.contains(current);
-            String folder = current == null ? null : lib.styled(slot, current, style);
-            boolean hasArt = current == null || lib.entry(slot, folder) != null;
+            String folder = current == null ? null : lib.styled(body, slot, current, style);
+            boolean hasArt = current == null || lib.entry(body, slot, folder) != null;
             // an item that is only pixel art is drawn from it among the renders
             boolean asPixels = hasArt && current != null && style == Wardrobe.Style.RENDERED && !current.equals(folder);
 
@@ -131,7 +133,7 @@ final class WardrobePanel {
                 wardrobe.set(slot, opts.get(Math.floorMod(idx - 1, opts.size())));
                 focus = slot;
             }
-            List<String> colours = current == null ? List.of() : lib.colourOptions(slot, current, style);
+            List<String> colours = current == null ? List.of() : lib.colourOptions(body, slot, current, style);
             float swW = colours.isEmpty() ? 0 : 24;
             String text = missing ? current + " (missing)" : !hasArt ? current + " (no art)"
                     : asPixels ? label(slot, current) + " (pixel art)" : label(slot, current);
@@ -145,7 +147,7 @@ final class WardrobePanel {
                 // the colour picked for it (the item's own colours: an outline)
                 float sx = cx + colW - 20, sy = cy + 19;
                 String picked = wardrobe.colour(slot);
-                int sw = picked == null ? -1 : lib.swatch(slot, current, style, picked);
+                int sw = picked == null ? -1 : lib.swatch(body, slot, current, style, picked);
                 if (sw >= 0) ui.rect(sx, sy, 18, 18, rgb(sw));
                 ui.outline(sx, sy, 18, 18, focus == slot ? 2 : 1, focus == slot ? Theme.ACCENT : Theme.PANEL_EDGE);
                 if (ui.clicked(sx, sy, 18, 18)) focus = slot;
@@ -155,7 +157,7 @@ final class WardrobePanel {
 
         // --- the colour row: the focused layer's colours -----------------------------
         String fItem = wardrobe.get(focus);
-        List<String> fOpts = fItem == null ? List.of() : lib.colourOptions(focus, fItem, style);
+        List<String> fOpts = fItem == null ? List.of() : lib.colourOptions(body, focus, fItem, style);
         String what = focus == Slot.BODY ? "Skin" : focus.label();
         ui.text(ui.body, "Colour · " + what + ": "
                         + (fOpts.isEmpty() ? (fItem == null ? "nothing worn" : "none in this style")
@@ -169,7 +171,7 @@ final class WardrobePanel {
                 float bx = x + (i + 1) * (s + gap);
                 if (bx + s > x + listW) break;
                 String o = fOpts.get(i);
-                int rgb = lib.swatch(focus, fItem, style, o);
+                int rgb = lib.swatch(body, focus, fItem, style, o);
                 ui.rect(bx, sy, s, s, rgb >= 0 ? rgb(rgb) : Theme.BUTTON);
                 boolean on = o.equals(wardrobe.colour(focus));
                 ui.outline(bx, sy, s, s, on ? 2 : 1, on ? Theme.ACCENT : ui.hover(bx, sy, s, s) ? Theme.HINT : Theme.PANEL_EDGE);

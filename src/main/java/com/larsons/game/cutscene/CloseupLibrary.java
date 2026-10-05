@@ -37,6 +37,11 @@ import java.util.stream.Stream;
  * character on the right of a two-shot is drawn mirrored. The sheets are
  * loaded and kept on the GPU by the game's {@link SpriteLibrary}, so a
  * cutscene's layers share its memory budget and its palettes.
+ *
+ * <p>As with the game sprites, a body can have a folder of its own beside
+ * this one, {@code assets/closeups_<body>/} ({@code closeups_masculine/}),
+ * with every item drawn close up on that body; the body a character wears
+ * picks the folder its items are found in.
  */
 public final class CloseupLibrary {
 
@@ -49,7 +54,9 @@ public final class CloseupLibrary {
                         Variants variants) {}
 
     private final Path root;
-    private volatile Map<Slot, Map<String, Entry>> index = new EnumMap<>(Slot.class);
+    /** Every folder's index (the default's under ""), and which folder each body is in. */
+    private volatile Map<String, Map<Slot, Map<String, Entry>>> roots = Map.of();
+    private volatile Map<String, String> bodyRoot = Map.of();
 
     public CloseupLibrary(Path root) {
         this.root = root;
@@ -58,12 +65,41 @@ public final class CloseupLibrary {
 
     public Path root() { return root; }
 
-    /** Re-read the folder (file names only). */
+    /** Re-read the folder and every body's folder beside it (file names only). */
     public synchronized void rescan() {
+        Map<String, Map<Slot, Map<String, Entry>>> next = new java.util.LinkedHashMap<>();
+        next.put(SpriteLibrary.DEFAULT_ROOT, scanRoot(root));
+        Path parent = root.toAbsolutePath().getParent();
+        String prefix = root.getFileName() + "_";
+        if (parent != null && Files.isDirectory(parent)) {
+            try (Stream<Path> dirs = Files.list(parent)) {
+                for (Path d : dirs.filter(Files::isDirectory).sorted().toList()) {
+                    String name = d.getFileName().toString();
+                    if (name.startsWith(prefix) && name.length() > prefix.length()) {
+                        next.put(name.substring(prefix.length()), scanRoot(d));
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("[closeups] cannot list " + parent + ": " + e.getMessage());
+            }
+        }
+        Map<String, String> bodies = new HashMap<>();
+        for (Map.Entry<String, Map<Slot, Map<String, Entry>>> r : next.entrySet()) {
+            for (String folder : r.getValue().getOrDefault(Slot.BODY, Map.of()).keySet()) {
+                String body = Wardrobe.Style.base(folder);
+                if (r.getKey().equals(SpriteLibrary.DEFAULT_ROOT)) bodies.putIfAbsent(body, r.getKey());
+                else bodies.put(body, r.getKey());
+            }
+        }
+        roots = Collections.unmodifiableMap(next);
+        bodyRoot = Collections.unmodifiableMap(bodies);
+    }
+
+    private static Map<Slot, Map<String, Entry>> scanRoot(Path base) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
-            Path dir = root.resolve(slot.key());
+            Path dir = base.resolve(slot.key());
             if (Files.isDirectory(dir)) {
                 try (Stream<Path> dirs = Files.list(dir)) {
                     for (Path d : dirs.filter(Files::isDirectory).sorted().toList()) {
@@ -76,7 +112,19 @@ public final class CloseupLibrary {
             }
             next.put(slot, Collections.unmodifiableMap(items));
         }
-        index = next;
+        return next;
+    }
+
+    /** The folder key (as {@link SpriteLibrary#rootOf}) a body's items are found in. */
+    public String rootOf(String body) {
+        if (body == null) return SpriteLibrary.DEFAULT_ROOT;
+        return bodyRoot.getOrDefault(Wardrobe.Style.base(body), SpriteLibrary.DEFAULT_ROOT);
+    }
+
+    private Map<Slot, Map<String, Entry>> index(String key) {
+        Map<Slot, Map<String, Entry>> i = roots.get(key);
+        if (i == null) i = roots.get(SpriteLibrary.DEFAULT_ROOT);
+        return i == null ? Map.of() : i;
     }
 
     private static Entry scan(Slot slot, Path dir) {
@@ -100,8 +148,32 @@ public final class CloseupLibrary {
      * has no close-ups of its own and is drawn from the 128-pixel art.
      */
     public Entry entry(Slot slot, String item, Wardrobe.Style style) {
+        return entry(null, slot, item, style);
+    }
+
+    /** {@link #entry(Slot, String, Wardrobe.Style)} for an item worn on {@code body}. */
+    public Entry entry(String body, Slot slot, String item, Wardrobe.Style style) {
         if (item == null) return null;
-        Map<String, Entry> items = index.getOrDefault(slot, Map.of());
+        String key = slot == Slot.BODY ? rootOf(item) : rootOf(body);
+        Map<String, Entry> items = index(key).getOrDefault(slot, Map.of());
+        Wardrobe.Style first = style == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_64 : Wardrobe.Style.PIXEL_128;
+        Wardrobe.Style second = first == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_128 : Wardrobe.Style.PIXEL_64;
+        Entry e = items.get(first.folder(item));
+        return e != null ? e : items.get(second.folder(item));
+    }
+
+    /**
+     * The close-up of an item worn by a body whose game sprites are in the
+     * folder {@code key} ({@link SpriteLibrary#rootOf}): it comes from that
+     * folder's close-ups ({@code closeups_<key>/}, the default's for the default
+     * folder), or from nowhere - a body whose folder has no close-ups (yet) has
+     * nothing of another body's drawn on it.
+     */
+    public Entry entryIn(String key, Slot slot, String item, Wardrobe.Style style) {
+        if (item == null) return null;
+        Map<Slot, Map<String, Entry>> idx = roots.get(key == null ? SpriteLibrary.DEFAULT_ROOT : key);
+        if (idx == null) return null;
+        Map<String, Entry> items = idx.getOrDefault(slot, Map.of());
         Wardrobe.Style first = style == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_64 : Wardrobe.Style.PIXEL_128;
         Wardrobe.Style second = first == Wardrobe.Style.PIXEL_64 ? Wardrobe.Style.PIXEL_128 : Wardrobe.Style.PIXEL_64;
         Entry e = items.get(first.folder(item));
@@ -111,15 +183,19 @@ public final class CloseupLibrary {
     /** Every clip some item has, sorted. */
     public List<String> clips() {
         TreeSet<String> all = new TreeSet<>();
-        for (Map<String, Entry> items : index.values()) {
-            for (Entry e : items.values()) all.addAll(e.clips().keySet());
+        for (Map<Slot, Map<String, Entry>> index : roots.values()) {
+            for (Map<String, Entry> items : index.values()) {
+                for (Entry e : items.values()) all.addAll(e.clips().keySet());
+            }
         }
         return List.copyOf(all);
     }
 
     /** Whether there is anything to draw at all. */
     public boolean isEmpty() {
-        for (Map<String, Entry> items : index.values()) if (!items.isEmpty()) return false;
+        for (Map<Slot, Map<String, Entry>> index : roots.values()) {
+            for (Map<String, Entry> items : index.values()) if (!items.isEmpty()) return false;
+        }
         return true;
     }
 

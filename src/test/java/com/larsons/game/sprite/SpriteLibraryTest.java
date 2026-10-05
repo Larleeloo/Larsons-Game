@@ -226,6 +226,55 @@ class SpriteLibraryTest {
     }
 
     @Test
+    void aBodyWithAFolderOfItsOwnHasItsItemsLookedUpThere() throws Exception {
+        // assets/sprites/ (her body and items) and assets/sprites_masculine/ (his)
+        png("sprites/body/feminine_px128/idle_side_s.png");
+        png("sprites/hat/cap_px128/idle_side_s.png");
+        png("sprites/hat/sun_hat_px128/idle_side_s.png");
+        png("sprites/carry_right/sword_px128/idle_side_s.png");
+        png("sprites_masculine/body/masculine_px128/idle_side_s.png");
+        png("sprites_masculine/hat/cap_px128/idle_side_s.png");
+        png("sprites_masculine/carry_right/sword_px128/idle_side_s.png");
+        Files.writeString(root.resolve("sprites_notes.txt"), "not a folder");
+        lib = new SpriteLibrary(root.resolve("sprites"), 1L << 30, 1.0);
+        assertEquals(List.of("", "masculine"), lib.roots());
+        assertEquals("masculine", lib.rootOf("masculine"));
+        assertEquals("masculine", lib.rootOf("masculine_px128_lh"));
+        assertEquals("", lib.rootOf("feminine"));
+        assertEquals("", lib.rootOf(null));
+        assertEquals(List.of("feminine_px128", "masculine_px128"), lib.items(Slot.BODY),
+                "every folder's bodies are listed");
+        assertEquals(lib.items(Slot.BODY), lib.items("masculine", Slot.BODY));
+        assertEquals(List.of("cap_px128"), lib.items("masculine", Slot.HAT));
+        assertEquals(List.of("cap_px128", "sun_hat_px128"), lib.items("feminine", Slot.HAT));
+
+        // the same item names, each body's own sheets
+        Path his = root.resolve("sprites_masculine/hat/cap_px128/idle_side_s.png");
+        Path hers = root.resolve("sprites/hat/cap_px128/idle_side_s.png");
+        SpriteLibrary.Source cap = lib.source("masculine", Slot.HAT, "cap", Wardrobe.Style.PIXEL_128, false);
+        assertEquals(new SpriteLibrary.Source(Slot.HAT, "cap_px128", false, "masculine"), cap);
+        assertEquals(his, lib.resolve(cap, AnimState.IDLE, Elevation.SIDE, Facing.SOUTH).file());
+        assertEquals(hers, lib.resolve(lib.source("feminine", Slot.HAT, "cap", Wardrobe.Style.PIXEL_128, false),
+                AnimState.IDLE, Elevation.SIDE, Facing.SOUTH).file());
+        assertEquals(hers, lib.resolve(lib.source(Slot.HAT, "cap", Wardrobe.Style.PIXEL_128, false),
+                AnimState.IDLE, Elevation.SIDE, Facing.SOUTH).file(), "no body: the default folder");
+        // his body is found whichever body asks
+        assertEquals(root.resolve("sprites_masculine/body/masculine_px128/idle_side_s.png"),
+                lib.resolve(lib.source("feminine", Slot.BODY, "masculine", Wardrobe.Style.PIXEL_128, false),
+                        AnimState.IDLE, Elevation.SIDE, Facing.SOUTH).file());
+        assertNotNull(lib.entry(Slot.BODY, "masculine_px128"));
+        // an item drawn only on her is not drawn on him
+        assertNull(lib.resolve(lib.source("masculine", Slot.HAT, "sun_hat", Wardrobe.Style.PIXEL_128, false),
+                AnimState.IDLE, Elevation.SIDE, Facing.SOUTH));
+        assertEquals("sun_hat", lib.styled("masculine", Slot.HAT, "sun_hat", Wardrobe.Style.PIXEL_128));
+        // the left hand's sword: his right-hand one, mirrored, from his folder
+        SpriteLibrary.Source left = lib.source("masculine", Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_128, true);
+        assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword_px128", true, "masculine"), left);
+        assertEquals(root.resolve("sprites_masculine/carry_right/sword_px128/idle_side_s.png"),
+                lib.resolve(left, AnimState.IDLE, Elevation.SIDE, Facing.SOUTH).file());
+    }
+
+    @Test
     void rescanPicksUpNewFolders() throws Exception {
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         int before = lib.generation();

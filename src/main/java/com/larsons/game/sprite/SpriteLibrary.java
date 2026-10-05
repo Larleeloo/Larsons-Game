@@ -43,6 +43,16 @@ import java.util.stream.Stream;
  * start and after every import; names are read with {@link SpriteNames}, so a
  * file dropped in by hand does not have to be in the canonical form.
  *
+ * <h2>Bodies</h2>
+ * Every item has to be drawn for the body that wears it, so a body can have a
+ * sprites folder of its own beside this one, named after it:
+ * {@code assets/sprites_masculine/} holds {@code body/masculine/} and every
+ * item drawn on that body, under the same slot and item names as here. The
+ * body a wardrobe wears decides which folder all of its items are looked up
+ * in ({@link #rootOf}); a body that has no folder of its own (the ones in this
+ * folder's {@code body/}, or none) uses this one. The bodies of every folder
+ * are listed together under {@link Slot#BODY}, so a wardrobe can switch body.
+ *
  * <h2>On the GPU</h2>
  * A full character is 6 states × 24 views of 512-pixel frames — gigabytes if it
  * were all resident at once. So sheets are loaded <b>on demand</b>, decoded
@@ -58,6 +68,9 @@ public final class SpriteLibrary implements AutoCloseable {
 
     /** Folder of world sprites for pickups, beside the slot folders. */
     public static final String ITEMS_FOLDER = "items";
+
+    /** The key of the default sprites folder among the bodies' folders ({@link #rootOf}). */
+    public static final String DEFAULT_ROOT = "";
 
     /** One cosmetic (or body) folder and the sheets found in it, and the colours it can take (or null). */
     public record Entry(Slot slot, String name, Path folder, SpriteProfile profile,
@@ -118,7 +131,16 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     private final Path root;
-    private volatile Map<Slot, Map<String, Entry>> index = new EnumMap<>(Slot.class);
+
+    /** The index of one sprites folder: slot -> item folder -> entry. */
+    private record Index(Path dir, Map<Slot, Map<String, Entry>> slots) {
+        Map<String, Entry> of(Slot slot) { return slots.getOrDefault(slot, Map.of()); }
+    }
+
+    /** Every sprites folder (by {@link #rootOf} key) and which folder each body is in. */
+    private record Indexes(Map<String, Index> roots, Map<String, String> bodyRoot) {}
+
+    private volatile Indexes index = new Indexes(Map.of(), Map.of());
     private volatile int generation;
 
     private final ExecutorService workers;
@@ -167,6 +189,30 @@ public final class SpriteLibrary implements AutoCloseable {
 
     public Path root() { return root; }
 
+    /** The sprites folder of a {@link #rootOf} key (the default folder for an unknown one). */
+    public Path root(String key) {
+        Index i = index.roots().get(key);
+        return i == null ? root : i.dir();
+    }
+
+    /**
+     * The key of the sprites folder a body's items are in: the body's own
+     * folder ({@code sprites_<body>}) when it has one, else the default
+     * ({@link #DEFAULT_ROOT}); {@code body} may be a style version of the body's
+     * folder ({@code masculine_px64_lh}) or null (the generated body).
+     */
+    public String rootOf(String body) {
+        if (body == null) return DEFAULT_ROOT;
+        return index.bodyRoot().getOrDefault(Wardrobe.Style.base(body), DEFAULT_ROOT);
+    }
+
+    /** The {@link #rootOf} keys of every sprites folder found, the default's first. */
+    public List<String> roots() {
+        List<String> keys = new ArrayList<>(index.roots().keySet());
+        Collections.sort(keys);
+        return keys;
+    }
+
     /** Bumped by every {@link #rescan()}, so menus know to refresh their lists. */
     public int generation() { return generation; }
 
@@ -181,12 +227,46 @@ public final class SpriteLibrary implements AutoCloseable {
 
     // --- the folder index ------------------------------------------------------------
 
-    /** Re-read {@code assets/sprites/}. Cheap: file names only, no pixels. */
+    /**
+     * Re-read {@code assets/sprites/} and every body's folder beside it
+     * ({@code assets/sprites_<body>/}). Cheap: file names only, no pixels.
+     */
     public synchronized void rescan() {
+        Map<String, Index> roots = new LinkedHashMap<>();
+        roots.put(DEFAULT_ROOT, scanRoot(root));
+        Path parent = root.toAbsolutePath().getParent();
+        String prefix = root.getFileName() + "_";
+        if (parent != null && Files.isDirectory(parent)) {
+            try (Stream<Path> dirs = Files.list(parent)) {
+                for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
+                    String name = dir.getFileName().toString();
+                    if (name.startsWith(prefix) && name.length() > prefix.length()) {
+                        roots.put(name.substring(prefix.length()), scanRoot(dir));
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("[sprites] cannot list " + parent + ": " + e.getMessage());
+            }
+        }
+        // a body is in the folder whose body/ has it; the default's first, a
+        // body's own folder over it
+        Map<String, String> bodyRoot = new HashMap<>();
+        for (Map.Entry<String, Index> r : roots.entrySet()) {
+            for (String folder : r.getValue().of(Slot.BODY).keySet()) {
+                String body = Wardrobe.Style.base(folder);
+                if (r.getKey().equals(DEFAULT_ROOT)) bodyRoot.putIfAbsent(body, DEFAULT_ROOT);
+                else bodyRoot.put(body, r.getKey());
+            }
+        }
+        index = new Indexes(Collections.unmodifiableMap(roots), Collections.unmodifiableMap(bodyRoot));
+        generation++;
+    }
+
+    private Index scanRoot(Path base) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
-            Path slotDir = root.resolve(slot.key());
+            Path slotDir = base.resolve(slot.key());
             if (Files.isDirectory(slotDir)) {
                 try (Stream<Path> dirs = Files.list(slotDir)) {
                     for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
@@ -199,8 +279,7 @@ public final class SpriteLibrary implements AutoCloseable {
             }
             next.put(slot, Collections.unmodifiableMap(items));
         }
-        index = next;
-        generation++;
+        return new Index(base, next);
     }
 
     private Entry scanItem(Slot slot, Path dir) {
@@ -225,14 +304,44 @@ public final class SpriteLibrary implements AutoCloseable {
                 Collections.unmodifiableMap(sheets), List.copyOf(skipped), Variants.load(dir));
     }
 
-    /** Item names in a slot, sorted. */
+    /** Item names in a slot of the default folder, sorted (the bodies: every folder's). */
     public List<String> items(Slot slot) {
-        return List.copyOf(index.getOrDefault(slot, Map.of()).keySet());
+        return items(null, slot);
     }
 
+    /**
+     * Item names in a slot for a body, sorted: those of the body's folder. Under
+     * {@link Slot#BODY}, the bodies of every folder.
+     */
+    public List<String> items(String body, Slot slot) {
+        if (slot == Slot.BODY) {
+            java.util.TreeSet<String> all = new java.util.TreeSet<>();
+            for (Index i : index.roots().values()) all.addAll(i.of(Slot.BODY).keySet());
+            return List.copyOf(all);
+        }
+        return List.copyOf(indexFor(rootOf(body)).of(slot).keySet());
+    }
+
+    private Index indexFor(String key) {
+        Index i = index.roots().get(key);
+        if (i == null) i = index.roots().get(DEFAULT_ROOT);
+        return i == null ? new Index(root, Map.of()) : i;
+    }
+
+    /** An item folder of the default folder (a body: of its own folder), or null. */
     public Entry entry(Slot slot, String item) {
+        return entry(null, slot, item);
+    }
+
+    /** An item folder as worn on {@code body}: in the body's folder (a body: in its own). */
+    public Entry entry(String body, Slot slot, String item) {
         if (item == null) return null;
-        return index.getOrDefault(slot, Map.of()).get(item);
+        return entryIn(slot == Slot.BODY ? rootOf(item) : rootOf(body), slot, item);
+    }
+
+    private Entry entryIn(String key, Slot slot, String item) {
+        if (item == null) return null;
+        return indexFor(key).of(slot).get(item);
     }
 
     /**
@@ -243,17 +352,22 @@ public final class SpriteLibrary implements AutoCloseable {
      * style.
      */
     public String styled(Slot slot, String item, Wardrobe.Style style) {
+        return styled(null, slot, item, style);
+    }
+
+    /** {@link #styled(Slot, String, Wardrobe.Style)} for an item worn on {@code body}. */
+    public String styled(String body, Slot slot, String item, Wardrobe.Style style) {
         if (item == null) return null;
-        style = drawnIn(slot, item, style);
+        style = drawnIn(body, slot, item, style);
         if (style == Wardrobe.Style.RENDERED) return item;
         String version = style.folder(item);
-        return entry(slot, version) != null ? version : item;
+        return entry(body, slot, version) != null ? version : item;
     }
 
     /** The style {@code item} is drawn in when {@code style} is asked for (see {@link #styled}). */
-    private Wardrobe.Style drawnIn(Slot slot, String item, Wardrobe.Style style) {
-        if (style == Wardrobe.Style.RENDERED && entry(slot, item) == null
-                && entry(slot, Wardrobe.Style.PIXEL_128.folder(item)) != null) {
+    private Wardrobe.Style drawnIn(String body, Slot slot, String item, Wardrobe.Style style) {
+        if (style == Wardrobe.Style.RENDERED && entry(body, slot, item) == null
+                && entry(body, slot, Wardrobe.Style.PIXEL_128.folder(item)) != null) {
             return Wardrobe.Style.PIXEL_128;
         }
         return style;
@@ -268,28 +382,42 @@ public final class SpriteLibrary implements AutoCloseable {
      * style's left-handed version ({@code sword_px128_lh}) when there is one,
      * drawn as it is; otherwise the twin's, mirrored.
      */
-    public record Source(Slot slot, String folder, boolean mirrored) {}
+    public record Source(Slot slot, String folder, boolean mirrored, String root) {
+
+        /** A source in the default sprites folder. */
+        public Source(Slot slot, String folder, boolean mirrored) {
+            this(slot, folder, mirrored, DEFAULT_ROOT);
+        }
+    }
 
     public Source source(Slot slot, String item, Wardrobe.Style style, boolean leftHanded) {
+        return source(null, slot, item, style, leftHanded);
+    }
+
+    /** {@link #source(Slot, String, Wardrobe.Style, boolean)} for an item worn on {@code body}. */
+    public Source source(String body, Slot slot, String item, Wardrobe.Style style, boolean leftHanded) {
         if (item == null) return null;
-        if (!leftHanded) return new Source(slot, styled(slot, item, style), false);
+        String key = slot == Slot.BODY ? rootOf(item) : rootOf(body);
+        if (slot == Slot.BODY) body = item;
+        if (!leftHanded) return new Source(slot, styled(body, slot, item, style), false, key);
         Slot twin = slot.twin();
         // among the renders, the 512-pixel twin in a mirror before any pixel art
-        if (style == Wardrobe.Style.RENDERED && entry(twin, item) != null) return new Source(twin, item, true);
-        Wardrobe.Style drawn = drawnIn(slot, item, style);
-        if (drawn != Wardrobe.Style.RENDERED && entry(slot, drawn.leftFolder(item)) != null) {
-            return new Source(slot, drawn.leftFolder(item), false);
+        if (style == Wardrobe.Style.RENDERED && entry(body, twin, item) != null) return new Source(twin, item, true, key);
+        Wardrobe.Style drawn = drawnIn(body, slot, item, style);
+        if (drawn != Wardrobe.Style.RENDERED && entry(body, slot, drawn.leftFolder(item)) != null) {
+            return new Source(slot, drawn.leftFolder(item), false, key);
         }
-        String folder = styled(twin, item, style);
-        if (entry(twin, folder) != null) return new Source(twin, folder, true);
-        return new Source(slot, styled(slot, item, style), true);
+        String folder = styled(body, twin, item, style);
+        if (entry(body, twin, folder) != null) return new Source(twin, folder, true, key);
+        return new Source(slot, styled(body, slot, item, style), true, key);
     }
 
     /** One view of a {@link #source}: a mirrored source is its mirrored view, flipped. */
     public Resolved resolve(Source src, AnimState state, Elevation elevation, Facing facing) {
         if (src == null) return null;
-        if (!src.mirrored()) return resolve(src.slot(), src.folder(), state, elevation, facing);
-        Resolved r = resolve(src.slot(), src.folder(), state, elevation, facing.mirrorOf());
+        Entry e = entryIn(src.root(), src.slot(), src.folder());
+        if (!src.mirrored()) return resolve(e, state, elevation, facing);
+        Resolved r = resolve(e, state, elevation, facing.mirrorOf());
         return r == null ? null : r.flipped();
     }
 
@@ -300,7 +428,7 @@ public final class SpriteLibrary implements AutoCloseable {
      */
     public Variants.Recolor recolor(Source src, Slot wornIn, Wardrobe wardrobe) {
         if (src == null) return null;
-        Entry e = entry(src.slot(), src.folder());
+        Entry e = entryIn(src.root(), src.slot(), src.folder());
         if (e == null || e.variants() == null) return null;
         Map<String, String> choice = new HashMap<>();
         String own = wardrobe.colour(wornIn);
@@ -312,7 +440,12 @@ public final class SpriteLibrary implements AutoCloseable {
 
     /** The colour options the item worn in {@code slot} has for its own colour, in this style (may be empty). */
     public List<String> colourOptions(Slot slot, String item, Wardrobe.Style style) {
-        Entry e = entry(slot, styled(slot, item, style));
+        return colourOptions(null, slot, item, style);
+    }
+
+    /** {@link #colourOptions(Slot, String, Wardrobe.Style)} for an item worn on {@code body}. */
+    public List<String> colourOptions(String body, Slot slot, String item, Wardrobe.Style style) {
+        Entry e = entry(body, slot, styled(body, slot, item, style));
         if (e == null || e.variants() == null) return List.of();
         Variants.Channel c = e.variants().channel(slot == Slot.BODY ? Variants.SKIN : Variants.OWN);
         return c == null ? List.of() : c.names();
@@ -320,7 +453,12 @@ public final class SpriteLibrary implements AutoCloseable {
 
     /** The colour an option shows as (a swatch, RGB), or -1. */
     public int swatch(Slot slot, String item, Wardrobe.Style style, String option) {
-        Entry e = entry(slot, styled(slot, item, style));
+        return swatch(null, slot, item, style, option);
+    }
+
+    /** {@link #swatch(Slot, String, Wardrobe.Style, String)} for an item worn on {@code body}. */
+    public int swatch(String body, Slot slot, String item, Wardrobe.Style style, String option) {
+        Entry e = entry(body, slot, styled(body, slot, item, style));
         if (e == null || e.variants() == null) return -1;
         Variants.Channel c = e.variants().channel(slot == Slot.BODY ? Variants.SKIN : Variants.OWN);
         Integer rgb = c == null ? null : c.swatch().get(option);
@@ -334,7 +472,10 @@ public final class SpriteLibrary implements AutoCloseable {
      */
     public Resolved resolve(Slot slot, String item, AnimState state, Elevation elevation,
                             Facing facing) {
-        Entry e = entry(slot, item);
+        return resolve(entry(slot, item), state, elevation, facing);
+    }
+
+    private Resolved resolve(Entry e, AnimState state, Elevation elevation, Facing facing) {
         if (e == null) return null;
         Path direct = e.sheet(state, elevation, facing);
         if (direct != null && !failed.containsKey(direct)) {

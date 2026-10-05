@@ -182,4 +182,31 @@ class CutsceneTest {
         assertTrue(lib.resolve(hair, "talk", null, true).mirrored());
         assertNull(lib.entry(Slot.HAT, "beanie", Wardrobe.Style.PIXEL_128));
     }
+
+    @Test
+    void aBodysCloseUpsAreFoundInItsOwnFolder() throws Exception {
+        for (String f : List.of("closeups/hair/bob_px128/talk_side_se.png",
+                "closeups/body/feminine_px128/talk_side_se.png",
+                "closeups_masculine/hair/bob_px128/talk_side_se.png",
+                "closeups_masculine/body/masculine_px128/talk_side_se.png")) {
+            Path p = root.resolve(f);
+            Files.createDirectories(p.getParent());
+            Files.writeString(p, "x", StandardCharsets.UTF_8);
+        }
+        CloseupLibrary lib = new CloseupLibrary(root.resolve("closeups"));
+        assertEquals("masculine", lib.rootOf("masculine"));
+        assertEquals("", lib.rootOf("feminine"));
+        Path his = lib.entry("masculine", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk");
+        Path hers = lib.entry("feminine", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk");
+        assertEquals(root.resolve("closeups_masculine/hair/bob_px128/talk_side_se.png"), his);
+        assertEquals(root.resolve("closeups/hair/bob_px128/talk_side_se.png"), hers);
+        assertNotNull(lib.entry("feminine", Slot.BODY, "masculine", Wardrobe.Style.PIXEL_128));
+        // found by the folder the body's game sprites are in
+        assertEquals(his, lib.entryIn("masculine", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk"));
+        assertEquals(hers, lib.entryIn("", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_64).clips().get("talk"));
+        assertEquals(hers, lib.entryIn(null, Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128).clips().get("talk"));
+        // a body whose sprites folder has no close-ups (yet) has none of hers drawn on it
+        assertNull(lib.entryIn("other", Slot.HAIR, "bob", Wardrobe.Style.PIXEL_128));
+        assertNull(lib.entryIn("other", Slot.BODY, "other", Wardrobe.Style.PIXEL_128));
+    }
 }

@@ -43,6 +43,33 @@ An *item* is any folder name — `body/hero`, `hat/straw_boater`,
 `carry_right/sword`. Every item folder shows up in the pause menu's
 **Wardrobe** for its layer.
 
+### Bodies
+
+Everything worn has to be drawn for the body that wears it - a shirt drawn on
+one body does not fit another. So a body can have a sprites folder of its
+own beside this one, named after it, with the body and every item drawn on
+it under the same slot and item names:
+
+```
+assets/sprites/                  the default body's: body/feminine/, hair/bob_px128/, ...
+assets/sprites_masculine/        his: body/masculine/, hair/bob_px128/, shirt/laced_dress_px64_lh/, ...
+assets/sprites_<body>/           any other body's, in its folder's name
+```
+
+The body a character wears decides which folder all of its items come from:
+a body found in `assets/sprites_<name>/body/` uses that folder, any other
+(and the generated fallback body) this one. The Wardrobe lists the bodies of
+every folder under **Base body**, so a character can switch body and keep
+its outfit - the items keep their names (`hair: bob` is his bob on him, hers
+on her). An item that one body's folder does not have is simply not drawn on
+that body. Pickup icons (`items/`) are always this folder's. Importing saves
+a layer into the folder of the body being worn (so it can be worn straight
+away), a body into the folder it is already in (a new body: this one), and a
+pickup icon here. The cutscene close-ups do the same: `assets/closeups/` and
+`assets/closeups_<body>/`, the folder going with the body's sprites folder -
+a body whose sprites folder has no close-ups yet has none of another body's
+drawn on it.
+
 ## File names
 
 ```
@@ -412,3 +439,20 @@ sheets for the view on screen loaded, plus that view's other five states and
 the two neighbouring directions, the HUD's Sprites line settles at "162 sheets
 resident (422 MB) · 0 loading"; as whole 512-pixel frames the same sheets would
 be about 4.9 GB (see [Memory](#memory)).
+
+### His sheets (`assets/sprites_masculine/`)
+
+The same items drawn on the masculine body, `body/masculine`, made from
+3D-Modeling's `generic_masculine_model/` (its README's *The masculine
+model*): her finished body fitted to his shape, everything of hers moved
+onto him and her scripts run on his rig. He is 1.80 m tall at the same
+scale, so he stands a little taller in the same frame. Every item in the
+table above is there under the same name - the laced dress, the bralette,
+the makeup and the long hair styles too - as pixel art only (`_px128`,
+`_px64` and their `_lh`; in the *512 px* style his items are drawn from
+their 128-pixel versions), in the same states and frame counts (a carried
+item in its stance's), cut
+against the same outfit, in the same palette and with the same colour
+options. His close-ups are in `assets/closeups_masculine/`. Wear him with
+Pause → Wardrobe → Base body, or `"body": "masculine"` in
+`config/wardrobe.json`; the rest of the outfit carries over as it is.

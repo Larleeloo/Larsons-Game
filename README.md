@@ -146,6 +146,20 @@ Drop sprite sheets on the window at any time to import them.
   <img src="docs/screenshots/pixel-128-beanie.png" width="49%" alt="Pixel art: long royal-blue hair under a platinum beanie, the laced shirt, belt, scabbard and a silver necklace">
   <img src="docs/screenshots/pixel-128-dress.png" width="49%" alt="Pixel art: the laced dress, a short side-parted cut in copper and a honey-blonde skin tone">
   <img src="docs/screenshots/pixel-128-left-handed.png" width="49%" alt="A left-handed character: the sword in the left hand, the shield on the right arm, attacking">
+- **A second body**, the masculine model (1.80 m) from 3D-Modeling's
+  `generic_masculine_model/`, in `assets/sprites_masculine/`: every one of
+  the 52 items - the laced dress, the bralette, the makeup and the long hair
+  styles too - and the three weapons drawn on him as they are on her: the
+  same states (a carried item in its stance's) from the same 24 views, in
+  128- and 64-pixel frames, right- and left-handed, in the same palette and
+  colours, with his own cutscene close-ups. Pause → Wardrobe →
+  Base body switches body, and the outfit carries over: each item is drawn
+  for the body that wears it.
+
+  <img src="docs/screenshots/masculine-pixel-128-walk.png" width="49%" alt="The masculine body in the full outfit - long waves, sun hat, mantle, sword and shield - walking, as 128-pixel pixel art">
+  <img src="docs/screenshots/masculine-pixel-128-dress.png" width="49%" alt="The masculine body in the laced dress, recoloured royal blue, with a black bob, plum makeup and gold hoops">
+  <img src="docs/screenshots/masculine-pixel-128-axe.png" width="49%" alt="The masculine body swinging the battle axe in a laced shirt and a crew cut">
+  <img src="docs/screenshots/masculine-cutscene.png" width="49%" alt="The cutscene with the masculine body close up, his long waves fading to royal blue mid-line, Bryn beside him">
 - **A fallback character** when no Blender renders are present: a 32 × 32 pixel
   figure generated from a tiny rigged box model and rendered from the same 24
   camera positions the real sheets use, scaled up with crisp pixels.
@@ -176,6 +190,10 @@ assets/sprites/carry_right/sword/attack_top_s.png
 assets/sprites/items/sword/icon.png                 (the pickup, lying in the world)
 ```
 
+- **Bodies.** A body can have its own sprites folder beside `assets/sprites/`,
+  named after it (`assets/sprites_masculine/`), holding every item drawn on
+  that body under the same names; the body a character wears picks the folder
+  its items come from, so one outfit (`hair: bob`) fits either body.
 - **Views.** The camera's angle above the character picks the set: **side**
   (rendered at 0°) from 0° to 33°, **middle** (45°) from 34° to 75°, **top**
   (90°, birds-eye) from 75° to 90°. The direction is worked out per character
@@ -334,6 +352,8 @@ src/main/java/com/larsons/game/
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
+assets/sprites_masculine/,  the masculine body's sheets and close-ups, laid out the same
+  assets/closeups_masculine/
 assets/cutscenes/           cutscene scripts (menu.cut) and their language
 .idea/runConfigurations/    Run Game (GPU), Tests
 ```

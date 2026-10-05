@@ -296,10 +296,15 @@ public final class SpriteImport {
 
     /** How many existing files a save would overwrite. */
     public static int wouldReplace(Plan plan, Path spritesRoot, Slot slot, String item) {
-        Path dir = target(spritesRoot, slot, item);
+        return wouldReplace(plan, spritesRoot, spritesRoot, slot, item);
+    }
+
+    /** {@link #wouldReplace(Plan, Path, Slot, String)} with the sheets and the pickup icon in different folders. */
+    public static int wouldReplace(Plan plan, Path sheetsRoot, Path iconRoot, Slot slot, String item) {
+        Path dir = target(sheetsRoot, slot, item);
         int n = 0;
         for (SheetPlan s : plan.sheets()) if (Files.exists(dir.resolve(s.fileName()))) n++;
-        if (plan.icon() != null && Files.exists(iconTarget(spritesRoot, item))) n++;
+        if (plan.icon() != null && Files.exists(iconTarget(iconRoot, item))) n++;
         return n;
     }
 
@@ -319,12 +324,27 @@ public final class SpriteImport {
      */
     public static Result save(Plan plan, Path spritesRoot, Slot slot, String item,
                               IntConsumer progress) {
-        Path dir = target(spritesRoot, slot, item);
+        return save(plan, spritesRoot, spritesRoot, slot, item, progress);
+    }
+
+    /**
+     * {@link #save(Plan, Path, Slot, String, IntConsumer)} with the sheets
+     * going into {@code sheetsRoot} (a body's own sprites folder, for an item
+     * worn on it) and a pickup icon into {@code iconRoot} (always the default
+     * folder: pickups are looked up there).
+     */
+    public static Result save(Plan plan, Path sheetsRoot, Path iconRoot, Slot slot, String item,
+                              IntConsumer progress) {
+        // a drop of only a pickup icon makes no item folder (an empty one would
+        // stand in for the item's pixel art) and reports where the icon went
+        boolean sheets = !plan.sheets().isEmpty() || plan.profile() != null;
+        Path dir = sheets || plan.icon() == null ? target(sheetsRoot, slot, item)
+                : iconTarget(iconRoot, item).getParent();
         List<String> problems = new ArrayList<>();
         int written = 0, replaced = 0;
         int[] frameSize = null;
         try {
-            Files.createDirectories(dir);
+            if (sheets) Files.createDirectories(dir);
         } catch (IOException e) {
             return new Result(dir, 0, 0, List.of("cannot create " + dir + ": " + e.getMessage()));
         }
@@ -347,7 +367,7 @@ public final class SpriteImport {
             if (progress != null) progress.accept(i + 1);
         }
         if (plan.icon() != null) {
-            Path out = iconTarget(spritesRoot, item);
+            Path out = iconTarget(iconRoot, item);
             try {
                 Files.createDirectories(out.getParent());
                 if (Files.exists(out)) replaced++;
@@ -358,7 +378,7 @@ public final class SpriteImport {
             }
         }
         try {
-            writeProfile(plan, dir, frameSize);
+            if (sheets) writeProfile(plan, dir, frameSize);
         } catch (IOException | RuntimeException e) {
             problems.add(SpriteProfile.FILE_NAME + ": " + e.getMessage());
         }

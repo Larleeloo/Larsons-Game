@@ -176,7 +176,8 @@ public final class LayerStack {
         boolean missing = false;
         boolean left = wardrobe.leftHanded();
         AnimState asked = state;
-        state = shown(lib, lib.source(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style(), left),
+        String bodyItem = wardrobe.get(Slot.BODY);
+        state = shown(lib, lib.source(bodyItem, Slot.BODY, bodyItem, wardrobe.style(), left),
                 asked, elev, facing);
 
         List<Want> wants = new ArrayList<>();
@@ -184,7 +185,7 @@ public final class LayerStack {
         for (Slot slot : order) {
             String item = slot.carried() ? asked.stance().carried(slot, wardrobe) : wardrobe.get(slot);
             if (item == null) continue;
-            SpriteLibrary.Source src = lib.source(slot, item, wardrobe.style(), left);
+            SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
             if (file != null) file = file.withRecolor(lib.recolor(src, slot, wardrobe));
             SheetTexture sheet = null;
@@ -272,8 +273,8 @@ public final class LayerStack {
      */
     public static double duration(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                   SpriteView view) {
-        SpriteLibrary.Source body = lib.source(Slot.BODY, wardrobe.get(Slot.BODY), wardrobe.style(),
-                wardrobe.leftHanded());
+        SpriteLibrary.Source body = lib.source(wardrobe.get(Slot.BODY), Slot.BODY, wardrobe.get(Slot.BODY),
+                wardrobe.style(), wardrobe.leftHanded());
         state = shown(lib, body, state, view.elevation(), view.facing());
         SpriteLibrary.Resolved r = lib.resolve(body, state, view.elevation(), view.facing());
         if (r != null) r = r.withRecolor(lib.recolor(body, Slot.BODY, wardrobe));

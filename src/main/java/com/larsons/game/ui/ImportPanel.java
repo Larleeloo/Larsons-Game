@@ -4,6 +4,7 @@ import com.larsons.game.core.Game;
 import com.larsons.game.importer.SpriteImport;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Slot;
+import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteNames;
 import com.larsons.game.sprite.SpriteProfile;
 
@@ -34,6 +35,8 @@ public final class ImportPanel {
     private final StringBuilder name = new StringBuilder();
     private boolean editingName;
     private boolean wear = true;
+    /** The sprites folder the sheets being saved go into. */
+    private Path target;
     private CompletableFuture<SpriteImport.Result> saving;
     private final AtomicInteger progress = new AtomicInteger();
     private SpriteImport.Result result;
@@ -154,11 +157,12 @@ public final class ImportPanel {
         cy += 46;
 
         String item = SpriteNames.sanitize(name.toString());
-        Path root = game.sprites().root();
+        Slot into = slot == null ? Slot.OTHER : slot;
+        Path root = sheetsRoot(game, into, item);
         String target = plan.sheets().isEmpty()
-                ? "assets/sprites/items/" + item + "/icon.png"
-                : "assets/sprites/" + slot.key() + "/" + item + "/";
-        int replace = SpriteImport.wouldReplace(plan, root, slot == null ? Slot.OTHER : slot, item);
+                ? game.relative(game.sprites().root()) + "/items/" + item + "/icon.png"
+                : game.relative(SpriteImport.target(root, into, item)) + "/";
+        int replace = SpriteImport.wouldReplace(plan, root, game.sprites().root(), into, item);
         ui.text(ui.body, "Saves to  " + target, cx, cy, Theme.ACCENT);
         cy += 24;
         if (replace > 0) {
@@ -226,18 +230,35 @@ public final class ImportPanel {
         }
     }
 
+    /**
+     * The sprites folder an import's sheets go into: the one the body worn
+     * reads its items from (assets/sprites_<body>/ for a body with a folder of
+     * its own), so what is imported can be worn straight away; a body's own
+     * sheets into the folder that body is in (a new body: the default one).
+     * Pickup icons always go into the default folder.
+     */
+    static Path sheetsRoot(Game game, Slot slot, String item) {
+        var lib = game.sprites();
+        String key = slot == Slot.BODY ? lib.rootOf(item) : lib.rootOf(game.wardrobe().get(Slot.BODY));
+        return lib.root(key);
+    }
+
     private void start(Game game, String item) {
         Slot s = slot == null ? Slot.OTHER : slot;
         SpriteImport.Plan p = plan;
-        Path root = game.sprites().root();
+        Path root = sheetsRoot(game, s, item);
+        Path icons = game.sprites().root();
+        // (only an icon: it goes to the default folder's items/)
+        target = p.sheets().isEmpty() ? icons.resolve(SpriteLibrary.ITEMS_FOLDER) : root;
         progress.set(0);
         phase = Phase.SAVING;
-        saving = CompletableFuture.supplyAsync(() -> SpriteImport.save(p, root, s, item, progress::set));
+        saving = CompletableFuture.supplyAsync(() -> SpriteImport.save(p, root, icons, s, item, progress::set));
     }
 
     private void saving(Ui ui, Game game, float cx, float cy, float inner) {
         int total = Math.max(1, plan.sheets().size());
-        ui.text(ui.body, "Writing sheets into assets/sprites …  " + progress.get() + " / " + total,
+        ui.text(ui.body, (plan.sheets().isEmpty() ? "Writing the icon into " : "Writing sheets into ")
+                + game.relative(target) + " …  " + progress.get() + " / " + total,
                 cx, cy, Theme.ITEM);
         ui.rect(cx, cy + 34, inner, 14, Theme.BUTTON);
         ui.rect(cx, cy + 34, inner * progress.get() / total, 14, Theme.ACCENT);
