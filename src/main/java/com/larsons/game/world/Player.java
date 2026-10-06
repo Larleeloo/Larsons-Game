@@ -8,8 +8,6 @@ import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -111,10 +109,16 @@ public final class Player {
 
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
-    private final Set<String> inventory = new LinkedHashSet<>();
+    private final Inventory inventory;
 
     public Player(Wardrobe wardrobe) {
+        this(wardrobe, Inventory.DEFAULT_SLOTS);
+    }
+
+    /** A player whose inventory has {@code slots} slots, the hotbar's five included. */
+    public Player(Wardrobe wardrobe, int slots) {
         this.wardrobe = wardrobe;
+        this.inventory = new Inventory(slots);
     }
 
     /**
@@ -317,6 +321,11 @@ public final class Player {
         wantHeading = Math.round(wantHeading / step) * step + steps * step;
     }
 
+    /** Turn (over the next few frames) to face along heading {@code h}. */
+    public void turnTo(double h) {
+        wantHeading = h;
+    }
+
     public void snapHeading(double h) {
         heading = wantHeading = h;
     }
@@ -347,7 +356,24 @@ public final class Player {
 
     public LayerStack.Memory memory() { return memory; }
 
-    public Set<String> inventory() { return inventory; }
+    /** What she carries; the selected hotbar slot is what is in her hands ({@link World#equipSelected}). */
+    public Inventory inventory() { return inventory; }
+
+    /**
+     * Keep out of a round obstacle {@code radius} metres across its middle
+     * {@code centre} on the ground (a chest): pushed back out to its edge.
+     */
+    public void keepOut(Vec3 centre, double radius) {
+        double dx = position.x() - centre.x(), dz = position.z() - centre.z();
+        double d = Math.hypot(dx, dz);
+        if (d >= radius) return;
+        if (d < 1e-6) {
+            dx = 0;
+            dz = 1;
+            d = 1;
+        }
+        position = new Vec3(centre.x() + dx / d * radius, 0, centre.z() + dz / d * radius);
+    }
 
     public double speed() { return velocity.horizontalLength(); }
 }

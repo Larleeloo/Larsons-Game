@@ -1,5 +1,8 @@
 package com.larsons.game.scene;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
+import com.larsons.game.audio.WorldSounds;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
@@ -14,6 +17,8 @@ import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Chest;
+import com.larsons.game.world.Inventory;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
@@ -26,26 +31,27 @@ import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * The demo: a blank 3D void with the character in the middle, a sword, a
- * battle axe, a longbow and a crossbow lying about, and a few 3D props round
- * the edge.
+ * battle axe, a longbow and a crossbow lying about, an ornate treasure chest
+ * wreathed in magical smoke, and a few 3D props round the edge.
  *
  * <p>It is a viewer as much as a level. Walk, run, sprint, crouch, jump and
  * attack to see the states play live; pick the weapons up (each plays the
- * pick-up) and switch between them with 1–4 to play each one's stance -
- * its idle, walk, run, sprint, crouch, attacks, parry and block; play the
- * emotes with 5–8. Or step through every state with {@code [ ]} to loop one
- * in place, {@code , .} or {@code T} to turn the character through its eight
- * directions, and {@code Tab} or a right-drag to swing the camera through
- * the three elevations. The HUD says exactly which sheet of which layer is on
- * screen, and whether it came from {@code assets/sprites} or the fallback.
+ * pick-up) into the hotbar and switch between them with 1–5 or the mouse
+ * wheel to play each one's stance - its idle, walk, run, sprint, crouch,
+ * attacks, parry and block; open the inventory with I; open the chest with
+ * E; play the emotes with F1–F4. Or step through every state with {@code [ ]}
+ * to loop one in place, {@code , .} or {@code T} to turn the character
+ * through its eight directions, and {@code Tab} or a right-drag to swing the
+ * camera through the three elevations. The HUD says exactly which sheet of
+ * which layer is on screen, and whether it came from {@code assets/sprites}
+ * or the fallback.
  */
 public final class DemoScene implements Scene, Autopilot.Scriptable {
 
-    /** 1–4: the stances, in this order. */
-    private static final int[] STANCE_KEYS = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4};
-    private static final Stance[] STANCES = {Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW};
-    /** 5–8: the emotes. */
-    private static final int[] EMOTE_KEYS = {GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7, GLFW_KEY_8};
+    /** 1–5: the hotbar's slots. */
+    private static final int[] HOTBAR_KEYS = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5};
+    /** F1–F4: the emotes (the number keys are the hotbar's). */
+    private static final int[] EMOTE_KEYS = {GLFW_KEY_F1, GLFW_KEY_F2, GLFW_KEY_F3, GLFW_KEY_F4};
     private static final AnimState[] EMOTES = {AnimState.EMOTE_LAUGH, AnimState.EMOTE_CRY,
             AnimState.EMOTE_SURPRISE, AnimState.EMOTE_ANGRY};
     /** Where the weapons lie at the start (the sword, unless it is already in hand). */
@@ -54,11 +60,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             {ItemDef.BATTLE_AXE, new Vec3(-1.9, 0, -1.7)},
             {ItemDef.LONGBOW, new Vec3(2.5, 0, 1.0)},
             {ItemDef.CROSSBOW, new Vec3(-2.3, 0, 1.6)}};
+    /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
+    private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
+    private static final String CHEST = "ornate_chest";
 
     private final Game game;
     private final World world;
     private final OrbitCamera camera = new OrbitCamera(0.45, Math.toRadians(45), 6.5);
     private final PauseMenu pause;
+    private final InventoryPanel inventory;
+    private final WorldSounds sounds = new WorldSounds();
     private boolean turntable;
     private double turntableTimer;
     private double frameDt;
@@ -68,8 +79,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     public DemoScene(Game game) {
         this.game = game;
-        this.world = new World(game.wardrobe());
+        this.world = new World(game.wardrobe(), game.settings().inventorySlots);
         this.pause = new PauseMenu(game);
+        this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
         // hand; the stances' weapons lie round about.
         Player p = world.player();
@@ -80,6 +92,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             world.spawn(ItemDef.SWORD, SWORD_AT);
         }
         for (Object[] w : WEAPONS_AT) world.spawn((ItemDef) w[0], (Vec3) w[1]);
+        world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
+        world.equipSelected();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
 
@@ -91,6 +105,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         camera.snapTo(pivot());
     }
 
+    @Override
+    public void exit() {
+        sounds.stop();
+        inventory.dispose();
+    }
+
     private Vec3 pivot() {
         return world.player().feet().add(0, 0.9, 0);
     }
@@ -99,25 +119,43 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void update(double dt) {
         frameDt = dt;
         Input in = game.window().input();
-        if (pause.open()) return;
-        if (in.pressed(GLFW_KEY_ESCAPE)) {
-            in.consumeKey(GLFW_KEY_ESCAPE);
-            pause.open(PauseMenu.Page.MAIN);
+        if (pause.open()) {
+            sounds.update(world, camera);
             return;
         }
+        if (in.pressed(GLFW_KEY_ESCAPE)) {
+            in.consumeKey(GLFW_KEY_ESCAPE);
+            if (inventory.open()) inventory.close();
+            else pause.open(PauseMenu.Page.MAIN);
+            return;
+        }
+        if (in.pressed(GLFW_KEY_I)) inventory.toggle();
         Player p = world.player();
 
-        // --- camera -----------------------------------------------------------------
-        if (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE)) {
-            camera.rotate(-in.mouseDX() * 0.008, in.mouseDY() * 0.006);
+        // --- the hotbar: 1-5, the wheel (over a slot in the inventory, 1-5 swaps it there) ---
+        for (int i = 0; i < HOTBAR_KEYS.length; i++) {
+            if (!in.pressed(HOTBAR_KEYS[i])) continue;
+            if (inventory.hovered() >= 0) inventory.swapWithHotbar(inventory.hovered(), i);
+            else select(i);
         }
+        boolean orbiting = !inventory.open()
+                && (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE));
+        if (in.scroll() != 0 && !orbiting) {
+            // a wheel notch away from you moves the selection left, as in most games
+            int steps = (int) -Math.signum(in.scroll());
+            select(Math.floorMod(p.inventory().selected() + steps, Inventory.HOTBAR));
+            in.consumeScroll();
+        }
+
+        // --- camera -----------------------------------------------------------------
+        if (orbiting) camera.rotate(-in.mouseDX() * 0.008, in.mouseDY() * 0.006);
         double orbit = 0, tilt = 0;
         if (in.down(GLFW_KEY_LEFT)) orbit += 1;
         if (in.down(GLFW_KEY_RIGHT)) orbit -= 1;
         if (in.down(GLFW_KEY_UP)) tilt += 1;
         if (in.down(GLFW_KEY_DOWN)) tilt -= 1;
         if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
-        camera.zoom(in.scroll());
+        camera.zoom(in.scroll());                      // the wheel zooms while orbiting
         if (in.repeated(GLFW_KEY_EQUAL) || in.repeated(GLFW_KEY_KP_ADD)) camera.zoom(1);
         if (in.repeated(GLFW_KEY_MINUS) || in.repeated(GLFW_KEY_KP_SUBTRACT)) camera.zoom(-1);
         if (in.pressed(GLFW_KEY_TAB)) {
@@ -129,7 +167,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // --- viewer keys ------------------------------------------------------------
         if (in.repeated(GLFW_KEY_LEFT_BRACKET)) stepPreview(-1);
         if (in.repeated(GLFW_KEY_RIGHT_BRACKET)) stepPreview(1);
-        if (in.pressed(GLFW_KEY_0)) p.preview(null);
+        if (in.pressed(GLFW_KEY_BACKSPACE)) p.preview(null);
         if (in.repeated(GLFW_KEY_COMMA)) p.turnSteps(1);
         if (in.repeated(GLFW_KEY_PERIOD)) p.turnSteps(-1);
         if (in.pressed(GLFW_KEY_T)) {
@@ -146,23 +184,49 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_H)) game.settings().showHud = !game.settings().showHud;
         if (in.pressed(GLFW_KEY_P)) game.settings().showProps = !game.settings().showProps;
 
-        // --- items and stances -------------------------------------------------------
-        if (in.pressed(GLFW_KEY_E)) pickUp();
-        if (in.pressed(GLFW_KEY_G)) drop();
-        for (int i = 0; i < STANCE_KEYS.length; i++) {
-            if (in.pressed(STANCE_KEYS[i])) wield(STANCES[i]);
-        }
+        // --- items, the chest -----------------------------------------------------------
+        if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
+        if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
 
-        // --- the character ----------------------------------------------------------
-        Player.Intent intent = scripted != null ? scripted : intent(in);
+        // --- the character (still while the inventory is open) ----------------------------
+        Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
         p.update(dt, intent, durations());
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again
             scripted = held(scripted);
             if (scripted.moveX() == 0 && scripted.moveZ() == 0 && !scriptDraw && !scriptBlock) scripted = null;
         }
-        world.tick(dt);
+        world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         camera.update(dt, pivot());
+        sounds.update(world, camera);
+    }
+
+    /** Select hotbar slot {@code i}: what is in it is taken up. */
+    private void select(int i) {
+        Inventory inv = world.player().inventory();
+        if (i == inv.selected()) return;
+        ItemDef d = world.select(i);
+        Sounds.play(SoundKeys.ui("hotbar_select"));
+        if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
+    }
+
+    /** E: open or shut the chest she stands by, else pick up what lies by her - whichever is nearer. */
+    private void use() {
+        Chest c = world.reachableChest();
+        World.GroundItem g = world.reachable();
+        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
+                < g.position.horizontalDistance(world.player().ground()))) {
+            toggleChest(c);
+        } else {
+            pickUp();
+        }
+    }
+
+    private void toggleChest(Chest c) {
+        Player p = world.player();
+        Vec3 d = c.position().sub(p.ground());
+        p.turnTo(SpriteView.headingOf(d.x(), d.z()));
+        c.toggle(s -> game.worldRenderer().chestDuration(c, s, camera));
     }
 
     /** How long each state lasts for the player as seen from here (from the sheets). */
@@ -211,41 +275,41 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         return SpriteView.of(camera.eye(), pivot(), p.heading(), camera.yaw());
     }
 
-    /** Reach for the nearest item: the pick-up plays, and it is hers as her hand closes on it. */
+    /**
+     * Reach for the nearest item: the pick-up plays, and it is hers as her
+     * hand closes on it - into the first free slot, the hotbar first.
+     */
     private void pickUp() {
         World.GroundItem g = world.reachable();
         if (g == null) return;
+        if (world.player().inventory().isFull()) {
+            game.toast("Your inventory is full — drop something first (G, or from the inventory: I)",
+                    Theme.WARNING);
+            return;
+        }
         world.player().pickUp(() -> {
-            if (!world.items().contains(g)) return;
-            world.pickUp(g);
+            if (!world.items().contains(g) || !world.pickUp(g)) return;
             game.saveWardrobe();
             ItemDef d = g.def;
+            Sounds.play(SoundKeys.item(d.id(), "pickup"));
             var lib = game.sprites();
             var worn = world.player().wardrobe();
             var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
                     worn.style(), false);
             boolean inHand = lib.resolve(src, d.stance().idle(false), Elevation.MIDDLE, Facing.SOUTH) != null
                     || world.player().wardrobe().get(com.larsons.game.sprite.Slot.BODY) == null;
-            String where = d.held() ? " — in both hands (" + (java.util.Arrays.asList(STANCES).indexOf(d.stance()) + 1)
-                    + " to take it up again)" : " — it's in your " + d.carrySlot().label().toLowerCase();
+            Inventory inv = world.player().inventory();
+            int at = inv.indexOf(d.id());
+            String where = Inventory.isHotbar(at) ? " — hotbar " + (at + 1) + (d.held() ? ", in both hands" : "")
+                    : " — in your inventory (I)";
             game.toast("Picked up " + d.name() + (inHand ? where : " — no in-hand sheets for it yet"), Theme.OK);
         }, durations());
-    }
-
-    /** Take up a stance with a weapon she carries. */
-    private void wield(Stance s) {
-        if (world.wield(s)) {
-            game.toast(s.label(), Theme.HINT);
-        } else {
-            ItemDef d = ItemDef.of(s);
-            game.toast("No " + (d == null ? s.label() : d.name()).toLowerCase()
-                    + " in hand — find it lying about and press E", Theme.WARNING);
-        }
     }
 
     private void drop() {
         ItemDef d = world.dropHeld();
         if (d != null) {
+            Sounds.play(SoundKeys.item(d.id(), "drop"));
             game.saveWardrobe();
             game.toast("Dropped " + d.name(), Theme.HINT);
         }
@@ -261,18 +325,40 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
-        if (game.settings().showHud) hud(ui);
-        prompt(ui);
+        boolean hudShown = game.settings().showHud;
+        if (hudShown) hud(ui);
+        if (!pause.open()) {
+            prompt(ui);
+            inventory.drawHotbar(ui, frameDt, hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10);
+            if (!game.importer().visible()) inventory.draw(ui);
+        }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
         ui.end();
     }
 
+    /** The help bar along the bottom of the HUD. */
+    private static final String[] HELP = {
+            "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold to draw) · "
+                    + "X heavy · R spin · Q parry · B block · V bash",
+            "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
+                    + "Backspace live · , . turn · T turntable · Tab height · Right-drag orbit · +/- zoom · "
+                    + "H HUD · Esc menu"};
+
     private void prompt(Ui ui) {
+        if (inventory.open()) return;
+        String text;
+        Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
-        if (g == null || pause.open()) return;
-        String text = "E   Pick up " + g.def.name() + (world.player().crouched() ? " (crouched)" : "");
+        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
+                < g.position.horizontalDistance(world.player().ground()))) {
+            text = "E   " + (c.isOpen() ? "Close the chest" : "Open the chest");
+        } else if (g != null) {
+            text = "E   Pick up " + g.def.name() + (world.player().crouched() ? " (crouched)" : "");
+        } else {
+            return;
+        }
         float tw = ui.large.width(text) + 40;
-        float x = (ui.width() - tw) / 2, y = ui.height() * 0.72f;
+        float x = (ui.width() - tw) / 2, y = ui.height() * 0.62f;
         ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
         ui.outline(x, y, tw, 44, 1, Theme.ACCENT);
         ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
@@ -325,8 +411,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             ItemDef d = ItemDef.byId(id);
             carried.add(d == null ? id : d.name());
         }
-        ui.text(ui.small, String.format("Stance  %s%s   ·   carrying %s", p.stance().label(),
-                p.crouched() ? ", crouched" : "", carried.length() == 0 ? "nothing" : carried), x, y, Theme.ITEM);
+        Inventory inv = p.inventory();
+        ui.text(ui.small, String.format("Stance  %s%s   ·   hotbar %d of %d slots   ·   carrying %s",
+                p.stance().label(), p.crouched() ? ", crouched" : "", inv.selected() + 1, inv.size(),
+                carried.length() == 0 ? "nothing" : carried), x, y, Theme.ITEM);
         y += lh;
         y += ui.paragraph(ui.small, layerText, x, y, 640, Theme.ITEM) + 2;
         ui.text(ui.small, String.format("Sprites  %d sheets resident (%d MB)  ·  %d loading  ·  scale %.2f",
@@ -335,11 +423,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         elevationGauge(ui, ui.width() - 70, 20, v.elevationDegrees());
 
-        String[] help = {
-                "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold to draw) · "
-                        + "X heavy · R spin · Q parry · B block · V bash",
-                "E pick up · G drop · 1-4 weapon · 5-8 emote · [ ] preview · 0 live · , . turn · T turntable · "
-                        + "Tab height · Right-drag orbit · H HUD · Esc menu"};
+        if (inventory.open()) return;                 // (the inventory has its own line of help)
+        String[] help = HELP;
         float hw = 0;
         for (String h : help) hw = Math.max(hw, ui.small.width(h) + 20);
         hw = Math.min(ui.width() - 28, hw);
@@ -383,6 +468,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                                 AnimState emote) {
         return new Player.Intent(0, 0, false, false, false, attack, attack || scriptDraw, crouch, heavy, spin,
                 parry, scriptBlock, false, emote);
+    }
+
+    /**
+     * A scripted pick-up without walking there: into the inventory (the
+     * sword into her hand too), and the one lying about gone from the ground.
+     */
+    private boolean give(ItemDef d) {
+        Player p = world.player();
+        if (p.inventory().add(d.id()) < 0) return false;
+        world.items().stream().filter(g -> g.def == d).findFirst().ifPresent(world.items()::remove);
+        if (!d.held()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
+                : d.carrySlot(), d.id());
+        return true;
     }
 
     @Override
@@ -456,8 +554,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (s == null) return false;
                 // (scripts may take up a stance without the weapon lying about first)
                 ItemDef d = ItemDef.of(s);
-                if (d != null) p.inventory().add(d.id());
+                if (d != null && !p.inventory().contains(d.id())) give(d);
                 world.wield(s);
+            }
+            // the inventory: inventory [open|close], hotbar <1-5>, slots <n>, give <item>
+            case "inventory" -> {
+                if (argument.equals("close")) inventory.close();
+                else if (argument.equals("open")) inventory.show();
+                else inventory.toggle();
+            }
+            case "hotbar" -> select(Integer.parseInt(argument.trim()) - 1);
+            case "slots" -> {
+                for (String spilled : p.inventory().resize(Integer.parseInt(argument.trim()))) {
+                    world.dropItem(spilled);
+                }
+                world.equipSelected();
+            }
+            case "give" -> {
+                ItemDef d = ItemDef.byId(argument.trim());
+                if (d == null || !give(d)) return false;
+                world.equipSelected();
+            }
+            // the chest: chest (open it, or shut it), and where she stands to: chest goto
+            case "chest" -> {
+                if (world.chests().isEmpty()) return false;
+                Chest c = world.chests().get(0);
+                if (argument.equals("goto")) {
+                    p.setPosition(c.position().add(SpriteView.headingVector(c.heading()).scale(1.3)));
+                    camera.snapTo(pivot());
+                } else {
+                    toggleChest(c);
+                }
             }
             case "teleport" -> {
                 String[] a = argument.split("[ ,]+");

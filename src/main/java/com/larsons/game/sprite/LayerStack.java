@@ -336,12 +336,23 @@ public final class LayerStack {
      */
     public static void drawBillboard(Batch batch, Result r, Vec3 feet, Vec3 cameraRight,
                                      Vec3 cameraUp, float alpha) {
-        double w = r.framing().frameWorldSize(), h = r.framing().frameWorldHeight();
-        double[] anchor = r.framing().anchor(r.view().elevation());
+        drawBillboard(batch, r.layers(), r.framing(), r.view().elevation(), feet, cameraRight, cameraUp, alpha);
+    }
+
+    /**
+     * {@link #drawBillboard(Batch, Result, Vec3, Vec3, Vec3, float)} for any
+     * stack of layers framed by {@code framing} and seen from {@code
+     * elevation} - an object's ({@link ObjectSprites}) as well as a
+     * character's.
+     */
+    public static void drawBillboard(Batch batch, List<Layer> layers, SpriteProfile framing, Elevation elevation,
+                                     Vec3 feet, Vec3 cameraRight, Vec3 cameraUp, float alpha) {
+        double w = framing.frameWorldSize(), h = framing.frameWorldHeight();
+        double[] anchor = framing.anchor(elevation);
         Vec3 topLeft = feet.sub(cameraRight.scale(anchor[0] * w)).add(cameraUp.scale(anchor[1] * h));
         Vec3 right = cameraRight.scale(w);
         Vec3 down = cameraUp.scale(-h);
-        for (Layer l : r.layers()) {
+        for (Layer l : layers) {
             double[] region = l.sheet().region(l.mirrored());
             if (region[2] <= region[0] || region[3] <= region[1]) continue; // nothing in it
             float[] uv = l.sheet().uv(l.frame(), l.mirrored());

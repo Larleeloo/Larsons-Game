@@ -301,6 +301,39 @@ and the sword on separate held-out layers, plus one animation as loose frames â€
 rendered from the fallback figure at 256 px. Drop its folders on the window to
 see the importer and the layer stack at work.
 
+## Objects
+
+Things in the world that are not characters - the treasure chest - are drawn
+the same way, from the same camera and the same 24 views, as a stack of
+layers, but with states of their own:
+
+```
+objects/<object>/profile.json                                  framing and fps, as a character's
+objects/<object>/<layer>/<state>_<elevation>_<direction>.png
+objects/ornate_chest/chest/open_middle_se.png
+```
+
+- **A state is any name** (`idle`, `open`, `opened`, `close`); a sheet's
+  frames play at the profile's `fps`, looping or once as the game's object
+  says (`world/Chest`).
+- **Layers draw in name order**, except that one whose name ends in `_back`
+  goes under the rest and one ending in `_front` over them - the chest's
+  `smoke_back`, `chest`, `smoke_front`. Render a layer that goes round an
+  object as these two halves, split at the object's middle, and the game
+  needs no holdouts for it.
+- **A layer with no sheet for the object's state is ambient**: it loops its
+  own state (its first, alphabetically - the smoke's `swirl`) on the world's
+  clock whatever the object does, and is tinted by the object's light.
+- **Placement** is a character's: the frame stands on the object's spot on
+  the ground, `pivotHeight` below the point the camera was aimed at. The
+  chest's frames are 2.4 m across, aimed 0.6 m up, 128 pixels: the
+  character's 128-pixel scale.
+- A missing west-facing view borrows the east one, mirrored. Palette PNGs
+  stay palette indices on the GPU, as everywhere else.
+
+The chest is drawn by 3D-Modeling's
+`items/ornate_treasure_chest/ornate_chest_sprites.py`.
+
 ## The sheets in this folder
 
 Everything here is made from the rigged feminine model in

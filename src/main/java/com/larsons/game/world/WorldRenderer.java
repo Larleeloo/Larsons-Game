@@ -6,12 +6,16 @@ import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.LayerStack;
+import com.larsons.game.sprite.ObjectSprites;
+import com.larsons.game.sprite.ObjectStack;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL33C.*;
 
@@ -22,11 +26,13 @@ import static org.lwjgl.opengl.GL33C.*;
  *   <li><b>The void</b> — sky and endless floor, one full-screen pass, no depth.</li>
  *   <li><b>3D props</b> — real geometry, depth-tested and depth-writing.</li>
  *   <li><b>Shadows</b> — soft blobs on the floor under every sprite and prop,
- *       depth-tested (a trunk hides the shadow behind it) but not writing.</li>
- *   <li><b>Sprites</b> — every character layer and every item, as
- *       camera-facing billboards, far to near so their soft edges blend over
- *       what is behind them; depth-tested against the props so a tree can
- *       stand in front of the player.</li>
+ *       depth-tested (a trunk hides the shadow behind it) but not writing -
+ *       and the warm pool of light an open chest throws round itself.</li>
+ *   <li><b>Sprites</b> — every character layer, every item and every chest
+ *       (its smoke behind, the chest, its smoke in front), as camera-facing
+ *       billboards, far to near so their soft edges blend over what is
+ *       behind them; depth-tested against the props so a tree can stand in
+ *       front of the player.</li>
  * </ol>
  */
 public final class WorldRenderer implements AutoCloseable {
@@ -38,16 +44,36 @@ public final class WorldRenderer implements AutoCloseable {
     private final Props props;
     private final Batch batch;
     private final SpriteLibrary sprites;
+    private final ObjectSprites objects;
     private final Texture shadow;
+    private final Texture glow;
+    private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
 
     private LayerStack.Result playerStack;
 
-    public WorldRenderer(VoidRenderer voidRenderer, Props props, Batch batch, SpriteLibrary sprites) {
+    public WorldRenderer(VoidRenderer voidRenderer, Props props, Batch batch, SpriteLibrary sprites,
+                         ObjectSprites objects) {
         this.voidRenderer = voidRenderer;
         this.props = props;
         this.batch = batch;
         this.sprites = sprites;
+        this.objects = objects;
         this.shadow = Texture.upload(shadowPixels(64), false);
+        this.glow = Texture.upload(glowPixels(64), false);
+    }
+
+    /** A soft round blob, white, alpha falling off to nothing at the rim: tinted, a pool of light. */
+    private static PixelData glowPixels(int n) {
+        int[] argb = new int[n * n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                double dx = (x + 0.5) / n * 2 - 1, dy = (y + 0.5) / n * 2 - 1;
+                double r2 = dx * dx + dy * dy;
+                double a = r2 >= 1 ? 0 : Math.pow(1 - r2, 2.2);
+                argb[y * n + x] = ((int) Math.round(a * 255) << 24) | 0xFFFFFF;
+            }
+        }
+        return PixelData.of(argb, n, n);
     }
 
     /** A soft round blob, black, alpha falling off to nothing at the rim. */
@@ -91,6 +117,11 @@ public final class WorldRenderer implements AutoCloseable {
             double h = g.hover(world.time());
             groundShadow(g.position, 0.30 * (1 - 0.15 * h), (float) (0.42 - 0.12 * h));
         }
+        for (Chest c : world.chests()) {
+            groundShadow(c.position(), 0.75, 0.45f);
+            double light = c.light();
+            if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
+        }
         if (showProps) {
             for (Props.Placed pl : props.placed()) groundShadow(pl.position(), pl.shadowRadius(), 0.35f);
         }
@@ -110,6 +141,17 @@ public final class WorldRenderer implements AutoCloseable {
         draws.add(() -> LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f));
         dist.add(eye.distance(pivot));
 
+        for (Chest c : world.chests()) {
+            Vec3 chestPivot = c.position().add(0, objects.profile(c.id()).pivotHeight(), 0);
+            SpriteView chestView = SpriteView.of(eye, chestPivot, c.heading(), camera.yaw());
+            ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
+                    c.state().loops(), c.time(), world.time(), chestView, c.light(),
+                    chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
+            draws.add(() -> LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
+                    c.position(), right, up, 1f));
+            dist.add(eye.distance(chestPivot));
+        }
+
         for (World.GroundItem g : world.items()) {
             Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
             Vec3 centre = g.position.add(0, g.hover(world.time()), 0);
@@ -128,14 +170,29 @@ public final class WorldRenderer implements AutoCloseable {
     }
 
     private void groundShadow(Vec3 at, double radius, float alpha) {
+        groundQuad(shadow, at, radius, 0, 0, 0, alpha);
+    }
+
+    private void groundQuad(Texture tex, Vec3 at, double radius, float r, float g, float b, float alpha) {
         float y = 0.004f;
         float x0 = (float) (at.x() - radius), x1 = (float) (at.x() + radius);
         float z0 = (float) (at.z() - radius), z1 = (float) (at.z() + radius);
-        batch.quad(shadow, x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1, 0, 0, 1, 1, 0, 0, 0, alpha);
+        batch.quad(tex, x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1, 0, 0, 1, 1, r, g, b, alpha);
+    }
+
+    /**
+     * How long {@code chest}'s {@code state} lasts as seen from {@code camera}
+     * (from its sheet; 0 while that is still loading).
+     */
+    public double chestDuration(Chest chest, Chest.State state, OrbitCamera camera) {
+        Vec3 pivot = chest.position().add(0, objects.profile(chest.id()).pivotHeight(), 0);
+        SpriteView view = SpriteView.of(camera.eye(), pivot, chest.heading(), camera.yaw());
+        return ObjectStack.duration(sprites, objects, chest.id(), state.key(), view);
     }
 
     @Override
     public void close() {
         shadow.close();
+        glow.close();
     }
 }
