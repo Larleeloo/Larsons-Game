@@ -1,5 +1,7 @@
 package com.larsons.game.core;
 
+import com.larsons.game.audio.SoundPack;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.GpuInfo;
 import com.larsons.game.gfx.Window;
@@ -7,6 +9,7 @@ import com.larsons.game.input.Input;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.cutscene.CloseupLibrary;
+import com.larsons.game.sprite.ObjectSprites;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.ImportPanel;
@@ -47,6 +50,7 @@ public final class Game implements AutoCloseable {
     private final Batch batch;
     private final Ui ui;
     private final SpriteLibrary sprites;
+    private final ObjectSprites objects;
     private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
     private final Props props;
@@ -85,16 +89,34 @@ public final class Game implements AutoCloseable {
         sprites = new SpriteLibrary(settings.spritesDir(), settings.vramBytes, settings.spriteScale);
         sprites.setMaxTexture(Math.min(gpu.maxTexture(), 16384));
         sprites.warmFallbacks();
+        objects = new ObjectSprites(settings.spritesDir());
         closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
         voidRenderer = new VoidRenderer();
         props = new Props();
-        worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites);
+        worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites, objects);
+        startSound();
         wardrobe = Wardrobe.load(settings.wardrobeFile());
         autopilot = new Autopilot(settings.script);
 
         glEnable(GL_MULTISAMPLE);
         switchTo(settings.start);
         window.show();
+    }
+
+    /**
+     * The sound pack in {@code assets/sounds}: its folders and key list kept
+     * up to date (a read-only assets folder is fine - there is just nothing
+     * to scaffold), and the creator's per-sound assignments loaded. Nothing
+     * here needs an audio device; without one every sound is a no-op.
+     */
+    private void startSound() {
+        SoundPack.useDir(settings.soundsDir());
+        try {
+            SoundPack.scaffold(settings.soundsDir());
+        } catch (java.io.IOException | RuntimeException e) {
+            System.err.println("[sound] cannot set up " + settings.soundsDir() + ": " + e.getMessage());
+        }
+        Sounds.load();
     }
 
     /** The loop. Returns when the window closes or a scene quits. */
@@ -224,6 +246,9 @@ public final class Game implements AutoCloseable {
 
     public SpriteLibrary sprites() { return sprites; }
 
+    /** The sprite sheets of things in the world that are not characters (assets/sprites/objects/). */
+    public ObjectSprites objects() { return objects; }
+
     /** The cutscene close-ups (assets/closeups/), drawn through {@link #sprites()}. */
     public CloseupLibrary closeups() { return closeups; }
 
@@ -243,6 +268,7 @@ public final class Game implements AutoCloseable {
         if (scene != null) scene.exit();
         saveWardrobe();
         settings.save();
+        Sounds.dispose();
         worldRenderer.close();
         props.close();
         voidRenderer.close();

@@ -18,6 +18,9 @@ ticked off as it lands.
 - [Controls](#controls)
 - [What's in the demo](#whats-in-the-demo)
 - [The sprite stack](#the-sprite-stack)
+- [The inventory and the hotbar](#the-inventory-and-the-hotbar)
+- [The treasure chest](#the-treasure-chest)
+- [Sound](#sound)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
 - [What came from the engine](#what-came-from-the-engine)
@@ -57,19 +60,20 @@ The main menu has one entry, **Demo**, which loads the void.
 | **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
 | **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
-| **1 – 4** | take up the sword and shield, the battle axe, the bow or the crossbow (once picked up) |
-| **5 – 8** | laugh, cry, surprise, anger |
-| **E** / **G** | pick up the item you are standing by (she reaches for it) / drop what you are holding |
+| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow or crossbow in its stance, the sword (or an empty slot) the sword and shield |
+| **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot |
+| **F1 – F4** | laugh, cry, surprise, anger |
+| **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
-| **Mouse wheel**, **+ / −** | zoom |
+| **+ / −**, the wheel while orbiting | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
 | **[ / ]** | loop the previous / next of all 56 states in place |
-| **0** | stop looping |
+| **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the 3D props |
 | **F12** | screenshot (to `screenshots/`) |
-| **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit |
+| **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
 
 Drop sprite sheets on the window at any time to import them.
 
@@ -89,16 +93,37 @@ Drop sprite sheets on the window at any time to import them.
   top right shows the camera's angle against the three height zones.
 - **A sword, a battle axe, a longbow and a crossbow** hovering over their
   shadows nearby. Walk up and press **E**: she reaches out for it (crouched,
-  if she is) and it is hers as her hand closes on it. The sword goes into her
+  if she is) and it is hers as her hand closes on it - in the first free
+  slot of her [hotbar](#the-inventory-and-the-hotbar), which is selected,
+  so it is in her hands. The sword goes into her
   weapon hand - its own sprite layer, playing frame for frame with the body.
   The others are each a **stance** of its own, with its own idle, walk, run,
   sprint, jump, crouch and crouch walk: the **battle axe** in both hands (an attack,
   a heavy overhead blow, a spin attack, a crouched sweep, a parry, a block),
   the **bow** (drawn while the attack is held, loosed when it is let go, crouched
   too; a parry and a block), the **crossbow** (a shot, crouched too; a parry and
-  a block). **1 – 4** switch between them, **G** puts down what she holds. A
+  a block). **1 – 5** or the mouse wheel choose between the hotbar's slots,
+  **G** puts down what she holds. A
   left-handed character (Pause → Wardrobe → Hand) takes everything in the other
   hand and fights left-handed.
+- **An inventory** (**I**) of diamond-shaped slots on a background of your
+  own, with a **hotbar** of five along the bottom of the screen - see
+  [The inventory and the hotbar](#the-inventory-and-the-hotbar).
+
+  <img src="docs/screenshots/inventory.png" width="49%" alt="The inventory open: twenty diamond slots in an interlocking lattice, the battle axe in one with its name, and the five hotbar slots along the bottom, the crossbow's selected in gold">
+  <img src="docs/screenshots/hotbar.png" width="49%" alt="The hotbar along the bottom of the screen with the axe, bow, crossbow and sword in it, the crossbow selected and in her hands">
+- **An ornate treasure chest** on the ground, drawn like the character from
+  all 8 directions and 3 heights in 128-pixel pixel art, magical smoke
+  swirling round it. **E** throws its lid open: it lights up from inside,
+  light welling out of it and its smoke glowing, and **E** again slams it
+  shut. Every one of its animations has a sound hook - see
+  [The treasure chest](#the-treasure-chest).
+
+  <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
+- **Sound for every animation** - both bodies' 56 states, the chest's four,
+  picking up and dropping each item, the inventory - from MP3 (or WAV)
+  files dropped into `assets/sounds/`, with the engine's MP3 decoder and
+  mixer. Every slot is silent until it has a file - see [Sound](#sound).
 
   <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
 - **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
@@ -258,6 +283,126 @@ manager onto the game window. The importer:
 4. reloads the library and, if *Wear it after importing* is ticked, puts the new
    item on the character.
 
+## The inventory and the hotbar
+
+The player carries an **inventory** (`world/Inventory`) of any number of
+slots - 25 by default, `-Dlarsons.inventory.slots=N` for another number (a
+script's `slots <n>` changes it while the game runs; anything that no longer
+fits is put on the ground). The first five slots are the **hotbar**:
+
+- **1 – 5** or the **mouse wheel** choose a hotbar slot, and what is in it is
+  what she holds. The battle axe, the bow and the crossbow are each taken up
+  in their own stance; the sword - worn in the wardrobe's weapon hand - or an
+  empty slot is the sword-and-shield stance, the wardrobe's own carried items.
+  (The emotes, which were on 5 – 8, are on **F1 – F4**; stopping a preview,
+  which was 0, is **Backspace**; the wheel zooms while orbiting, and **+ / −**
+  always do.)
+- Picking an item up puts it in the first free slot, the hotbar first; when
+  that is a hotbar slot it is selected, so it is in her hands. With every slot
+  full, nothing is picked up.
+- **G** drops what is in the selected slot.
+
+**I** opens the inventory over the middle of the screen: every slot a
+**diamond** - a square stood on its corner - with a **white border**, the rest
+of the inventory in an interlocking lattice that fits however many slots
+there are (`InventoryPanel.lattice`), the hotbar's five in a row along the
+bottom, the selected one in gold. Click an item to pick it up, click a slot to
+put it there (swapping with what was in it), click outside the panel to put it
+on the ground; right-click (or Shift-click) moves an item between the hotbar
+and the rest; 1 – 5 over a slot swaps it into that hotbar slot. She stands
+still while it is open; **I** or **Esc** closes it.
+
+**The background** is `assets/ui/inventory_background.png`, a **432 × 768**
+picture, scaled to the height of the window (never above its own size) and
+kept in its shape; until there is one, a plain dark panel is drawn. It is read
+again whenever the file changes, so a new background shows the next time the
+inventory opens. Where things go on it, as fractions of the picture: the title
+in the top 10 %, the lattice in the box 7 – 93 % across and 11 – 74 % down
+(from its top), the hotbar's row 78 – 96 % down.
+
+## The treasure chest
+
+An **ornate treasure chest** stands a few metres behind her at the start:
+dark planks under gold straps, corner posts and a gold rim, an amethyst on
+each front post, a ruby in the lock plate, a sapphire in a medallion on the
+lid, a row of glowing runes - and **magical smoke** winding round it, three
+twisting wisps of violet with sparkles in them. It is a 2D sprite like the
+character, pre-rendered from the same **8 directions × 3 heights** as **128 ×
+128 pixel art** at the character's scale, and drawn as a stack of three layers
+(`sprite/ObjectSprites`, `sprite/ObjectStack`):
+
+```
+assets/sprites/objects/ornate_chest/profile.json                frame 2.4 m, aimed 0.6 m up, 24 fps
+assets/sprites/objects/ornate_chest/smoke_back/swirl_<elev>_<dir>.png    48 frames, loops
+assets/sprites/objects/ornate_chest/chest/idle_<elev>_<dir>.png          48 frames, loops
+assets/sprites/objects/ornate_chest/chest/open_<elev>_<dir>.png          20 frames, once
+assets/sprites/objects/ornate_chest/chest/opened_<elev>_<dir>.png        48 frames, loops
+assets/sprites/objects/ornate_chest/chest/close_<elev>_<dir>.png         16 frames, once
+assets/sprites/objects/ornate_chest/smoke_front/swirl_<elev>_<dir>.png   48 frames, loops
+```
+
+- **Idle**: shut, the runes pulsing, a glint running over its gems.
+- **Open** (**E** beside it): the lid rattles, is thrown back past open and
+  settles, and the chest **lights up from inside** - the velvet lining and the
+  heap of gold coins lit warm, light welling up out of it in shafts, a pool of
+  light on the ground round it - and holds **open** (lit, the light
+  flickering, sparkles over the coins). **E** again **closes** it: the lid
+  slams, the light goes.
+- **The smoke** is its own two layers, the part behind the chest's middle
+  (drawn under it) and the part in front (over it), playing one loop on the
+  world's clock whatever the chest does, so it never jumps when the lid moves;
+  as the light comes up it is tinted warm, on the GPU, by a palette swap.
+- **Sound hooks** on all four: `idle` and `opened` loop while they hold, `open`
+  and `close` play once as they start - quieter the farther you are, panned to
+  the chest's side of the screen (`chests/ornate_chest/<state>.mp3`, see
+  [Sound](#sound)).
+- She cannot walk into it (it pushes her back out), and the prompt says
+  whether E opens or shuts it, or picks up an item nearer to her.
+
+It is meant to become a loot chest: `world/Chest` is a small state machine
+(`IDLE → OPENING → OPEN → CLOSING`) with `isOpen()` for what is found in it
+to hang off. The sheets are drawn by
+[3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
+`items/ornate_treasure_chest/ornate_chest_sprites.py`, which models the chest
+in Blender and draws the pixel art; any object laid out like it under
+`assets/sprites/objects/` can be drawn the same way (see
+[`assets/sprites/README.md`](assets/sprites/README.md#objects)).
+
+## Sound
+
+The sound system is Larsons-Game-Engine's (`audio/`): its own **MP3 decoder**
+(a pure-Java port of the public-domain minimp3, so no codec or library is
+needed - WAV, AIFF and AU load through the JDK), a software **mixer** that
+plays any number of sounds at once, each at its own pitch, volume and stereo
+position, with every one-shot at a slightly different pitch each time, and
+the **sound pack**: sound keys resolved to files by name. A machine with no
+audio device is silent rather than broken.
+
+**Every animation is a sound hook** (`audio/AnimationSound`, updated each
+frame by `audio/WorldSounds`): the animation's sound starts with it - looping
+for as long as a held animation holds (a walk, an idle, the chest standing
+open), once for a one-shot (a swing, the lid thrown open), again when it starts
+over. Picking up, dropping and taking an item in hand, and the inventory,
+play where they happen. Every sound is **silent until it has a file**:
+
+```
+assets/sounds/
+  SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
+  README.md               how to name and add sounds
+  soundpack.json          volume, pitch, pitch variation, per-sound overrides
+  player/feminine/        <state>.mp3 for each of her 56 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/masculine/       ... and each of his
+  chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
+  items/<item>/           pickup.mp3, drop.mp3, equip.mp3
+  ui/                     inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
+```
+
+A body's sounds are the body the wardrobe wears (any style of it), and a file
+one folder up covers both bodies until one has its own: `player/walk.mp3` is
+both walks, `player/masculine/walk.mp3` his alone. The same for every chest
+(`chests/open.mp3`) and every item (`items/pickup.mp3`). New files are heard
+the next time the game starts.
+
 ## Cutscenes
 
 A cutscene is a script of actors and lines, played over close-up layers:
@@ -327,6 +472,7 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 | `-Dlarsons.sprites.vramMB=1536` | 1536 | sprite-cache video memory budget |
 | `-Dlarsons.assets=assets` | `./assets` | where `assets/sprites` is |
 | `-Dlarsons.start=menu` | menu | `demo` to skip the main menu |
+| `-Dlarsons.inventory.slots=25` | 25 | the player's inventory slots, the hotbar's five included |
 | `-Dlarsons.script=…` | — | a scripted run (see below) |
 
 ## Project layout
@@ -335,22 +481,28 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 src/main/java/com/larsons/game/
   Main.java                 entry point (headless AWT, macOS first-thread relaunch)
   core/                     Game (window, loop, overlays), Settings, Scene, Autopilot, Screenshot
+  audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
+                            Sounds, SoundPack, SoundKeys, SoundDef, SoundStore; the hooks: AnimationSound,
+                            WorldSounds
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
                             Mesh, GpuInfo
   math/                     Vec3, Mat4
   input/                    Input — keys, mouse, typed text, dropped files
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
                             SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe,
-                            Variants, Palettes
+                            Variants, Palettes, ObjectSprites and ObjectStack (things that are not characters)
   cutscene/                 CloseupLibrary, Actor, Cutscene (the script), CutsceneStage
   sprite/fallback/          the 32×32 fallback: Puppet (rigged box figure), PuppetRaster, FallbackSprites
   importer/                 SpriteImport — plan and save a drag-and-drop
-  world/                    OrbitCamera, Player, World, ItemDef, Props, VoidRenderer, WorldRenderer
-  scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel
+  world/                    OrbitCamera, Player, World, ItemDef, Inventory, Chest, Props, VoidRenderer,
+                            WorldRenderer
+  scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
-assets/sprites/             the sprite sheets (one folder per layer) and their contract
+assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest
+assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
+assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
 assets/sprites_masculine/,  the masculine body's sheets and close-ups, laid out the same
   assets/closeups_masculine/
@@ -379,6 +531,11 @@ window:
 | `sprite/fallback/*` | `graphics/DirectionalSprites` | adapted — generated per-facing fallback art (here from a 3D figure, for all three heights) |
 | `input/Input` | `input/InputManager` | adapted — press latching, repeats, typed text |
 | `ui/MenuList` | `ui/Menu` | adapted — keyboard and mouse menu navigation |
+| `audio/Mp3Decoder`, `Mp3Tables`, `PcmClip`, `SoundLoader` | `audio/` same | copied — the pure-Java MP3 decoder (minimp3, public domain), WAV/AIFF/AU through the JDK, the decoded-clip cache |
+| `audio/SoundMixer` | `audio/SoundMixer` | copied — the software mixer (pitch, overlap, loops, headless-safe), plus moving a playing sound's pan |
+| `audio/Sounds`, `SoundDef`, `SoundStore`, `SoundPack` | same | adapted — play by key, fresh pitch, per-sound overrides, `soundpack.json`, `SOUND_KEYS.txt`; the pack in `assets/sounds/`, no synthesized voices or music |
+| `audio/SoundKeys` | `audio/SoundKeys` | adapted — the game's catalogue: a folder per body, chest and item, every animation a key |
+| `audio/WorldSounds` | `audio/SceneSounds` | adapted — the frame-by-frame hooks: here every animation, through `AnimationSound` |
 
 The engine's Java2D backend, level system, creative mode and mini-games were
 left behind: this game draws everything through its own OpenGL renderer.
@@ -394,7 +551,13 @@ library's lookup and mirroring rules, palette sheets staying palette indices
 (one texture whatever the colours), palette swaps and custom colours, the
 palette rows a batch shares, cutscene scripts and their timeline, actors'
 colour fades and flashes, the close-up folders, the camera and the player's
-state machine.
+state machine; the inventory (slots, the hotbar, resizing, what the selected
+slot puts in her hands, dropping), the inventory screen's diamonds (every
+slot placed, none overlapping, for any number), the chest's states and light,
+the object sheets (names, layer order, all 24 views of every state of the
+chest), the sound catalogue (a sound for every animation of both bodies), the
+pack's lookup and fallbacks, its key list being up to date, and the engine's
+MP3 decoder tests.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -409,7 +572,8 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow>`, `teleport`, `pickup`,
-`dropitem`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
+`dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item>`,
+`chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
 the item's own colours) and
@@ -480,4 +644,36 @@ Engine. Each section is broken up into chunks, or tasks to be done.
       *Run Game (GPU)*
 - [x] Refine the README.md with added features and polish the formatting
 
-### Task 2: TBD
+### Task 2: An inventory, a treasure chest and sound ✅
+
+**To do**
+
+- [x] Create an inventory system that can handle a variable number of slots
+      and is opened with **I** — *`world/Inventory`, any size
+      (`-Dlarsons.inventory.slots`); the screen lays out however many there
+      are*
+- [x] Give it 5 hotbar slots, navigated with the scroll wheel or 1 – 5 — *what
+      is in the selected slot is in her hands; picking up puts an item in the
+      hotbar first*
+- [x] Stop handling animations with the number keys — *the weapons are chosen
+      from the hotbar, the emotes are F1 – F4, stopping a preview is
+      Backspace*
+- [x] Draw the inventory as square diamond-shaped slots with a white border
+      over the screen, on a background loaded from the assets folder —
+      *`assets/ui/inventory_background.png`, 432 × 768*
+- [x] Add an ornate treasure chest on the ground, viewable from 8 directions
+      and 3 heights like the player — *`assets/sprites/objects/ornate_chest/`,
+      modelled and drawn in 3D-Modeling*
+- [x] Give it an opening animation the player triggers and an idle animation,
+      at 128 × 128 pixels, with swirling magical smoke circling it — *idle,
+      open, opened and close, and the smoke as two layers of its own*
+- [x] Light it up from inside when it opens — *the lining and the hoard lit,
+      light rising out of it, the smoke tinted, a pool of light on the ground*
+- [x] Attach sound hooks to its animations, using the engine's MP3 sound
+      system and sound asset storage — *`audio/`, `assets/sounds/chests/`*
+- [x] Give every player animation, masculine and feminine, sound asset
+      storage — *`assets/sounds/player/feminine/` and `masculine/`, a sound
+      key and a hook for all 56 states*
+- [ ] Make the chest a loot chest for in-game items
+
+### Task 3: TBD

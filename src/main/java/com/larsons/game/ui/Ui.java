@@ -80,6 +80,37 @@ public final class Ui implements AutoCloseable {
         rect(x + w - t, y, t, h, c);
     }
 
+    /** A texture stretched over a rectangle, tinted {@code c} (white: as it is). */
+    public void image(Texture tex, float x, float y, float w, float h, float[] c) {
+        batch.rect(tex, x, y, w, h, 0, 0, 1, 1, c[0], c[1], c[2], c[3]);
+    }
+
+    /**
+     * A filled diamond - a square stood on its corner - centred on {@code
+     * (cx, cy)}, {@code r} from the centre to each corner.
+     */
+    public void diamond(float cx, float cy, float r, float[] c) {
+        batch.quad(white, cx, cy - r, 0, cx + r, cy, 0, cx, cy + r, 0, cx - r, cy, 0,
+                0, 0, 1, 1, c[0], c[1], c[2], c[3]);
+    }
+
+    /** A diamond's border, {@code t} thick, inside its edge. */
+    public void diamondOutline(float cx, float cy, float r, float t, float[] c) {
+        float in = r - t * 1.41421356f;
+        float[][] outer = {{cx, cy - r}, {cx + r, cy}, {cx, cy + r}, {cx - r, cy}};
+        float[][] inner = {{cx, cy - in}, {cx + in, cy}, {cx, cy + in}, {cx - in, cy}};
+        for (int i = 0; i < 4; i++) {
+            float[] a = outer[i], b = outer[(i + 1) % 4], bi = inner[(i + 1) % 4], ai = inner[i];
+            batch.quad(white, a[0], a[1], 0, b[0], b[1], 0, bi[0], bi[1], 0, ai[0], ai[1], 0,
+                    0, 0, 1, 1, c[0], c[1], c[2], c[3]);
+        }
+    }
+
+    /** Whether the pointer is inside the diamond at {@code (cx, cy)}. */
+    public boolean hoverDiamond(float cx, float cy, float r) {
+        return Math.abs(input().mouseX() - cx) + Math.abs(input().mouseY() - cy) <= r;
+    }
+
     /** A framed translucent panel. */
     public void panel(float x, float y, float w, float h) {
         rect(x, y, w, h, Theme.PANEL);

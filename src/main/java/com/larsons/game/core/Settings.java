@@ -22,6 +22,7 @@ import java.util.Map;
  *   -Dlarsons.sprites.vramMB=1536 video memory the sprite cache may use
  *   -Dlarsons.assets=assets       where assets/sprites lives
  *   -Dlarsons.start=menu          start in "menu" or straight in "demo"
+ *   -Dlarsons.inventory.slots=25  the player's inventory slots, the 5 of the hotbar included
  *   -Dlarsons.script=...          scripted run for automated screenshots (see Autopilot)
  * </pre>
  */
@@ -35,6 +36,8 @@ public final class Settings {
     public final Path config;
     public final String start;
     public final String script;
+    /** How many slots the player's inventory has, the hotbar's five included. */
+    public final int inventorySlots;
 
     // Saved between runs.
     public double spriteScale;
@@ -50,6 +53,8 @@ public final class Settings {
         config = Path.of("config");
         start = System.getProperty("larsons.start", "menu");
         script = System.getProperty("larsons.script", "");
+        inventorySlots = Math.max(com.larsons.game.world.Inventory.HOTBAR,
+                intProperty("larsons.inventory.slots", com.larsons.game.world.Inventory.DEFAULT_SLOTS));
         spriteScale = doubleProperty("larsons.sprites.scale", -1);
     }
 
@@ -87,6 +92,11 @@ public final class Settings {
     /** {@code config/wardrobe.json}. */
     public Path wardrobeFile() {
         return config.resolve("wardrobe.json");
+    }
+
+    /** {@code assets/sounds}: the sound pack ({@code audio/SoundPack}). */
+    public Path soundsDir() {
+        return assets.resolve("sounds");
     }
 
     /** {@code assets/sprites}. */
