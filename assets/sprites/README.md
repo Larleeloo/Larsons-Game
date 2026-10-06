@@ -87,7 +87,9 @@ the kept first version where there is one. Either way the other version
 stands in where one has no sheet, so a state being drawn again shows its
 first version until the new sheets are in. The weapon moves - every state
 with a sword, axe, bow or crossbow in hand but the bow's and the crossbow's
-parries - are in their second version; their first is kept here. The two
+parries - are in their second version in the pixel-art styles; their first
+is kept here. The 512-pixel rendered sheets were not made again: they keep
+their one (first) version, which both modes draw. The two
 versions of an item share its palette labels (the new sheets are drawn
 pinned to the old ones), so one `variants.json` colours both.
 
