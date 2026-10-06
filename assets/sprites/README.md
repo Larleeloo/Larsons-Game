@@ -70,6 +70,27 @@ pickup icon here. The cutscene close-ups do the same: `assets/closeups/` and
 a body whose sprites folder has no close-ups yet has none of another body's
 drawn on it.
 
+### The first version of re-animated states
+
+When states are animated again, the sheets they had are kept, as they were,
+beside the sprites folders - the same slot and item folders, with their
+`profile.json` and `variants.json`:
+
+```
+assets/animations_v1/sprites/<slot>/<item>/<state>_<elevation>_<direction>.png
+assets/animations_v1/sprites_masculine/...
+```
+
+The game draws a state from its current sheets, and - in the **classic**
+mode (**F9**, Settings → Animations, `-Dlarsons.animations=classic`) - from
+the kept first version where there is one. Either way the other version
+stands in where one has no sheet, so a state being drawn again shows its
+first version until the new sheets are in. The weapon moves - every state
+with a sword, axe, bow or crossbow in hand but the bow's and the crossbow's
+parries - are in their second version; their first is kept here. The two
+versions of an item share its palette labels (the new sheets are drawn
+pinned to the old ones), so one `variants.json` colours both.
+
 ## File names
 
 ```
