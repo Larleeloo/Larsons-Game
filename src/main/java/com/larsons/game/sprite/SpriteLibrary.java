@@ -72,12 +72,43 @@ public final class SpriteLibrary implements AutoCloseable {
     /** The key of the default sprites folder among the bodies' folders ({@link #rootOf}). */
     public static final String DEFAULT_ROOT = "";
 
-    /** One cosmetic (or body) folder and the sheets found in it, and the colours it can take (or null). */
+    /**
+     * Beside the sprites folders: the first version of the sheets of the states
+     * that were animated again ({@code assets/animations_v1/sprites/...},
+     * {@code assets/animations_v1/sprites_masculine/...}, the same slot and item
+     * folders), kept to compare the two ({@link #setClassic}).
+     */
+    public static final String CLASSIC_FOLDER = "animations_v1";
+
+    /**
+     * One cosmetic (or body) folder and the sheets found in it, and the colours it
+     * can take (or null); {@code classic}: the sheets of its first version kept
+     * in the archive ({@link #CLASSIC_FOLDER}), for the states drawn again since.
+     */
     public record Entry(Slot slot, String name, Path folder, SpriteProfile profile,
-                        Map<String, Path> sheets, List<String> skipped, Variants variants) {
+                        Map<String, Path> sheets, List<String> skipped, Variants variants,
+                        Map<String, Path> classic) {
+
+        public Entry(Slot slot, String name, Path folder, SpriteProfile profile,
+                     Map<String, Path> sheets, List<String> skipped, Variants variants) {
+            this(slot, name, folder, profile, sheets, skipped, variants, Map.of());
+        }
 
         public Path sheet(AnimState state, Elevation elevation, Facing facing) {
             return sheets.get(key(state, elevation, facing));
+        }
+
+        /**
+         * The sheet in one animation version: with {@code classic} the first
+         * version's where it was kept, else the current one; either way the
+         * other where that one has none (a state not drawn again keeps its only
+         * sheets, and a state being drawn again shows its first version until
+         * the new one is in).
+         */
+        public Path sheet(AnimState state, Elevation elevation, Facing facing, boolean classic) {
+            String k = key(state, elevation, facing);
+            Path first = classic ? this.classic.get(k) : sheets.get(k);
+            return first != null ? first : (classic ? sheets.get(k) : this.classic.get(k));
         }
 
         /** How many of the 144 (6 × 3 × 8) sheets are present. */
@@ -163,6 +194,8 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private long budgetBytes;
     private volatile double scale;
+    /** Whether the first version of the re-animated states is drawn ({@link #CLASSIC_FOLDER}). */
+    private volatile boolean classic;
     private int maxTexture = 4096;
     private long frame;
     private long residentBytes;
@@ -188,6 +221,15 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     public Path root() { return root; }
+
+    /**
+     * Draw the first version of the states that were animated again (the
+     * "classic" animations, kept in {@link #CLASSIC_FOLDER}) instead of the
+     * current one - an A/B switch; a state with only one version shows it.
+     */
+    public void setClassic(boolean classic) { this.classic = classic; }
+
+    public boolean classic() { return classic; }
 
     /** The sprites folder of a {@link #rootOf} key (the default folder for an unknown one). */
     public Path root(String key) {
@@ -262,15 +304,25 @@ public final class SpriteLibrary implements AutoCloseable {
         generation++;
     }
 
+    /** Where a sprites folder's first-version sheets are kept ({@link #CLASSIC_FOLDER}). */
+    static Path classicRoot(Path base) {
+        Path abs = base.toAbsolutePath();
+        Path parent = abs.getParent();
+        return parent == null ? null : parent.resolve(CLASSIC_FOLDER).resolve(abs.getFileName());
+    }
+
     private Index scanRoot(Path base) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
+        Path archive = classicRoot(base);
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
             Path slotDir = base.resolve(slot.key());
             if (Files.isDirectory(slotDir)) {
                 try (Stream<Path> dirs = Files.list(slotDir)) {
                     for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
-                        Entry e = scanItem(slot, dir);
+                        Path old = archive == null ? null
+                                : archive.resolve(slot.key()).resolve(dir.getFileName().toString());
+                        Entry e = scanItem(slot, dir, old);
                         items.put(e.name(), e);
                     }
                 } catch (IOException e) {
@@ -282,10 +334,19 @@ public final class SpriteLibrary implements AutoCloseable {
         return new Index(base, next);
     }
 
-    private Entry scanItem(Slot slot, Path dir) {
+    private Entry scanItem(Slot slot, Path dir, Path classicDir) {
         SpriteProfile profile = SpriteProfile.load(dir, SpriteProfile.defaults());
         Map<String, Path> sheets = new TreeMap<>();
         List<String> skipped = new ArrayList<>();
+        scanSheets(dir, sheets, skipped);
+        Map<String, Path> classic = new TreeMap<>();
+        if (classicDir != null && Files.isDirectory(classicDir)) scanSheets(classicDir, classic, new ArrayList<>());
+        return new Entry(slot, dir.getFileName().toString(), dir, profile,
+                Collections.unmodifiableMap(sheets), List.copyOf(skipped), Variants.load(dir),
+                Collections.unmodifiableMap(classic));
+    }
+
+    private static void scanSheets(Path dir, Map<String, Path> sheets, List<String> skipped) {
         try (Stream<Path> files = Files.walk(dir, 4)) {
             for (Path f : files.filter(Files::isRegularFile).sorted().toList()) {
                 String rel = dir.relativize(f).toString();
@@ -300,8 +361,6 @@ public final class SpriteLibrary implements AutoCloseable {
         } catch (IOException e) {
             skipped.add("(unreadable: " + e.getMessage() + ")");
         }
-        return new Entry(slot, dir.getFileName().toString(), dir, profile,
-                Collections.unmodifiableMap(sheets), List.copyOf(skipped), Variants.load(dir));
     }
 
     /** Item names in a slot of the default folder, sorted (the bodies: every folder's). */
@@ -477,12 +536,12 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private Resolved resolve(Entry e, AnimState state, Elevation elevation, Facing facing) {
         if (e == null) return null;
-        Path direct = e.sheet(state, elevation, facing);
+        Path direct = e.sheet(state, elevation, facing, classic);
         if (direct != null && !failed.containsKey(direct)) {
             return new Resolved(direct, false, e.profile());
         }
         if (facing.hasMirror()) {
-            Path twin = e.sheet(state, elevation, facing.mirrorOf());
+            Path twin = e.sheet(state, elevation, facing.mirrorOf(), classic);
             if (twin != null && !failed.containsKey(twin)) {
                 return new Resolved(twin, true, e.profile());
             }

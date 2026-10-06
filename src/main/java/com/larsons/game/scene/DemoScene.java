@@ -183,6 +183,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         if (in.pressed(GLFW_KEY_H)) game.settings().showHud = !game.settings().showHud;
         if (in.pressed(GLFW_KEY_P)) game.settings().showProps = !game.settings().showProps;
+        if (in.pressed(GLFW_KEY_F9)) setClassic(!game.settings().classicAnimations);
 
         // --- items, the chest -----------------------------------------------------------
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
@@ -342,7 +343,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     + "X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
                     + "Backspace live · , . turn · T turntable · Tab height · Right-drag orbit · +/- zoom · "
-                    + "H HUD · Esc menu"};
+                    + "H HUD · F9 classic/new animations · Esc menu"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
@@ -362,6 +363,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
         ui.outline(x, y, tw, 44, 1, Theme.ACCENT);
         ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
+    }
+
+    /** The A/B switch: the first version of the re-animated states, or the new. */
+    private void setClassic(boolean classic) {
+        game.settings().classicAnimations = classic;
+        game.sprites().setClassic(classic);
     }
 
     private void hud(Ui ui) {
@@ -400,10 +407,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         v.elevation().label(), (int) v.elevation().renderAngle()),
                 x, y, Theme.ITEM);
         y += lh;
-        ui.text(ui.small, String.format("Player  %s%s%s  frame %d/%d @ %.0f fps  facing %s",
+        ui.text(ui.small, String.format("Player  %s%s%s  frame %d/%d @ %.0f fps  facing %s   ·   %s animations (F9)",
                         r.asked().label(), r.substituted() ? " (shown as " + r.state().label() + ": no sheets)" : "",
                         p.previewing() != null ? " (preview)" : "",
-                        r.frame() + 1, r.frames(), r.fps(), v.facing().key().toUpperCase()),
+                        r.frame() + 1, r.frames(), r.fps(), v.facing().key().toUpperCase(),
+                        lib.classic() ? "classic (v1)" : "new"),
                 x, y, r.substituted() ? Theme.WARNING : Theme.ITEM);
         y += lh;
         StringJoiner carried = new StringJoiner(", ");
@@ -597,6 +605,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     argument.isBlank() ? "MAIN" : argument.toUpperCase()));
             case "resume" -> pause.close();
             case "hud" -> game.settings().showHud = !argument.equals("off");
+            case "animations" -> setClassic(argument.trim().equals("classic") || argument.trim().equals("v1"));
             case "props" -> game.settings().showProps = !argument.equals("off");
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
