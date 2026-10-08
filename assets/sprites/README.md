@@ -83,9 +83,13 @@ assets/animations_v1/sprites_masculine/...
 
 The game draws a state from its current sheets, and - in the **classic**
 mode (**F9**, Settings → Animations, `-Dlarsons.animations=classic`) - from
-the kept first version where there is one. Either way the other version
-stands in where one has no sheet, so a state being drawn again shows its
-first version until the new sheets are in. The weapon moves - every state
+the kept first version where there is one. The archive is as big as the
+sprites folders, so it is only listed the first time classic is switched on
+(in the background, a few seconds; until then the current sheets are drawn);
+from then on either version stands in where the other has no sheet. The
+choice is saved with the settings, so classic stays on until it is switched
+back. Only the pixel-art styles have two versions: switch the Wardrobe to
+Pixel 128 or Pixel 64 to compare. The weapon moves - every state
 with a sword, axe, bow or crossbow in hand but the bow's and the crossbow's
 parries - are in their second version in the pixel-art styles; their first
 is kept here. The 512-pixel rendered sheets were not made again: they keep

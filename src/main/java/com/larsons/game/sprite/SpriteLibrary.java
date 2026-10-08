@@ -196,6 +196,13 @@ public final class SpriteLibrary implements AutoCloseable {
     private volatile double scale;
     /** Whether the first version of the re-animated states is drawn ({@link #CLASSIC_FOLDER}). */
     private volatile boolean classic;
+    /**
+     * Whether {@link #CLASSIC_FOLDER} is indexed: only from the first time
+     * classic is switched on - it is as big as the sprites folders themselves,
+     * and every start would pay for listing it.
+     */
+    private volatile boolean indexClassic;
+    private volatile CompletableFuture<Void> classicIndexed = CompletableFuture.completedFuture(null);
     private int maxTexture = 4096;
     private long frame;
     private long residentBytes;
@@ -226,8 +233,19 @@ public final class SpriteLibrary implements AutoCloseable {
      * Draw the first version of the states that were animated again (the
      * "classic" animations, kept in {@link #CLASSIC_FOLDER}) instead of the
      * current one - an A/B switch; a state with only one version shows it.
+     * The first time it is switched on the archive is indexed, in the
+     * background (a few seconds); until then the current version is drawn.
      */
-    public void setClassic(boolean classic) { this.classic = classic; }
+    public void setClassic(boolean classic) {
+        this.classic = classic;
+        if (classic && !indexClassic) {
+            indexClassic = true;
+            classicIndexed = CompletableFuture.runAsync(this::rescan);
+        }
+    }
+
+    /** Done once the archive {@link #setClassic} asked for is indexed. */
+    CompletableFuture<Void> classicIndexed() { return classicIndexed; }
 
     public boolean classic() { return classic; }
 
@@ -313,7 +331,7 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private Index scanRoot(Path base) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
-        Path archive = classicRoot(base);
+        Path archive = indexClassic ? classicRoot(base) : null;
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
             Path slotDir = base.resolve(slot.key());
