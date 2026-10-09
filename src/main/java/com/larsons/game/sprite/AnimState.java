@@ -87,7 +87,21 @@ public enum AnimState {
     CROSSBOW_CROUCH_FIRE("crossbow_crouch_fire", "Crossbow fire, crouched", false, 30, Stance.CROSSBOW, 0,
             "crossbow_crouch_idle"),
     CROSSBOW_PARRY("crossbow_parry", "Crossbow parry", false, 18, Stance.CROSSBOW, 0, "parry"),
-    CROSSBOW_BLOCK("crossbow_block", "Crossbow block", true, 30, Stance.CROSSBOW, 0, "crossbow_idle");
+    CROSSBOW_BLOCK("crossbow_block", "Crossbow block", true, 30, Stance.CROSSBOW, 0, "crossbow_idle"),
+    // --- the sword with no shield: the first version of the sword stance's moves,
+    // with the free arm down (the second version holds the shield up)
+    BLADE_IDLE("blade_idle", "Sword idle", true, 60, Stance.BLADE, 0, "idle"),
+    BLADE_WALK("blade_walk", "Sword walk", true, 30, Stance.BLADE, 1.7, "walk"),
+    BLADE_RUN("blade_run", "Sword run", true, 20, Stance.BLADE, 4.2, "run"),
+    BLADE_SPRINT("blade_sprint", "Sword sprint", true, 16, Stance.BLADE, 7.0, "sprint"),
+    BLADE_JUMP("blade_jump", "Sword jump", false, 24, Stance.BLADE, 0, "jump"),
+    BLADE_ATTACK("blade_attack", "Sword attack", false, 18, Stance.BLADE, 0, "attack"),
+    BLADE_CROUCH_IDLE("blade_crouch_idle", "Sword crouch", true, 48, Stance.BLADE, 0, "crouch_idle"),
+    BLADE_CROUCH_WALK("blade_crouch_walk", "Sword crouch walk", true, 32, Stance.BLADE, 0.9, "crouch_walk"),
+    BLADE_CROUCH_WALK_FAST("blade_crouch_walk_fast", "Sword crouch walk, fast", true, 24, Stance.BLADE, 1.8,
+            "crouch_walk_fast"),
+    BLADE_SPIN_ATTACK("blade_spin_attack", "Sword spin attack", false, 24, Stance.BLADE, 0, "spin_attack"),
+    BLADE_PARRY("blade_parry", "Sword parry", false, 18, Stance.BLADE, 0, "parry");
 
     /** The playback rate every sheet is authored at unless its profile says otherwise. */
     public static final double DEFAULT_FPS = 30.0;

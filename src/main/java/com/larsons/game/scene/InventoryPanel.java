@@ -333,7 +333,8 @@ final class InventoryPanel {
         }
         if (nameTimer > 0) {
             ItemDef d = ItemDef.byId(held);
-            String name = held == null ? "Empty hand - sword and shield" : d == null ? held : d.name();
+            String name = held == null ? "Empty hand - " + world.player().stance().label().toLowerCase()
+                    : d == null ? held : d.name();
             float a = (float) Math.min(1, nameTimer / 0.4);
             float w = ui.body.width(name) + 24;
             ui.rect(ui.width() / 2f - w / 2, cy - r - 44, w, 28, Theme.withAlpha(Theme.PANEL, 0.75f * a));
