@@ -87,6 +87,7 @@ public final class Game implements AutoCloseable {
         batch = new Batch();
         ui = new Ui(window, batch);
         sprites = new SpriteLibrary(settings.spritesDir(), settings.vramBytes, settings.spriteScale);
+        sprites.setClassic(settings.classicAnimations);
         sprites.setMaxTexture(Math.min(gpu.maxTexture(), 16384));
         sprites.warmFallbacks();
         objects = new ObjectSprites(settings.spritesDir());

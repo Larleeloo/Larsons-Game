@@ -39,6 +39,7 @@ final class PauseMenu {
             {", / .", "turn the character 45°"},
             {"T", "turntable: all 8 directions"},
             {"H / P", "toggle the HUD / the 3D props"},
+            {"F9", "animations: new / classic (the first version, to compare)"},
             {"F12", "screenshot"},
             {"Esc", "this menu"},
     };
@@ -150,7 +151,19 @@ final class PauseMenu {
         if (ui.button(s.showProps ? "On" : "Off", x + 220, y, 140, 34, s.showProps, true)) {
             s.showProps = !s.showProps;
         }
-        y += 70;
+        y += 50;
+        ui.text(ui.body, "Animations", x, y + 8, Theme.ITEM);
+        if (ui.button("New", x + 220, y, 140, 34, !s.classicAnimations, true)) {
+            s.classicAnimations = false;
+            lib.setClassic(false);
+        }
+        if (ui.button("Classic (v1)", x + 370, y, 140, 34, s.classicAnimations, true)) {
+            s.classicAnimations = true;
+            lib.setClassic(true);
+        }
+        ui.text(ui.small, "The weapons' moves were animated again; Classic shows the first version, to compare "
+                + "(F9 while playing).", x, y + 44, Theme.ITEM_DISABLED);
+        y += 90;
         var gpu = game.window().gpu();
         ui.text(ui.body, "Renderer", x, y, Theme.ITEM);
         ui.text(ui.body, gpu.describe(), x + 220, y, gpu.software() ? Theme.WARNING : Theme.OK);

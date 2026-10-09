@@ -65,6 +65,39 @@ class SpriteLibraryTest {
                 "no item → fallback");
     }
 
+    @Test
+    void classicAnimationsComeFromTheArchiveAndEachVersionFallsBackOnTheOther() throws Exception {
+        // sprites/ and, beside it, animations_v1/sprites/: the first version of
+        // the states animated again
+        png("sprites/carry_right/sword_px128/attack_side_s.png");
+        png("sprites/carry_right/sword_px128/pickup_side_s.png");
+        png("animations_v1/sprites/carry_right/sword_px128/attack_side_s.png");
+        png("animations_v1/sprites/carry_right/sword_px128/walk_side_s.png");
+        lib = new SpriteLibrary(root.resolve("sprites"), 1L << 30, 1.0);
+        Path now = root.resolve("sprites/carry_right/sword_px128/attack_side_s.png");
+        Path first = root.resolve("animations_v1/sprites/carry_right/sword_px128/attack_side_s.png");
+        assertFalse(lib.classic());
+        assertEquals(now, lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.ATTACK, Elevation.SIDE,
+                Facing.SOUTH).file());
+        // the archive is not listed until classic is first switched on
+        assertNull(lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.WALK, Elevation.SIDE, Facing.SOUTH));
+        lib.setClassic(true);
+        lib.classicIndexed().join();
+        assertEquals(first, lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.ATTACK, Elevation.SIDE,
+                Facing.SOUTH).file());
+        // a state with one version only keeps it
+        assertEquals(root.resolve("sprites/carry_right/sword_px128/pickup_side_s.png"),
+                lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.PICKUP, Elevation.SIDE, Facing.SOUTH).file());
+        lib.setClassic(false);
+        assertEquals(now, lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.ATTACK, Elevation.SIDE,
+                Facing.SOUTH).file());
+        // once listed, a state not drawn again yet has its first version stand in
+        assertEquals(root.resolve("animations_v1/sprites/carry_right/sword_px128/walk_side_s.png"),
+                lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.WALK, Elevation.SIDE, Facing.SOUTH).file());
+        // the archive is not a body's sprites folder
+        assertEquals(List.of(SpriteLibrary.DEFAULT_ROOT), lib.roots());
+    }
+
     // --- the memory budget -----------------------------------------------------------
 
     /** Bytes one of {@link #opaque}'s sheets takes on the GPU: 64 × 64, mipmapped. */

@@ -70,6 +70,33 @@ pickup icon here. The cutscene close-ups do the same: `assets/closeups/` and
 a body whose sprites folder has no close-ups yet has none of another body's
 drawn on it.
 
+### The first version of re-animated states
+
+When states are animated again, the sheets they had are kept, as they were,
+beside the sprites folders - the same slot and item folders, with their
+`profile.json` and `variants.json`:
+
+```
+assets/animations_v1/sprites/<slot>/<item>/<state>_<elevation>_<direction>.png
+assets/animations_v1/sprites_masculine/...
+```
+
+The game draws a state from its current sheets, and - in the **classic**
+mode (**F9**, Settings → Animations, `-Dlarsons.animations=classic`) - from
+the kept first version where there is one. The archive is as big as the
+sprites folders, so it is only listed the first time classic is switched on
+(in the background, a few seconds; until then the current sheets are drawn);
+from then on either version stands in where the other has no sheet. The
+choice is saved with the settings, so classic stays on until it is switched
+back. Only the pixel-art styles have two versions: switch the Wardrobe to
+Pixel 128 or Pixel 64 to compare. The weapon moves - every state
+with a sword, axe, bow or crossbow in hand but the bow's and the crossbow's
+parries - are in their second version in the pixel-art styles; their first
+is kept here. The 512-pixel rendered sheets were not made again: they keep
+their one (first) version, which both modes draw. The two
+versions of an item share its palette labels (the new sheets are drawn
+pinned to the old ones), so one `variants.json` colours both.
+
 ## File names
 
 ```

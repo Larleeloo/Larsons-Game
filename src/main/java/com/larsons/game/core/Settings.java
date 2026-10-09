@@ -23,6 +23,7 @@ import java.util.Map;
  *   -Dlarsons.assets=assets       where assets/sprites lives
  *   -Dlarsons.start=menu          start in "menu" or straight in "demo"
  *   -Dlarsons.inventory.slots=25  the player's inventory slots, the 5 of the hotbar included
+ *   -Dlarsons.animations=classic  start with the first version of the weapon animations (or "new")
  *   -Dlarsons.script=...          scripted run for automated screenshots (see Autopilot)
  * </pre>
  */
@@ -43,6 +44,11 @@ public final class Settings {
     public double spriteScale;
     public boolean showHud = true;
     public boolean showProps = true;
+    /**
+     * Draw the first version of the states animated again (the weapon stances'
+     * moves, kept in assets/animations_v1/) instead of the new one - to compare.
+     */
+    public boolean classicAnimations;
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
@@ -68,11 +74,15 @@ public final class Settings {
                 if (!scaleGiven) s.spriteScale = Json.num(j, "spriteScale", 1.0);
                 s.showHud = Json.bool(j, "showHud", true);
                 s.showProps = Json.bool(j, "showProps", true);
+                s.classicAnimations = Json.bool(j, "classicAnimations", false);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
         }
         if (s.spriteScale <= 0) s.spriteScale = 1.0;
+        String anim = System.getProperty("larsons.animations", "").trim().toLowerCase();
+        if (anim.equals("classic") || anim.equals("v1")) s.classicAnimations = true;
+        else if (anim.equals("new")) s.classicAnimations = false;
         return s;
     }
 
@@ -81,6 +91,7 @@ public final class Settings {
         j.put("spriteScale", spriteScale);
         j.put("showHud", showHud);
         j.put("showProps", showProps);
+        j.put("classicAnimations", classicAnimations);
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);

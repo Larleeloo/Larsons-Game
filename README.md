@@ -72,6 +72,7 @@ The main menu has one entry, **Demo**, which loads the void.
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the 3D props |
+| **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F12** | screenshot (to `screenshots/`) |
 | **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
 
