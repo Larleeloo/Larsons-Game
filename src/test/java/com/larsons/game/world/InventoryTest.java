@@ -13,6 +13,14 @@ import static org.junit.jupiter.api.Assertions.*;
 /** The inventory, its hotbar, and what the selected slot puts in her hands. */
 class InventoryTest {
 
+    /** The wardrobe's sword in the right hand and the shield on the left arm: the sword-and-shield stance. */
+    private static Wardrobe swordAndShield() {
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.CARRY_RIGHT, "sword");
+        w.set(Slot.CARRY_LEFT, "round_shield");
+        return w;
+    }
+
     @Test
     void itemsGoToTheHotbarFirstThenTheRest() {
         Inventory inv = new Inventory(8);
@@ -31,8 +39,8 @@ class InventoryTest {
     void anyNumberOfSlotsButNeverFewerThanTheHotbar() {
         assertEquals(5, new Inventory(2).size());
         assertEquals(40, new Inventory(40).size());
-        assertEquals(Inventory.DEFAULT_SLOTS, new Player(new Wardrobe()).inventory().size());
-        assertEquals(12, new World(new Wardrobe(), 12).player().inventory().size());
+        assertEquals(Inventory.DEFAULT_SLOTS, new Player(swordAndShield()).inventory().size());
+        assertEquals(12, new World(swordAndShield(), 12).player().inventory().size());
     }
 
     @Test
@@ -82,7 +90,7 @@ class InventoryTest {
 
     @Test
     void pickingUpPutsItInTheHotbarAndInHand() {
-        World w = new World(new Wardrobe());
+        World w = new World(swordAndShield());
         w.spawn(ItemDef.BATTLE_AXE, new Vec3(1, 0, 0));
         w.spawn(ItemDef.LONGBOW, new Vec3(1, 0, 0.2));
         assertTrue(w.pickUp(w.reachable()));
@@ -101,7 +109,7 @@ class InventoryTest {
 
     @Test
     void aWeaponInTheRestOfTheInventoryIsSwappedIntoHandToBeWielded() {
-        World w = new World(new Wardrobe(), 10);
+        World w = new World(swordAndShield(), 10);
         Inventory inv = w.player().inventory();
         inv.set(7, "crossbow");
         inv.select(2);
@@ -113,7 +121,7 @@ class InventoryTest {
 
     @Test
     void aFullInventoryLeavesTheItemLying() {
-        World w = new World(new Wardrobe(), 5);
+        World w = new World(swordAndShield(), 5);
         for (int i = 0; i < 5; i++) w.player().inventory().add("rock" + i);
         w.spawn(ItemDef.CROSSBOW, new Vec3(0.5, 0, 0));
         assertFalse(w.pickUp(w.reachable()));
@@ -122,7 +130,7 @@ class InventoryTest {
 
     @Test
     void droppingTheSwordTakesItOutOfHerHand() {
-        World w = new World(new Wardrobe());
+        World w = new World(swordAndShield());
         w.spawn(ItemDef.SWORD, new Vec3(0.5, 0, 0));
         assertTrue(w.pickUp(w.reachable()));
         assertTrue(w.player().wardrobe().wearing(Slot.CARRY_RIGHT, "sword"));

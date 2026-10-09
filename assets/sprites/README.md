@@ -91,8 +91,16 @@ choice is saved with the settings, so classic stays on until it is switched
 back. Only the pixel-art styles have two versions: switch the Wardrobe to
 Pixel 128 or Pixel 64 to compare. The weapon moves - every state
 with a sword, axe, bow or crossbow in hand but the bow's and the crossbow's
-parries - are in their second version in the pixel-art styles; their first
-is kept here. The 512-pixel rendered sheets were not made again: they keep
+parries and the axe's crouched sweep - are in their second version in the
+pixel-art styles; their first is kept here.
+
+The sword alone - no shield in either hand - has states of its own,
+`blade_<state>` (idle, walk, run, sprint, jump, attack, the three crouches,
+spin attack and parry): the first version of the sword stance's moves, the
+free arm down, where the second version holds the shield up. Their sheets
+are the archived first version's, under the new names, in every item's
+folder but the shields'. Where a set has none (the 512-pixel one), the sword
+and shield's stand in. The 512-pixel rendered sheets were not made again: they keep
 their one (first) version, which both modes draw. The two
 versions of an item share its palette labels (the new sheets are drawn
 pinned to the old ones), so one `variants.json` colours both.

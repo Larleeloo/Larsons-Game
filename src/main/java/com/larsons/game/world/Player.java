@@ -139,7 +139,7 @@ public final class Player {
         }
 
         boolean grounded = height <= 1e-6 && vy <= 0;
-        Stance st = stance;
+        Stance st = stance();
 
         // --- what is under way ---------------------------------------------------------
         if (action != null && in.moving() && isEmote(action)) action = null;   // moving cuts an emote short
@@ -155,7 +155,7 @@ public final class Player {
             Runnable g = grab;
             grab = null;
             g.run();
-            st = stance;            // (what she picked up may be a weapon of another stance)
+            st = stance();          // (what she picked up may be a weapon of another stance)
         }
         boolean busy = action != null || jumping;
 
@@ -182,7 +182,7 @@ public final class Player {
                 next = st.bash();
                 crouched = false;
             } else if (in.attack() && st.attack(crouched) != null) {
-                if (st == Stance.SWORD) crouched = false;                     // she stands to swing
+                if (st == Stance.SWORD || st == Stance.BLADE) crouched = false;   // she stands to swing
                 next = st.attack(crouched);
                 drawing = st.drawn() && in.attackHeld();
             } else if (in.jump() && st.canJump()) {
@@ -264,11 +264,17 @@ public final class Player {
 
     // --- stances and picking things up ------------------------------------------------
 
-    /** What she holds: the sword stance (the wardrobe's), or a weapon she picked up. */
-    public Stance stance() { return stance; }
+    /**
+     * What she holds: a weapon she picked up, or the wardrobe's own - the
+     * sword and shield, or the sword alone when she carries no shield.
+     */
+    public Stance stance() {
+        return stance == Stance.SWORD ? Stance.ofWardrobe(wardrobe) : stance;
+    }
 
     /** Take up {@code s} (interrupting whatever she was doing with the last weapon). */
     public void setStance(Stance s) {
+        if (s == Stance.BLADE) s = Stance.SWORD;          // the wardrobe's, with or without a shield
         if (s == null || s == Stance.FREE || s == stance) return;
         stance = s;
         if (action != null && !isEmote(action)) action = null;

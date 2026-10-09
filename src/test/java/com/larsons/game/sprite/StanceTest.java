@@ -78,6 +78,44 @@ class StanceTest {
     }
 
     @Test
+    void theSwordAloneHasItsOwnStatesAndNoShieldMoves() {
+        Stance st = Stance.BLADE;
+        for (boolean crouched : new boolean[]{false, true}) {
+            assertEquals(st, st.idle(crouched).stance());
+            assertEquals(AnimState.BLADE_ATTACK, st.attack(crouched), "she stands to swing");
+            for (Stance.Pace pace : Stance.Pace.values()) {
+                AnimState m = st.moving(pace, crouched);
+                assertEquals(st, m.stance(), pace.toString());
+                assertTrue(m.speed() > 0 && m.loops(), m.key());
+            }
+        }
+        assertEquals(AnimState.BLADE_PARRY, st.parry());
+        assertEquals(AnimState.BLADE_SPIN_ATTACK, st.spin());
+        assertEquals(AnimState.BLADE_JUMP, st.jump());
+        assertEquals(AnimState.JUMP, st.jump().root());
+        assertNull(st.block(), "no shield to raise");
+        assertNull(st.bash(), "nor to bash with");
+        assertNull(st.heavy());
+        // each falls back on the sword and shield's own move (a set drawn before they existed)
+        for (AnimState s : AnimState.values()) {
+            if (s.stance() != Stance.BLADE) continue;
+            assertEquals(s.key(), "blade_" + s.fallback().key());
+            assertEquals(Stance.SWORD, s.fallback().stance());
+        }
+        // which of the two the wardrobe's carried things are held in
+        Wardrobe w = new Wardrobe();
+        assertEquals(Stance.BLADE, Stance.ofWardrobe(w), "nothing in hand");
+        w.set(Slot.CARRY_RIGHT, "sword");
+        assertEquals(Stance.BLADE, Stance.ofWardrobe(w));
+        assertEquals("sword", Stance.BLADE.carried(Slot.CARRY_RIGHT, w));
+        w.set(Slot.CARRY_LEFT, "round_shield_px128");
+        assertEquals(Stance.SWORD, Stance.ofWardrobe(w), "a shield in any style");
+        w.clear(Slot.CARRY_LEFT);
+        w.set(Slot.CARRY_RIGHT, "round_shield");
+        assertEquals(Stance.SWORD, Stance.ofWardrobe(w), "a left-handed character's shield is in the right hand");
+    }
+
+    @Test
     void whatIsDrawnInTheHandsFollowsTheStance() {
         Wardrobe w = new Wardrobe();
         w.set(Slot.CARRY_RIGHT, "sword");
