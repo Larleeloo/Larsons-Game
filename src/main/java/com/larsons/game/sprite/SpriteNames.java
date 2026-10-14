@@ -256,8 +256,9 @@ public final class SpriteNames {
         return s != null ? s : PHRASES.get(joined);
     }
 
-    /** The most words any state's name runs to ({@code crossbow_crouch_fire}: 3). */
-    private static final int MAX_STATE_WORDS = 3;
+    /** The most words any state's name runs to ({@code blade_crouch_walk_fast}: 4). */
+    private static final int MAX_STATE_WORDS = java.util.Arrays.stream(AnimState.values())
+            .mapToInt(s -> s.key().split("_").length).max().orElse(1);
 
     /** Other ways of writing the many-word states. */
     private static final Map<String, AnimState> PHRASES = Map.ofEntries(

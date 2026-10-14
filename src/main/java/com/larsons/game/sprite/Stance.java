@@ -6,7 +6,10 @@ package com.larsons.game.sprite;
  *
  * <ul>
  *   <li>{@link #SWORD}: the wardrobe's own carried items - the sword in the
- *       weapon hand, the shield (or whatever else) in the other;</li>
+ *       weapon hand, the shield in the other;</li>
+ *   <li>{@link #BLADE}: the wardrobe's own carried items with no shield among
+ *       them - the sword alone (or nothing): the free arm hangs instead of
+ *       holding a shield up ({@link #ofWardrobe});</li>
  *   <li>{@link #AXE}, {@link #BOW}, {@link #CROSSBOW}: that weapon, in both
  *       hands; whatever the wardrobe carries is put away while she holds it;</li>
  *   <li>{@link #FREE}: nothing - the emotes and the pick-ups are played with
@@ -28,6 +31,7 @@ package com.larsons.game.sprite;
 public enum Stance {
 
     SWORD("sword", "Sword and shield", null, null),
+    BLADE("blade", "Sword", null, null),
     AXE("axe", "Battle axe", Slot.CARRY_RIGHT, "battle_axe"),
     BOW("bow", "Bow", Slot.CARRY_LEFT, "longbow"),
     CROSSBOW("crossbow", "Crossbow", Slot.CARRY_RIGHT, "crossbow"),
@@ -71,7 +75,7 @@ public enum Stance {
      */
     public String carried(Slot slot, Wardrobe wardrobe) {
         return switch (this) {
-            case SWORD -> wardrobe.get(slot);
+            case SWORD, BLADE -> wardrobe.get(slot);
             case FREE -> null;
             default -> slot == hand(wardrobe.leftHanded()) ? item : null;
         };
@@ -85,6 +89,7 @@ public enum Stance {
             case AXE -> crouched ? AnimState.AXE_CROUCH_IDLE : AnimState.AXE_IDLE;
             case BOW -> crouched ? AnimState.BOW_CROUCH_IDLE : AnimState.BOW_IDLE;
             case CROSSBOW -> crouched ? AnimState.CROSSBOW_CROUCH_IDLE : AnimState.CROSSBOW_IDLE;
+            case BLADE -> crouched ? AnimState.BLADE_CROUCH_IDLE : AnimState.BLADE_IDLE;
             default -> crouched ? AnimState.CROUCH_IDLE : AnimState.IDLE;
         };
     }
@@ -100,6 +105,7 @@ public enum Stance {
                 case AXE -> AnimState.AXE_CROUCH_WALK;
                 case BOW -> AnimState.BOW_CROUCH_WALK;
                 case CROSSBOW -> AnimState.CROSSBOW_CROUCH_WALK;
+                case BLADE -> pace == Pace.WALK ? AnimState.BLADE_CROUCH_WALK : AnimState.BLADE_CROUCH_WALK_FAST;
                 default -> pace == Pace.WALK ? AnimState.CROUCH_WALK : AnimState.CROUCH_WALK_FAST;
             };
         }
@@ -119,6 +125,11 @@ public enum Stance {
                 case RUN -> AnimState.CROSSBOW_RUN;
                 case SPRINT -> AnimState.CROSSBOW_SPRINT;
             };
+            case BLADE -> switch (pace) {
+                case WALK -> AnimState.BLADE_WALK;
+                case RUN -> AnimState.BLADE_RUN;
+                case SPRINT -> AnimState.BLADE_SPRINT;
+            };
             default -> switch (pace) {
                 case WALK -> AnimState.WALK;
                 case RUN -> AnimState.RUN;
@@ -136,6 +147,7 @@ public enum Stance {
     public AnimState attack(boolean crouched) {
         return switch (this) {
             case SWORD -> AnimState.ATTACK;
+            case BLADE -> AnimState.BLADE_ATTACK;
             case AXE -> crouched ? AnimState.AXE_CROUCH_ATTACK : AnimState.AXE_ATTACK;
             case BOW -> crouched ? AnimState.BOW_CROUCH_DRAW : AnimState.BOW_DRAW;
             case CROSSBOW -> crouched ? AnimState.CROSSBOW_CROUCH_FIRE : AnimState.CROSSBOW_FIRE;
@@ -160,6 +172,7 @@ public enum Stance {
     public AnimState spin() {
         return switch (this) {
             case SWORD -> AnimState.SPIN_ATTACK;
+            case BLADE -> AnimState.BLADE_SPIN_ATTACK;
             case AXE -> AnimState.AXE_SPIN_ATTACK;
             default -> null;
         };
@@ -169,6 +182,7 @@ public enum Stance {
     public AnimState parry() {
         return switch (this) {
             case SWORD -> AnimState.PARRY;
+            case BLADE -> AnimState.BLADE_PARRY;
             case AXE -> AnimState.AXE_PARRY;
             case BOW -> AnimState.BOW_PARRY;
             case CROSSBOW -> AnimState.CROSSBOW_PARRY;
@@ -176,10 +190,11 @@ public enum Stance {
         };
     }
 
-    /** Guarding, held: the shield up (the sword stance) or the weapon across. */
+    /** Guarding, held: the shield up (the sword stance) or the weapon across; none with no shield. */
     public AnimState block() {
         return switch (this) {
             case SWORD -> AnimState.SHIELD_READY;
+            case BLADE -> null;
             case AXE -> AnimState.AXE_BLOCK;
             case BOW -> AnimState.BOW_BLOCK;
             case CROSSBOW -> AnimState.CROSSBOW_BLOCK;
@@ -196,6 +211,7 @@ public enum Stance {
     public AnimState jump() {
         return switch (this) {
             case SWORD -> AnimState.JUMP;
+            case BLADE -> AnimState.BLADE_JUMP;
             case AXE -> AnimState.AXE_JUMP;
             case BOW -> AnimState.BOW_JUMP;
             case CROSSBOW -> AnimState.CROSSBOW_JUMP;
@@ -207,6 +223,23 @@ public enum Stance {
     public boolean canJump() { return jump() != null; }
 
     // --- lookups ---------------------------------------------------------------------
+
+    /**
+     * The stance the wardrobe's own carried things are held in: the sword and
+     * shield - or, with no shield in either hand, the sword alone.
+     */
+    public static Stance ofWardrobe(Wardrobe wardrobe) {
+        return carriesShield(wardrobe) ? SWORD : BLADE;
+    }
+
+    /** Whether a shield is carried, in either hand (a left-handed character's is in the right). */
+    public static boolean carriesShield(Wardrobe wardrobe) {
+        for (Slot slot : new Slot[]{Slot.CARRY_LEFT, Slot.CARRY_RIGHT}) {
+            String item = wardrobe.get(slot);
+            if (item != null && Wardrobe.Style.base(item).endsWith("shield")) return true;
+        }
+        return false;
+    }
 
     /** The weapon stance whose weapon is {@code item}, or null. */
     public static Stance ofItem(String item) {

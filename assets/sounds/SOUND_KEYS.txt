@@ -67,6 +67,17 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/crossbow_crouch_fire.mp3     Crossbow fire, crouched        player/feminine/crossbow_crouch_fire
   player/feminine/crossbow_parry.mp3           Crossbow parry                 player/feminine/crossbow_parry
   player/feminine/crossbow_block.mp3           Crossbow block (held)          player/feminine/crossbow_block
+  player/feminine/blade_idle.mp3               Sword idle (held)              player/feminine/blade_idle
+  player/feminine/blade_walk.mp3               Sword walk (held)              player/feminine/blade_walk
+  player/feminine/blade_run.mp3                Sword run (held)               player/feminine/blade_run
+  player/feminine/blade_sprint.mp3             Sword sprint (held)            player/feminine/blade_sprint
+  player/feminine/blade_jump.mp3               Sword jump                     player/feminine/blade_jump
+  player/feminine/blade_attack.mp3             Sword attack                   player/feminine/blade_attack
+  player/feminine/blade_crouch_idle.mp3        Sword crouch (held)            player/feminine/blade_crouch_idle
+  player/feminine/blade_crouch_walk.mp3        Sword crouch walk (held)       player/feminine/blade_crouch_walk
+  player/feminine/blade_crouch_walk_fast.mp3   Sword crouch walk, fast (held) player/feminine/blade_crouch_walk_fast
+  player/feminine/blade_spin_attack.mp3        Sword spin attack              player/feminine/blade_spin_attack
+  player/feminine/blade_parry.mp3              Sword parry                    player/feminine/blade_parry
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -127,6 +138,17 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/crossbow_crouch_fire.mp3    Crossbow fire, crouched        player/masculine/crossbow_crouch_fire
   player/masculine/crossbow_parry.mp3          Crossbow parry                 player/masculine/crossbow_parry
   player/masculine/crossbow_block.mp3          Crossbow block (held)          player/masculine/crossbow_block
+  player/masculine/blade_idle.mp3              Sword idle (held)              player/masculine/blade_idle
+  player/masculine/blade_walk.mp3              Sword walk (held)              player/masculine/blade_walk
+  player/masculine/blade_run.mp3               Sword run (held)               player/masculine/blade_run
+  player/masculine/blade_sprint.mp3            Sword sprint (held)            player/masculine/blade_sprint
+  player/masculine/blade_jump.mp3              Sword jump                     player/masculine/blade_jump
+  player/masculine/blade_attack.mp3            Sword attack                   player/masculine/blade_attack
+  player/masculine/blade_crouch_idle.mp3       Sword crouch (held)            player/masculine/blade_crouch_idle
+  player/masculine/blade_crouch_walk.mp3       Sword crouch walk (held)       player/masculine/blade_crouch_walk
+  player/masculine/blade_crouch_walk_fast.mp3  Sword crouch walk, fast (held) player/masculine/blade_crouch_walk_fast
+  player/masculine/blade_spin_attack.mp3       Sword spin attack              player/masculine/blade_spin_attack
+  player/masculine/blade_parry.mp3             Sword parry                    player/masculine/blade_parry
 
 
 CHESTS  ->  chests/ornate_chest/

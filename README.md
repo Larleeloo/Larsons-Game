@@ -60,7 +60,7 @@ The main menu has one entry, **Demo**, which loads the void.
 | **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
 | **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
-| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow or crossbow in its stance, the sword (or an empty slot) the sword and shield |
+| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow or crossbow in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot |
 | **F1 – F4** | laugh, cry, surprise, anger |
 | **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
@@ -88,7 +88,8 @@ Drop sprite sheets on the window at any time to import them.
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
-  the shield held ready and bashed; and the three weapons' stances below. The
+  the shield held ready and bashed; the sword held alone, with no shield (11
+  more: `blade_*`); and the three weapons' stances below. The
   HUD names the exact sheet each layer is drawing (and, where a set has no
   sheets for a state, the state it is shown as instead), and a gauge at the
   top right shows the camera's angle against the three height zones.
@@ -246,9 +247,10 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
   one texture, two characters can wear it in different colours in the same
   draw call, and a colour can change every frame.
 - **Stances.** Every state has a stance - what is in her hands while it plays
-  (`sprite/Stance`): the wardrobe's own carried items (the sword and shield),
-  the battle axe, the bow or the crossbow, or nothing at all (the emotes and the
-  pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
+  (`sprite/Stance`): the wardrobe's own carried items (the sword and shield -
+  or, with no shield in either hand, the sword alone: its own `blade_*`
+  states, the free arm down instead of holding a shield up), the battle axe,
+  the bow or the crossbow, or nothing at all (the emotes and the pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
   `carry_right/battle_axe`, `carry_left/longbow` or `carry_right/crossbow` (the
   twin hand, mirrored, for a left-handed character) whatever the wardrobe holds,
   and the other hand is empty.
@@ -294,7 +296,8 @@ fits is put on the ground). The first five slots are the **hotbar**:
 - **1 – 5** or the **mouse wheel** choose a hotbar slot, and what is in it is
   what she holds. The battle axe, the bow and the crossbow are each taken up
   in their own stance; the sword - worn in the wardrobe's weapon hand - or an
-  empty slot is the sword-and-shield stance, the wardrobe's own carried items.
+  empty slot is the sword-and-shield stance, the wardrobe's own carried items
+  (the sword alone when no shield is worn: no shield to block or bash with).
   (The emotes, which were on 5 – 8, are on **F1 – F4**; stopping a preview,
   which was 0, is **Backspace**; the wheel zooms while orbiting, and **+ / −**
   always do.)

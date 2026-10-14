@@ -4,12 +4,21 @@ import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Elevation;
+import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.Wardrobe;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CameraAndPlayerTest {
+
+    /** The wardrobe's sword in the right hand and the shield on the left arm: the sword-and-shield stance. */
+    private static Wardrobe swordAndShield() {
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.CARRY_RIGHT, "sword");
+        w.set(Slot.CARRY_LEFT, "round_shield");
+        return w;
+    }
 
     @Test
     void theCameraBasisStaysOrthonormalAllTheWayToBirdsEye() {
@@ -59,7 +68,7 @@ class CameraAndPlayerTest {
 
     @Test
     void movementPicksWalkRunAndSprint() {
-        Player p = new Player(new Wardrobe());
+        Player p = new Player(swordAndShield());
         for (int i = 0; i < 30; i++) p.update(1 / 60.0, new Player.Intent(1, 0, false, false, false, false), DUR);
         assertEquals(AnimState.WALK, p.state());
         for (int i = 0; i < 30; i++) p.update(1 / 60.0, new Player.Intent(1, 0, true, false, false, false), DUR);
@@ -73,7 +82,7 @@ class CameraAndPlayerTest {
 
     @Test
     void aJumpCrouchesLeavesTheGroundAndLands() {
-        Player p = new Player(new Wardrobe());
+        Player p = new Player(swordAndShield());
         p.update(1 / 60.0, new Player.Intent(0, 0, false, false, true, false), DUR);
         assertEquals(AnimState.JUMP, p.state());
         assertEquals(0, p.height(), 1e-9, "still crouching");
@@ -89,7 +98,7 @@ class CameraAndPlayerTest {
 
     @Test
     void anAttackRootsThePlayerForItsDuration() {
-        Player p = new Player(new Wardrobe());
+        Player p = new Player(swordAndShield());
         p.update(1 / 60.0, new Player.Intent(0, 0, false, false, false, true), DUR);
         assertEquals(AnimState.ATTACK, p.state());
         Vec3 start = p.ground();
@@ -102,7 +111,7 @@ class CameraAndPlayerTest {
 
     @Test
     void previewLoopsAStateInPlaceUntilThePlayerMoves() {
-        Player p = new Player(new Wardrobe());
+        Player p = new Player(swordAndShield());
         p.preview(AnimState.ATTACK);
         for (int i = 0; i < 200; i++) p.update(1 / 60.0, Player.Intent.NONE, DUR);
         assertEquals(AnimState.ATTACK, p.state());
@@ -112,7 +121,7 @@ class CameraAndPlayerTest {
 
     @Test
     void pickingUpTheSwordPutsItInTheRightHandAndDroppingItPutsItBack() {
-        World w = new World(new Wardrobe());
+        World w = new World(swordAndShield());
         w.spawn(ItemDef.SWORD, new Vec3(1, 0, 0));
         World.GroundItem g = w.reachable();
         assertNotNull(g);
