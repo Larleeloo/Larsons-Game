@@ -396,7 +396,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         float layerH = ui.paragraphHeight(ui.small, layerText, 640);
         ui.rect(x - 6, y - 6, 660, 128 + layerH + lh, Theme.withAlpha(Theme.BACKGROUND, 0.62f));
         ui.text(ui.body, "Demo void", x, y, Theme.ACCENT);
-        ui.text(ui.small, String.format("%.0f fps", game.fps()), x + 590, y + 3, Theme.ITEM_DISABLED);
+        var pacer = game.pacer();
+        String frames = String.format("%.0f fps  ·  %.1f ms  ·  longest %.1f ms  ·  %s",
+                pacer.fps(), pacer.averageMs(), pacer.worstMs(), pacer.describe());
+        ui.text(ui.small, frames, x + 646 - ui.small.width(frames), y + 3, Theme.ITEM_DISABLED);
         y += lh + 4;
         ui.text(ui.small, "GPU  " + gpu.describe(), x, y, gpu.software() && game.settings().gpuRequired
                 ? Theme.WARNING : Theme.ITEM);

@@ -3,10 +3,8 @@ package com.larsons.game.gfx;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.lwjgl.opengl.GL33C.*;
@@ -21,9 +19,11 @@ import static org.lwjgl.opengl.GL33C.*;
  * is a row here, filled for the draw - so a layer can take any colours, a
  * different set for every character wearing it, and change them every frame
  * (a fade from one to another, a flash) without a texture being decoded or
- * uploaded again. Rows are handed out per batch and identical palettes share
- * one; the rows a batch added are sent to the GPU before each of its draw
- * calls, a kilobyte each.
+ * uploaded again. Identical palettes share one row, and rows are kept from
+ * one batch (and one frame) to the next: an outfit drawn in the same colours
+ * as last frame sends nothing to the GPU, and a row is only written - a
+ * kilobyte - for colours not already in the atlas, over the row longest
+ * unused once the atlas is full.
  *
  * <p>Colours are straight (not premultiplied) ARGB, entry 0 transparent by
  * convention; the shader premultiplies.
@@ -32,13 +32,12 @@ public final class PaletteAtlas implements AutoCloseable {
 
     /** Entries a palette has room for. */
     public static final int SIZE = 256;
-    /** Palettes one batch can draw before it has to start over. */
+    /** Palettes the atlas holds; one batch can draw this many before it has to start over. */
     public static final int ROWS = 512;
 
     private final int id;
     private final Rows rows = new Rows(ROWS);
     private final ByteBuffer upload = MemoryUtil.memAlloc(SIZE * 4);
-    private int synced;
 
     public PaletteAtlas() {
         id = glGenTextures();
@@ -50,25 +49,28 @@ public final class PaletteAtlas implements AutoCloseable {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    /** The row {@code argb} is drawn from, or -1 when the atlas is full (see {@link #full()}). */
+    /** The row {@code argb} is drawn from, or -1 when every row is taken by this batch. */
     int row(int[] argb) {
         return rows.add(argb);
     }
 
-    boolean full() { return rows.size() >= ROWS; }
-
-    /** Forget every row (a new batch, or a full one flushed). */
-    void reset() {
-        rows.clear();
-        synced = 0;
+    /** A new batch: the rows stay, but those it does not use may be given to other colours. */
+    void newBatch() {
+        rows.newBatch();
     }
 
-    /** Send the rows added since the last call to the GPU. GL thread. */
+    /** Forget every row (a full batch, flushed, starting over). */
+    void reset() {
+        rows.clear();
+    }
+
+    /** Send the rows written since the last call to the GPU. GL thread. */
     void sync() {
-        if (synced == rows.size()) return;
+        int[] dirty = rows.takeDirty();
+        if (dirty.length == 0) return;
         glBindTexture(GL_TEXTURE_2D, id);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        for (int r = synced; r < rows.size(); r++) {
+        for (int r : dirty) {
             int[] p = rows.get(r);
             upload.clear();
             for (int i = 0; i < SIZE; i++) {
@@ -78,7 +80,6 @@ public final class PaletteAtlas implements AutoCloseable {
             upload.flip();
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, r, SIZE, 1, GL_RGBA, GL_UNSIGNED_BYTE, upload);
         }
-        synced = rows.size();
     }
 
     void bind(int unit) {
@@ -95,33 +96,83 @@ public final class PaletteAtlas implements AutoCloseable {
 
     /** The row bookkeeping, apart from GL (so it can be tested without a context). */
     static final class Rows {
-        private final int capacity;
-        private final List<int[]> rows = new ArrayList<>();
+        private static final int[] NONE = {};
+        private final int[][] rows;
+        /** The batch each row was last drawn in. */
+        private final long[] usedIn;
+        private final boolean[] dirty;
+        private final int[] dirtyList;
+        private int dirtyCount;
+        private int size;
+        private long batch;
         private final Map<Palette, Integer> index = new HashMap<>();
 
         Rows(int capacity) {
-            this.capacity = capacity;
+            rows = new int[capacity][];
+            usedIn = new long[capacity];
+            dirty = new boolean[capacity];
+            dirtyList = new int[capacity];
         }
 
-        /** The row holding these colours, added if none does yet; -1 when full. */
+        /**
+         * The row holding these colours - added if none does yet, in a free
+         * row or else the one least recently drawn in an earlier batch; -1
+         * when every row is drawn in this batch.
+         */
         int add(int[] argb) {
-            Palette key = new Palette(argb);
-            Integer r = index.get(key);
-            if (r != null) return r;
-            if (rows.size() >= capacity) return -1;
+            Integer found = index.get(new Palette(argb));
+            if (found != null) {
+                usedIn[found] = batch;
+                return found;
+            }
+            int r = size < rows.length ? size++ : leastRecentlyUsed();
+            if (r < 0) return -1;
+            if (rows[r] != null) index.remove(new Palette(rows[r]));
             int[] copy = Arrays.copyOf(argb, Math.min(argb.length, SIZE));
-            rows.add(copy);
-            index.put(new Palette(copy), rows.size() - 1);
-            return rows.size() - 1;
+            rows[r] = copy;
+            index.put(new Palette(copy), r);
+            usedIn[r] = batch;
+            if (!dirty[r]) {
+                dirty[r] = true;
+                dirtyList[dirtyCount++] = r;
+            }
+            return r;
         }
 
-        int size() { return rows.size(); }
+        private int leastRecentlyUsed() {
+            int best = -1;
+            for (int r = 0; r < size; r++) {
+                if (usedIn[r] < batch && (best < 0 || usedIn[r] < usedIn[best])) best = r;
+            }
+            return best;
+        }
 
-        int[] get(int row) { return rows.get(row); }
+        /** Start a new batch: every row is kept, and those it does not draw may be reused. */
+        void newBatch() {
+            batch++;
+        }
 
+        /** The rows written since the last call, to upload. */
+        int[] takeDirty() {
+            if (dirtyCount == 0) return NONE;
+            int[] out = Arrays.copyOf(dirtyList, dirtyCount);
+            for (int r : out) dirty[r] = false;
+            dirtyCount = 0;
+            return out;
+        }
+
+        int size() { return size; }
+
+        int[] get(int row) { return rows[row]; }
+
+        /** Forget every row. */
         void clear() {
-            rows.clear();
+            Arrays.fill(rows, 0, size, null);
+            Arrays.fill(dirty, false);
+            dirtyCount = 0;
+            size = 0;
             index.clear();
+            batch++;
         }
 
         private record Palette(int[] argb) {

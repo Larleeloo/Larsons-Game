@@ -105,6 +105,9 @@ public final class Texture implements AutoCloseable {
     /** Approximate video memory held. */
     public long bytes() { return bytes; }
 
+    /** Whether the texture has been released. */
+    public boolean closed() { return closed; }
+
     @Override
     public void close() {
         if (closed) return;

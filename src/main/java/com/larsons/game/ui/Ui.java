@@ -149,20 +149,34 @@ public final class Ui implements AutoCloseable {
 
     private float paragraph(Font font, String s, float x, float y, float width, float[] c, boolean draw) {
         float line = font.lineHeight() + 3;
+        float space = font.width(" ");
         float cy = y;
         for (String para : s.split("\n", -1)) {
-            StringBuilder cur = new StringBuilder();
-            for (String word : para.split(" ")) {
-                String next = cur.isEmpty() ? word : cur + " " + word;
-                if (font.width(next) > width && !cur.isEmpty()) {
-                    if (draw) text(font, cur.toString(), x, cy, c);
+            // the line so far is para[start, end), lineWidth wide; words are split at single spaces
+            int start = 0, end = 0;
+            float lineWidth = 0;
+            for (int i = 0; ; ) {
+                int sp = para.indexOf(' ', i);
+                int wordEnd = sp < 0 ? para.length() : sp;
+                float wordWidth = font.width(para, i, wordEnd);
+                if (end == start) {
+                    start = i;
+                    end = wordEnd;
+                    lineWidth = wordWidth;
+                } else if (lineWidth + space + wordWidth > width) {
+                    if (draw) text(font, para.substring(start, end), x, cy, c);
                     cy += line;
-                    cur = new StringBuilder(word);
+                    start = i;
+                    end = wordEnd;
+                    lineWidth = wordWidth;
                 } else {
-                    cur = new StringBuilder(next);
+                    end = wordEnd;
+                    lineWidth += space + wordWidth;
                 }
+                if (sp < 0) break;
+                i = sp + 1;
             }
-            if (draw) text(font, cur.toString(), x, cy, c);
+            if (draw) text(font, para.substring(start, end), x, cy, c);
             cy += line;
         }
         return cy - y;

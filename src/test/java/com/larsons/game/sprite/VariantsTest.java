@@ -95,7 +95,7 @@ class VariantsTest {
         assertEquals(blue.key(), black.key());
         assertNull(lib.sheet(blue));
         lib.awaitDecodes();
-        lib.pump();
+        lib.pumpAll();
         SheetTexture t = lib.sheet(black);
         assertNotNull(t, "already resident: the blue one is the same texture");
         assertEquals(1, lib.residentCount());

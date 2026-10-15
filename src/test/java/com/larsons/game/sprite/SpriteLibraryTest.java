@@ -142,7 +142,7 @@ class SpriteLibraryTest {
         for (SpriteLibrary.Resolved r : onScreen) all &= lib.sheet(r) != null;
         if (all) for (SpriteLibrary.Resolved r : ahead) lib.prefetch(r);
         lib.awaitDecodes();
-        lib.pump();
+        lib.pumpAll();
         return all;
     }
 
@@ -202,7 +202,7 @@ class SpriteLibraryTest {
         lib.awaitDecodes();
         lib.prefetch(hero(AnimState.RUN));
         lib.awaitDecodes();
-        lib.pump();
+        lib.pumpAll();
 
         assertEquals(2, lib.residentCount());
         assertFalse(uploads.stream().anyMatch(u -> u.contains("run_")), "run was dropped, not uploaded");
@@ -227,7 +227,7 @@ class SpriteLibraryTest {
         lib.prefetch(hero(AnimState.RUN));              // …queued while it still looked free…
         assertNull(lib.sheet(hero(AnimState.RUN)));     // …and then the camera wants it
         lib.awaitDecodes();
-        lib.pump();
+        lib.pumpAll();
 
         assertTrue(uploads.stream().anyMatch(u -> u.contains("run_")), "run is on screen: it loads");
         assertEquals(3, lib.residentCount());

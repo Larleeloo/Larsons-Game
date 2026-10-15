@@ -45,6 +45,11 @@ dependencies {
 
 val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
 val isLinux = System.getProperty("os.name", "").lowercase().contains("linux")
+val isWindows = System.getProperty("os.name", "").lowercase().contains("windows")
+// ZGC runs on 64-bit x86 everywhere and on ARM64 Linux and macOS.
+val zgcSupported = System.getProperty("os.arch", "").lowercase().let { arch ->
+    arch == "amd64" || arch == "x86_64" || (arch == "aarch64" && !isWindows)
+}
 
 application {
     mainClass = "com.larsons.game.Main"
@@ -56,6 +61,14 @@ application {
     // 512x512 sprite sheets are what memory is spent on.
     applicationDefaultJvmArgs = buildList {
         add("-XX:MaxRAMPercentage=60")
+        // A collector that never stops the game for more than a fraction of a
+        // millisecond. The default (G1) paused the render thread for up to
+        // ~50 ms while sprite sheets decoded - six frames at 120 fps.
+        // Generational ZGC is a flag on JDK 21-22 and the default after.
+        if (zgcSupported) {
+            add("-XX:+UseZGC")
+            if (JavaVersion.current() < JavaVersion.VERSION_23) add("-XX:+ZGenerational")
+        }
         add("-Djava.awt.headless=true")
         // GLFW must run on the process's first thread on macOS.
         if (isMac) add("-XstartOnFirstThread")

@@ -451,10 +451,54 @@ and generate the fallback sprites.
 - Rendering is premultiplied-alpha throughout, and the 512-pixel sheets get
   trilinear mipmaps, so minified characters have clean edges without dark
   fringes. The 32-pixel fallback is sampled nearest-neighbour.
-- 4× MSAA and vsync are on by default.
+- 4× MSAA and vsync are on by default, and the game holds a steady
+  **120 frames a second** - see [below](#120-frames-a-second).
 - The renderer reports what it got — shown in the HUD, the Settings page and
   the console. On a software rasteriser (Mesa llvmpipe, "GDI Generic", Microsoft
   Basic Render) it still runs, and says so.
+
+### 120 frames a second
+
+The game aims for **120 fps with every frame the same length** (Pause →
+Settings → Frame rate: 60, 120, 144 or uncapped; `-Dlarsons.fps=N` for one
+run). The HUD's top line shows the frame rate, the average frame and the
+longest frame of the last half second - a hitch shows there - and how frames
+are being paced; `-Dlarsons.fps.log=true` prints the same to the console.
+
+- **Pacing** (`core/FramePacer`). Vsync is used wherever it gives the target:
+  a 120 Hz display is synced every refresh, a 240 Hz one every other. On a
+  144 or 165 Hz display, or with vsync off, the game waits out each frame
+  itself against a fixed 1/120 s cadence - sleeping while there is time,
+  spinning the last fraction of a millisecond - so frames start within a few
+  hundredths of a millisecond of their slot (with G-Sync, FreeSync or
+  ProMotion they are also shown exactly so). A 60 Hz display shows 60: 120
+  there needs `-Dlarsons.gpu.vsync=off` and tears. If the driver ignores vsync
+  the cap takes over. While frames keep to the cadence, animation steps by
+  the cadence's period rather than the measured time, whose sub-millisecond
+  wobble would otherwise show as stutter.
+- **No GPU stalls.** The sprite and UI batch uploads each batch's vertices
+  once, into a ring buffer mapped unsynchronized, instead of rewriting one
+  buffer the GPU was still drawing from for every texture change; palette
+  rows stay on the GPU from frame to frame and only new colours are sent.
+- **Less overdraw.** Each sprite layer is drawn over only the box its pixels
+  cover, not the whole frame card: close up, a 20-layer outfit was 20
+  full-screen passes. (Sprites test depth against the 3D props but no longer
+  write it - billboards all face the camera, so far-to-near order is the
+  same answer - which is what lets layers be separate quads.)
+- **Loading never costs a frame.** Sheet uploads get about 2 ms of each
+  frame, each one's cost predicted from its size and how fast uploads have
+  been going; decoding runs on lower-priority threads.
+- **No collector pauses.** `run`, `runGpu` and the IntelliJ profile use
+  generational ZGC, whose pauses are well under a millisecond; the default
+  collector stopped the game for up to ~50 ms while 512-pixel sheets
+  decoded. For the jar, pass it yourself:
+  `java -XX:+UseZGC -XX:+ZGenerational -jar build/libs/larsons-game.jar`
+  (`-XX:+UseZGC` alone on JDK 23 and later).
+
+On Mesa's software rasteriser (4 CPU cores, 1280 × 720, 4× MSAA, uncapped),
+these took the demo from about 60 to about 110 fps and the closest camera
+from about 22 to about 100 - on the CPU alone; a real GPU has plenty of room
+at 120.
 
 **The IntelliJ profile "Run Game (GPU)"** (`.idea/runConfigurations/Run_Game__GPU_.xml`)
 runs the Gradle task `runGpu`, which on top of a plain `run`:
@@ -472,6 +516,8 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 |---|---|---|
 | `-Dlarsons.gpu.msaa=4` | 4 | multisample anti-aliasing (0 = off) |
 | `-Dlarsons.gpu.vsync=on` | on | wait for the display refresh |
+| `-Dlarsons.fps=120` | 120 | the frame rate to hold, for this run (0 = uncapped); otherwise Pause → Settings → Frame rate |
+| `-Dlarsons.fps.log=true` | off | print the frame rate, average and longest frame twice a second |
 | `-Dlarsons.sprites.scale=1` | 1 | shrink sprite frames on load (0.5 = half) |
 | `-Dlarsons.sprites.vramMB=1536` | 1536 | sprite-cache video memory budget |
 | `-Dlarsons.assets=assets` | `./assets` | where `assets/sprites` is |
@@ -484,7 +530,7 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 ```
 src/main/java/com/larsons/game/
   Main.java                 entry point (headless AWT, macOS first-thread relaunch)
-  core/                     Game (window, loop, overlays), Settings, Scene, Autopilot, Screenshot
+  core/                     Game (window, loop, overlays), FramePacer, Settings, Scene, Autopilot, Screenshot
   audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
                             Sounds, SoundPack, SoundKeys, SoundDef, SoundStore; the hooks: AnimationSound,
                             WorldSounds
