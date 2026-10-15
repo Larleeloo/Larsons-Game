@@ -101,7 +101,23 @@ public enum AnimState {
     BLADE_CROUCH_WALK_FAST("blade_crouch_walk_fast", "Sword crouch walk, fast", true, 24, Stance.BLADE, 1.8,
             "crouch_walk_fast"),
     BLADE_SPIN_ATTACK("blade_spin_attack", "Sword spin attack", false, 24, Stance.BLADE, 0, "spin_attack"),
-    BLADE_PARRY("blade_parry", "Sword parry", false, 18, Stance.BLADE, 0, "parry");
+    BLADE_PARRY("blade_parry", "Sword parry", false, 18, Stance.BLADE, 0, "parry"),
+    // --- the crystal staff: carried in the right hand (the walk uses it as a walking
+    // stick), both hands on it to fight
+    STAFF_IDLE("staff_idle", "Staff idle", true, 48, Stance.STAFF, 0, "idle"),
+    STAFF_WALK("staff_walk", "Staff walk", true, 28, Stance.STAFF, 1.7, "walk"),
+    STAFF_RUN("staff_run", "Staff run", true, 20, Stance.STAFF, 4.2, "run"),
+    STAFF_SPRINT("staff_sprint", "Staff sprint", true, 16, Stance.STAFF, 7.0, "sprint"),
+    STAFF_CROUCH_IDLE("staff_crouch_idle", "Staff crouch", true, 48, Stance.STAFF, 0, "crouch_idle"),
+    STAFF_CROUCH_WALK("staff_crouch_walk", "Staff crouch walk", true, 32, Stance.STAFF, 0.9, "crouch_walk"),
+    STAFF_JUMP("staff_jump", "Staff jump", false, 27, Stance.STAFF, 0, "jump"),
+    STAFF_ATTACK("staff_attack", "Staff cast", false, 24, Stance.STAFF, 0, "attack"),
+    STAFF_HEAVY_ATTACK("staff_heavy_attack", "Staff slam", false, 32, Stance.STAFF, 0, "staff_attack"),
+    STAFF_SPIN_ATTACK("staff_spin_attack", "Staff spin attack", false, 30, Stance.STAFF, 0, "staff_attack"),
+    STAFF_CROUCH_ATTACK("staff_crouch_attack", "Staff sweep, crouched", false, 24, Stance.STAFF, 0,
+            "staff_attack"),
+    STAFF_PARRY("staff_parry", "Staff parry", false, 18, Stance.STAFF, 0, "parry"),
+    STAFF_BLOCK("staff_block", "Staff block", true, 30, Stance.STAFF, 0, "staff_idle");
 
     /** The playback rate every sheet is authored at unless its profile says otherwise. */
     public static final double DEFAULT_FPS = 30.0;

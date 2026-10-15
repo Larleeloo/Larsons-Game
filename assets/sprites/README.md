@@ -119,8 +119,8 @@ pinned to the old ones), so one `variants.json` colours both.
 
 That is 6 × 3 × 8 = **144 sheets** for an item with the first six, which is all
 an item needs: a state it has no sheets for is shown as one of the first six
-(see [Fallbacks](#fallbacks)). The feminine model's pixel-art items have all 56
-states, 1,344 sheets an item (a carried item the states of its stance).
+(see [Fallbacks](#fallbacks)). The feminine model's pixel-art items have all 80
+states, 1,920 sheets an item (a carried item the states of its stance).
 
 The **direction is the way the character faces in the picture**: `s` faces the
 camera, `n` shows its back, `e` faces the viewer's right, `w` the viewer's left,
@@ -418,10 +418,11 @@ holdouts were cut against.
 | carry_right | `battle_axe` | an ornate two-handed battle axe, 95 cm - the axe stance's weapon, pixel art only, drawn only in the `axe_*` states |
 | carry_left | `longbow` | a 1.30 m recurve bow, its string drawn and an arrow nocked in the draw - the bow stance's, in the `bow_*` states |
 | carry_right | `crossbow` | an 85 cm crossbow with a bolt that goes when it is shot - the crossbow stance's, in the `crossbow_*` states |
+| carry_right | `crystal_staff` | a 1.50 m staff of twisted dark wood with a purple crystal in an iron claw - the staff stance's, in the `staff_*` states |
 
-The three weapons are not worn: they are a **stance** each (`sprite/Stance` in
+The four weapons are not worn: they are a **stance** each (`sprite/Stance` in
 the game), held by picking them up (their pickups are `items/battle_axe/`,
-`items/longbow/`, `items/crossbow/`). While a state of a weapon stance plays,
+`items/longbow/`, `items/crossbow/`, `items/crystal_staff/`). While a state of a weapon stance plays,
 its weapon is drawn in its hand and the other hand is empty, whatever the
 wardrobe carries; the emotes and the pick-ups are played with empty hands; the
 wardrobe's own carried items (the sword and the shield) are drawn in the sword
@@ -461,6 +462,9 @@ layers stay in step (the game plays one frame index on all of them):
 | bow_draw, bow_fire, bow_crouch_draw, bow_crouch_fire, bow_parry, bow_block | 24, 18, 24, 18, 18, 30 | | the draw ends held at full draw; `bow_block` loops |
 | crossbow_fire, crossbow_crouch_fire, crossbow_parry, crossbow_block | 30, 30, 18, 30 | | `crossbow_block` loops |
 | axe_jump, bow_jump, crossbow_jump | 27 | 0.9 | one-shots: the jump's take-off and landing, the weapon held through it |
+| staff_idle, staff_walk, staff_run, staff_sprint, staff_crouch_idle, staff_crouch_walk | 48, 28, 20, 16, 48, 32 | | loops at the first six's speeds; the walk plants the staff like a walking stick as the left heel strikes, the crouch leans on it |
+| staff_attack, staff_heavy_attack, staff_spin_attack, staff_crouch_attack, staff_parry, staff_block | 24, 32, 30, 24, 18, 30 | | the cast (a thrust of the crystal), the slam into the ground, the spin, the low sweep; `staff_block` loops |
+| staff_jump | 27 | 0.9 | one-shot: the jump with the staff in the right hand |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
 body for every layer; for the garments the body and, where one tucks into or

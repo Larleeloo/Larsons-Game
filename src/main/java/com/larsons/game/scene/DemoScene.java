@@ -59,7 +59,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final Object[][] WEAPONS_AT = {
             {ItemDef.BATTLE_AXE, new Vec3(-1.9, 0, -1.7)},
             {ItemDef.LONGBOW, new Vec3(2.5, 0, 1.0)},
-            {ItemDef.CROSSBOW, new Vec3(-2.3, 0, 1.6)}};
+            {ItemDef.CROSSBOW, new Vec3(-2.3, 0, 1.6)},
+            {ItemDef.CRYSTAL_STAFF, new Vec3(2.6, 0, -0.9)}};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";

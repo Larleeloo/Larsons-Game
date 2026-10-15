@@ -18,7 +18,7 @@ import java.util.function.Supplier;
  *
  * <p>The sword is worn: picked up, it goes into the wardrobe's weapon hand.
  * A weapon with a {@link Stance} of its own - the battle axe, the bow, the
- * crossbow - is held instead: picked up, she takes up its stance, and its
+ * crossbow, the crystal staff - is held instead: picked up, she takes up its stance, and its
  * states draw it ({@link Stance#carried}).
  *
  * @param id          folder name, for both the icon and the carried layer
@@ -39,7 +39,10 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
     public static final ItemDef CROSSBOW = new ItemDef("crossbow", "Crossbow", Slot.CARRY_RIGHT, 1.0,
             () -> FallbackSprites.weaponIcon("crossbow"), Stance.CROSSBOW);
 
-    public static final List<ItemDef> ALL = List.of(SWORD, BATTLE_AXE, LONGBOW, CROSSBOW);
+    public static final ItemDef CRYSTAL_STAFF = new ItemDef("crystal_staff", "Crystal staff", Slot.CARRY_RIGHT, 1.5,
+            () -> FallbackSprites.weaponIcon("crystal_staff"), Stance.STAFF);
+
+    public static final List<ItemDef> ALL = List.of(SWORD, BATTLE_AXE, LONGBOW, CROSSBOW, CRYSTAL_STAFF);
 
     /** Whether it is held in a stance of its own rather than worn. */
     public boolean held() {

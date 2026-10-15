@@ -43,7 +43,7 @@ class StanceTest {
 
     @Test
     void eachStancePlaysItsOwnStates() {
-        for (Stance st : new Stance[]{Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW}) {
+        for (Stance st : new Stance[]{Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW, Stance.STAFF}) {
             for (boolean crouched : new boolean[]{false, true}) {
                 assertEquals(st, st.idle(crouched).stance(), st + " idle");
                 assertEquals(st, st.attack(crouched).stance(), st + " attack");
@@ -66,6 +66,14 @@ class StanceTest {
         assertNull(Stance.AXE.release(false));
         assertNull(Stance.BOW.spin());
         assertEquals(AnimState.AXE_HEAVY_ATTACK, Stance.AXE.heavy());
+        // the crystal staff: the cast, the slam, the spin and the low sweep
+        assertEquals(AnimState.STAFF_ATTACK, Stance.STAFF.attack(false));
+        assertEquals(AnimState.STAFF_CROUCH_ATTACK, Stance.STAFF.attack(true));
+        assertEquals(AnimState.STAFF_HEAVY_ATTACK, Stance.STAFF.heavy());
+        assertEquals(AnimState.STAFF_SPIN_ATTACK, Stance.STAFF.spin());
+        assertEquals(AnimState.STAFF_WALK, Stance.STAFF.moving(Stance.Pace.WALK, false));
+        assertNull(Stance.STAFF.release(false));
+        assertNull(Stance.STAFF.bash());
         assertTrue(Stance.SWORD.canJump());
         assertEquals(AnimState.JUMP, Stance.SWORD.jump());
         assertEquals(AnimState.CROSSBOW_JUMP, Stance.CROSSBOW.jump());
@@ -133,6 +141,9 @@ class StanceTest {
         assertEquals("battle_axe", Stance.AXE.carried(Slot.CARRY_LEFT, w));
         assertEquals("longbow", Stance.BOW.carried(Slot.CARRY_RIGHT, w));
         assertEquals(Stance.AXE, Stance.ofItem("battle_axe_px128_lh"));
+        // the crystal staff in the weapon hand too
+        assertEquals("crystal_staff", Stance.STAFF.carried(Slot.CARRY_LEFT, w));
+        assertEquals(Stance.STAFF, Stance.ofItem("crystal_staff_px64"));
         assertNull(Stance.ofItem("sword"));
     }
 
