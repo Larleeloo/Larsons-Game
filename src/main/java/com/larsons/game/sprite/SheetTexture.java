@@ -16,6 +16,9 @@ public final class SheetTexture implements AutoCloseable {
     private final int[] palette;
     private final long bytes;
     private final String source;
+    /** The last palette swap asked of {@link #recolored} and its result: an outfit's colours rarely change. */
+    private Variants.Recolor lastRecolor;
+    private int[] lastRecolored;
     private boolean closed;
     long lastUsedFrame;
 
@@ -51,6 +54,27 @@ public final class SheetTexture implements AutoCloseable {
      * drawn - for the layer to start its own from; null for an RGBA sheet.
      */
     public int[] palette() { return palette == null ? null : palette.clone(); }
+
+    /**
+     * {@link #palette()} without the copy, for drawing: the caller must not
+     * change it (every palette operation here makes a new one).
+     */
+    public int[] sharedPalette() { return palette; }
+
+    /**
+     * The sheet's palette in {@code r}'s colours ({@link Variants#recolored}),
+     * not to be changed - the same array frame after frame while the colours
+     * stay the same, so drawing an outfit does not build its palettes anew
+     * every frame.
+     */
+    public int[] recolored(Variants.Recolor r) {
+        if (palette == null || r == null) return palette;
+        if (lastRecolor == null || !lastRecolor.key().equals(r.key())) {
+            lastRecolored = Variants.recolored(palette, r);
+            lastRecolor = r;
+        }
+        return lastRecolored;
+    }
 
     public int frameCount() { return frameCount; }
 

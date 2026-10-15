@@ -89,7 +89,7 @@ public final class ObjectStack {
             double fps = framing.fps();
             int frame = ambient ? frameAt(worldTime, fps, sheet.frameCount(), true)
                     : frameAt(stateTime, fps, sheet.frameCount(), loops);
-            int[] palette = sheet.palette();
+            int[] palette = sheet.sharedPalette();
             if (ambient && palette != null && light > 0) palette = lit(palette, light);
             layers.add(new LayerStack.Layer(null, layer, sheet, frame, r.mirrored(), palette));
         }

@@ -164,11 +164,24 @@ final class PauseMenu {
         ui.text(ui.small, "The weapons' moves were animated again; Classic shows the first version, to compare "
                 + "(F9 while playing).", x, y + 44, Theme.ITEM_DISABLED);
         y += 90;
+        var pacer = game.pacer();
+        ui.text(ui.body, "Frame rate", x, y + 8, Theme.ITEM);
+        int[] rates = {60, 120, 144, 0};
+        for (int i = 0; i < rates.length; i++) {
+            String label = rates[i] == 0 ? "Uncapped" : String.valueOf(rates[i]);
+            if (ui.button(label, x + 220 + i * 120, y, 110, 34, pacer.target() == rates[i], true)) {
+                s.setFps(rates[i]);
+                pacer.setTarget(rates[i]);
+            }
+        }
+        ui.text(ui.small, String.format("Now %.0f fps, %.1f ms a frame, the longest %.1f ms  ·  %s",
+                pacer.fps(), pacer.averageMs(), pacer.worstMs(), pacer.describe()), x, y + 44, Theme.ITEM_DISABLED);
+        y += 90;
         var gpu = game.window().gpu();
         ui.text(ui.body, "Renderer", x, y, Theme.ITEM);
         ui.text(ui.body, gpu.describe(), x + 220, y, gpu.software() ? Theme.WARNING : Theme.OK);
         ui.text(ui.small, "OpenGL " + gpu.version() + " · MSAA " + gpu.samples() + "x · max texture "
-                + gpu.maxTexture() + " px · vsync " + (s.vsync ? "on" : "off"), x + 220, y + 26,
+                + gpu.maxTexture() + " px · vsync " + (s.vsync ? "on" : "off (-Dlarsons.gpu.vsync)"), x + 220, y + 26,
                 Theme.ITEM_DISABLED);
         ui.text(ui.small, "Sprite cache: " + lib.residentCount() + " sheets, "
                 + (lib.residentBytes() >> 20) + " MB of " + (s.vramBytes >> 20) + " MB budget",

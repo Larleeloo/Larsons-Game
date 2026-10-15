@@ -34,6 +34,14 @@ import static org.lwjgl.opengl.GL33C.*;
  *       behind them; depth-tested against the props so a tree can stand in
  *       front of the player.</li>
  * </ol>
+ *
+ * <p>Sprites test depth but do not write it. Every billboard faces the
+ * camera, so each one lies at a single depth and drawing them farthest
+ * first by that depth puts the nearer one on top wherever two overlap -
+ * what the depth buffer would have decided - while each layer of a stack
+ * can be drawn over only its own part of the card ({@link
+ * LayerStack#drawBillboard}), not the whole card, with no risk of two
+ * layers fighting over the last bit of depth.
  */
 public final class WorldRenderer implements AutoCloseable {
 
@@ -127,19 +135,18 @@ public final class WorldRenderer implements AutoCloseable {
         }
         batch.end();
 
-        // --- sprites, far to near ------------------------------------------------
-        glDepthMask(true);
+        // --- sprites, far to near (tested against the props, not written) ----------
         batch.begin(viewProj, fog, 0, FOG);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
-        Vec3 right = camera.right(), up = camera.up();
+        Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
 
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory());
         LayerStack.Result stack = playerStack;
         draws.add(() -> LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f));
-        dist.add(eye.distance(pivot));
+        dist.add(p.feet().sub(eye).dot(forward));
 
         for (Chest c : world.chests()) {
             Vec3 chestPivot = c.position().add(0, objects.profile(c.id()).pivotHeight(), 0);
@@ -149,7 +156,7 @@ public final class WorldRenderer implements AutoCloseable {
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
             draws.add(() -> LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
                     c.position(), right, up, 1f));
-            dist.add(eye.distance(chestPivot));
+            dist.add(c.position().sub(eye).dot(forward));
         }
 
         for (World.GroundItem g : world.items()) {
@@ -159,7 +166,7 @@ public final class WorldRenderer implements AutoCloseable {
             draws.add(() -> batch.quad(icon,
                     centre.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s), up.scale(-s),
                     0, 0, 1, 1, 1, 1, 1, 1));
-            dist.add(eye.distance(centre));
+            dist.add(centre.sub(eye).dot(forward));
         }
 
         Integer[] order = new Integer[draws.size()];
@@ -167,6 +174,7 @@ public final class WorldRenderer implements AutoCloseable {
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+        glDepthMask(true);
     }
 
     private void groundShadow(Vec3 at, double radius, float alpha) {

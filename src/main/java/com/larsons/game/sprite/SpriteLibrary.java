@@ -57,7 +57,8 @@ import java.util.stream.Stream;
  * A full character is 6 states × 24 views of 512-pixel frames — gigabytes if it
  * were all resident at once. So sheets are loaded <b>on demand</b>, decoded
  * on worker threads, cropped to the part of the frame they use ({@link
- * SheetImage}), uploaded a few per frame, and evicted least-recently-used
+ * SheetImage}), uploaded within a couple of milliseconds a frame (so loading
+ * never costs a 120 fps frame its deadline), and evicted least-recently-used
  * once the video-memory budget ({@code -Dlarsons.sprites.vramMB}, default
  * 1536) is exceeded. What the camera is looking at always loads; what it may
  * look at next is {@linkplain #prefetch prefetched} only into room the budget
@@ -155,6 +156,14 @@ public final class SpriteLibrary implements AutoCloseable {
     private static final Uploader GL = (layout, pixels, source) ->
             new SheetTexture(Texture.upload(pixels, layout.pixelArt()), layout, source);
 
+    /**
+     * Uploading a sheet to the GPU is the one thing loading does on the render
+     * thread; a frame spends at most this long on it (a frame at 120 fps is
+     * 8.3 ms). The first upload of a frame always goes ahead, so loading never
+     * stalls; the others only if they are expected to fit ({@link #pump}).
+     */
+    static final long UPLOAD_BUDGET_NS = 2_000_000L;
+
     /** The GPU memory a decoded sheet will take. */
     static long bytesOf(SheetImage layout) {
         BufferedImage atlas = layout.atlas();
@@ -185,6 +194,8 @@ public final class SpriteLibrary implements AutoCloseable {
     private final Map<Key, Long> sizes = new HashMap<>();
     private long sizesTotal;
     private final ConcurrentLinkedQueue<Decoded> decoded = new ConcurrentLinkedQueue<>();
+    /** What an upload has been taking, in nanoseconds a byte of video memory (learnt as they happen). */
+    private double uploadNsPerByte;
     /** Files that would not decode (in any colours). */
     private final Map<Path, String> failed = new HashMap<>();
     private final Map<String, SheetTexture> fallback = new HashMap<>();
@@ -222,6 +233,9 @@ public final class SpriteLibrary implements AutoCloseable {
         workers = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "sprite-decoder");
             t.setDaemon(true);
+            // below the render thread, so decoding never takes its core when cores are short
+            // (Windows and macOS honour it; Linux schedules threads alike)
+            t.setPriority(Thread.NORM_PRIORITY - 2);
             return t;
         });
         rescan();
@@ -659,13 +673,32 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     /**
-     * Upload finished decodes (at most a few milliseconds' worth per frame, so
-     * turning the camera never stalls) and evict over budget. GL thread only.
+     * Upload finished decodes - within {@link #UPLOAD_BUDGET_NS} a frame, so
+     * turning the camera never costs a frame its deadline - and evict over
+     * budget. Each upload's cost is predicted from its size and what uploads
+     * have taken so far; one that would not fit waits for the next frame (the
+     * stacks on screen hold their last complete frame meanwhile). GL thread
+     * only.
      */
     public void pump() {
-        long deadline = System.nanoTime() + 4_000_000L;
+        pump(UPLOAD_BUDGET_NS);
+    }
+
+    /** Upload every finished decode, whatever it takes. For tests. */
+    void pumpAll() {
+        pump(Long.MAX_VALUE);
+    }
+
+    private void pump(long budgetNs) {
+        long start = System.nanoTime();
+        boolean uploaded = false;
         Decoded d;
-        while ((d = decoded.poll()) != null) {
+        while ((d = decoded.peek()) != null) {
+            if (uploaded && d.epoch() == epoch && d.error() == null) {
+                double predicted = bytesOf(d.layout()) * uploadNsPerByte;
+                if (System.nanoTime() - start + predicted > budgetNs) break;
+            }
+            decoded.poll();
             if (d.epoch() != epoch) {
                 if (d.pixels() != null) d.pixels().free();
                 continue;
@@ -682,7 +715,14 @@ public final class SpriteLibrary implements AutoCloseable {
                 if (ahead && residentBytes + bytes > budgetBytes) {
                     d.pixels().free(); // a prefetch with no room left for it
                 } else {
+                    long t0 = System.nanoTime();
                     SheetTexture t = uploader.upload(d.layout(), d.pixels(), d.key().file().toString());
+                    // learnt from sheets big enough for their size, not the call, to be the cost
+                    if (bytes >= 256 << 10) {
+                        double cost = (System.nanoTime() - t0) / (double) bytes;
+                        uploadNsPerByte = uploadNsPerByte == 0 ? cost : uploadNsPerByte + (cost - uploadNsPerByte) * 0.25;
+                    }
+                    uploaded = true;
                     t.lastUsedFrame = frame;
                     SheetTexture old = textures.put(d.key(), t);
                     if (old != null) {
@@ -692,7 +732,6 @@ public final class SpriteLibrary implements AutoCloseable {
                     residentBytes += t.bytes();
                 }
             }
-            if (System.nanoTime() > deadline) break;
         }
         evict();
     }

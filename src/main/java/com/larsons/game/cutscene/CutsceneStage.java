@@ -132,7 +132,7 @@ public final class CutsceneStage {
             SheetTexture t = sheets.get(i);
             CloseupLibrary.Entry e = entries.get(i);
             layers.add(new Drawn(t, LayerStack.mapFrame(frame, frames, t.frameCount()), a.mirrored(),
-                    a.palette(slots.get(i), t.palette(), e.variants())));
+                    a.palette(slots.get(i), t.sharedPalette(), e.variants())));
         }
         Stack s = new Stack(layers, profile.frameWidth());
         if (!missing) held.put(a.id(), s);

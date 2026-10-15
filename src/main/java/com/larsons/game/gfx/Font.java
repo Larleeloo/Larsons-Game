@@ -23,6 +23,8 @@ public final class Font implements AutoCloseable {
     private record Glyph(float u0, float v0, float u1, float v1, float w, float h, float advance) {}
 
     private final Map<Integer, Glyph> glyphs = new HashMap<>();
+    /** The glyphs of the first 256 characters by code, looked up without boxing (text is drawn every frame). */
+    private final Glyph[] latin = new Glyph[256];
     private final Texture texture;
     private final float lineHeight;
     private final float ascent;
@@ -85,6 +87,7 @@ public final class Font implements AutoCloseable {
                     p[2] / s, glyphH / s, fm.charWidth(c) / s));
         }
         g.dispose();
+        for (Map.Entry<Integer, Glyph> e : glyphs.entrySet()) if (e.getKey() < latin.length) latin[e.getKey()] = e.getValue();
         texture = Texture.of(atlas, false);
     }
 
@@ -95,14 +98,19 @@ public final class Font implements AutoCloseable {
     public float ascent() { return ascent; }
 
     public float width(String text) {
+        return width(text, 0, text.length());
+    }
+
+    /** The width of {@code text}'s characters {@code from} (inclusive) to {@code to} (exclusive). */
+    public float width(String text, int from, int to) {
         float w = 0;
-        for (int i = 0; i < text.length(); i++) w += glyph(text.charAt(i)).advance;
+        for (int i = from; i < to; i++) w += glyph(text.charAt(i)).advance;
         return w;
     }
 
     private Glyph glyph(char c) {
-        Glyph g = glyphs.get((int) c);
-        return g != null ? g : glyphs.get((int) '?');
+        Glyph g = c < latin.length ? latin[c] : glyphs.get((int) c);
+        return g != null ? g : latin['?'];
     }
 
     /** Whether the font can draw {@code c} (otherwise it draws a '?'). */

@@ -4,6 +4,7 @@ import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import org.lwjgl.system.MemoryUtil;
 
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 import static org.lwjgl.opengl.GL33C.*;
@@ -13,10 +14,18 @@ import static org.lwjgl.opengl.GL33C.*;
  * allow — used for everything flat in the game: the billboarded character
  * layers and items in the 3D world, their ground shadows, and the whole UI.
  *
- * <p>Quads are appended to a CPU buffer and sent to the GPU in one draw per
- * run of same-texture quads. Colours are straight alpha on the way in and
+ * <p>Quads are appended to a CPU buffer and drawn in one draw call per run of
+ * same-texture quads. Colours are straight alpha on the way in and
  * premultiplied here, to match the premultiplied textures (see
  * {@link PixelData}).
+ *
+ * <p><b>Streaming.</b> The runs are only recorded as they are added; the
+ * whole buffer goes to the GPU in <em>one</em> upload when the batch ends (or
+ * fills), and then every run is drawn from it. The upload lands in a part of
+ * a ring buffer no queued draw is reading, mapped unsynchronized, and the
+ * buffer is orphaned (given fresh storage) only when the ring wraps - so the
+ * CPU never waits for the GPU to finish with last frame's vertices, which a
+ * rewrite of the same bytes for every draw call made it do on many drivers.
  *
  * <p>A quad can name a palette ({@link #palette}): its texture then holds
  * palette indices ({@link Texture#indexed()}) and the shader colours each
@@ -27,7 +36,11 @@ import static org.lwjgl.opengl.GL33C.*;
 public final class Batch implements AutoCloseable {
 
     private static final int FLOATS_PER_VERTEX = 14;      // xyz uv rgba clip palette
+    private static final int QUAD_BYTES = 4 * FLOATS_PER_VERTEX * Float.BYTES;
+    /** Quads one upload holds (the CPU buffer, and the shared index buffer). */
     private static final int MAX_QUADS = 8192;
+    /** Quads the GPU's vertex buffer holds before it is orphaned and filled from the start again. */
+    private static final int RING_QUADS = MAX_QUADS * 4;
     /** A clip rectangle nothing falls outside of: the whole quad is drawn. */
     private static final float NO_CLIP = 1e9f;
 
@@ -92,7 +105,12 @@ public final class Batch implements AutoCloseable {
     private final int vao, vbo, ebo;
     private final FloatBuffer data;
     private int quads;
-    private Texture texture;
+    /** The runs of same-texture quads waiting in {@link #data}: run {@code i} starts at quad {@code runFirst[i]}. */
+    private final Texture[] runTexture = new Texture[MAX_QUADS];
+    private final int[] runFirst = new int[MAX_QUADS];
+    private int runs;
+    /** Where the next upload goes in the GPU's vertex buffer, in quads. */
+    private int ringQuads;
     private boolean drawing;
     private int drawCalls;
 
@@ -104,8 +122,7 @@ public final class Batch implements AutoCloseable {
         glBindVertexArray(vao);
         vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, (long) MAX_QUADS * 4 * FLOATS_PER_VERTEX * Float.BYTES,
-                GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, (long) RING_QUADS * QUAD_BYTES, GL_STREAM_DRAW);
         int stride = FLOATS_PER_VERTEX * Float.BYTES;
         glVertexAttribPointer(0, 3, GL_FLOAT, false, stride, 0);
         glEnableVertexAttribArray(0);
@@ -147,7 +164,7 @@ public final class Batch implements AutoCloseable {
         shader.set("uTex", 0);
         shader.set("uPalettes", 1);
         shader.set("uAlphaCut", 0.003f);
-        palettes.reset();
+        palettes.newBatch();
         if (fogColor != null) {
             shader.set("uFogColor", fogColor[0], fogColor[1], fogColor[2]);
             shader.set("uFog", fogNear, fogFar);
@@ -204,9 +221,11 @@ public final class Batch implements AutoCloseable {
                       float cu0, float cv0, float cu1, float cv1,
                       float r, float g, float b, float a, int palette) {
         if (!drawing) throw new IllegalStateException("batch not begun");
-        if (tex != texture || quads == MAX_QUADS) {
-            flush();
-            texture = tex;
+        if (quads == MAX_QUADS) flush();
+        if (runs == 0 || runTexture[runs - 1] != tex) {
+            runTexture[runs] = tex;
+            runFirst[runs] = quads;
+            runs++;
         }
         float pr = r * a, pg = g * a, pb = b * a;
         float pal = palette + 1;           // 0 in the buffer is "no palette"
@@ -276,27 +295,64 @@ public final class Batch implements AutoCloseable {
                 .put(cu0).put(cv0).put(cu1).put(cv1).put(palette);
     }
 
+    /** Upload what is queued and draw it: one upload, one draw call per run of the same texture. */
     public void flush() {
-        if (quads == 0 || texture == null) {
-            quads = 0;
-            data.clear();
+        if (quads == 0) {
+            clearQueue();
             return;
         }
         data.flip();
+        int baseVertex = upload();
         palettes.sync();
         palettes.bind(1);
-        texture.bind(0);
+        for (int r = 0; r < runs; r++) {
+            // (a texture released since its quads were queued - a reload mid-frame - is skipped, not drawn deleted)
+            if (runTexture[r].closed()) continue;
+            int first = runFirst[r];
+            int count = (r + 1 < runs ? runFirst[r + 1] : quads) - first;
+            runTexture[r].bind(0);
+            glDrawElementsBaseVertex(GL_TRIANGLES, count * 6, GL_UNSIGNED_INT, (long) first * 6 * Integer.BYTES,
+                    baseVertex);
+            drawCalls++;
+        }
+        clearQueue();
+    }
+
+    /**
+     * Copy the queued vertices into the next unused stretch of the vertex
+     * buffer, orphaning it first if they no longer fit; returns the index of
+     * the first vertex written. No draw already queued reads that stretch, so
+     * it is mapped without waiting for the GPU.
+     */
+    private int upload() {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, data);
-        glDrawElements(GL_TRIANGLES, quads * 6, GL_UNSIGNED_INT, 0);
-        drawCalls++;
-        data.clear();
+        if (ringQuads + quads > RING_QUADS) {
+            glBufferData(GL_ARRAY_BUFFER, (long) RING_QUADS * QUAD_BYTES, GL_STREAM_DRAW);
+            ringQuads = 0;
+        }
+        long offset = (long) ringQuads * QUAD_BYTES, size = (long) quads * QUAD_BYTES;
+        ByteBuffer dst = glMapBufferRange(GL_ARRAY_BUFFER, offset, size,
+                GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+        if (dst != null) {
+            MemoryUtil.memCopy(MemoryUtil.memAddress(data), MemoryUtil.memAddress(dst), size);
+            glUnmapBuffer(GL_ARRAY_BUFFER);
+        } else {
+            glBufferSubData(GL_ARRAY_BUFFER, offset, data);
+        }
+        int base = ringQuads * 4;
+        ringQuads += quads;
+        return base;
+    }
+
+    private void clearQueue() {
+        java.util.Arrays.fill(runTexture, 0, runs, null);
+        runs = 0;
         quads = 0;
+        data.clear();
     }
 
     public void end() {
         flush();
-        texture = null;
         drawing = false;
         glBindVertexArray(0);
     }

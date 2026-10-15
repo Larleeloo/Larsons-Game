@@ -123,6 +123,45 @@ public final class Window implements AutoCloseable {
         glfwPollEvents();
     }
 
+    /** How many refreshes each swap waits for: 0 = none (vsync off), 1 = every refresh, 2 = every other. */
+    public void swapInterval(int interval) {
+        glfwSwapInterval(Math.max(0, interval));
+    }
+
+    /**
+     * The refresh rate, in Hz, of the monitor the window is on - the one its
+     * centre is over (the primary where that cannot be told, as on Wayland) -
+     * or 0 if GLFW does not know.
+     */
+    public int refreshRate() {
+        long monitor = glfwGetWindowMonitor(handle);
+        if (monitor == MemoryUtil.NULL) monitor = monitorUnderCentre();
+        if (monitor == MemoryUtil.NULL) monitor = glfwGetPrimaryMonitor();
+        if (monitor == MemoryUtil.NULL) return 0;
+        GLFWVidMode mode = glfwGetVideoMode(monitor);
+        return mode == null ? 0 : Math.max(0, mode.refreshRate());
+    }
+
+    private long monitorUnderCentre() {
+        var monitors = glfwGetMonitors();
+        if (monitors == null) return MemoryUtil.NULL;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1);
+            glfwGetWindowPos(handle, x, y);
+            int cx = x.get(0) + width / 2, cy = y.get(0) + height / 2;
+            for (int i = 0; i < monitors.limit(); i++) {
+                long m = monitors.get(i);
+                GLFWVidMode mode = glfwGetVideoMode(m);
+                if (mode == null) continue;
+                glfwGetMonitorPos(m, x, y);
+                if (cx >= x.get(0) && cx < x.get(0) + mode.width() && cy >= y.get(0) && cy < y.get(0) + mode.height()) {
+                    return m;
+                }
+            }
+        }
+        return MemoryUtil.NULL;
+    }
+
     public void swapBuffers() {
         glfwSwapBuffers(handle);
     }

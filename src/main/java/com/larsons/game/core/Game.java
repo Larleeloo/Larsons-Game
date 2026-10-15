@@ -32,10 +32,12 @@ import static org.lwjgl.opengl.GL33C.*;
  *
  * <p><b>One thread.</b> Events, simulation and rendering all run on the main
  * thread, one frame at a time: poll events → update the scene → render →
- * swap. Frame time is measured and capped at 50 ms, so animation stays
- * delta-driven (the engine's rule: the same speed at 60 or 144 Hz) without a
- * hitch turning into a teleport. Sprite sheets decode on worker threads and
- * are uploaded here, a few per frame.
+ * swap → wait for the next frame's turn. The {@link FramePacer} holds the
+ * frames to a steady 120 a second (vsync where the display allows it, its
+ * own precise wait where not) and hands each frame its step: animation stays
+ * delta-driven (the engine's rule: the same speed at 60 or 144 Hz), capped
+ * at 50 ms so a hitch never turns into a teleport. Sprite sheets decode on
+ * worker threads and are uploaded here, a few milliseconds' worth a frame.
  *
  * <p><b>Overlays.</b> Two things sit above whatever scene is running: the
  * sprite importer, which opens whenever files are dropped on the window, and
@@ -58,12 +60,11 @@ public final class Game implements AutoCloseable {
     private final Wardrobe wardrobe;
     private final ImportPanel importer = new ImportPanel();
     private final Autopilot autopilot;
+    private final FramePacer pacer;
 
     private Scene scene;
     private boolean quit;
     private Path pendingShot;
-    private double fps, fpsTimer;
-    private int fpsFrames;
 
     private record Toast(String text, float[] color, double[] life) {}
 
@@ -72,8 +73,11 @@ public final class Game implements AutoCloseable {
     public Game(Settings settings) {
         this.settings = settings;
         window = new Window(TITLE, 1280, 720, settings.msaa, settings.vsync);
+        pacer = new FramePacer(window, settings.fps, settings.vsync);
+        pacer.setLog(settings.logFrames);
         GpuInfo gpu = window.gpu();
         System.out.println("[gpu] " + gpu.describe().replace('—', '-'));
+        System.out.println("[gpu] frame pacing: " + pacer.describe());
         if (gpu.software()) {
             String msg = "[gpu] WARNING: OpenGL is running on a software rasteriser, not a GPU. "
                     + "Update or install the graphics driver"
@@ -122,13 +126,9 @@ public final class Game implements AutoCloseable {
 
     /** The loop. Returns when the window closes or a scene quits. */
     public void run() {
-        long last = System.nanoTime();
         while (!window.shouldClose() && !quit) {
             window.pollEvents();
-            long now = System.nanoTime();
-            double dt = Math.min(0.05, (now - last) / 1e9);
-            last = now;
-            tickFps(dt);
+            double dt = pacer.beginFrame();
 
             Input in = window.input();
             for (List<String> drop : in.takeDrops()) {
@@ -158,6 +158,7 @@ public final class Game implements AutoCloseable {
             }
             window.swapBuffers();
             in.endFrame();
+            pacer.endFrame();
         }
     }
 
@@ -182,16 +183,6 @@ public final class Game implements AutoCloseable {
         // The importer is modal: it draws over everything, toasts included.
         importer.draw(ui, this);
         ui.end();
-    }
-
-    private void tickFps(double dt) {
-        fpsTimer += dt;
-        fpsFrames++;
-        if (fpsTimer >= 0.5) {
-            fps = fpsFrames / fpsTimer;
-            fpsTimer = 0;
-            fpsFrames = 0;
-        }
     }
 
     // --- scenes ----------------------------------------------------------------------
@@ -262,7 +253,10 @@ public final class Game implements AutoCloseable {
 
     public ImportPanel importer() { return importer; }
 
-    public double fps() { return fps; }
+    public double fps() { return pacer.fps(); }
+
+    /** What holds the frame rate steady, and its numbers (frame times, the worst of them). */
+    public FramePacer pacer() { return pacer; }
 
     @Override
     public void close() {

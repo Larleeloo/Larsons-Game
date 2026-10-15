@@ -18,6 +18,8 @@ import java.util.Map;
  *   -Dlarsons.gpu=required        warn loudly if the driver is a software rasteriser
  *   -Dlarsons.gpu.msaa=4          multisample anti-aliasing samples (0 = off)
  *   -Dlarsons.gpu.vsync=on        wait for the display's refresh
+ *   -Dlarsons.fps=120             the frame rate to hold (0 = as fast as it goes; see FramePacer)
+ *   -Dlarsons.fps.log=true        print the frame rate and frame times to the console twice a second
  *   -Dlarsons.sprites.scale=1     shrink sprite frames on load (0.5 = half size)
  *   -Dlarsons.sprites.vramMB=1536 video memory the sprite cache may use
  *   -Dlarsons.assets=assets       where assets/sprites lives
@@ -42,6 +44,15 @@ public final class Settings {
 
     // Saved between runs.
     public double spriteScale;
+    /**
+     * The frame rate the game holds to ({@link FramePacer}); 0: no cap but the
+     * display's. {@code -Dlarsons.fps} overrides it for one run without
+     * changing what is saved; {@link #setFps} is the player's choice.
+     */
+    public int fps;
+    private int savedFps = FramePacer.DEFAULT_FPS;
+    /** Print the frame numbers to the console ({@code -Dlarsons.fps.log}). */
+    public final boolean logFrames;
     public boolean showHud = true;
     public boolean showProps = true;
     /**
@@ -62,16 +73,20 @@ public final class Settings {
         inventorySlots = Math.max(com.larsons.game.world.Inventory.HOTBAR,
                 intProperty("larsons.inventory.slots", com.larsons.game.world.Inventory.DEFAULT_SLOTS));
         spriteScale = doubleProperty("larsons.sprites.scale", -1);
+        fps = intProperty("larsons.fps", -1);
+        logFrames = Boolean.getBoolean("larsons.fps.log");
     }
 
     public static Settings load() {
         Settings s = new Settings();
         Path file = s.config.resolve("settings.json");
         boolean scaleGiven = s.spriteScale > 0;
+        boolean fpsGiven = s.fps >= 0;
         if (Files.isRegularFile(file)) {
             try {
                 Map<String, Object> j = Json.asObject(Json.parse(Files.readString(file, StandardCharsets.UTF_8)));
                 if (!scaleGiven) s.spriteScale = Json.num(j, "spriteScale", 1.0);
+                s.savedFps = Math.max(0, (int) Json.num(j, "fps", FramePacer.DEFAULT_FPS));
                 s.showHud = Json.bool(j, "showHud", true);
                 s.showProps = Json.bool(j, "showProps", true);
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
@@ -80,6 +95,7 @@ public final class Settings {
             }
         }
         if (s.spriteScale <= 0) s.spriteScale = 1.0;
+        if (!fpsGiven) s.fps = s.savedFps;
         String anim = System.getProperty("larsons.animations", "").trim().toLowerCase();
         if (anim.equals("classic") || anim.equals("v1")) s.classicAnimations = true;
         else if (anim.equals("new")) s.classicAnimations = false;
@@ -89,6 +105,7 @@ public final class Settings {
     public void save() {
         Map<String, Object> j = new LinkedHashMap<>();
         j.put("spriteScale", spriteScale);
+        j.put("fps", savedFps);
         j.put("showHud", showHud);
         j.put("showProps", showProps);
         j.put("classicAnimations", classicAnimations);
@@ -98,6 +115,11 @@ public final class Settings {
         } catch (IOException e) {
             System.err.println("[settings] cannot save: " + e.getMessage());
         }
+    }
+
+    /** The player picks a frame rate (0: uncapped): used now, and saved. */
+    public void setFps(int fps) {
+        this.fps = this.savedFps = Math.max(0, fps);
     }
 
     /** {@code config/wardrobe.json}. */
