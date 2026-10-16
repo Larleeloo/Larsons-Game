@@ -108,6 +108,21 @@ class InventoryTest {
     }
 
     @Test
+    void theCrystalStaffIsPickedUpIntoTheHotbarAndHeldInItsStance() {
+        World w = new World(swordAndShield());
+        w.spawn(ItemDef.CRYSTAL_STAFF, new Vec3(1, 0, 0));
+        assertTrue(w.pickUp(w.reachable()));
+        Player p = w.player();
+        assertEquals(Stance.STAFF, p.stance());
+        assertEquals(0, p.inventory().indexOf("crystal_staff"));
+        assertEquals(ItemDef.CRYSTAL_STAFF, ItemDef.of(Stance.STAFF));
+        w.select(3);
+        assertEquals(Stance.SWORD, p.stance());
+        w.select(0);
+        assertEquals(Stance.STAFF, p.stance());
+    }
+
+    @Test
     void aWeaponInTheRestOfTheInventoryIsSwappedIntoHandToBeWielded() {
         World w = new World(swordAndShield(), 10);
         Inventory inv = w.player().inventory();

@@ -56,18 +56,18 @@ The main menu has one entry, **Demo**, which loads the void.
 | **W A S D** | walk, relative to the camera |
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
-| **Space** | jump - with the sword, the axe, the bow or the crossbow |
+| **Space** | jump - with the sword, the axe, the bow, the crossbow or the crystal staff |
 | **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
 | **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
-| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow or crossbow in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
+| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow or crystal staff in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot |
 | **F1 – F4** | laugh, cry, surprise, anger |
 | **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
-| **[ / ]** | loop the previous / next of all 56 states in place |
+| **[ / ]** | loop the previous / next of all 80 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -84,7 +84,7 @@ Drop sprite sheets on the window at any time to import them.
   sky, drawn in a single full-screen GPU pass that ray-casts the ground plane
   per pixel, so it has no edge and a clean horizon at any zoom.
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **56 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **80 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
@@ -93,7 +93,7 @@ Drop sprite sheets on the window at any time to import them.
   HUD names the exact sheet each layer is drawing (and, where a set has no
   sheets for a state, the state it is shown as instead), and a gauge at the
   top right shows the camera's angle against the three height zones.
-- **A sword, a battle axe, a longbow and a crossbow** hovering over their
+- **A sword, a battle axe, a longbow, a crossbow and a crystal staff** hovering over their
   shadows nearby. Walk up and press **E**: she reaches out for it (crouched,
   if she is) and it is hers as her hand closes on it - in the first free
   slot of her [hotbar](#the-inventory-and-the-hotbar), which is selected,
@@ -104,7 +104,10 @@ Drop sprite sheets on the window at any time to import them.
   a heavy overhead blow, a spin attack, a crouched sweep, a parry, a block),
   the **bow** (drawn while the attack is held, loosed when it is let go, crouched
   too; a parry and a block), the **crossbow** (a shot, crouched too; a parry and
-  a block). **1 – 5** or the mouse wheel choose between the hotbar's slots,
+  a block), the **crystal staff** (carried in the right hand and used as a
+  walking stick on the walk; both hands on it to fight: a cast - the crystal
+  thrust out at the enemy -, a heavy slam into the ground, a spin attack, a
+  crouched sweep, a parry and a block). **1 – 5** or the mouse wheel choose between the hotbar's slots,
   **G** puts down what she holds. A
   left-handed character (Pause → Wardrobe → Hand) takes everything in the other
   hand and fights left-handed.
@@ -122,7 +125,7 @@ Drop sprite sheets on the window at any time to import them.
   [The treasure chest](#the-treasure-chest).
 
   <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
-- **Sound for every animation** - both bodies' 56 states, the chest's four,
+- **Sound for every animation** - both bodies' 80 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
@@ -154,7 +157,7 @@ Drop sprite sheets on the window at any time to import them.
   bangles on either wrist, scabbards on either hip, a sun hat and a beanie, a
   long mantle (a cape to the ankles), a sword and a shield for either hand,
   and the face's ears, noses, eyes, eyebrows, makeup and mouths — each in all
-  56 states from all 24 views (a carried item in the states of its stance),
+  80 states from all 24 views (a carried item in the states of its stance),
   the clothes and mantle cloth-simulated per animation; and the battle axe,
   the longbow and the crossbow in theirs. They are **pixel art**,
   in 128- and 64-pixel frames in one 128-colour palette, right- and
@@ -250,8 +253,8 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
   (`sprite/Stance`): the wardrobe's own carried items (the sword and shield -
   or, with no shield in either hand, the sword alone: its own `blade_*`
   states, the free arm down instead of holding a shield up), the battle axe,
-  the bow or the crossbow, or nothing at all (the emotes and the pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
-  `carry_right/battle_axe`, `carry_left/longbow` or `carry_right/crossbow` (the
+  the bow, the crossbow or the crystal staff, or nothing at all (the emotes and the pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
+  `carry_right/battle_axe`, `carry_left/longbow`, `carry_right/crossbow` or `carry_right/crystal_staff` (the
   twin hand, mirrored, for a left-handed character) whatever the wardrobe holds,
   and the other hand is empty.
 - **Fallbacks.** No body sheet for a state from a view → the first state along
@@ -294,7 +297,7 @@ script's `slots <n>` changes it while the game runs; anything that no longer
 fits is put on the ground). The first five slots are the **hotbar**:
 
 - **1 – 5** or the **mouse wheel** choose a hotbar slot, and what is in it is
-  what she holds. The battle axe, the bow and the crossbow are each taken up
+  what she holds. The battle axe, the bow, the crossbow and the crystal staff are each taken up
   in their own stance; the sword - worn in the wardrobe's weapon hand - or an
   empty slot is the sword-and-shield stance, the wardrobe's own carried items
   (the sword alone when no shield is worn: no shield to block or bash with).
@@ -394,7 +397,7 @@ assets/sounds/
   SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 56 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/feminine/        <state>.mp3 for each of her 80 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
   items/<item>/           pickup.mp3, drop.mp3, equip.mp3
@@ -621,7 +624,7 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
-`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow>`, `teleport`, `pickup`,
+`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff>`, `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item>`,
 `chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`

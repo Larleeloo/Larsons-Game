@@ -102,7 +102,7 @@ public final class FallbackSprites {
 
     /**
      * A stand-in world sprite for a stance weapon ({@code battle_axe},
-     * {@code longbow}, {@code crossbow}) until it has an {@code icon.png}: a
+     * {@code longbow}, {@code crossbow}, {@code crystal_staff}) until it has an {@code icon.png}: a
      * few boxes, like the sword's.
      */
     public static BufferedImage weaponIcon(String item) {
@@ -127,6 +127,12 @@ public final class FallbackSprites {
                 }
                 boxes.add(new Box(t.mul(Mat4.translation(r * (1 - Math.cos(0.64)) - 0.08, 0, 0)),
                         0.006, 0.006, r * Math.sin(0.64), Puppet.BLADE, Box.Layer.SWORD));
+            }
+            case "crystal_staff" -> {
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.08)), 0.02, 0.02, 0.62, Puppet.GRIP,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.62)), 0.05, 0.04, 0.09, Puppet.BLADE,
+                        Box.Layer.SWORD));
             }
             default -> {
                 boxes.add(new Box(t, 0.035, 0.03, 0.36, Puppet.GRIP, Box.Layer.SWORD));

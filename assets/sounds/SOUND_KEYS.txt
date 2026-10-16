@@ -78,6 +78,19 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/blade_crouch_walk_fast.mp3   Sword crouch walk, fast (held) player/feminine/blade_crouch_walk_fast
   player/feminine/blade_spin_attack.mp3        Sword spin attack              player/feminine/blade_spin_attack
   player/feminine/blade_parry.mp3              Sword parry                    player/feminine/blade_parry
+  player/feminine/staff_idle.mp3               Staff idle (held)              player/feminine/staff_idle
+  player/feminine/staff_walk.mp3               Staff walk (held)              player/feminine/staff_walk
+  player/feminine/staff_run.mp3                Staff run (held)               player/feminine/staff_run
+  player/feminine/staff_sprint.mp3             Staff sprint (held)            player/feminine/staff_sprint
+  player/feminine/staff_crouch_idle.mp3        Staff crouch (held)            player/feminine/staff_crouch_idle
+  player/feminine/staff_crouch_walk.mp3        Staff crouch walk (held)       player/feminine/staff_crouch_walk
+  player/feminine/staff_jump.mp3               Staff jump                     player/feminine/staff_jump
+  player/feminine/staff_attack.mp3             Staff cast                     player/feminine/staff_attack
+  player/feminine/staff_heavy_attack.mp3       Staff slam                     player/feminine/staff_heavy_attack
+  player/feminine/staff_spin_attack.mp3        Staff spin attack              player/feminine/staff_spin_attack
+  player/feminine/staff_crouch_attack.mp3      Staff sweep, crouched          player/feminine/staff_crouch_attack
+  player/feminine/staff_parry.mp3              Staff parry                    player/feminine/staff_parry
+  player/feminine/staff_block.mp3              Staff block (held)             player/feminine/staff_block
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -149,6 +162,19 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/blade_crouch_walk_fast.mp3  Sword crouch walk, fast (held) player/masculine/blade_crouch_walk_fast
   player/masculine/blade_spin_attack.mp3       Sword spin attack              player/masculine/blade_spin_attack
   player/masculine/blade_parry.mp3             Sword parry                    player/masculine/blade_parry
+  player/masculine/staff_idle.mp3              Staff idle (held)              player/masculine/staff_idle
+  player/masculine/staff_walk.mp3              Staff walk (held)              player/masculine/staff_walk
+  player/masculine/staff_run.mp3               Staff run (held)               player/masculine/staff_run
+  player/masculine/staff_sprint.mp3            Staff sprint (held)            player/masculine/staff_sprint
+  player/masculine/staff_crouch_idle.mp3       Staff crouch (held)            player/masculine/staff_crouch_idle
+  player/masculine/staff_crouch_walk.mp3       Staff crouch walk (held)       player/masculine/staff_crouch_walk
+  player/masculine/staff_jump.mp3              Staff jump                     player/masculine/staff_jump
+  player/masculine/staff_attack.mp3            Staff cast                     player/masculine/staff_attack
+  player/masculine/staff_heavy_attack.mp3      Staff slam                     player/masculine/staff_heavy_attack
+  player/masculine/staff_spin_attack.mp3       Staff spin attack              player/masculine/staff_spin_attack
+  player/masculine/staff_crouch_attack.mp3     Staff sweep, crouched          player/masculine/staff_crouch_attack
+  player/masculine/staff_parry.mp3             Staff parry                    player/masculine/staff_parry
+  player/masculine/staff_block.mp3             Staff block (held)             player/masculine/staff_block
 
 
 CHESTS  ->  chests/ornate_chest/
@@ -173,6 +199,9 @@ ITEMS  ->  items/sword/
   items/crossbow/pickup.mp3                    Crossbow                       item/crossbow/pickup
   items/crossbow/drop.mp3                      Crossbow                       item/crossbow/drop
   items/crossbow/equip.mp3                     Crossbow                       item/crossbow/equip
+  items/crystal_staff/pickup.mp3               Crystal staff                  item/crystal_staff/pickup
+  items/crystal_staff/drop.mp3                 Crystal staff                  item/crystal_staff/drop
+  items/crystal_staff/equip.mp3                Crystal staff                  item/crystal_staff/equip
 
 
 INTERFACE  ->  ui/
