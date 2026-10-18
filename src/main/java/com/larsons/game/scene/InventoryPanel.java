@@ -7,6 +7,7 @@ import com.larsons.game.gfx.Texture;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Inventory;
+import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.World;
 
@@ -70,14 +71,14 @@ final class InventoryPanel {
     private final Game game;
     private final World world;
     private boolean open;
-    private String cursor;
+    private Item cursor;
     private int cursorFrom = -1;
     private int hovered = -1;
     private Texture background;
     private Path backgroundFile;
     private long backgroundStamp = Long.MIN_VALUE;
     private int shownSelected = -1;
-    private String shownHeld;
+    private Item shownHeld;
     private double nameTimer;
 
     InventoryPanel(Game game, World world) {
@@ -265,11 +266,11 @@ final class InventoryPanel {
                 }
                 world.equipSelected();
             } else if (!inside && cursor != null) {
-                ItemDef d = world.dropItem(cursor);
+                Item d = world.dropItem(cursor);
                 if (d != null) {
                     Sounds.play(SoundKeys.item(d.id(), "drop"));
                     game.saveWardrobe();
-                    game.toast("Dropped " + d.name(), Theme.HINT);
+                    game.toast("Dropped " + d.fullName(), Theme.HINT);
                 }
                 cursor = null;
                 cursorFrom = -1;
@@ -282,10 +283,8 @@ final class InventoryPanel {
 
         // --- what is under the pointer, and what is on it ----------------------------
         if (hovered >= 0 && inv.get(hovered) != null && cursor == null) {
-            ItemDef d = ItemDef.byId(inv.get(hovered));
-            String name = d == null ? inv.get(hovered) : d.name();
             String hint = Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
-            tooltip(ui, name, hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
+            tooltip(ui, inv.get(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
         }
         if (cursor != null) {
             float r = spots.get(0).r() * 0.9f;
@@ -314,7 +313,7 @@ final class InventoryPanel {
     void drawHotbar(Ui ui, double dt, float bottom) {
         if (open) return;
         Inventory inv = inventory();
-        String held = inv.held();
+        Item held = inv.held();
         if (inv.selected() != shownSelected || !java.util.Objects.equals(held, shownHeld)) {
             if (shownSelected >= 0) nameTimer = 2.0;
             shownSelected = inv.selected();
@@ -332,9 +331,8 @@ final class InventoryPanel {
                     sel ? SELECTED : Theme.withAlpha(Theme.HINT, 0.9f));
         }
         if (nameTimer > 0) {
-            ItemDef d = ItemDef.byId(held);
             String name = held == null ? "Empty hand - " + world.player().stance().label().toLowerCase()
-                    : d == null ? held : d.name();
+                    : held.fullName();
             float a = (float) Math.min(1, nameTimer / 0.4);
             float w = ui.body.width(name) + 24;
             ui.rect(ui.width() / 2f - w / 2, cy - r - 44, w, 28, Theme.withAlpha(Theme.PANEL, 0.75f * a));
@@ -343,7 +341,7 @@ final class InventoryPanel {
     }
 
     /** One slot: a dark diamond, its white border (gold when selected), the item in it. */
-    private void slot(Ui ui, float x, float y, float r, String item, boolean hot, boolean selected) {
+    private void slot(Ui ui, float x, float y, float r, Item item, boolean hot, boolean selected) {
         ui.diamond(x, y, r, SLOT_FILL);
         if (hot) ui.diamond(x, y, r, SLOT_HOVER);
         if (item != null) icon(ui, item, x, y, r, 1f);
@@ -351,18 +349,15 @@ final class InventoryPanel {
     }
 
     /** An item's world sprite, fitted inside a diamond of half-diagonal {@code r}. */
-    private void icon(Ui ui, String item, float x, float y, float r, float alpha) {
-        ItemDef d = ItemDef.byId(item);
-        if (d == null) {
-            ui.textCentered(ui.small, "?", x, y - 8, Theme.HINT);
-            return;
-        }
+    private void icon(Ui ui, Item item, float x, float y, float r, float alpha) {
+        ItemDef d = item.def();
         Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
         float s = r * 1.2f;
         ui.image(t, x - s / 2, y - s / 2, s, s, Theme.rgb(255, 255, 255, alpha));
     }
 
-    private void tooltip(Ui ui, String title, String hint, float x, float y) {
+    private void tooltip(Ui ui, Item item, String hint, float x, float y) {
+        String title = item.fullName();
         float w = Math.max(ui.body.width(title), ui.small.width(hint)) + 20;
         x = Math.min(x, ui.width() - w - 4);
         ui.rect(x, y, w, 48, Theme.withAlpha(Theme.PANEL, 0.95f));

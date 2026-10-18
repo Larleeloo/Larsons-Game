@@ -122,8 +122,9 @@ public final class WorldRenderer implements AutoCloseable {
         double lift = Math.min(1, p.height() / 1.5);
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
-            double h = g.hover(world.time());
-            groundShadow(g.position, 0.30 * (1 - 0.15 * h), (float) (0.42 - 0.12 * h));
+            if (!g.out(world.time())) continue;
+            double h = g.centre(world.time()).y();
+            groundShadow(g.position, 0.30 * (1 - 0.15 * h), (float) ((0.42 - 0.12 * h) * g.flight(world.time())));
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
@@ -161,7 +162,8 @@ public final class WorldRenderer implements AutoCloseable {
 
         for (World.GroundItem g : world.items()) {
             Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
-            Vec3 centre = g.position.add(0, g.hover(world.time()), 0);
+            if (!g.out(world.time())) continue;
+            Vec3 centre = g.centre(world.time());
             double s = g.def.worldSize();
             draws.add(() -> batch.quad(icon,
                     centre.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s), up.scale(-s),

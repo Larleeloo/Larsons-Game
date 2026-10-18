@@ -20,8 +20,9 @@ import java.util.function.ToDoubleFunction;
  * Each state is an animation with its own sound ({@code
  * chests/<id>/<state>.mp3}, {@code audio/WorldSounds}).
  *
- * <p>It is meant to become a loot chest: what the player finds when it opens
- * will hang off {@link #isOpen()}.
+ * <p>It is a loot chest: every time its lid starts up, {@link #opens()}
+ * counts it, and the world throws out what it gives ({@code World}, {@link
+ * Loot}).
  */
 public final class Chest {
 
@@ -64,6 +65,7 @@ public final class Chest {
     private State state = State.IDLE;
     private double time;
     private double duration = State.IDLE.defaultDuration();
+    private int opens;
 
     /**
      * @param id       the sprite folder, {@code assets/sprites/objects/<id>/}
@@ -96,6 +98,7 @@ public final class Chest {
     }
 
     private void enter(State s, ToDoubleFunction<State> durations) {
+        if (s == State.OPENING) opens++;
         state = s;
         time = 0;
         double d = durations == null ? 0 : durations.applyAsDouble(s);
@@ -120,7 +123,10 @@ public final class Chest {
         return Math.max(0, Math.min(1, v));
     }
 
-    /** Whether it is open or opening - what a loot screen would wait on. */
+    /** How many times its lid has started up. */
+    public int opens() { return opens; }
+
+    /** Whether it is open or opening. */
     public boolean isOpen() {
         return state == State.OPEN || state == State.OPENING;
     }
