@@ -18,8 +18,9 @@ import java.util.function.Supplier;
  *
  * <p>The sword is worn: picked up, it goes into the wardrobe's weapon hand.
  * A weapon with a {@link Stance} of its own - the battle axe, the bow, the
- * crossbow, the crystal staff - is held instead: picked up, she takes up its stance, and its
- * states draw it ({@link Stance#carried}).
+ * crossbow, the crystal staff, the wand, the mace, the dagger - is held
+ * instead: picked up, she takes up its stance, and its states draw it
+ * ({@link Stance#carried}).
  *
  * @param id          folder name, for both the icon and the carried layer
  * @param name        what the prompt calls it
@@ -42,7 +43,15 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
     public static final ItemDef CRYSTAL_STAFF = new ItemDef("crystal_staff", "Crystal staff", Slot.CARRY_RIGHT, 1.5,
             () -> FallbackSprites.weaponIcon("crystal_staff"), Stance.STAFF);
 
-    public static final List<ItemDef> ALL = List.of(SWORD, BATTLE_AXE, LONGBOW, CROSSBOW, CRYSTAL_STAFF);
+    public static final ItemDef WAND = new ItemDef("wand", "Wand", Slot.CARRY_RIGHT, 0.4,
+            () -> FallbackSprites.weaponIcon("wand"), Stance.WAND);
+    public static final ItemDef MACE = new ItemDef("mace", "Mace", Slot.CARRY_RIGHT, 0.75,
+            () -> FallbackSprites.weaponIcon("mace"), Stance.MACE);
+    public static final ItemDef DAGGER = new ItemDef("dagger", "Dagger", Slot.CARRY_RIGHT, 0.5,
+            () -> FallbackSprites.weaponIcon("dagger"), Stance.DAGGER);
+
+    public static final List<ItemDef> ALL = List.of(SWORD, BATTLE_AXE, LONGBOW, CROSSBOW, CRYSTAL_STAFF,
+            WAND, MACE, DAGGER);
 
     /** Whether it is held in a stance of its own rather than worn. */
     public boolean held() {

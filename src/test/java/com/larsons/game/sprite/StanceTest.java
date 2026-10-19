@@ -43,7 +43,8 @@ class StanceTest {
 
     @Test
     void eachStancePlaysItsOwnStates() {
-        for (Stance st : new Stance[]{Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW, Stance.STAFF}) {
+        for (Stance st : new Stance[]{Stance.SWORD, Stance.AXE, Stance.BOW, Stance.CROSSBOW, Stance.STAFF,
+                Stance.WAND, Stance.MACE, Stance.DAGGER}) {
             for (boolean crouched : new boolean[]{false, true}) {
                 assertEquals(st, st.idle(crouched).stance(), st + " idle");
                 assertEquals(st, st.attack(crouched).stance(), st + " attack");
@@ -74,6 +75,31 @@ class StanceTest {
         assertEquals(AnimState.STAFF_WALK, Stance.STAFF.moving(Stance.Pace.WALK, false));
         assertNull(Stance.STAFF.release(false));
         assertNull(Stance.STAFF.bash());
+        // the wand: the cast, the great cast, the casting turn and the flick from the crouch
+        assertEquals(AnimState.WAND_ATTACK, Stance.WAND.attack(false));
+        assertEquals(AnimState.WAND_CROUCH_ATTACK, Stance.WAND.attack(true));
+        assertEquals(AnimState.WAND_HEAVY_ATTACK, Stance.WAND.heavy());
+        assertEquals(AnimState.WAND_SPIN_ATTACK, Stance.WAND.spin());
+        assertEquals(AnimState.WAND_WALK, Stance.WAND.moving(Stance.Pace.WALK, false));
+        assertNull(Stance.WAND.release(false));
+        assertNull(Stance.WAND.bash());
+        // the mace: the smash, the ground smash, the spin and the low sweep
+        assertEquals(AnimState.MACE_ATTACK, Stance.MACE.attack(false));
+        assertEquals(AnimState.MACE_CROUCH_ATTACK, Stance.MACE.attack(true));
+        assertEquals(AnimState.MACE_HEAVY_ATTACK, Stance.MACE.heavy());
+        assertEquals(AnimState.MACE_SPIN_ATTACK, Stance.MACE.spin());
+        assertEquals(AnimState.MACE_RUN, Stance.MACE.moving(Stance.Pace.RUN, false));
+        assertNull(Stance.MACE.release(false));
+        assertNull(Stance.MACE.bash());
+        // the dagger: the thrust, the slash and lunge, the spinning slash and the rising stab
+        assertEquals(AnimState.DAGGER_ATTACK, Stance.DAGGER.attack(false));
+        assertEquals(AnimState.DAGGER_CROUCH_ATTACK, Stance.DAGGER.attack(true));
+        assertEquals(AnimState.DAGGER_HEAVY_ATTACK, Stance.DAGGER.heavy());
+        assertEquals(AnimState.DAGGER_SPIN_ATTACK, Stance.DAGGER.spin());
+        assertEquals(AnimState.DAGGER_SPRINT, Stance.DAGGER.moving(Stance.Pace.SPRINT, false));
+        assertEquals(AnimState.DAGGER_CROUCH_WALK, Stance.DAGGER.moving(Stance.Pace.RUN, true));
+        assertNull(Stance.DAGGER.release(false));
+        assertNull(Stance.DAGGER.bash());
         assertTrue(Stance.SWORD.canJump());
         assertEquals(AnimState.JUMP, Stance.SWORD.jump());
         assertEquals(AnimState.CROSSBOW_JUMP, Stance.CROSSBOW.jump());
@@ -144,6 +170,14 @@ class StanceTest {
         // the crystal staff in the weapon hand too
         assertEquals("crystal_staff", Stance.STAFF.carried(Slot.CARRY_LEFT, w));
         assertEquals(Stance.STAFF, Stance.ofItem("crystal_staff_px64"));
+        // and the one-handed weapons, the other hand empty
+        assertEquals("wand", Stance.WAND.carried(Slot.CARRY_LEFT, w));
+        assertEquals("mace", Stance.MACE.carried(Slot.CARRY_LEFT, w));
+        assertEquals("dagger", Stance.DAGGER.carried(Slot.CARRY_LEFT, w));
+        assertNull(Stance.DAGGER.carried(Slot.CARRY_RIGHT, w));
+        assertEquals(Stance.WAND, Stance.ofItem("wand_px128"));
+        assertEquals(Stance.MACE, Stance.ofItem("mace_px64_lh"));
+        assertEquals(Stance.DAGGER, Stance.ofItem("dagger"));
         assertNull(Stance.ofItem("sword"));
     }
 
