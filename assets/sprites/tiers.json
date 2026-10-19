@@ -13,7 +13,7 @@
     "magic": {},
     "crafted": {"body": "black"},
     "honed": {"wood": "darker"},
-    "crystal": {"blade": "crystal"},
+    "crystal": {"blade": "crystal", "tip": "crystal"},
     "perfect": {"all": "gold"},
     "mythic": {"all": "smoke"}
   },

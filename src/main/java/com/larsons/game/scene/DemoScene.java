@@ -355,22 +355,27 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
-        String text;
+        String text, name = "";
+        float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
         if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
                 < g.position.horizontalDistance(world.player().ground()))) {
             text = "E   " + (c.isOpen() ? "Close the chest" : "Open the chest");
         } else if (g != null) {
-            text = "E   Pick up " + g.item.fullName() + (world.player().crouched() ? " (crouched)" : "");
+            // the item's name in its rarity's colour
+            text = "E   Pick up ";
+            name = g.item.fullName() + (world.player().crouched() ? " (crouched)" : "");
+            edge = nameColour = g.item.rarity().colour(1f);
         } else {
             return;
         }
-        float tw = ui.large.width(text) + 40;
+        float tw = ui.large.width(text + name) + 40;
         float x = (ui.width() - tw) / 2, y = ui.height() * 0.62f;
         ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
-        ui.outline(x, y, tw, 44, 1, Theme.ACCENT);
-        ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
+        ui.outline(x, y, tw, 44, 1, edge);
+        float done = ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
+        if (!name.isEmpty()) ui.text(ui.large, name, x + 20 + done, y + 9, nameColour);
     }
 
     /** The A/B switch: the first version of the re-animated states, or the new. */

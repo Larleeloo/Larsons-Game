@@ -41,6 +41,8 @@ public final class World {
     public static final double ARC = 1.5;
     /** How long after the lid starts up the first item comes out, and after that each next one. */
     public static final double FIRST_THROW = 0.35, NEXT_THROW = 0.16;
+    /** A lying item's centre floats {@code HOVER} up or more, its lowest point {@code CLEARANCE} off the ground, bobbing {@code BOB} (metres). */
+    public static final double HOVER = 0.62, CLEARANCE = 0.2, BOB = 0.09;
 
     /**
      * An item lying in the world, hovering over its shadow and turning in
@@ -71,13 +73,25 @@ public final class World {
             this.thrownAt = thrownAt;
         }
 
-        /** How high the item's centre floats at time {@code t}: a slow bob. */
+        /**
+         * How high the item's centre floats at time {@code t}: a slow bob,
+         * high enough that a long item turning upright (a staff, a bow)
+         * clears the ground.
+         */
         public double hover(double t) {
-            return 0.62 + 0.09 * Math.sin(t * 2.1 + phase);
+            return Math.max(HOVER, def.worldSize() / 2 + CLEARANCE) + BOB * Math.sin(t * 2.1 + phase);
         }
 
         /** The chest it came out of, or null. */
         public Chest source() { return source; }
+
+        /** Its own offset in time (radians of its bob), so items lying together do not move as one. */
+        public double phase() { return phase; }
+
+        /** When it came down where it lies, or minus infinity if it was never thrown. */
+        public double landedAt() {
+            return from == null ? Double.NEGATIVE_INFINITY : thrownAt + FLIGHT;
+        }
 
         /** Whether it stands in a beam of light: it came out of a chest (and is still lying where it fell). */
         public boolean beam() { return source != null; }

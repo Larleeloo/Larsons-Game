@@ -41,8 +41,8 @@ import java.util.stream.Stream;
  * <p>The inventory's icons ({@link #icon}) are made here instead, on the CPU:
  * an icon is a third or a half of a frame across, and palette indices cannot
  * be filtered, so each frame of the top view - the item lying flat, turning
- * like a record - is averaged down to {@value #ICON} pixels in its tier's
- * colours, with a soft halo and a crisp ring round its outline beside it
+ * like a record - is reduced as pixel art to {@value #ICON} pixels in its
+ * tier's colours, with a soft halo and a crisp ring round its outline beside it
  * for the rarity's glow and a rare border to be drawn in.
  */
 public final class ItemSprites implements AutoCloseable {
