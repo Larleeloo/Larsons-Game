@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "colours": {
+    "black": "#231c18",
+    "crystal": "#b722e7",
+    "gold": "#f9c36d",
+    "smoke": "#636092",
+    "dull": "#909094"
+  },
+  "tiers": {
+    "basic": {},
+    "sharper": {"handle": "black"},
+    "magic": {},
+    "crafted": {"body": "black"},
+    "honed": {"wood": "darker"},
+    "crystal": {"blade": "crystal"},
+    "perfect": {"all": "gold"},
+    "mythic": {"all": "smoke"}
+  },
+  "items": {
+    "sword": {"carried": {"blade": [0], "fittings": [1, 2], "handle": [3]}},
+    "battle_axe": {"carried": {"handle": [0], "blade": [1]}},
+    "longbow": {"carried": {"string": [0], "body": [1]}},
+    "crossbow": {"carried": {"body": [0, 1], "fittings": [2]}},
+    "crystal_staff": {
+      "carried": {"wood": [0], "blade": [1]},
+      "tiers": {"basic": {"blade": "dull"}}
+    },
+    "wand": {"carried": {"wood": [0, 1], "handle": [2], "tip": [3]}},
+    "mace": {"carried": {"blade": [0, 1], "handle": [2, 3]}},
+    "dagger": {"carried": {"blade": [0, 1], "fittings": [2], "handle": [3]}}
+  }
+}
