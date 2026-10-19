@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "blade": [
+   0
+  ],
+  "fittings": [
+   1
+  ],
+  "handle": [
+   2
+  ]
+ },
+ "materials": [
+  "blade",
+  "fittings",
+  "handle"
+ ]
+}

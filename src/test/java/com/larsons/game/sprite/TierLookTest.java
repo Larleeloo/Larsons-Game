@@ -144,9 +144,32 @@ class TierLookTest {
     }
 
     @Test
-    void theFiveWeaponsTurnInPlaceWithTheirPartsNamed() {
+    void aCrystalMaceHasAPurpleHeadAndAHonedWandDarkerWood() throws Exception {
         ItemSprites items = new ItemSprites(SPRITES);
-        for (String id : List.of("sword", "battle_axe", "longbow", "crossbow", "crystal_staff")) {
+        TierLook look = items.tiers();
+        ItemSprites.Spin mace = items.spin("mace");
+        int[] base = palette(mace.sheet(Elevation.SIDE));
+        int[] crystal = look.palette(base, "mace", "crystal", mace.parts());
+        int head = mace.parts().get("blade")[0], knob = mace.parts().get("fittings")[0];
+        double h = hue(crystal[2 + 6 * head + 1]);
+        assertTrue(h < -40 || h > 280, "the head is purple: " + h);
+        for (int j = 0; j < 6; j++) assertEquals(base[2 + 6 * knob + j], crystal[2 + 6 * knob + j], "its knob iron");
+
+        ItemSprites.Spin wand = items.spin("wand");
+        int[] wb = palette(wand.sheet(Elevation.SIDE));
+        int[] honed = look.palette(wb, "wand", "honed", wand.parts());
+        int wood = wand.parts().get("wood")[0];
+        assertTrue(lightness(honed[2 + 6 * wood + 1]) < lightness(wb[2 + 6 * wood + 1]), "darker wood");
+        int[] perfect = look.palette(wb, "wand", "perfect", wand.parts());
+        double gh = hue(perfect[2 + 6 * wood + 1]);
+        assertTrue(gh > 40 && gh < 110, "a Perfect Wand is gold: " + gh);
+    }
+
+    @Test
+    void theEightWeaponsTurnInPlaceWithTheirPartsNamed() {
+        ItemSprites items = new ItemSprites(SPRITES);
+        for (String id : List.of("sword", "battle_axe", "longbow", "crossbow", "crystal_staff",
+                "wand", "mace", "dagger")) {
             ItemSprites.Spin s = items.spin(id);
             assertNotNull(s, id);
             assertEquals(3, s.sheets().size(), id + ": side, middle and top");
