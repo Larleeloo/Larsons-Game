@@ -1,5 +1,9 @@
 package com.larsons.game.world;
 
+import com.larsons.game.combat.Combat;
+import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.combat.Dummy;
+import com.larsons.game.combat.Target;
 import com.larsons.game.sprite.Slot;
 
 import com.larsons.game.math.Vec3;
@@ -29,6 +33,9 @@ import java.util.Random;
  * items, which pop out of it one after another, fly in an arc and land round
  * its front, each in the beam of light of its rarity ({@link
  * GroundItem#beam}) until it is picked up.
+ *
+ * <p>The training dummies stand about to be hit, and {@link Combat} plays
+ * out every swing and shot: the dice, the damage, the arrows in flight.
  */
 public final class World {
 
@@ -141,6 +148,8 @@ public final class World {
     private final List<Chest> chests = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = new Loot();
+    private final List<Dummy> dummies = new ArrayList<>();
+    private final Combat combat = new Combat(CombatTuning.defaults());
     private Random random = new Random();
     private double time;
 
@@ -164,15 +173,31 @@ public final class World {
     /** What the chests give. */
     public Loot loot() { return loot; }
 
-    /** Draw the chests' loot from this seed from now on (tests and scripted runs). */
+    /** Draw the chests' loot - and roll the dice - from this seed from now on (tests and scripted runs). */
     public void seed(long seed) {
         random = new Random(seed);
+        combat.seed(seed);
+    }
+
+    /** The fighting: the dice, the damage, the shots in flight, her mana. */
+    public Combat combat() { return combat; }
+
+    public List<Dummy> dummies() { return dummies; }
+
+    public Dummy addDummy(Dummy dummy) {
+        dummies.add(dummy);
+        return dummy;
+    }
+
+    /** Everything that can be hit. */
+    public List<Target> targets() {
+        return new ArrayList<>(dummies);
     }
 
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
-     * each of a chest's states lasts, from its sheets) - and the player kept
-     * out of them.
+     * each of a chest's states lasts, from its sheets) and the dummies' - the
+     * player kept out of both - and the fighting.
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
@@ -185,6 +210,11 @@ public final class World {
                 opened(c);
             }
         }
+        for (Dummy d : dummies) {
+            d.tick(dt);
+            player.keepOut(d.position(), Dummy.RADIUS);
+        }
+        combat.tick(dt, this);
     }
 
     /**
