@@ -69,7 +69,8 @@ final class WardrobePanel {
             if (!out.contains(base)) out.add(base);        // (an item with only pixel art is listed too)
         }
         if (slot.carried()) {
-            for (String held : player.inventory()) {
+            for (com.larsons.game.world.Item carried : player.inventory()) {
+                String held = carried.id();
                 if (!out.contains(held) && Stance.ofItem(held) == null) out.add(held);
             }
         }

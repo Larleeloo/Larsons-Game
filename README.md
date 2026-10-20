@@ -20,6 +20,7 @@ ticked off as it lands.
 - [The sprite stack](#the-sprite-stack)
 - [The inventory and the hotbar](#the-inventory-and-the-hotbar)
 - [The treasure chest](#the-treasure-chest)
+- [Items, rarity and loot](#items-rarity-and-loot)
 - [Sound](#sound)
 - [The scenery](#the-scenery)
 - [GPU acceleration](#gpu-acceleration)
@@ -124,7 +125,9 @@ Drop sprite sheets on the window at any time to import them.
   swirling round it. **E** throws its lid open: it lights up from inside,
   light welling out of it and its smoke glowing, and **E** again slams it
   shut. Every one of its animations has a sound hook - see
-  [The treasure chest](#the-treasure-chest).
+  [The treasure chest](#the-treasure-chest). It is a **loot chest**: the
+  first time it opens it throws out 3 to 7 items, each in a beam of light the
+  colour of its rarity - see [Items, rarity and loot](#items-rarity-and-loot).
 
   <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
 - **Sound for every animation** - both bodies' 80 states, the chest's four,
@@ -373,14 +376,104 @@ assets/sprites/objects/ornate_chest/smoke_front/swirl_<elev>_<dir>.png   48 fram
 - She cannot walk into it (it pushes her back out), and the prompt says
   whether E opens or shuts it, or picks up an item nearer to her.
 
-It is meant to become a loot chest: `world/Chest` is a small state machine
-(`IDLE → OPENING → OPEN → CLOSING`) with `isOpen()` for what is found in it
-to hang off. The sheets are drawn by
+It is a **loot chest**: `world/Chest` is a small state machine (`IDLE →
+OPENING → OPEN → CLOSING`), and the first time it opens - and again once
+everything it gave has been picked up - the world throws its loot out of it
+(see [Items, rarity and loot](#items-rarity-and-loot)). The sheets are drawn by
 [3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
 `items/ornate_treasure_chest/ornate_chest_sprites.py`, which models the chest
 in Blender and draws the pixel art; any object laid out like it under
 `assets/sprites/objects/` can be drawn the same way (see
 [`assets/sprites/README.md`](assets/sprites/README.md#objects)).
+
+## Items, rarity and loot
+
+<p align="center">
+  <img src="docs/screenshots/loot-beams.png" width="98%" alt="The chest open and seven weapons lying round it, each hovering and turning in a beam of light the colour of its rarity - white, green and blue - with sparks rising in the beams and pools of light on the ground">
+</p>
+
+Every item is an **Item** (`world/Item`): what kind of thing it is
+(`ItemDef`), its **tier** where it is a weapon of Larson's chart, its
+**rarity**, and the **rare border** it may have dropped with. Its name says
+all of it - "Venom Crystal Axe" - and so does a script's word for it:
+`battle_axe:crystal:venom`.
+
+| Rarity | Colour | Drops |  | Tier | Rarity | Looks |
+|---|---|---|---|---|---|---|
+| Common | white | 45 % |  | Basic | Common | as rendered |
+| Uncommon | green | 35 % |  | Sharper | Uncommon | a black handle |
+| Rare | blue | 15 % |  | Magic | Rare | as rendered (the crystal staff is the Magic Staff); blue projectiles |
+| Epic | purple | 3.9 % |  | Crafted | Rare | a black body |
+| Legendary | orange | 1 % |  | Honed | Epic | darker wood; yellow projectiles |
+| Mythic | cyan (the palette's sea teal) | 0.1 % |  | Crystal | Epic | a pink-purple blade or tip |
+|  |  |  |  | Perfect | Legendary | gold |
+|  |  |  |  | Mythic | Mythic | smoky purple |
+
+Which weapon comes in which tiers is the chart (`world/Tier.CHART`): the axe,
+the sword, the mace and the dagger are Basic, Sharper, Crystal, Perfect or
+Mythic; the staff Basic, Magic, Honed, Perfect or Mythic; the longbow and the
+crossbow Basic, Crafted, Perfect or Mythic; the wand Magic, Honed, Perfect or
+Mythic. Anything without tiers (a wearable) carries its own rarity. The
+rarities' and the borders' colours are all entries of the art's 128-colour
+palette.
+
+**Rare borders** (`world/Border`), one chance in a hundred each, never two:
+**Venom** (lime) - half as much damage again as damage over time for 10
+seconds after the first hit; **Mystic** (smoky purple) - +150 % damage for
+twice the mana; **Bonded** (pink) - +10 % damage for every living thing hit
+with it in the last 5 minutes. The numbers are in `Border` for the fight to
+use.
+
+**The loot chest** (`world/Loot`): 3 to 7 items, each one's rarity drawn by
+the drop rates, then one of that rarity's drops (any tier of any weapon in
+the chart, and anything else added to the table), then perhaps a border; at
+least one of them is Rare or better (one is drawn again if none is). They pop
+out of the lid one after another, fly in an arc and land round its front.
+
+**In the world** (`world/ItemRenderer`) an item hovers over its shadow and
+turns in place - **128 × 128 pixel art**, 32 frames a turn, from the height
+the camera sees it from (`assets/sprites/items/<id>/spin_px128/`, drawn by
+3D-Modeling's `items/item_spin_sprites.py`) - in its tier's colours, with a
+**halo** of its rarity's colour round it and a pool of it on the ground.
+Chest loot stands in a **Borderlands beam** of its rarity's colour once it
+lands - round the item and 3.6 m up into the air, pulsing, sparks rising in
+it. A rare border is a crisp outline in its colour, pulsing, with what comes
+off it: Venom's lime drips, Mystic's smoky puffs, Bonded's pink hearts.
+
+<p align="center">
+  <img src="docs/screenshots/rare-borders.png" width="98%" alt="A Venom Crystal Sword with a lime outline and drips, a Mystic Perfect Axe in gold with smoke round it, and a Bonded Magic Staff with a pink outline and hearts floating up from it, each hovering in its rarity's halo">
+</p>
+
+**Tiers are recoloured in the engine**, never drawn again: a weapon's sheets
+name which of their materials is which part (handle, blade, body, wood,
+tip, fittings, string - `parts.json` beside the turning sprites, and the
+`carried` map in `assets/sprites/tiers.json` for the sheets in her hands),
+and `sprite/TierLook` makes each tier's look (`tiers.json`) on those parts as
+a palette swap, snapped back to the 128 colours (`sprite/PixelPalette`,
+`assets/sprites/pixel_palette.json`). So the weapon on the ground, its icon
+and the one in her hands are the same Sharper Axe, Crystal Sword or Perfect
+Bow.
+
+<p align="center">
+  <img src="docs/screenshots/axe-tiers-in-hand.png" width="98%" alt="The battle axe in her hand five times: Basic as rendered, Sharper with a black handle, Perfect all gold, Crystal with a pink-purple blade, Mythic smoky purple">
+</p>
+
+**In the inventory** each slot is tinted and edged in its item's rarity, the
+item drawn from its turning sprite lying corner to corner (turning under the
+pointer, or when selected) in its tier's colours, glowing in its rarity's
+colour and ringed in its border's; the tooltip gives its name in the rarity's
+colour, its rarity and tier and its border's effect. The pick-up prompt and
+the hotbar's name are in the rarity's colour too.
+
+<p align="center">
+  <img src="docs/screenshots/inventory-rarity.png" width="60%" alt="Inventory slots tinted white, green, blue, purple, orange and teal by their items' rarities, each item glowing in its colour; a Venom bow ringed in lime">
+</p>
+
+```
+assets/sprites/tiers.json                        each tier's look by part, and which material of the in-hand sheets is which part
+assets/sprites/pixel_palette.json                the art's 128 colours (3D-Modeling's generic_feminine_model/pixel_palette.json)
+assets/sprites/items/<id>/spin_px128/            profile.json, spin_side/middle/top.png (32 frames), variants.json, parts.json
+```
 
 ## Sound
 
@@ -595,7 +688,8 @@ src/main/java/com/larsons/game/
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
-assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest
+assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest;
+                            items/<id>/spin_px128/: the turning items; tiers.json, pixel_palette.json
 assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
@@ -650,6 +744,12 @@ colour fades and flashes, the close-up folders, the camera and the player's
 state machine; the inventory (slots, the hotbar, resizing, what the selected
 slot puts in her hands, dropping), the inventory screen's diamonds (every
 slot placed, none overlapping, for any number), the chest's states and light,
+rarity and the weapon chart (the drop rates, the borders, names and keys, a
+chest's 3 to 7 items with one Rare or better), the weapon tiers' looks (a
+Sharper Axe's black handle, a Crystal Sword's purple blade, a Perfect one's
+gold, a bow's string never recoloured, all in the palette), the turning
+items' sheets and icons, the loot beam, halo and border motes, and the
+weapon in her hands drawn in its tier,
 the object sheets (names, layer order, all 24 views of every state of the
 chest), the sound catalogue (a sound for every animation of both bodies), the
 pack's lookup and fallbacks, its key list being up to date, the engine's
@@ -776,6 +876,8 @@ Engine. Each section is broken up into chunks, or tasks to be done.
 - [x] Give every player animation, masculine and feminine, sound asset
       storage — *`assets/sounds/player/feminine/` and `masculine/`, a sound
       key and a hook for all 56 states*
-- [ ] Make the chest a loot chest for in-game items
+- [x] Make the chest a loot chest for in-game items — *3 to 7 items of six
+      rarities, at least one Rare, thrown out in beams of light; see
+      [Items, rarity and loot](#items-rarity-and-loot)*
 
 ### Task 3: TBD

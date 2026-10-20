@@ -3,10 +3,14 @@ package com.larsons.game.scene;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
+import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.Texture;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Border;
 import com.larsons.game.world.Inventory;
+import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.World;
 
@@ -48,6 +52,14 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  * the selected slot - what is in her hands - larger and in gold, and the
  * item's name shown for a moment after it changes.
  *
+ * <p>Every item shows its rarity: its slot tinted and edged in the rarity's
+ * colour, the item glowing in it, and its name in that colour; an item with
+ * a rare border has a ring of the border's colour round it, pulsing, and the
+ * border's effect in its tooltip. An item with turning sprites ({@link
+ * ItemSprites#icon}) is drawn from them in its weapon tier's colours, lying
+ * corner to corner, and turns while it is under the pointer, selected or
+ * carried on the pointer.
+ *
  * <p>Where things go, as fractions of the 432 × 768 background, so a
  * background can be drawn round them: the title at the top (to 10 %), the
  * lattice in the box 7 – 93 % across and 11 – 74 % down, the hotbar's row
@@ -66,18 +78,22 @@ final class InventoryPanel {
     private static final float[] SLOT_HOVER = Theme.rgb(255, 255, 255, 0.16f);
     private static final float[] BORDER = Theme.rgb(255, 255, 255, 1f);
     private static final float[] SELECTED = Theme.ACCENT;
+    /** How much of its rarity's colour a full slot is tinted with, its inner edge, and the glow round the item. */
+    private static final float RARITY_FILL = 0.14f, RARITY_EDGE = 0.85f, RARITY_GLOW = 0.5f;
+    /** How long a turning icon takes to go once round, in seconds. */
+    private static final double ICON_TURN = 3.2;
 
     private final Game game;
     private final World world;
     private boolean open;
-    private String cursor;
+    private Item cursor;
     private int cursorFrom = -1;
     private int hovered = -1;
     private Texture background;
     private Path backgroundFile;
     private long backgroundStamp = Long.MIN_VALUE;
     private int shownSelected = -1;
-    private String shownHeld;
+    private Item shownHeld;
     private double nameTimer;
 
     InventoryPanel(Game game, World world) {
@@ -265,11 +281,11 @@ final class InventoryPanel {
                 }
                 world.equipSelected();
             } else if (!inside && cursor != null) {
-                ItemDef d = world.dropItem(cursor);
+                Item d = world.dropItem(cursor);
                 if (d != null) {
                     Sounds.play(SoundKeys.item(d.id(), "drop"));
                     game.saveWardrobe();
-                    game.toast("Dropped " + d.name(), Theme.HINT);
+                    game.toast("Dropped " + d.fullName(), Theme.HINT);
                 }
                 cursor = null;
                 cursorFrom = -1;
@@ -282,14 +298,12 @@ final class InventoryPanel {
 
         // --- what is under the pointer, and what is on it ----------------------------
         if (hovered >= 0 && inv.get(hovered) != null && cursor == null) {
-            ItemDef d = ItemDef.byId(inv.get(hovered));
-            String name = d == null ? inv.get(hovered) : d.name();
             String hint = Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
-            tooltip(ui, name, hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
+            tooltip(ui, inv.get(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
         }
         if (cursor != null) {
             float r = spots.get(0).r() * 0.9f;
-            icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f);
+            icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
         }
         ui.textCentered(ui.small, "Click: pick up / put down · Right-click: to / from the hotbar · "
                 + "Click outside: drop · I or Esc: close", ui.width() / 2f, py + ph + 10, Theme.HINT);
@@ -314,7 +328,7 @@ final class InventoryPanel {
     void drawHotbar(Ui ui, double dt, float bottom) {
         if (open) return;
         Inventory inv = inventory();
-        String held = inv.held();
+        Item held = inv.held();
         if (inv.selected() != shownSelected || !java.util.Objects.equals(held, shownHeld)) {
             if (shownSelected >= 0) nameTimer = 2.0;
             shownSelected = inv.selected();
@@ -332,43 +346,89 @@ final class InventoryPanel {
                     sel ? SELECTED : Theme.withAlpha(Theme.HINT, 0.9f));
         }
         if (nameTimer > 0) {
-            ItemDef d = ItemDef.byId(held);
             String name = held == null ? "Empty hand - " + world.player().stance().label().toLowerCase()
-                    : d == null ? held : d.name();
+                    : held.fullName();
             float a = (float) Math.min(1, nameTimer / 0.4);
             float w = ui.body.width(name) + 24;
             ui.rect(ui.width() / 2f - w / 2, cy - r - 44, w, 28, Theme.withAlpha(Theme.PANEL, 0.75f * a));
-            ui.textCentered(ui.body, name, ui.width() / 2f, cy - r - 40, Theme.withAlpha(Theme.TITLE, a));
+            float[] c = held == null ? Theme.TITLE : held.rarity().colour(1f);
+            ui.textCentered(ui.body, name, ui.width() / 2f, cy - r - 40, Theme.withAlpha(c, a));
         }
     }
 
-    /** One slot: a dark diamond, its white border (gold when selected), the item in it. */
-    private void slot(Ui ui, float x, float y, float r, String item, boolean hot, boolean selected) {
+    /**
+     * One slot: a dark diamond - tinted and edged in its item's rarity - its
+     * white border (gold when selected), the item in it, turning while the
+     * pointer is on it or it is selected.
+     */
+    private void slot(Ui ui, float x, float y, float r, Item item, boolean hot, boolean selected) {
         ui.diamond(x, y, r, SLOT_FILL);
+        if (item != null) {
+            ui.diamond(x, y, r, item.rarity().colour(RARITY_FILL));
+            ui.diamondOutline(x, y, r - 4, 1.5f, item.rarity().colour(RARITY_EDGE));
+        }
         if (hot) ui.diamond(x, y, r, SLOT_HOVER);
-        if (item != null) icon(ui, item, x, y, r, 1f);
+        if (item != null) icon(ui, item, x, y, r, 1f, hot || selected);
         ui.diamondOutline(x, y, r, selected ? 3 : 2, selected ? SELECTED : BORDER);
     }
 
-    /** An item's world sprite, fitted inside a diamond of half-diagonal {@code r}. */
-    private void icon(Ui ui, String item, float x, float y, float r, float alpha) {
-        ItemDef d = ItemDef.byId(item);
-        if (d == null) {
-            ui.textCentered(ui.small, "?", x, y - 8, Theme.HINT);
+    /**
+     * An item fitted inside a diamond of half-diagonal {@code r}: its turning
+     * sprite in its tier's colours ({@link ItemSprites#icon}) - at rest
+     * corner to corner, or turning - glowing in its rarity's colour, ringed
+     * in its border's; else its world sprite.
+     */
+    private void icon(Ui ui, Item item, float x, float y, float r, float alpha, boolean turning) {
+        ItemDef d = item.def();
+        ItemSprites items = game.items();
+        ItemSprites.Spin spin = items.spin(d.id());
+        ItemSprites.Icon icon = spin == null ? null : items.icon(d.id(), item.tier() == null ? null : item.tier().key());
+        if (icon == null) {
+            Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
+            float s = r * 1.2f;
+            ui.image(t, x - s / 2, y - s / 2, s, s, Theme.rgb(255, 255, 255, alpha));
             return;
         }
-        Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
-        float s = r * 1.2f;
-        ui.image(t, x - s / 2, y - s / 2, s, s, Theme.rgb(255, 255, 255, alpha));
+        // the item as long as the diamond's side, lying along it at rest
+        float s = (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
+        int frame = ItemSprites.ICON_REST_FRAME;
+        if (turning) frame += (int) Math.floor(world.time() / ICON_TURN * icon.frames());
+        float[] uv = icon.uv(frame);
+        float x0 = x - s / 2, y0 = y - s / 2;
+        Batch b = ui.batch();
+        float[] rc = item.rarity().colour(1f);
+        b.glowRect(icon.halo(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], rc[0], rc[1], rc[2], RARITY_GLOW * alpha);
+        Border border = item.border();
+        if (border != null) {
+            float[] bc = border.colour(1f);
+            float k = (float) (0.75 + 0.25 * Math.sin(world.time() * 2 * Math.PI * 0.8));
+            b.rect(icon.ring(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], k * alpha);
+        }
+        b.rect(icon.sprite(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, alpha);
     }
 
-    private void tooltip(Ui ui, String title, String hint, float x, float y) {
-        float w = Math.max(ui.body.width(title), ui.small.width(hint)) + 20;
+    /** The item's name in its rarity's colour, its rarity (and tier), its border's effect, and {@code hint}. */
+    private void tooltip(Ui ui, Item item, String hint, float x, float y) {
+        String title = item.fullName();
+        String rarity = item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
+        Border border = item.border();
+        String effect = border == null ? null : border.label() + " border: " + border.effect();
+        float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
+        if (effect != null) w = Math.max(w, ui.small.width(effect));
+        w += 20;
+        float h = effect == null ? 70 : 92;
         x = Math.min(x, ui.width() - w - 4);
-        ui.rect(x, y, w, 48, Theme.withAlpha(Theme.PANEL, 0.95f));
-        ui.outline(x, y, w, 48, 1, Theme.PANEL_EDGE);
-        ui.text(ui.body, title, x + 10, y + 4, Theme.TITLE);
-        ui.text(ui.small, hint, x + 10, y + 27, Theme.ITEM_DISABLED);
+        y = Math.min(y, ui.height() - h - 4);
+        ui.rect(x, y, w, h, Theme.withAlpha(Theme.PANEL, 0.95f));
+        ui.outline(x, y, w, h, 1, item.rarity().colour(0.9f));
+        ui.text(ui.body, title, x + 10, y + 4, item.rarity().colour(1f));
+        ui.text(ui.small, rarity, x + 10, y + 27, Theme.withAlpha(item.rarity().colour(1f), 0.8f));
+        float hy = y + 49;
+        if (effect != null) {
+            ui.text(ui.small, effect, x + 10, hy, border.colour(1f));
+            hy += 22;
+        }
+        ui.text(ui.small, hint, x + 10, hy, Theme.ITEM_DISABLED);
     }
 
     /**

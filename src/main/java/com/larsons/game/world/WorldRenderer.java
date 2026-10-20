@@ -5,11 +5,14 @@ import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.ObjectSprites;
 import com.larsons.game.sprite.ObjectStack;
+import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Wardrobe;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -64,6 +67,8 @@ public final class WorldRenderer implements AutoCloseable {
     private final Batch batch;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
+    private final ItemSprites items;
+    private final ItemRenderer itemRenderer;
     private final Texture shadow;
     private final Texture glow;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
@@ -77,6 +82,8 @@ public final class WorldRenderer implements AutoCloseable {
         this.batch = batch;
         this.sprites = sprites;
         this.objects = objects;
+        this.items = items;
+        this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
     }
@@ -135,8 +142,12 @@ public final class WorldRenderer implements AutoCloseable {
         double lift = Math.min(1, p.height() / 1.5);
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
-            double h = g.hover(world.time());
-            groundShadow(g.position, 0.30 * (1 - 0.15 * h), (float) (0.42 - 0.12 * h));
+            if (!g.out(world.time())) continue;
+            Vec3 c = g.centre(world.time());
+            double h = c.y();
+            groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * h),
+                    (float) Math.max(0, (0.42 - 0.12 * h) * g.flight(world.time())));
+            itemRenderer.ground(g, world.time());
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
@@ -157,7 +168,8 @@ public final class WorldRenderer implements AutoCloseable {
 
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
-        playerStack = LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory());
+        playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory()),
+                world.wielded(), items);
         LayerStack.Result stack = playerStack;
         draws.add(() -> {
             batch.depthAnchor(p.ground());
@@ -179,6 +191,7 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(c.position().sub(eye).dot(forward));
         }
 
+        double t = world.time();
         for (World.GroundItem g : world.items()) {
             Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
             Vec3 centre = g.position.add(0, g.hover(world.time()), 0);
@@ -234,6 +247,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        itemRenderer.close();
         shadow.close();
         glow.close();
     }

@@ -81,7 +81,7 @@ class StancesAndActionsTest {
         }
         assertTrue(peak > 0.2, "left the ground: " + peak);
         assertEquals(AnimState.AXE_IDLE, p.state());
-        assertEquals(ItemDef.BATTLE_AXE, w.dropHeld());
+        assertEquals(ItemDef.BATTLE_AXE, w.dropHeld().def());
         assertEquals(Stance.SWORD, p.stance());
         assertFalse(w.wield(Stance.AXE), "not carried any more");
         assertTrue(w.wield(Stance.SWORD));
