@@ -123,6 +123,33 @@ class InventoryTest {
     }
 
     @Test
+    void theOneHandedWeaponsArePickedUpIntoTheHotbarAndHeldInTheirStances() {
+        World w = new World(swordAndShield());
+        Player p = w.player();
+        ItemDef[] weapons = {ItemDef.WAND, ItemDef.MACE, ItemDef.DAGGER};
+        Stance[] stances = {Stance.WAND, Stance.MACE, Stance.DAGGER};
+        for (int i = 0; i < weapons.length; i++) {
+            w.spawn(weapons[i], new Vec3(1, 0, 0));
+            assertTrue(w.pickUp(w.reachable()), weapons[i].id());
+            assertEquals(stances[i], p.stance());
+            assertEquals(i, p.inventory().indexOf(weapons[i].id()));
+            assertEquals(weapons[i], ItemDef.of(stances[i]));
+            assertEquals(weapons[i], ItemDef.byId(weapons[i].id()));
+        }
+        assertEquals("wand", ItemDef.WAND.id());
+        assertEquals("mace", ItemDef.MACE.id());
+        assertEquals("dagger", ItemDef.DAGGER.id());
+        w.select(3);
+        assertEquals(Stance.SWORD, p.stance());
+        w.select(0);
+        assertEquals(Stance.WAND, p.stance());
+        w.select(1);
+        assertEquals(Stance.MACE, p.stance());
+        w.select(2);
+        assertEquals(Stance.DAGGER, p.stance());
+    }
+
+    @Test
     void aWeaponInTheRestOfTheInventoryIsSwappedIntoHandToBeWielded() {
         World w = new World(swordAndShield(), 10);
         Inventory inv = w.player().inventory();

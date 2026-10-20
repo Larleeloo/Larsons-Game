@@ -13,6 +13,10 @@ package com.larsons.game.sprite;
  *   <li>{@link #AXE}, {@link #BOW}, {@link #CROSSBOW}, {@link #STAFF}: that
  *       weapon, in both hands (the crystal staff in the right, both on it to
  *       fight); whatever the wardrobe carries is put away while she holds it;</li>
+ *   <li>{@link #WAND}, {@link #MACE}, {@link #DAGGER}: the one-handed weapons,
+ *       in the right hand (the dagger's free hand up as a guard; both hands
+ *       for the wand's great cast, the mace's ground smash and its haft held
+ *       across); whatever the wardrobe carries is put away while she holds one;</li>
  *   <li>{@link #FREE}: nothing - the emotes and the pick-ups are played with
  *       empty hands.</li>
  * </ul>
@@ -20,9 +24,9 @@ package com.larsons.game.sprite;
  * <p>A weapon stance's weapon is not a wardrobe item: its sheets are under
  * {@code assets/sprites/<slot>/<item>/} like any carried item's, but they are
  * drawn by the stance - in {@link #hand} - instead of by the wardrobe (see
- * {@link #carried}). A right-handed character holds the axe and the crossbow
- * in the right hand and the bow in the left (the right draws the string); a
- * left-handed one the other way round.
+ * {@link #carried}). A right-handed character holds the axe, the crossbow,
+ * the staff and the one-handed weapons in the right hand and the bow in the
+ * left (the right draws the string); a left-handed one the other way round.
  *
  * <p>Each stance also says which {@link AnimState} plays for what she does -
  * its idle, its walk, its attack - or {@code null} where the stance has no
@@ -37,6 +41,9 @@ public enum Stance {
     BOW("bow", "Bow", Slot.CARRY_LEFT, "longbow"),
     CROSSBOW("crossbow", "Crossbow", Slot.CARRY_RIGHT, "crossbow"),
     STAFF("staff", "Crystal staff", Slot.CARRY_RIGHT, "crystal_staff"),
+    WAND("wand", "Wand", Slot.CARRY_RIGHT, "wand"),
+    MACE("mace", "Mace", Slot.CARRY_RIGHT, "mace"),
+    DAGGER("dagger", "Dagger", Slot.CARRY_RIGHT, "dagger"),
     FREE("free", "Empty hands", null, null);
 
     /** How fast she moves: the walk, the run (Shift), the sprint (Ctrl). */
@@ -61,7 +68,10 @@ public enum Stance {
     /** The weapon this stance draws (its folder name), or null: the wardrobe's (sword) or none (free). */
     public String item() { return item; }
 
-    /** Whether this stance holds a weapon of its own (the axe, the bow, the crossbow, the staff). */
+    /**
+     * Whether this stance holds a weapon of its own (the axe, the bow, the
+     * crossbow, the staff, the wand, the mace, the dagger).
+     */
     public boolean weapon() { return item != null; }
 
     /** The hand the weapon is in, or null: the right-handed slot, its twin for a left-handed character. */
@@ -92,6 +102,9 @@ public enum Stance {
             case BOW -> crouched ? AnimState.BOW_CROUCH_IDLE : AnimState.BOW_IDLE;
             case CROSSBOW -> crouched ? AnimState.CROSSBOW_CROUCH_IDLE : AnimState.CROSSBOW_IDLE;
             case STAFF -> crouched ? AnimState.STAFF_CROUCH_IDLE : AnimState.STAFF_IDLE;
+            case WAND -> crouched ? AnimState.WAND_CROUCH_IDLE : AnimState.WAND_IDLE;
+            case MACE -> crouched ? AnimState.MACE_CROUCH_IDLE : AnimState.MACE_IDLE;
+            case DAGGER -> crouched ? AnimState.DAGGER_CROUCH_IDLE : AnimState.DAGGER_IDLE;
             case BLADE -> crouched ? AnimState.BLADE_CROUCH_IDLE : AnimState.BLADE_IDLE;
             default -> crouched ? AnimState.CROUCH_IDLE : AnimState.IDLE;
         };
@@ -109,6 +122,9 @@ public enum Stance {
                 case BOW -> AnimState.BOW_CROUCH_WALK;
                 case CROSSBOW -> AnimState.CROSSBOW_CROUCH_WALK;
                 case STAFF -> AnimState.STAFF_CROUCH_WALK;
+                case WAND -> AnimState.WAND_CROUCH_WALK;
+                case MACE -> AnimState.MACE_CROUCH_WALK;
+                case DAGGER -> AnimState.DAGGER_CROUCH_WALK;
                 case BLADE -> pace == Pace.WALK ? AnimState.BLADE_CROUCH_WALK : AnimState.BLADE_CROUCH_WALK_FAST;
                 default -> pace == Pace.WALK ? AnimState.CROUCH_WALK : AnimState.CROUCH_WALK_FAST;
             };
@@ -134,6 +150,21 @@ public enum Stance {
                 case RUN -> AnimState.STAFF_RUN;
                 case SPRINT -> AnimState.STAFF_SPRINT;
             };
+            case WAND -> switch (pace) {
+                case WALK -> AnimState.WAND_WALK;
+                case RUN -> AnimState.WAND_RUN;
+                case SPRINT -> AnimState.WAND_SPRINT;
+            };
+            case MACE -> switch (pace) {
+                case WALK -> AnimState.MACE_WALK;
+                case RUN -> AnimState.MACE_RUN;
+                case SPRINT -> AnimState.MACE_SPRINT;
+            };
+            case DAGGER -> switch (pace) {
+                case WALK -> AnimState.DAGGER_WALK;
+                case RUN -> AnimState.DAGGER_RUN;
+                case SPRINT -> AnimState.DAGGER_SPRINT;
+            };
             case BLADE -> switch (pace) {
                 case WALK -> AnimState.BLADE_WALK;
                 case RUN -> AnimState.BLADE_RUN;
@@ -148,7 +179,8 @@ public enum Stance {
     }
 
     /**
-     * The attack: the sword's slash, the axe's chop, the crossbow's shot - and
+     * The attack: the sword's slash, the axe's chop, the crossbow's shot, the
+     * staff's and the wand's cast, the mace's smash, the dagger's thrust - and
      * for the bow, the draw, which holds at full draw until {@link #release}.
      * Crouched where the stance has a crouched one (the sword has none: she
      * stands up to swing).
@@ -161,6 +193,9 @@ public enum Stance {
             case BOW -> crouched ? AnimState.BOW_CROUCH_DRAW : AnimState.BOW_DRAW;
             case CROSSBOW -> crouched ? AnimState.CROSSBOW_CROUCH_FIRE : AnimState.CROSSBOW_FIRE;
             case STAFF -> crouched ? AnimState.STAFF_CROUCH_ATTACK : AnimState.STAFF_ATTACK;
+            case WAND -> crouched ? AnimState.WAND_CROUCH_ATTACK : AnimState.WAND_ATTACK;
+            case MACE -> crouched ? AnimState.MACE_CROUCH_ATTACK : AnimState.MACE_ATTACK;
+            case DAGGER -> crouched ? AnimState.DAGGER_CROUCH_ATTACK : AnimState.DAGGER_ATTACK;
             case FREE -> null;
         };
     }
@@ -173,27 +208,44 @@ public enum Stance {
         return this == BOW ? (crouched ? AnimState.BOW_CROUCH_FIRE : AnimState.BOW_FIRE) : null;
     }
 
-    /** The heavy attack: the axe's great overhead chop, the staff's slam into the ground. */
+    /**
+     * The heavy attack: the axe's great overhead chop, the staff's slam into
+     * the ground, the wand's great two-handed cast, the mace's two-handed
+     * smash into the ground, the dagger's slash and lunge.
+     */
     public AnimState heavy() {
         return switch (this) {
             case AXE -> AnimState.AXE_HEAVY_ATTACK;
             case STAFF -> AnimState.STAFF_HEAVY_ATTACK;
+            case WAND -> AnimState.WAND_HEAVY_ATTACK;
+            case MACE -> AnimState.MACE_HEAVY_ATTACK;
+            case DAGGER -> AnimState.DAGGER_HEAVY_ATTACK;
             default -> null;
         };
     }
 
-    /** The spin attack: the sword's (the light weapon), the axe's (the heavy one) or the staff's sweep. */
+    /**
+     * The spin attack: the sword's (the light weapon), the axe's (the heavy
+     * one), the staff's sweep, the wand's casting turn, the mace's spin or the
+     * dagger's spinning slash.
+     */
     public AnimState spin() {
         return switch (this) {
             case SWORD -> AnimState.SPIN_ATTACK;
             case BLADE -> AnimState.BLADE_SPIN_ATTACK;
             case AXE -> AnimState.AXE_SPIN_ATTACK;
             case STAFF -> AnimState.STAFF_SPIN_ATTACK;
+            case WAND -> AnimState.WAND_SPIN_ATTACK;
+            case MACE -> AnimState.MACE_SPIN_ATTACK;
+            case DAGGER -> AnimState.DAGGER_SPIN_ATTACK;
             default -> null;
         };
     }
 
-    /** A parry: a quick deflection with the weapon. */
+    /**
+     * A parry: a quick deflection with the weapon (the wand's ward thrown up,
+     * the mace's haft thrown up overhead).
+     */
     public AnimState parry() {
         return switch (this) {
             case SWORD -> AnimState.PARRY;
@@ -202,11 +254,18 @@ public enum Stance {
             case BOW -> AnimState.BOW_PARRY;
             case CROSSBOW -> AnimState.CROSSBOW_PARRY;
             case STAFF -> AnimState.STAFF_PARRY;
+            case WAND -> AnimState.WAND_PARRY;
+            case MACE -> AnimState.MACE_PARRY;
+            case DAGGER -> AnimState.DAGGER_PARRY;
             case FREE -> null;
         };
     }
 
-    /** Guarding, held: the shield up (the sword stance) or the weapon across; none with no shield. */
+    /**
+     * Guarding, held: the shield up (the sword stance) or the weapon across
+     * (the wand's ward held, the mace's haft in both hands, the dagger's
+     * guard); none with no shield.
+     */
     public AnimState block() {
         return switch (this) {
             case SWORD -> AnimState.SHIELD_READY;
@@ -215,6 +274,9 @@ public enum Stance {
             case BOW -> AnimState.BOW_BLOCK;
             case CROSSBOW -> AnimState.CROSSBOW_BLOCK;
             case STAFF -> AnimState.STAFF_BLOCK;
+            case WAND -> AnimState.WAND_BLOCK;
+            case MACE -> AnimState.MACE_BLOCK;
+            case DAGGER -> AnimState.DAGGER_BLOCK;
             case FREE -> null;
         };
     }
@@ -233,6 +295,9 @@ public enum Stance {
             case BOW -> AnimState.BOW_JUMP;
             case CROSSBOW -> AnimState.CROSSBOW_JUMP;
             case STAFF -> AnimState.STAFF_JUMP;
+            case WAND -> AnimState.WAND_JUMP;
+            case MACE -> AnimState.MACE_JUMP;
+            case DAGGER -> AnimState.DAGGER_JUMP;
             case FREE -> null;
         };
     }

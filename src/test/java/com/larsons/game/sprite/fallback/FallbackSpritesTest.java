@@ -79,6 +79,14 @@ class FallbackSpritesTest {
         assertTrue(FallbackSprites.anyPixels(FallbackSprites.swordIcon()));
     }
 
+    @Test
+    void everyStanceWeaponsStandInIconIsDrawn() {
+        for (String item : new String[]{"battle_axe", "longbow", "crossbow", "crystal_staff", "wand", "mace",
+                "dagger"}) {
+            assertTrue(FallbackSprites.anyPixels(FallbackSprites.weaponIcon(item)), item);
+        }
+    }
+
     private static int count(int[] px) {
         int n = 0;
         for (int p : px) if (p != 0) n++;

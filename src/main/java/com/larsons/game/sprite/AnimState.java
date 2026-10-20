@@ -117,7 +117,59 @@ public enum AnimState {
     STAFF_CROUCH_ATTACK("staff_crouch_attack", "Staff sweep, crouched", false, 24, Stance.STAFF, 0,
             "staff_attack"),
     STAFF_PARRY("staff_parry", "Staff parry", false, 18, Stance.STAFF, 0, "parry"),
-    STAFF_BLOCK("staff_block", "Staff block", true, 30, Stance.STAFF, 0, "staff_idle");
+    STAFF_BLOCK("staff_block", "Staff block", true, 30, Stance.STAFF, 0, "staff_idle"),
+    // --- the wand: in the right hand, casts - a flick at the enemy, a great cast with
+    // both hands, a casting turn, a flick from the crouch, a ward thrown up and a ward held
+    WAND_IDLE("wand_idle", "Wand idle", true, 48, Stance.WAND, 0, "idle"),
+    WAND_WALK("wand_walk", "Wand walk", true, 28, Stance.WAND, 1.7, "walk"),
+    WAND_RUN("wand_run", "Wand run", true, 20, Stance.WAND, 4.2, "run"),
+    WAND_SPRINT("wand_sprint", "Wand sprint", true, 16, Stance.WAND, 7.0, "sprint"),
+    WAND_CROUCH_IDLE("wand_crouch_idle", "Wand crouch", true, 48, Stance.WAND, 0, "crouch_idle"),
+    WAND_CROUCH_WALK("wand_crouch_walk", "Wand crouch walk", true, 32, Stance.WAND, 0.9, "crouch_walk"),
+    WAND_JUMP("wand_jump", "Wand jump", false, 27, Stance.WAND, 0, "jump"),
+    WAND_ATTACK("wand_attack", "Wand cast", false, 24, Stance.WAND, 0, "attack"),
+    WAND_HEAVY_ATTACK("wand_heavy_attack", "Wand great cast", false, 32, Stance.WAND, 0, "wand_attack"),
+    WAND_SPIN_ATTACK("wand_spin_attack", "Wand casting turn", false, 30, Stance.WAND, 0, "wand_attack"),
+    WAND_CROUCH_ATTACK("wand_crouch_attack", "Wand flick, crouched", false, 24, Stance.WAND, 0,
+            "wand_attack"),
+    WAND_PARRY("wand_parry", "Wand parry", false, 18, Stance.WAND, 0, "parry"),
+    WAND_BLOCK("wand_block", "Wand block", true, 30, Stance.WAND, 0, "wand_idle"),
+    // --- the mace: in the right hand - an overhand smash, a two-handed smash into the
+    // ground, a spin, a low sweep; the haft thrown up overhead to parry, held across in
+    // both hands to block
+    MACE_IDLE("mace_idle", "Mace idle", true, 48, Stance.MACE, 0, "idle"),
+    MACE_WALK("mace_walk", "Mace walk", true, 28, Stance.MACE, 1.7, "walk"),
+    MACE_RUN("mace_run", "Mace run", true, 20, Stance.MACE, 4.2, "run"),
+    MACE_SPRINT("mace_sprint", "Mace sprint", true, 16, Stance.MACE, 7.0, "sprint"),
+    MACE_CROUCH_IDLE("mace_crouch_idle", "Mace crouch", true, 48, Stance.MACE, 0, "crouch_idle"),
+    MACE_CROUCH_WALK("mace_crouch_walk", "Mace crouch walk", true, 32, Stance.MACE, 0.9, "crouch_walk"),
+    MACE_JUMP("mace_jump", "Mace jump", false, 27, Stance.MACE, 0, "jump"),
+    MACE_ATTACK("mace_attack", "Mace smash", false, 24, Stance.MACE, 0, "attack"),
+    MACE_HEAVY_ATTACK("mace_heavy_attack", "Mace ground smash", false, 32, Stance.MACE, 0, "mace_attack"),
+    MACE_SPIN_ATTACK("mace_spin_attack", "Mace spin attack", false, 30, Stance.MACE, 0, "mace_attack"),
+    MACE_CROUCH_ATTACK("mace_crouch_attack", "Mace sweep, crouched", false, 24, Stance.MACE, 0,
+            "mace_attack"),
+    MACE_PARRY("mace_parry", "Mace parry", false, 18, Stance.MACE, 0, "parry"),
+    MACE_BLOCK("mace_block", "Mace block", true, 30, Stance.MACE, 0, "mace_idle"),
+    // --- the dagger: in the right hand, the left up as a guard - a thrust, a slash and
+    // a lunge, a spinning slash, a rising stab from the crouch, a parry and a guard
+    DAGGER_IDLE("dagger_idle", "Dagger idle", true, 48, Stance.DAGGER, 0, "idle"),
+    DAGGER_WALK("dagger_walk", "Dagger walk", true, 28, Stance.DAGGER, 1.7, "walk"),
+    DAGGER_RUN("dagger_run", "Dagger run", true, 20, Stance.DAGGER, 4.2, "run"),
+    DAGGER_SPRINT("dagger_sprint", "Dagger sprint", true, 16, Stance.DAGGER, 7.0, "sprint"),
+    DAGGER_CROUCH_IDLE("dagger_crouch_idle", "Dagger crouch", true, 48, Stance.DAGGER, 0, "crouch_idle"),
+    DAGGER_CROUCH_WALK("dagger_crouch_walk", "Dagger crouch walk", true, 32, Stance.DAGGER, 0.9,
+            "crouch_walk"),
+    DAGGER_JUMP("dagger_jump", "Dagger jump", false, 27, Stance.DAGGER, 0, "jump"),
+    DAGGER_ATTACK("dagger_attack", "Dagger thrust", false, 24, Stance.DAGGER, 0, "attack"),
+    DAGGER_HEAVY_ATTACK("dagger_heavy_attack", "Dagger slash and lunge", false, 32, Stance.DAGGER, 0,
+            "dagger_attack"),
+    DAGGER_SPIN_ATTACK("dagger_spin_attack", "Dagger spinning slash", false, 30, Stance.DAGGER, 0,
+            "dagger_attack"),
+    DAGGER_CROUCH_ATTACK("dagger_crouch_attack", "Dagger rising stab, crouched", false, 24, Stance.DAGGER, 0,
+            "dagger_attack"),
+    DAGGER_PARRY("dagger_parry", "Dagger parry", false, 18, Stance.DAGGER, 0, "parry"),
+    DAGGER_BLOCK("dagger_block", "Dagger block", true, 30, Stance.DAGGER, 0, "dagger_idle");
 
     /** The playback rate every sheet is authored at unless its profile says otherwise. */
     public static final double DEFAULT_FPS = 30.0;
