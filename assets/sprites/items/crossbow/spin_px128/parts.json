@@ -1,0 +1,25 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "body": [
+   0,
+   1
+  ],
+  "prod": [
+   2
+  ],
+  "fittings": [
+   3
+  ],
+  "string": [
+   4
+  ]
+ },
+ "materials": [
+  "body",
+  "body",
+  "prod",
+  "fittings",
+  "string"
+ ]
+}

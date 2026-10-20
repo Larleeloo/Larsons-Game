@@ -271,6 +271,7 @@ public final class ImportPanel {
             phase = Phase.DONE;
             game.sprites().reloadAll();
             game.sprites().reloadIcons();
+            game.items().rescan();
             if (result != null && wear && !plan.sheets().isEmpty() && result.written() > 0) {
                 game.wardrobe().set(slot, result.folder().getFileName().toString());
                 game.saveWardrobe();

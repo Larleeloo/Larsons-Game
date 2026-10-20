@@ -32,6 +32,12 @@ import static org.lwjgl.opengl.GL33C.*;
  * texel from that palette's row of the {@link PaletteAtlas} - the pixel-art
  * layers, which so take any colours without being uploaded again. Quads of
  * different palettes on the same texture still share a draw call.
+ *
+ * <p>A quad can also be <em>light</em> ({@link #glow}): its colour goes in
+ * premultiplied with no alpha, so the blend the batch is drawn with
+ * ({@code ONE, ONE_MINUS_SRC_ALPHA}) adds it to what is behind instead of
+ * covering it - the glow of a halo, a beam of light - in the same draw calls
+ * as everything else.
  */
 public final class Batch implements AutoCloseable {
 
@@ -91,7 +97,8 @@ public final class Batch implements AutoCloseable {
                     c = t * vColor;
                 }
                 if (any(lessThan(vUv, vClip.xy)) || any(greaterThan(vUv, vClip.zw))) discard;
-                if (c.a <= uAlphaCut) discard;
+                // (light - a glow quad - has colour but no alpha: it is kept, and adds)
+                if (max(c.a, max(c.r, max(c.g, c.b))) <= uAlphaCut) discard;
                 if (uFog.y > 0.0) {
                     float f = clamp((vDepth - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     c.rgb = mix(c.rgb, uFogColor * c.a, f * f);
@@ -220,6 +227,17 @@ public final class Batch implements AutoCloseable {
                       float u0, float v0, float u1, float v1,
                       float cu0, float cv0, float cu1, float cv1,
                       float r, float g, float b, float a, int palette) {
+        emit(tex, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, u0, v0, u1, v1, cu0, cv0, cu1, cv1,
+                r * a, g * a, b * a, a, palette);
+    }
+
+    /** One quad, its colour already premultiplied ({@code a} 0: light, added to what is behind). */
+    private void emit(Texture tex,
+                      float x0, float y0, float z0, float x1, float y1, float z1,
+                      float x2, float y2, float z2, float x3, float y3, float z3,
+                      float u0, float v0, float u1, float v1,
+                      float cu0, float cv0, float cu1, float cv1,
+                      float pr, float pg, float pb, float a, int palette) {
         if (!drawing) throw new IllegalStateException("batch not begun");
         if (quads == MAX_QUADS) flush();
         if (runs == 0 || runTexture[runs - 1] != tex) {
@@ -227,7 +245,6 @@ public final class Batch implements AutoCloseable {
             runFirst[runs] = quads;
             runs++;
         }
-        float pr = r * a, pg = g * a, pb = b * a;
         float pal = palette + 1;           // 0 in the buffer is "no palette"
         put(x0, y0, z0, u0, v0, pr, pg, pb, a, cu0, cv0, cu1, cv1, pal);
         put(x1, y1, z1, u1, v0, pr, pg, pb, a, cu0, cv0, cu1, cv1, pal);
@@ -271,6 +288,44 @@ public final class Batch implements AutoCloseable {
                 (float) br.x(), (float) br.y(), (float) br.z(),
                 (float) bl.x(), (float) bl.y(), (float) bl.z(),
                 u0, v0, u1, v1, cu0, cv0, cu1, cv1, r, g, b, a, palette);
+    }
+
+    /**
+     * A quad of light, from its top-left corner and two edge vectors: {@code
+     * tex}'s colour times {@code (r, g, b)} times {@code intensity}, added to
+     * whatever is behind it (a texture's alpha is how much of it there is -
+     * a soft white blob is a soft glow). {@code palette}: an index texture's
+     * palette ({@link #palette}), or {@link #NO_PALETTE}.
+     */
+    public void glow(Texture tex, Vec3 topLeft, Vec3 right, Vec3 down,
+                     float u0, float v0, float u1, float v1,
+                     float cu0, float cv0, float cu1, float cv1,
+                     float r, float g, float b, float intensity, int palette) {
+        Vec3 tr = topLeft.add(right);
+        Vec3 br = tr.add(down);
+        Vec3 bl = topLeft.add(down);
+        emit(tex,
+                (float) topLeft.x(), (float) topLeft.y(), (float) topLeft.z(),
+                (float) tr.x(), (float) tr.y(), (float) tr.z(),
+                (float) br.x(), (float) br.y(), (float) br.z(),
+                (float) bl.x(), (float) bl.y(), (float) bl.z(),
+                u0, v0, u1, v1, cu0, cv0, cu1, cv1, r * intensity, g * intensity, b * intensity, 0, palette);
+    }
+
+    /** {@link #glow} of a whole texture, no palette. */
+    public void glow(Texture tex, Vec3 topLeft, Vec3 right, Vec3 down,
+                     float r, float g, float b, float intensity) {
+        glow(tex, topLeft, right, down, 0, 0, 1, 1, -NO_CLIP, -NO_CLIP, NO_CLIP, NO_CLIP, r, g, b, intensity,
+                NO_PALETTE);
+    }
+
+    /** {@link #glow} on the UI plane (y down): an axis-aligned rectangle of light. */
+    public void glowRect(Texture tex, float x, float y, float w, float h,
+                         float u0, float v0, float u1, float v1,
+                         float r, float g, float b, float intensity) {
+        emit(tex, x, y, 0, x + w, y, 0, x + w, y + h, 0, x, y + h, 0,
+                u0, v0, u1, v1, -NO_CLIP, -NO_CLIP, NO_CLIP, NO_CLIP,
+                r * intensity, g * intensity, b * intensity, 0, NO_PALETTE);
     }
 
     /** An axis-aligned rectangle on the UI plane (y down). */

@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * What a character carries: a row of slots, each empty or holding one item
- * (its {@link ItemDef#id()}), of any length the game asks for - and the
+ * What a character carries: a row of slots, each empty or holding one
+ * {@link Item}, of any length the game asks for - and the
  * first {@value #HOTBAR} of them are the <b>hotbar</b>, one of which is
  * selected: the item in hand.
  *
@@ -25,32 +25,32 @@ import java.util.Objects;
  * <p>Iterating gives the items carried, in slot order, skipping the empty
  * slots.
  */
-public final class Inventory implements Iterable<String> {
+public final class Inventory implements Iterable<Item> {
 
     /** Slots in the hotbar: chosen with 1 – 5 or the mouse wheel. */
     public static final int HOTBAR = 5;
     /** The player's slots unless the game says otherwise: the hotbar and four rows of five. */
     public static final int DEFAULT_SLOTS = 25;
 
-    private String[] slots;
+    private Item[] slots;
     private int selected;
 
     /** An empty inventory of {@code size} slots (at least the hotbar's). */
     public Inventory(int size) {
-        slots = new String[Math.max(HOTBAR, size)];
+        slots = new Item[Math.max(HOTBAR, size)];
     }
 
     /** How many slots there are, the hotbar's included. */
     public int size() { return slots.length; }
 
     /** The item in slot {@code i}, or null when it is empty (or there is no such slot). */
-    public String get(int i) {
+    public Item get(int i) {
         return i >= 0 && i < slots.length ? slots[i] : null;
     }
 
     /** Put {@code item} (null: nothing) in slot {@code i}; returns what was there. */
-    public String set(int i, String item) {
-        String was = slots[i];
+    public Item set(int i, Item item) {
+        Item was = slots[i];
         slots[i] = item;
         return was;
     }
@@ -78,7 +78,7 @@ public final class Inventory implements Iterable<String> {
     }
 
     /** The item in the selected hotbar slot - the one in hand - or null. */
-    public String held() {
+    public Item held() {
         return slots[selected];
     }
 
@@ -88,7 +88,7 @@ public final class Inventory implements Iterable<String> {
      * Put {@code item} in the first empty slot - the hotbar first, then the
      * rest - and return that slot, or -1 when every slot is full.
      */
-    public int add(String item) {
+    public int add(Item item) {
         Objects.requireNonNull(item);
         for (int i = 0; i < slots.length; i++) {
             if (slots[i] == null) {
@@ -100,17 +100,28 @@ public final class Inventory implements Iterable<String> {
     }
 
     /** The first slot holding {@code item}, or -1. */
-    public int indexOf(String item) {
+    public int indexOf(Item item) {
         for (int i = 0; i < slots.length; i++) if (Objects.equals(slots[i], item)) return i;
         return -1;
     }
 
-    public boolean contains(String item) {
+    /** The first slot holding an item of kind {@code def} (in any tier), or -1. */
+    public int indexOf(ItemDef def) {
+        for (int i = 0; i < slots.length; i++) if (slots[i] != null && slots[i].def() == def) return i;
+        return -1;
+    }
+
+    public boolean contains(Item item) {
         return item != null && indexOf(item) >= 0;
     }
 
+    /** Whether an item of kind {@code def} is carried, in any tier. */
+    public boolean contains(ItemDef def) {
+        return def != null && indexOf(def) >= 0;
+    }
+
     /** Take {@code item} out of the first slot holding it; whether it was there. */
-    public boolean remove(String item) {
+    public boolean remove(Item item) {
         int i = indexOf(item);
         if (i < 0 || item == null) return false;
         slots[i] = null;
@@ -118,13 +129,13 @@ public final class Inventory implements Iterable<String> {
     }
 
     /** Empty slot {@code i}, returning what was in it. */
-    public String take(int i) {
+    public Item take(int i) {
         return set(i, null);
     }
 
     /** Swap two slots' contents (moving an item onto an empty slot moves it). */
     public void swap(int a, int b) {
-        String t = slots[a];
+        Item t = slots[a];
         slots[a] = slots[b];
         slots[b] = t;
     }
@@ -132,7 +143,7 @@ public final class Inventory implements Iterable<String> {
     /** How many items are carried. */
     public int count() {
         int n = 0;
-        for (String s : slots) if (s != null) n++;
+        for (Item s : slots) if (s != null) n++;
         return n;
     }
 
@@ -146,13 +157,13 @@ public final class Inventory implements Iterable<String> {
      * stay, and returns what still does not fit (nothing is lost silently).
      * The hotbar always stays.
      */
-    public List<String> resize(int size) {
+    public List<Item> resize(int size) {
         size = Math.max(HOTBAR, size);
-        List<String> overflow = new ArrayList<>();
+        List<Item> overflow = new ArrayList<>();
         for (int i = size; i < slots.length; i++) if (slots[i] != null) overflow.add(slots[i]);
-        String[] next = Arrays.copyOf(slots, size);
-        for (Iterator<String> it = overflow.iterator(); it.hasNext(); ) {
-            String item = it.next();
+        Item[] next = Arrays.copyOf(slots, size);
+        for (Iterator<Item> it = overflow.iterator(); it.hasNext(); ) {
+            Item item = it.next();
             for (int i = HOTBAR; i < size; i++) {
                 if (next[i] == null) {
                     next[i] = item;
@@ -166,14 +177,14 @@ public final class Inventory implements Iterable<String> {
     }
 
     /** The items carried, in slot order. */
-    public List<String> items() {
-        List<String> out = new ArrayList<>();
-        for (String s : slots) if (s != null) out.add(s);
+    public List<Item> items() {
+        List<Item> out = new ArrayList<>();
+        for (Item s : slots) if (s != null) out.add(s);
         return out;
     }
 
     @Override
-    public Iterator<String> iterator() {
+    public Iterator<Item> iterator() {
         return items().iterator();
     }
 }

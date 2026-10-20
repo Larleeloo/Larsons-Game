@@ -128,7 +128,7 @@ class CameraAndPlayerTest {
         w.pickUp(g);
         assertTrue(w.player().wardrobe().wearing(ItemDef.SWORD.carrySlot(), "sword"));
         assertTrue(w.items().isEmpty());
-        assertEquals(ItemDef.SWORD, w.dropHeld());
+        assertEquals(ItemDef.SWORD, w.dropHeld().def());
         assertNull(w.player().wardrobe().get(ItemDef.SWORD.carrySlot()));
         assertEquals(1, w.items().size());
     }

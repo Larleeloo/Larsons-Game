@@ -1,0 +1,10 @@
+{
+ "frameWidth": 128,
+ "frameHeight": 128,
+ "frameWorldSize": 1.1665,
+ "pivotHeight": 0.0,
+ "fps": 10.0,
+ "pixelArt": true,
+ "frames": 32,
+ "length": 0.95
+}

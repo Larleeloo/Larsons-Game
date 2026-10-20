@@ -19,9 +19,11 @@ import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.Inventory;
+import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
 
 import java.nio.file.Path;
@@ -54,13 +56,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final int[] EMOTE_KEYS = {GLFW_KEY_F1, GLFW_KEY_F2, GLFW_KEY_F3, GLFW_KEY_F4};
     private static final AnimState[] EMOTES = {AnimState.EMOTE_LAUGH, AnimState.EMOTE_CRY,
             AnimState.EMOTE_SURPRISE, AnimState.EMOTE_ANGRY};
-    /** Where the weapons lie at the start (the sword, unless it is already in hand). */
+    /**
+     * Where the weapons lie at the start (the sword, unless it is already in
+     * hand): each in its basic tier, the crystal staff as it is drawn - the
+     * Magic Staff.
+     */
     private static final Vec3 SWORD_AT = new Vec3(1.4, 0, -2.2);
     private static final Object[][] WEAPONS_AT = {
-            {ItemDef.BATTLE_AXE, new Vec3(-1.9, 0, -1.7)},
-            {ItemDef.LONGBOW, new Vec3(2.5, 0, 1.0)},
-            {ItemDef.CROSSBOW, new Vec3(-2.3, 0, 1.6)},
-            {ItemDef.CRYSTAL_STAFF, new Vec3(2.6, 0, -0.9)}};
+            {Item.of(ItemDef.BATTLE_AXE), new Vec3(-1.9, 0, -1.7)},
+            {Item.of(ItemDef.LONGBOW), new Vec3(2.5, 0, 1.0)},
+            {Item.of(ItemDef.CROSSBOW), new Vec3(-2.3, 0, 1.6)},
+            {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)}};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";
@@ -88,11 +94,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Player p = world.player();
         if (game.wardrobe().wearing(ItemDef.SWORD.carrySlot(), ItemDef.SWORD.id())
                 || game.wardrobe().wearing(ItemDef.SWORD.carrySlot().twin(), ItemDef.SWORD.id())) {
-            p.inventory().add(ItemDef.SWORD.id());
+            p.inventory().add(Item.of(ItemDef.SWORD));
         } else {
             world.spawn(ItemDef.SWORD, SWORD_AT);
         }
-        for (Object[] w : WEAPONS_AT) world.spawn((ItemDef) w[0], (Vec3) w[1]);
+        for (Object[] w : WEAPONS_AT) world.spawn((Item) w[0], (Vec3) w[1]);
         world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
         world.equipSelected();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
@@ -207,7 +213,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private void select(int i) {
         Inventory inv = world.player().inventory();
         if (i == inv.selected()) return;
-        ItemDef d = world.select(i);
+        Item d = world.select(i);
         Sounds.play(SoundKeys.ui("hotbar_select"));
         if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
     }
@@ -301,19 +307,20 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             boolean inHand = lib.resolve(src, d.stance().idle(false), Elevation.MIDDLE, Facing.SOUTH) != null
                     || world.player().wardrobe().get(com.larsons.game.sprite.Slot.BODY) == null;
             Inventory inv = world.player().inventory();
-            int at = inv.indexOf(d.id());
+            int at = inv.indexOf(g.item);
             String where = Inventory.isHotbar(at) ? " — hotbar " + (at + 1) + (d.held() ? ", in both hands" : "")
                     : " — in your inventory (I)";
-            game.toast("Picked up " + d.name() + (inHand ? where : " — no in-hand sheets for it yet"), Theme.OK);
+            game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                    + (inHand ? where : " — no in-hand sheets for it yet"), g.item.rarity().colour(1f));
         }, durations());
     }
 
     private void drop() {
-        ItemDef d = world.dropHeld();
+        Item d = world.dropHeld();
         if (d != null) {
             Sounds.play(SoundKeys.item(d.id(), "drop"));
             game.saveWardrobe();
-            game.toast("Dropped " + d.name(), Theme.HINT);
+            game.toast("Dropped " + d.fullName(), Theme.HINT);
         }
     }
 
@@ -348,22 +355,27 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
-        String text;
+        String text, name = "";
+        float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
         if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
                 < g.position.horizontalDistance(world.player().ground()))) {
             text = "E   " + (c.isOpen() ? "Close the chest" : "Open the chest");
         } else if (g != null) {
-            text = "E   Pick up " + g.def.name() + (world.player().crouched() ? " (crouched)" : "");
+            // the item's name in its rarity's colour
+            text = "E   Pick up ";
+            name = g.item.fullName() + (world.player().crouched() ? " (crouched)" : "");
+            edge = nameColour = g.item.rarity().colour(1f);
         } else {
             return;
         }
-        float tw = ui.large.width(text) + 40;
+        float tw = ui.large.width(text + name) + 40;
         float x = (ui.width() - tw) / 2, y = ui.height() * 0.62f;
         ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
-        ui.outline(x, y, tw, 44, 1, Theme.ACCENT);
-        ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
+        ui.outline(x, y, tw, 44, 1, edge);
+        float done = ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
+        if (!name.isEmpty()) ui.text(ui.large, name, x + 20 + done, y + 9, nameColour);
     }
 
     /** The A/B switch: the first version of the re-animated states, or the new. */
@@ -419,10 +431,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 x, y, r.substituted() ? Theme.WARNING : Theme.ITEM);
         y += lh;
         StringJoiner carried = new StringJoiner(", ");
-        for (String id : p.inventory()) {
-            ItemDef d = ItemDef.byId(id);
-            carried.add(d == null ? id : d.name());
-        }
+        for (Item it : p.inventory()) carried.add(it.fullName());
         Inventory inv = p.inventory();
         ui.text(ui.small, String.format("Stance  %s%s   ·   hotbar %d of %d slots   ·   carrying %s",
                 p.stance().label(), p.crouched() ? ", crouched" : "", inv.selected() + 1, inv.size(),
@@ -486,10 +495,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * A scripted pick-up without walking there: into the inventory (the
      * sword into her hand too), and the one lying about gone from the ground.
      */
-    private boolean give(ItemDef d) {
+    private boolean give(Item item) {
         Player p = world.player();
-        if (p.inventory().add(d.id()) < 0) return false;
-        world.items().stream().filter(g -> g.def == d).findFirst().ifPresent(world.items()::remove);
+        ItemDef d = item.def();
+        if (p.inventory().add(item) < 0) return false;
+        world.items().stream().filter(g -> g.item.equals(item)).findFirst()
+                .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
+                .ifPresent(world.items()::remove);
         if (!d.held()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
                 : d.carrySlot(), d.id());
         return true;
@@ -566,10 +578,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (s == null) return false;
                 // (scripts may take up a stance without the weapon lying about first)
                 ItemDef d = ItemDef.of(s);
-                if (d != null && !p.inventory().contains(d.id())) give(d);
+                if (d != null && !p.inventory().contains(d)) give(Item.of(d));
                 world.wield(s);
             }
-            // the inventory: inventory [open|close], hotbar <1-5>, slots <n>, give <item>
+            // the inventory: inventory [open|close], hotbar <1-5>, slots <n>,
+            // give <item> [tier|rarity] [border] (battle_axe crystal venom)
             case "inventory" -> {
                 if (argument.equals("close")) inventory.close();
                 else if (argument.equals("open")) inventory.show();
@@ -577,16 +590,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "hotbar" -> select(Integer.parseInt(argument.trim()) - 1);
             case "slots" -> {
-                for (String spilled : p.inventory().resize(Integer.parseInt(argument.trim()))) {
+                for (Item spilled : p.inventory().resize(Integer.parseInt(argument.trim()))) {
                     world.dropItem(spilled);
                 }
                 world.equipSelected();
             }
             case "give" -> {
-                ItemDef d = ItemDef.byId(argument.trim());
-                if (d == null || !give(d)) return false;
+                Item item = Item.parse(argument);
+                if (item == null || !give(item)) return false;
                 world.equipSelected();
             }
+            // the chest's loot from a seed: seed <n>
+            case "seed" -> world.seed(Long.parseLong(argument.trim()));
             // the chest: chest (open it, or shut it), and where she stands to: chest goto
             case "chest" -> {
                 if (world.chests().isEmpty()) return false;

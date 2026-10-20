@@ -5,11 +5,14 @@ import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.LayerStack;
 import com.larsons.game.sprite.ObjectSprites;
 import com.larsons.game.sprite.ObjectStack;
+import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Wardrobe;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,12 +30,15 @@ import static org.lwjgl.opengl.GL33C.*;
  *   <li><b>3D props</b> — real geometry, depth-tested and depth-writing.</li>
  *   <li><b>Shadows</b> — soft blobs on the floor under every sprite and prop,
  *       depth-tested (a trunk hides the shadow behind it) but not writing -
- *       and the warm pool of light an open chest throws round itself.</li>
+ *       the warm pool of light an open chest throws round itself, and the
+ *       pool of its rarity's light under every item.</li>
  *   <li><b>Sprites</b> — every character layer, every item and every chest
  *       (its smoke behind, the chest, its smoke in front), as camera-facing
  *       billboards, far to near so their soft edges blend over what is
  *       behind them; depth-tested against the props so a tree can stand in
- *       front of the player.</li>
+ *       front of the player. An item comes with its halo, its border and
+ *       its beam of light ({@link ItemRenderer}); the weapon in her hands is
+ *       drawn in its tier's colours ({@link ItemSprites#carriedPalette}).</li>
  * </ol>
  *
  * <p>Sprites test depth but do not write it. Every billboard faces the
@@ -53,6 +59,8 @@ public final class WorldRenderer implements AutoCloseable {
     private final Batch batch;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
+    private final ItemSprites items;
+    private final ItemRenderer itemRenderer;
     private final Texture shadow;
     private final Texture glow;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
@@ -60,12 +68,14 @@ public final class WorldRenderer implements AutoCloseable {
     private LayerStack.Result playerStack;
 
     public WorldRenderer(VoidRenderer voidRenderer, Props props, Batch batch, SpriteLibrary sprites,
-                         ObjectSprites objects) {
+                         ObjectSprites objects, ItemSprites items) {
         this.voidRenderer = voidRenderer;
         this.props = props;
         this.batch = batch;
         this.sprites = sprites;
         this.objects = objects;
+        this.items = items;
+        this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
     }
@@ -122,8 +132,12 @@ public final class WorldRenderer implements AutoCloseable {
         double lift = Math.min(1, p.height() / 1.5);
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
-            double h = g.hover(world.time());
-            groundShadow(g.position, 0.30 * (1 - 0.15 * h), (float) (0.42 - 0.12 * h));
+            if (!g.out(world.time())) continue;
+            Vec3 c = g.centre(world.time());
+            double h = c.y();
+            groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * h),
+                    (float) Math.max(0, (0.42 - 0.12 * h) * g.flight(world.time())));
+            itemRenderer.ground(g, world.time());
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
@@ -143,7 +157,8 @@ public final class WorldRenderer implements AutoCloseable {
 
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
-        playerStack = LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory());
+        playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory()),
+                world.wielded(), items);
         LayerStack.Result stack = playerStack;
         draws.add(() -> LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f));
         dist.add(p.feet().sub(eye).dot(forward));
@@ -159,14 +174,11 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(c.position().sub(eye).dot(forward));
         }
 
+        double t = world.time();
         for (World.GroundItem g : world.items()) {
-            Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
-            Vec3 centre = g.position.add(0, g.hover(world.time()), 0);
-            double s = g.def.worldSize();
-            draws.add(() -> batch.quad(icon,
-                    centre.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s), up.scale(-s),
-                    0, 0, 1, 1, 1, 1, 1, 1));
-            dist.add(centre.sub(eye).dot(forward));
+            if (!g.out(t)) continue;
+            draws.add(() -> itemRenderer.draw(g, t, eye, camera.yaw(), right, up));
+            dist.add(g.centre(t).sub(eye).dot(forward));
         }
 
         Integer[] order = new Integer[draws.size()];
@@ -175,6 +187,35 @@ public final class WorldRenderer implements AutoCloseable {
         for (int i : order) draws.get(i).run();
         batch.end();
         glDepthMask(true);
+    }
+
+    /**
+     * {@code stack} with the weapon in her hands - the carried layers of
+     * {@code wielded}, in either hand - in its tier's colours ({@code
+     * items}' {@link ItemSprites#carriedPalette}): a Sharper Axe's handle
+     * black, a Perfect Sword gold. The stack itself when nothing changes.
+     */
+    static LayerStack.Result inTier(LayerStack.Result stack, Item wielded, ItemSprites items) {
+        if (stack == null || wielded == null || wielded.tier() == null) return stack;
+        String id = wielded.id(), tier = wielded.tier().key();
+        List<LayerStack.Layer> layers = null;
+        for (int i = 0; i < stack.layers().size(); i++) {
+            LayerStack.Layer l = stack.layers().get(i);
+            if (!isCarried(l, id) || l.palette() == null) continue;
+            int[] p = items.carriedPalette(l.palette(), id, tier);
+            if (p == l.palette()) continue;
+            if (layers == null) layers = new ArrayList<>(stack.layers());
+            layers.set(i, l.withPalette(p));
+        }
+        if (layers == null) return stack;
+        return new LayerStack.Result(List.copyOf(layers), stack.framing(), stack.view(), stack.state(),
+                stack.asked(), stack.frame(), stack.frames(), stack.fps(), stack.fallbackBody(), stack.loading());
+    }
+
+    /** Whether {@code l} is weapon {@code id} in a hand (its left-handed or styled sheets too). */
+    static boolean isCarried(LayerStack.Layer l, String id) {
+        return (l.slot() == Slot.CARRY_RIGHT || l.slot() == Slot.CARRY_LEFT) && l.item() != null
+                && Wardrobe.Style.base(l.item()).equals(id);
     }
 
     private void groundShadow(Vec3 at, double radius, float alpha) {
@@ -200,6 +241,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        itemRenderer.close();
         shadow.close();
         glow.close();
     }

@@ -373,7 +373,7 @@ public final class LayerStack {
      * part, for a frame's cell to be drawn on with its own coordinates at the
      * corners.
      */
-    static Vec3[] regionQuad(Vec3 topLeft, Vec3 right, Vec3 down, double[] region) {
+    public static Vec3[] regionQuad(Vec3 topLeft, Vec3 right, Vec3 down, double[] region) {
         return new Vec3[]{
                 topLeft.add(right.scale(region[0])).add(down.scale(region[1])),
                 right.scale(region[2] - region[0]),

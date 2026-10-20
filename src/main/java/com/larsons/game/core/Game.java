@@ -9,6 +9,7 @@ import com.larsons.game.input.Input;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.cutscene.CloseupLibrary;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.ObjectSprites;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.Wardrobe;
@@ -53,6 +54,7 @@ public final class Game implements AutoCloseable {
     private final Ui ui;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
+    private final ItemSprites items;
     private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
     private final Props props;
@@ -95,10 +97,11 @@ public final class Game implements AutoCloseable {
         sprites.setMaxTexture(Math.min(gpu.maxTexture(), 16384));
         sprites.warmFallbacks();
         objects = new ObjectSprites(settings.spritesDir());
+        items = new ItemSprites(settings.spritesDir());
         closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
         voidRenderer = new VoidRenderer();
         props = new Props();
-        worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites, objects);
+        worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites, objects, items);
         startSound();
         wardrobe = Wardrobe.load(settings.wardrobeFile());
         autopilot = new Autopilot(settings.script);
@@ -241,6 +244,9 @@ public final class Game implements AutoCloseable {
     /** The sprite sheets of things in the world that are not characters (assets/sprites/objects/). */
     public ObjectSprites objects() { return objects; }
 
+    /** The items' turning sprites, their weapon tiers' colours and their inventory icons (assets/sprites/items/). */
+    public ItemSprites items() { return items; }
+
     /** The cutscene close-ups (assets/closeups/), drawn through {@link #sprites()}. */
     public CloseupLibrary closeups() { return closeups; }
 
@@ -265,6 +271,7 @@ public final class Game implements AutoCloseable {
         settings.save();
         Sounds.dispose();
         worldRenderer.close();
+        items.close();
         props.close();
         voidRenderer.close();
         sprites.close();
