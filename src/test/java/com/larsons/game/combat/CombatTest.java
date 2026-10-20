@@ -158,6 +158,51 @@ class CombatTest {
     }
 
     @Test
+    void aSwordPutDownMidSwingNeverLands() {
+        World w = holding(Item.of(ItemDef.SWORD, Rarity.MYTHIC));
+        Dummy d = ahead(w, 1.3, 1000);
+        play(w, ATTACK, 2);
+        assertNotNull(w.combat().show());
+        assertNotNull(w.dropHeld());
+        idle(w, 1);
+        assertEquals(1000, d.health(), "the sword is on the ground");
+        assertNull(w.combat().show(), "its dice are taken down");
+    }
+
+    @Test
+    void aSpellCutShortGivesItsManaBack() {
+        World w = holding(Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC));
+        Dummy d = ahead(w, 4, 1000);
+        Combat c = w.combat();
+        c.setMana(50);
+        play(w, ATTACK, 2);
+        assertEquals(40, c.mana(), 0.5);
+        w.dropHeld();
+        play(w, Player.Intent.NONE, 1);
+        assertEquals(50, c.mana(), 0.5, "the 10 back");
+        assertNull(c.show());
+        idle(w, 1.5);
+        assertTrue(c.projectiles().isEmpty());
+        assertEquals(1000, d.health());
+    }
+
+    @Test
+    void oneBondedBlowOnTwoDummiesCountsBothWhicheverFalls() {
+        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER).withBorder(Border.BONDED);
+        World w = holding(axe);
+        Dummy weak = w.addDummy(new Dummy(new Vec3(-0.4, 0, -1.2), 0, 1, 6));
+        Dummy strong = w.addDummy(new Dummy(new Vec3(0.4, 0, -1.2), 0, 1000, 6));
+        play(w, ATTACK, 2);
+        Combat.Show show = w.combat().show();
+        int roll = show.strike().roll().total();
+        assertEquals("Bonded +10% (1 alive)", show.notes().get(0).text(), "the one it is aimed at counts");
+        idle(w, 1.5);
+        assertFalse(weak.alive());
+        assertEquals(1000 - Math.round(roll * 1.2), strong.health(), 1e-9, "both were standing when it struck");
+        assertEquals("Bonded +20% (2 alive)", w.combat().show().notes().get(0).text(), "the note says what it did");
+    }
+
+    @Test
     void reachAndArc() {
         Dummy d = new Dummy(new Vec3(0, 0, -1.5), 0, 100, 6);
         assertTrue(Combat.inReach(Vec3.ZERO, 0, d, 1.7, 120));
@@ -236,6 +281,7 @@ class CombatTest {
         assertTrue(Combat.casts(magic));
         assertEquals(Move.Kind.SPELL, Move.of(AnimState.STAFF_ATTACK, magic).kind());
         assertEquals(Move.Kind.SWING, Move.of(AnimState.STAFF_HEAVY_ATTACK, magic).kind());
+        assertEquals(0x5D86FA, Combat.spellColour(Item.of(wand)), "a plain wand's spell is blue too");
     }
 
     @Test

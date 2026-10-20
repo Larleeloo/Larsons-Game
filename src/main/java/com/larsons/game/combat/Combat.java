@@ -7,6 +7,7 @@ import com.larsons.game.sprite.Stance;
 import com.larsons.game.world.Border;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Rarity;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
 
@@ -16,6 +17,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -84,17 +86,23 @@ public final class Combat {
     /** A sound to play: its key, and where it happens. */
     public record Sound(String key, Vec3 at) {}
 
-    /** The swing under way: what it does, and when. */
+    /** The swing under way: what it does, and when; what it was paid for and showed, to undo if it is cut short. */
     private static final class Swing {
         final Move move;
+        final Item weapon;
         final Strike strike;      // null: a spell with no mana for it
         final double at;
+        final double cost;
+        final Show show;
         boolean done;
 
-        Swing(Move move, Strike strike, double at) {
+        Swing(Move move, Item weapon, Strike strike, double at, double cost, Show show) {
             this.move = move;
+            this.weapon = weapon;
             this.strike = strike;
             this.at = at;
+            this.cost = cost;
+            this.show = show;
         }
     }
 
@@ -165,7 +173,10 @@ public final class Combat {
 
         AnimState a = p.action();
         double t = p.stateTime();
+        // put down, or swapped for something else, before the blow: it never lands
+        if (swing != null && !swing.done && !Objects.equals(world.wielded(), swing.weapon)) cancel();
         if (a != swingState || t + 1e-9 < swingClock) {
+            if (swing != null && !swing.done) cancel();     // cut short before it landed
             swingState = a;
             swing = a == null ? null : begin(a, world, targets);
         }
@@ -198,17 +209,24 @@ public final class Combat {
         if (!paid) {
             popups.add(new Popup("Not enough mana", 0x5D86FA, p.ground(), 2.0, now, true));
             sounds.add(new Sound("combat/fizzle", p.ground()));
-            if (move.kind() == Move.Kind.SPELL) return new Swing(move, null, at);
+            if (move.kind() == Move.Kind.SPELL) return new Swing(move, weapon, null, at, 0, null);
         }
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
-        softLock(p, move, targets);
+        Target aimed = softLock(p, move, targets);
 
         int n = (weapon == null ? tuning.unarmedDice : tuning.dice(weapon.rarity()))
                 + (move.heavy() ? tuning.heavyExtra : 0);
         Strike strike = new Strike(weapon, DiceRoll.roll(n, tuning.sides, random), mystic && paid);
-        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes(strike, mystic && !paid));
+        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes(strike, aimed));
         sounds.add(new Sound("combat/dice_roll", p.ground()));
-        return new Swing(move, strike, at);
+        return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
+    }
+
+    /** The swing under way stops before its blow: its mana back, its dice taken down. */
+    private void cancel() {
+        mana = Math.min(tuning.maxMana, mana + swing.cost);
+        if (show != null && show == swing.show) show = null;
+        swing = null;
     }
 
     /** What a swing costs: a spell's mana, Mystic's double. */
@@ -220,15 +238,15 @@ public final class Combat {
         return base;
     }
 
-    /** What the border adds, said under the dice. */
-    private List<Note> notes(Strike s, boolean mysticShort) {
+    /** What the border adds, said under the dice ({@code also}: what it is aimed at, for Bonded's count). */
+    private List<Note> notes(Strike s, Target also) {
         List<Note> out = new ArrayList<>();
         Border b = s.border();
         if (b == Border.MYSTIC) {
-            out.add(mysticShort ? new Note("Mystic: no mana, no bonus", b.rgb())
+            out.add(!s.mystic() ? new Note("Mystic: no mana, no bonus", b.rgb())
                     : new Note("Mystic ×" + trim(Border.MYSTIC_DAMAGE), b.rgb()));
         } else if (b == Border.BONDED) {
-            int n = bondedCount(s.weapon(), null);
+            int n = bondedCount(s.weapon(), also);
             out.add(new Note("Bonded +" + Math.round(n * Border.BONDED_PER_HIT * 100) + "% (" + n + " alive)",
                     b.rgb()));
         } else if (b == Border.VENOM) {
@@ -243,12 +261,13 @@ public final class Combat {
      * front of her: within {@link #SOFT_LOCK}° and in reach for a swing,
      * within the aim assist and range for a shot.
      */
-    private void softLock(Player p, Move move, List<Target> targets) {
+    private Target softLock(Player p, Move move, List<Target> targets) {
         Target t = move.shoots() ? aimAt(p.ground(), p.heading(), targets)
                 : nearest(p.ground(), p.heading(), targets, move.reach() + 0.4, SOFT_LOCK);
-        if (t == null) return;
+        if (t == null) return null;
         Vec3 d = t.position().sub(p.ground());
         p.turnTo(SpriteView.headingOf(d.x(), d.z()));
+        return t;
     }
 
     /** The blow lands, or the shot leaves. */
@@ -264,7 +283,18 @@ public final class Combat {
             if (t.alive() && inReach(from, p.heading(), t, s.move.reach(), s.move.arc())) hit.add(t);
         }
         for (Target t : hit) remember(s.strike.weapon(), t);
-        for (Target t : hit) strike(s.strike, t, from, true);
+        // every blow's damage before any of them lands, so one felled first leaves the others' Bonded count be
+        double[] dealt = new double[hit.size()];
+        for (int i = 0; i < hit.size(); i++) dealt[i] = damage(s.strike, hit.get(i));
+        renote(s.strike, null);
+        for (int i = 0; i < hit.size(); i++) strike(s.strike, hit.get(i), dealt[i], from, true);
+    }
+
+    /** The notes under {@code s}'s dice, again, now its targets are known. */
+    private void renote(Strike s, Target also) {
+        if (show != null && show.strike() == s && s.border() == Border.BONDED) {
+            show = new Show(s, show.start(), show.land(), notes(s, also));
+        }
     }
 
     /** Whether {@code t} is within {@code reach} of {@code from}, inside the arc round {@code heading}. */
@@ -348,7 +378,8 @@ public final class Combat {
             if (hit != null) {
                 Vec3 back = pr.velocity().normalize(Vec3.ZERO);
                 remember(pr.strike().weapon(), hit);
-                strike(pr.strike(), hit, hit.position().sub(back), false);
+                renote(pr.strike(), hit);
+                strike(pr.strike(), hit, damage(pr.strike(), hit), hit.position().sub(back), false);
                 Vec3 at = closestOnSegment(a, b, hit.position());
                 effects.add(pr.kind() == Move.Kind.SPELL ? new Effect(Effect.Kind.BURST, at, now, pr.colour())
                         : new Effect(Effect.Kind.SPARK, at, now, 0));
@@ -417,12 +448,11 @@ public final class Combat {
     }
 
     /**
-     * {@code s} lands on {@code t}, dealt from {@code from}; a swing's blow
-     * ({@code melee}) throws a spark off the side it struck (a shot makes
-     * its own).
+     * {@code s} lands on {@code t} for {@code d}, dealt from {@code from}; a
+     * swing's blow ({@code melee}) throws a spark off the side it struck (a
+     * shot makes its own).
      */
-    private void strike(Strike s, Target t, Vec3 from, boolean melee) {
-        double d = damage(s, t);
+    private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
         t.hurt(d, from, true);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
         if (s.border() == Border.VENOM && d > 0) {
@@ -495,11 +525,13 @@ public final class Combat {
 
     /**
      * The colour of what {@code weapon} shoots: its tier's (blue for Magic,
-     * yellow for Honed), else its rarity's.
+     * yellow for Honed), else its rarity's - but Magic's blue for a Common
+     * one (a plain wand), whose white would hardly show.
      */
     public static int spellColour(Item weapon) {
         if (weapon == null) return Tier.MAGIC.projectile();
         if (weapon.tier() != null && weapon.tier().projectile() >= 0) return weapon.tier().projectile();
+        if (weapon.rarity() == Rarity.COMMON) return Tier.MAGIC.projectile();
         return weapon.rarity().rgb();
     }
 
