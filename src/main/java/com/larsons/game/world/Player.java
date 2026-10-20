@@ -299,9 +299,6 @@ public final class Player {
     /** The one-shot under way, or null. */
     public AnimState action() { return action; }
 
-    /** How long the one-shot under way lasts, in seconds (from its sheets). */
-    public double actionDuration() { return actionDuration; }
-
     // --- preview and posing ----------------------------------------------------------
 
     /** Loop {@code s} in place (null to go back to live states). */

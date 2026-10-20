@@ -26,9 +26,7 @@ import java.util.Map;
  *   ├── player/masculine/     … and his
  *   ├── chests/ornate_chest/  idle.mp3, open.mp3, opened.mp3, close.mp3
  *   ├── items/&lt;item&gt;/        pickup.mp3, drop.mp3, equip.mp3
- *   ├── ui/                   inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
- *   ├── combat/attack_dummy/  hit.mp3, fall.mp3, rise.mp3
- *   └── combat/               dice_roll.mp3, blow.mp3, arrow_hit.mp3, spell_cast.mp3 …
+ *   └── ui/                   inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
  * </pre>
  *
  * <p>Copied from Larsons-Game-Engine's {@code SoundPack}, which keeps its pack
@@ -337,9 +335,8 @@ public final class SoundPack {
                 Drop audio files in this folder and the game plays them. Every
                 animation in the game is a sound slot - both bodies' 56 states,
                 the treasure chest's four, what is done with an item, the
-                inventory, the training dummy's reactions and the fighting's
-                dice, blows and shots - and **every one is silent until a file
-                with its name is here**. MP3 or WAV (also AIFF and AU); MP3 is read by the
+                inventory - and **every one is silent until a file with its
+                name is here**. MP3 or WAV (also AIFF and AU); MP3 is read by the
                 game's own decoder, so no codec is needed.
 
                 ## Naming
@@ -356,8 +353,6 @@ public final class SoundPack {
                     chests/ornate_chest/close.mp3     the lid slammed (once)
                     items/battle_axe/pickup.mp3       picking the battle axe up
                     ui/inventory_open.mp3             the inventory opening (I)
-                    combat/attack_dummy/hit.mp3       a training dummy struck
-                    combat/dice_roll.mp3              the damage dice tumbling over her head
 
                 A file one folder up covers every object of its kind until an
                 object has its own: `player/walk.mp3` is both bodies' walk,

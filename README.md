@@ -21,7 +21,6 @@ ticked off as it lands.
 - [The inventory and the hotbar](#the-inventory-and-the-hotbar)
 - [The treasure chest](#the-treasure-chest)
 - [Items, rarity and loot](#items-rarity-and-loot)
-- [Fighting](#fighting)
 - [Sound](#sound)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
@@ -59,7 +58,7 @@ The main menu has one entry, **Demo**, which loads the void.
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
 | **Space** | jump - with the sword, the axe, the bow, the crossbow or the crystal staff |
-| **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
+| **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
 | **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
 | **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow or crystal staff in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
@@ -129,14 +128,6 @@ Drop sprite sheets on the window at any time to import them.
   colour of its rarity - see [Items, rarity and loot](#items-rarity-and-loot).
 
   <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
-- **Three training dummies** to fight - straw-stuffed burlap on a stake, a
-  target painted on the chest. Every swing rolls **D20s over her head** in
-  the colour of the weapon's rarity, and their total is the damage; the bow
-  and crossbow loose arrows and bolts, wands and staffs cast spells, and her
-  **mana** is beside the hotbar - see [Fighting](#fighting).
-
-  <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
-  <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
 - **Sound for every animation** - both bodies' 80 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
@@ -477,101 +468,6 @@ assets/sprites/pixel_palette.json                the art's 128 colours (3D-Model
 assets/sprites/items/<id>/spin_px128/            profile.json, spin_side/middle/top.png (32 frames), variants.json, parts.json
 ```
 
-## Fighting
-
-**Three training dummies** stand round her at the start
-(`combat/Dummy`): a straw-stuffed burlap figure on a stake with a target
-painted on its chest, a 2D sprite like the chest - 8 directions × 3 heights
-of 128 × 128 pixel art - drawn by
-[3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
-`items/attack_dummy/attack_dummy_sprites.py`:
-
-```
-assets/sprites/objects/attack_dummy/dummy/idle_<elev>_<dir>.png          48 frames, loops: a slow sway
-assets/sprites/objects/attack_dummy/dummy/hit_<side>_<elev>_<dir>.png    16 frames: rocks away from the blow, wobbles back
-assets/sprites/objects/attack_dummy/dummy/fall_<side>_<elev>_<dir>.png   12 frames: tips over away from the blow
-assets/sprites/objects/attack_dummy/dummy/down_<side>_<elev>_<dir>.png    1 frame: lying there
-assets/sprites/objects/attack_dummy/dummy/rise_<side>_<elev>_<dir>.png   18 frames: springs back up
-```
-
-Every reaction is drawn four ways - struck on its **front**, **back**,
-**left** or **right** - and it plays the one for the side the blow came from,
-flashing white as it is struck. It takes **100** before it falls, lies for
-**6 s** and springs back up whole; lying down, nothing touches it. A health
-bar shows over it once it is hurt. She cannot walk through it.
-
-### The damage dice
-
-**Every swing rolls D20s above her head**, in the **colour of the weapon's
-rarity** (a rare border's colour as the die's rim), tumbling as she swings
-and coming up their numbers one after another as the blow lands; **their
-total is the damage**, which floats up off whatever was struck in the same
-colour. The number of dice is the rarity's:
-
-| Rarity | Dice | Damage |
-|---|---|---|
-| Common | 1d20 | 1 – 20 |
-| Uncommon | 2d20 | 2 – 40 |
-| Rare | 3d20 | 3 – 60 |
-| Epic | 4d20 | 4 – 80 |
-| Legendary | 5d20 | 5 – 100 |
-| Mythic | 6d20 | 6 – 120 |
-
-A **heavy** attack (the axe's and the staff's) rolls **one die more**, and her
-bare hands one Common die. A sword swing, the axe's and the staff's blows and
-the spins hit everything alive in front of her within reach (the spins all
-round); a swing turns her toward a dummy just off to one side. The dice are
-the 64-pixel sheets on an ordinary screen and the 128-pixel ones on a
-high-density one (`assets/sprites/combat/d20_px64/`, `d20_px128/`: a
-tumbling `roll.png` and `land_01` … `land_20.png`, the die coming down on
-that number), drawn once in grey and coloured on the GPU by a palette swap.
-
-### Arrows, bolts and spells
-
-- **The bow** looses an arrow when the draw is let go, **the crossbow** a bolt
-  as it fires: they fly in an arc, **aimed at the dummy she faces** (within
-  25° either side, 25 m away at most), and **stick in the ground** where they
-  miss, fading after 8 s. The roll is made as she shoots and lands on what
-  the shot strikes.
-- **A wand, or a Magic or better staff**, casts a **spell** (the staff's
-  attack) that flies straight and bursts on what it hits or at the end of
-  its flight: **blue** for a Magic Staff or wand (and a plain wand), **yellow**
-  for a Honed one, otherwise the rarity's colour (a Perfect staff's orange,
-  a Mythic one's teal). A Basic staff has no magic in it and thrusts. Each spell costs
-  **10 mana**.
-
-### Mana
-
-Her **mana** is the blue bar beside the hotbar: **100**, filling back up at
-**5 a second**. A spell with too little mana fizzles ("Not enough mana", no
-dice).
-
-### The rare borders
-
-The borders the [rarity](#items-rarity-and-loot) system gives some
-weapons do what they say, and each one's effect is written under the dice:
-
-- **Venom** - the blow's damage again by half, as poison over the next
-  **10 s** (a tick a second, in small green numbers): 100 becomes 150. Every
-  blow poisons anew.
-- **Mystic** - **×2.5** damage (+150 %), for **twice the mana**: a spell costs
-  20, and a Mystic melee weapon spends 10 a blow (its bonus is lost when she
-  has too little; a Mystic spell fizzles).
-- **Bonded** - **+10 %** for each living thing this very weapon has struck in
-  the last **5 minutes**, the one it is striking included (a dummy lying
-  knocked down does not count until it is up again).
-
-### Tuning
-
-The numbers are in **`assets/combat/combat.json`**, read when the demo
-starts - the dice per rarity, the heavy die, mana, the shots' speeds, range
-and aim, how long arrows stay stuck, a dummy's health and how long it lies.
-Any value left out keeps its default (`combat/CombatTuning`); the borders'
-own numbers are `world/Border`'s. The fighting's other sprites are under
-`assets/sprites/combat/`: `arrow/` and `bolt/` (`fly.png`, the head to the
-right), `magic_bolt/` (`fly.png`, 8 frames), `magic_burst/` and `hit_spark/`
-(`burst.png`), each with a `profile.json` saying how big it is in the world.
-
 ## Sound
 
 The sound system is Larsons-Game-Engine's (`audio/`): its own **MP3 decoder**
@@ -597,9 +493,6 @@ assets/sounds/
   player/feminine/        <state>.mp3 for each of her 80 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
-  combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
-  combat/                 dice_roll.mp3, blow.mp3, arrow_hit.mp3, bolt_hit.mp3, arrow_stick.mp3,
-                          spell_cast.mp3, spell_hit.mp3, fizzle.mp3, venom_tick.mp3
   items/<item>/           pickup.mp3, drop.mp3, equip.mp3
   ui/                     inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
 ```
@@ -750,17 +643,12 @@ src/main/java/com/larsons/game/
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
                             Chest, Props, VoidRenderer, WorldRenderer, ItemRenderer
-  combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
-                            DiceRoll, Strike, Target, Dummy, Projectile; drawing: CombatRenderer, CombatHud,
-                            CombatSprites, CombatColours
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
-assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest
-                            and the attack dummy; items/<id>/spin_px128/: the turning items; combat/: the
-                            dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
-assets/combat/              combat.json: the fighting's numbers
+assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest;
+                            items/<id>/spin_px128/: the turning items; tiers.json, pixel_palette.json
 assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
@@ -823,11 +711,7 @@ weapon in her hands drawn in its tier,
 the object sheets (names, layer order, all 24 views of every state of the
 chest), the sound catalogue (a sound for every animation of both bodies), the
 pack's lookup and fallbacks, its key list being up to date, and the engine's
-MP3 decoder tests; and the fighting (`combat/CombatTest`): the dice per
-rarity, swings' reach and arc, heavy and unarmed rolls, every attack state
-having a move, arrows arcing onto a dummy, bolts sticking, spells' colours
-and mana, fizzling, Venom's 150 %, Mystic's damage and mana, Bonded's count,
-and a dummy's hits, fall and rise.
+MP3 decoder tests.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -843,9 +727,8 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff>`, `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
-[border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
-`chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
-by dummy n, facing it), `dummy add <x> <z>`, `mana <n>`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
+[border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot from a seed),
+`chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
 the item's own colours) and
