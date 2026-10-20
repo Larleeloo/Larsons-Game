@@ -303,7 +303,8 @@ final class WardrobePanel {
         ui.text(ui.small, wardrobe.leftHanded() ? "left-handed" : "right-handed",
                 x + 70 + hands.length * 116 + 8, hy + 8, Theme.HINT);
         ui.paragraph(ui.small, "Items come from your inventory - picked up, or out of a chest - and the "
-                        + "underwear and bra are always yours. Dyes and lipstick unlock colours. Empty layers "
+                        + "underwear, bra, long waves and arched brows are always yours. Dyes and lipstick unlock "
+                        + "colours. Empty layers "
                         + "are not drawn.",
                 x, hy + 36, listW, Theme.ITEM_DISABLED);
 

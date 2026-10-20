@@ -339,10 +339,9 @@ What she wears is **items** (`world/Wearables`): clothes, armour, jewellery,
 dyes, makeup, lipstick, hair styles and eyebrows are picked up or found in
 chests like the weapons, carried in the inventory, and only then offered by
 Pause → Wardrobe - each by its name ("Silver wrist band"), a wrist band on
-either wrist, a sheath on either hip. The **underwear** and the **bra** are
-hers from the start; everything else has to be found, so a new character
-starts bald and browless (the starter set is one list,
-`Wearables.OWNED_BY_DEFAULT`, should she start with hair after all).
+either wrist, a sheath on either hip. The **underwear**, the **bra** and a
+starter look - the **long waves** and the **arched eyebrows** - are hers from
+the start (`Wearables.OWNED_BY_DEFAULT`); everything else has to be found.
 **Free**, not items, as before: the body and the skin tone, the ears, the
 eyes and their colour, the nose and the mouth's shape - every folder found for
 the body - and the carried items in the hands.
@@ -351,7 +350,7 @@ the body - and the carried items in the hands.
 |---|---|
 | Common | underwear, bra (both owned by default), shoes, pants, baggy shirt, straw sun hat, beanie |
 | Uncommon | belt, gloves, sheath, laced shirt, wool mantle, chainmail shirt, chainmail pants |
-| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin), iron chestplate, iron leg plating, iron gauntlets, iron helmet |
+| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin) - the long waves and the arched eyebrows owned by default - iron chestplate, iron leg plating, iron gauntlets, iron helmet |
 | Epic | gold wrist band, gold necklace, gold hoops, steel chestplate, steel leg plating, steel gauntlets, steel helmet |
 
 The first four rows are Larson's list; the rest are picks he did not make
@@ -376,10 +375,10 @@ long, beanie short).
   takes it off when she has no other that gives the same, and the last dye of
   a colour takes that colour off whatever wears it. What is owned by default
   and the free layers never come off.
-- **Chests** drop the wearables and the armour at their rarities, but never the
-  underwear or the bra. So that the dyes and the hair styles do not drown out
-  the weapons, each **family** - the dyes, the hair styles, the eyebrows, the
-  makeup - is one drop of its rarity, and when it comes up, any one of it.
+- **Chests** drop the wearables and the armour at their rarities, but never
+  what is owned by default. So that the dyes and the hair styles do not drown
+  out the weapons, each **family** - the dyes, the hair styles, the eyebrows,
+  the makeup - is one drop of its rarity, and when it comes up, any one of it.
 - Scripts give them like the weapons: `give silver_necklace`, `give dye_pink`,
   `give hair_long_waves`, `give steel_helmet`.
 

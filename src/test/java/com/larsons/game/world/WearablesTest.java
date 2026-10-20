@@ -84,11 +84,12 @@ class WearablesTest {
         assertEquals(w("gold_necklace"), Wearables.wornAs(Slot.NECKLACE, "gold_pendant", "gold"));
         assertEquals(w("silver_hoops"), Wearables.wornAs(Slot.EARRINGS, "gold_hoops", "silver"));
         assertNull(Wearables.wornAs(Slot.NECKLACE, "gold_pendant", null), "a pendant in no metal is neither");
-        assertEquals(List.of(Wearables.UNDERWEAR, Wearables.BRA), Wearables.OWNED_BY_DEFAULT);
+        assertEquals(List.of(Wearables.UNDERWEAR, Wearables.BRA, w("hair_long_waves"), w("eyebrows_arched")),
+                Wearables.OWNED_BY_DEFAULT, "the underwear, the bra and the starter look");
     }
 
     @Test
-    void theChestsDropTheWearablesAndTheArmourButNotTheUnderwear() {
+    void theChestsDropTheWearablesAndTheArmourButNotWhatIsOwnedByDefault() {
         Loot loot = new World(new Wardrobe()).loot();
         assertTrue(loot.pool(Rarity.COMMON).contains(Item.of(w("straw_sun_hat"))));
         assertTrue(loot.pool(Rarity.UNCOMMON).contains(Item.of(w("chainmail_shirt"))));
@@ -116,8 +117,8 @@ class WearablesTest {
                 "three Rare weapons; the dress and the silver; the dyes, the makeup, the lipstick, the hair "
                         + "styles and the eyebrows one each; the iron armour");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 14), "the dyes");
-        assertTrue(rare.stream().anyMatch(d -> d.size() == 11), "the hair styles");
-        assertTrue(rare.stream().anyMatch(d -> d.size() == 3 && d.get(0).id().startsWith("eyebrows_")));
+        assertTrue(rare.stream().anyMatch(d -> d.size() == 10), "the hair styles, less the starter's");
+        assertTrue(rare.stream().anyMatch(d -> d.size() == 2 && d.get(0).id().startsWith("eyebrows_")));
         assertTrue(rare.stream().anyMatch(d -> d.size() == 3 && d.get(0).id().startsWith("makeup_")));
     }
 
@@ -208,17 +209,21 @@ class WearablesTest {
         assertNull(wr.get(Slot.NECKLACE), "the gold one is not silver: off it comes");
         assertNull(wr.colour(Slot.NECKLACE));
 
-        // the underwear and the bra are always hers; the free layers are no items
+        // the underwear, the bra and the starter look are always hers; the free layers are no items
         wr.set(Slot.UNDERWEAR, "cotton_briefs");
+        wr.set(Slot.HAIR, "long_waves");
         wr.set(Slot.EARS, "elven");
         p.inventory().add(Item.of(Wearables.UNDERWEAR));
         world.dropSlot(p.inventory().indexOf(Wearables.UNDERWEAR));
         assertEquals("cotton_briefs", wr.get(Slot.UNDERWEAR));
+        p.inventory().add(Item.of(w("hair_long_waves")));
+        world.dropSlot(p.inventory().indexOf(w("hair_long_waves")));
+        assertEquals("long_waves", wr.get(Slot.HAIR));
         // something she wears and never owned stays on when something else goes
-        wr.set(Slot.HAIR, "long_waves");
+        wr.set(Slot.HAIR, "bob");
         p.inventory().add(Item.of(w("belt")));
         world.dropSlot(p.inventory().indexOf(w("belt")));
-        assertEquals("long_waves", wr.get(Slot.HAIR));
+        assertEquals("bob", wr.get(Slot.HAIR));
         assertEquals("elven", wr.get(Slot.EARS));
 
         // spilled out of a smaller inventory, it is lost too

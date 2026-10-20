@@ -17,8 +17,8 @@ import java.util.Set;
  * Everything that can be worn, as items: clothes, armour, jewellery, the
  * dyes, makeup, lipstick, the hair styles and the eyebrows. The wardrobe
  * offers what the player owns - what is in her inventory, picked up or out of
- * a chest, and the underwear and the bra, which are hers from the start
- * ({@link #OWNED_BY_DEFAULT}).
+ * a chest, and the underwear, the bra and a starter look (the long waves and
+ * the arched eyebrows), which are hers from the start ({@link #OWNED_BY_DEFAULT}).
  *
  * <pre>
  *   Common    underwear, bra (owned by default), shoes, pants, baggy shirt,
@@ -27,7 +27,8 @@ import java.util.Set;
  *             chainmail shirt, chainmail pants
  *   Rare      laced dress, silver wrist band, silver necklace, silver hoops,
  *             the 14 dyes, makeup (noir, rose, plum), lipstick, the hair
- *             styles, the eyebrows, the iron armour
+ *             styles, the eyebrows (long waves and arched owned by default),
+ *             the iron armour
  *   Epic      gold wrist band, gold necklace, gold hoops, the steel armour
  * </pre>
  *
@@ -67,13 +68,15 @@ public final class Wearables {
     public static final ItemDef LIPSTICK = def("lipstick", "Lipstick",
             new Wearable(Rarity.RARE, List.of(), List.of(), null, null, null));
 
+    /** The starter look: the hair style and the eyebrows every character has. */
+    public static final ItemDef LONG_WAVES = hair("long_waves"), ARCHED_EYEBROWS = eyebrows("arched");
+
     /**
-     * What every character owns without picking anything up. A new character
-     * starts bald and browless - the hair styles and the eyebrows are Rare
-     * finds; a starter look would be {@code hair_long_waves} and {@code
-     * eyebrows_arched} here too.
+     * What every character owns without picking anything up: the underwear,
+     * the bra and the starter look. The other hair styles and eyebrows are
+     * Rare finds.
      */
-    public static final List<ItemDef> OWNED_BY_DEFAULT = List.of(UNDERWEAR, BRA);
+    public static final List<ItemDef> OWNED_BY_DEFAULT = List.of(UNDERWEAR, BRA, LONG_WAVES, ARCHED_EYEBROWS);
 
     /** Every wearable, by rarity and then as the table lists them. */
     public static final List<ItemDef> ALL = all();
@@ -113,13 +116,9 @@ public final class Wearables {
                     new Wearable(Rarity.RARE, List.of(Slot.MAKEUP), List.of(look), null, null, MAKEUP)));
         }
         out.add(LIPSTICK);
-        for (String style : HAIR_STYLES) {
-            out.add(def("hair_" + style, readable(style) + " hairstyle",
-                    new Wearable(Rarity.RARE, List.of(Slot.HAIR), List.of(style), null, null, HAIR_STYLE)));
-        }
+        for (String style : HAIR_STYLES) out.add(style.equals("long_waves") ? LONG_WAVES : hair(style));
         for (String brows : List.of("arched", "soft", "thin")) {
-            out.add(def("eyebrows_" + brows, readable(brows) + " eyebrows",
-                    new Wearable(Rarity.RARE, List.of(Slot.EYEBROWS), List.of(brows), null, null, EYEBROWS)));
+            out.add(brows.equals("arched") ? ARCHED_EYEBROWS : eyebrows(brows));
         }
         armour(out, "iron", Rarity.RARE);
         // Epic
@@ -138,6 +137,16 @@ public final class Wearables {
         out.add(worn(metal + "_leg_plating", m + " leg plating", rarity, Slot.LEG_PLATING, metal + "_leg_plating"));
         out.add(worn(metal + "_gauntlets", m + " gauntlets", rarity, Slot.GLOVES, metal + "_gauntlets"));
         out.add(worn(metal + "_helmet", m + " helmet", rarity, Slot.HAT, metal + "_helmet"));
+    }
+
+    private static ItemDef hair(String style) {
+        return def("hair_" + style, readable(style) + " hairstyle",
+                new Wearable(Rarity.RARE, List.of(Slot.HAIR), List.of(style), null, null, HAIR_STYLE));
+    }
+
+    private static ItemDef eyebrows(String brows) {
+        return def("eyebrows_" + brows, readable(brows) + " eyebrows",
+                new Wearable(Rarity.RARE, List.of(Slot.EYEBROWS), List.of(brows), null, null, EYEBROWS));
     }
 
     private static ItemDef worn(String id, String name, Rarity rarity, Slot slot, String folder) {
@@ -254,7 +263,8 @@ public final class Wearables {
     /**
      * Add the wearables to {@code loot}, each at its rarity - but not what is
      * owned by default. A family (the dyes, the hair styles, the eyebrows,
-     * the makeup) is one drop: one of them, any one as likely as another.
+     * the makeup) is one drop: one of them, any one as likely as another (the
+     * starter look is not among them).
      */
     public static Loot addTo(Loot loot) {
         List<String> families = new ArrayList<>();
@@ -266,7 +276,9 @@ public final class Wearables {
             } else if (!families.contains(family)) {
                 families.add(family);
                 List<Item> members = new ArrayList<>();
-                for (ItemDef m : ALL) if (family.equals(m.wearable().family())) members.add(Item.of(m));
+                for (ItemDef m : ALL) {
+                    if (family.equals(m.wearable().family()) && !OWNED_BY_DEFAULT.contains(m)) members.add(Item.of(m));
+                }
                 loot.add(members);
             }
         }

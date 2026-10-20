@@ -66,12 +66,14 @@ class WardrobePanelTest {
     }
 
     @Test
-    void aNewCharacterHasHerUnderwearAndTheFreeLayersOnly() {
+    void aNewCharacterHasHerUnderwearTheStarterLookAndTheFreeLayersOnly() {
         assertEquals(java.util.Arrays.asList(null, "cotton_briefs"), items(Slot.UNDERWEAR));
         assertEquals(List.of("None", "Underwear"), labels(Slot.UNDERWEAR));
         assertEquals(List.of("None", "Bra"), labels(Slot.BRA));
-        for (Slot s : List.of(Slot.HAIR, Slot.EYEBROWS, Slot.SHIRT, Slot.CHESTPLATE, Slot.WRISTWEAR, Slot.MAKEUP)) {
-            assertEquals(java.util.Collections.singletonList(null), items(s), s + ": bald, browless, nothing found yet");
+        assertEquals(List.of("None", "Long waves hairstyle"), labels(Slot.HAIR));
+        assertEquals(List.of("None", "Arched eyebrows"), labels(Slot.EYEBROWS));
+        for (Slot s : List.of(Slot.SHIRT, Slot.CHESTPLATE, Slot.WRISTWEAR, Slot.MAKEUP)) {
+            assertEquals(java.util.Collections.singletonList(null), items(s), s + ": nothing found yet");
         }
         // the free layers: every folder there is
         assertEquals(java.util.Arrays.asList(null, "elven", "round"), items(Slot.EARS));
@@ -84,13 +86,13 @@ class WardrobePanelTest {
     @Test
     void whatSheOwnsIsOfferedByName() {
         player.inventory().add(Item.of(w("hair_bob")));
-        player.inventory().add(Item.of(w("hair_long_waves")));
+        player.inventory().add(Item.of(w("hair_long_waves")));          // a second of the starter's: listed once
         player.inventory().add(Item.of(w("silver_wrist_band")));
         player.inventory().add(Item.of(w("sheath")));
         player.inventory().add(Item.of(w("iron_chestplate")));
         player.inventory().add(Item.of(w("dye_pink")));
-        assertEquals(List.of("None", "Bob hairstyle", "Long waves hairstyle"), labels(Slot.HAIR));
-        assertEquals(java.util.Arrays.asList(null, "bob", "long_waves"), items(Slot.HAIR));
+        assertEquals(List.of("None", "Long waves hairstyle", "Bob hairstyle"), labels(Slot.HAIR));
+        assertEquals(java.util.Arrays.asList(null, "long_waves", "bob"), items(Slot.HAIR));
         assertEquals(List.of("None", "Silver wrist band"), labels(Slot.WRISTWEAR));
         assertEquals(List.of("None", "Silver wrist band"), labels(Slot.WRISTWEAR_LEFT), "either wrist");
         assertEquals(List.of("None", "Sheath (sword left hip)", "Sheath (sword right hip)"), labels(Slot.SHEATH));
@@ -121,17 +123,18 @@ class WardrobePanelTest {
     @Test
     void anOutfitSavedBeforeKeepsWhatItWearsUntilItIsTakenOff() {
         Wardrobe wr = player.wardrobe();
-        wr.set(Slot.HAIR, "long_waves");
+        wr.set(Slot.HAIR, "bob");
         wr.set(Slot.SHIRT, "plaid_flannel");
         wr.set(Slot.NECKLACE, "gold_pendant");
         wr.setColour(Slot.NECKLACE, "silver");
         List<WardrobePanel.Option> hair = WardrobePanel.options(lib, Slot.HAIR, player);
-        assertEquals(List.of("None", "Long waves hairstyle"), hair.stream().map(o -> o.label(Slot.HAIR)).toList());
-        assertEquals(1, WardrobePanel.current(hair, Slot.HAIR, wr));
+        assertEquals(List.of("None", "Long waves hairstyle", "Bob hairstyle"),
+                hair.stream().map(o -> o.label(Slot.HAIR)).toList());
+        assertEquals(2, WardrobePanel.current(hair, Slot.HAIR, wr));
         assertEquals(List.of("None", "Baggy shirt"), labels(Slot.SHIRT));
         assertEquals(List.of("None", "Silver necklace"), labels(Slot.NECKLACE));
         WardrobePanel.choose(wr, Slot.HAIR, hair.get(0));
-        assertEquals(java.util.Collections.singletonList(null), items(Slot.HAIR), "once off, only if she owns it");
+        assertEquals(java.util.Arrays.asList(null, "long_waves"), items(Slot.HAIR), "once off, only if she owns it");
         // a folder no item puts there is listed by its folder
         wr.set(Slot.HAT, "party_hat");
         assertEquals(List.of("None", "party_hat"), labels(Slot.HAT));
