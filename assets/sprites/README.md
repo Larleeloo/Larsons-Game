@@ -17,10 +17,14 @@ assets/sprites/
 ├── bra/             <item>/
 ├── shoes/           <item>/
 ├── pants/           <item>/
+├── chainmail_legs/  <item>/   mail leggings, over the pants
+├── leg_plating/     <item>/   plate armour for the legs, over those
 ├── shirt/           <item>/   shirts, and dresses
+├── chainmail/       <item>/   a mail shirt, over the shirt
+├── chestplate/      <item>/   a breastplate, over that
 ├── belt/            <item>/
 ├── necklace/        <item>/
-├── gloves/          <item>/
+├── gloves/          <item>/   gloves, and gauntlets
 ├── wristwear/       <item>/   on the right wrist
 ├── wristwear_left/  <item>/   on the left wrist
 ├── sheath/          <item>/   scabbards and the like, worn at the hip
@@ -40,8 +44,13 @@ assets/sprites/
 ```
 
 An *item* is any folder name — `body/hero`, `hat/straw_boater`,
-`carry_right/sword`. Every item folder shows up in the pause menu's
-**Wardrobe** for its layer.
+`carry_right/sword`. In the pause menu's **Wardrobe** the folders of the body,
+the ears, the eyes, the nose and the mouth are all offered for their layer, as
+are the hands'; every other folder is worn by owning the item that puts it
+there (`world/Wearables` in the game: the silver necklace is
+`necklace/gold_pendant` in its `silver` colour) - see the root README's
+*Wearing what you own*. A folder no item puts there is drawn when an outfit
+already wears it, and not offered otherwise.
 
 ### Bodies
 
@@ -205,10 +214,13 @@ so, bigger pixel art (the 128-pixel sheets below) needs `"pixelArt": true`.
 The layers draw in this order, bottom to top:
 
 ```
-body → underwear → bra → shoes → pants → shirt → belt → necklace → gloves →
-wristwear → wristwear_left → sheath → ears → earrings → nose → eyes → eyebrows →
-makeup → mouth → hair → hat → other → carry_left → carry_right
+body → underwear → bra → shoes → pants → chainmail_legs → leg_plating →
+shirt → chainmail → chestplate → belt → necklace → gloves → wristwear →
+wristwear_left → sheath → ears → earrings → nose → eyes → eyebrows → makeup →
+mouth → hair → hat → other → carry_left → carry_right
 ```
+
+(the same order as 3D-Modeling's `feminine_model_sprites.py` `SLOTS`)
 
 except for the cape (`other`), which hangs behind her: when she faces the
 camera (`s`, `se`, `sw` from the side or the middle) it draws first, under the
@@ -216,6 +228,15 @@ body, and otherwise right after `mouth`, over the clothes but under the hair,
 the hat and the carried items. Long hair falls over it and short hair does not
 reach it, so it is cut against the body alone and nothing else is cut against
 it.
+
+Some armour covers a layer that would otherwise be drawn over it, so while
+it is worn that layer is left out (it stays worn, and shows again once the
+armour comes off):
+
+- **Gauntlets** (`gloves/iron_gauntlets`, `gloves/steel_gauntlets`) hide
+  `wristwear` and `wristwear_left` - a bangle would be drawn over the
+  gauntlet's cuff.
+- **A chestplate** (anything in `chestplate/`) hides the `necklace`.
 
 Two rules make the stack line up from all 24 views:
 
@@ -402,6 +423,9 @@ holdouts were cut against.
 | gloves | `black_leather` ● | black leather gloves |
 | wristwear | `gold_bangle` ● | a gold bangle on the right wrist |
 | wristwear_left | `gold_bangle` | the same on the left wrist |
+| chainmail, chainmail_legs | `chainmail_shirt`, `chainmail_pants` | not rendered yet: the mail shirt and leggings |
+| chestplate, leg_plating | `iron_chestplate`, `steel_chestplate`; `iron_leg_plating`, `steel_leg_plating` | not rendered yet: plate armour in iron and steel |
+| gloves, hat | `iron_gauntlets`, `steel_gauntlets`; `iron_helmet`, `steel_helmet` | not rendered yet: gauntlets (gloves and all) and helmets |
 | sheath | `sword_left_hip`, `sword_right_hip` | a leather scabbard for the sword, hung from the belt on the left or the right hip |
 | ears | `round` ●, `pointed` ●, `elven` ● | human ears; half-elf points; long, swept-back elven ears |
 | earrings | `gold_hoops` ● | gold hoops |
@@ -429,7 +453,8 @@ wardrobe's own carried items (the sword and the shield) are drawn in the sword
 stance's states only.
 
 **Colours.** The pixel art can be recoloured (Pause → Wardrobe: the swatch
-beside the item). The hair, the shirts and dress, jeans, briefs, bralette,
+beside the item; an item's colours are offered as far as the player owns their
+dyes, the lips' with the lipstick, the skin and the eyes' always). The hair, the shirts and dress, jeans, briefs, bralette,
 boots, gloves, beanie and mantle, and the eyes (coloured whole), brows, makeup
 and lips come in the fourteen hair colours - `brown`, `black`, `auburn`,
 `copper`, `honey_blonde`, `platinum`, `cherry_red`, `pink`, `electric_blue`,

@@ -12,6 +12,14 @@ package com.larsons.game.sprite;
  * fixed order gives the right occlusion from all 24 view angles without the
  * game knowing anything about depth.
  *
+ * <p>The armour goes over the clothes it is worn over: mail leggings over the
+ * pants and leg plating over those, a mail shirt over the shirt and a
+ * chestplate over that - all under the belt, the necklace and the gloves
+ * (gauntlets are gloves). It is the same order as the Blender side's
+ * {@code SLOTS} ({@code feminine_model_sprites.py}). Some of it covers what
+ * would otherwise be drawn over it, so a few layers are left out while it is
+ * worn ({@link Wardrobe#hidden}).
+ *
  * <p>The enum order <em>is</em> the draw order, with one exception: the cape
  * ({@link #OTHER}) hangs behind her, so it draws first when she faces the
  * camera and just under the hair otherwise (see
@@ -25,7 +33,11 @@ public enum Slot {
     BRA("bra", "Bra"),
     SHOES("shoes", "Shoes"),
     PANTS("pants", "Pants"),
+    CHAINMAIL_LEGS("chainmail_legs", "Mail leggings"),
+    LEG_PLATING("leg_plating", "Leg plating"),
     SHIRT("shirt", "Shirt"),
+    CHAINMAIL("chainmail", "Mail shirt"),
+    CHESTPLATE("chestplate", "Chestplate"),
     BELT("belt", "Belt"),
     NECKLACE("necklace", "Necklace"),
     GLOVES("gloves", "Gloves"),

@@ -21,14 +21,27 @@ import java.util.function.Supplier;
  * crossbow, the crystal staff - is held instead: picked up, she takes up its stance, and its
  * states draw it ({@link Stance#carried}).
  *
+ * <p>A wearable - clothes, armour, jewellery, a dye, a hair style - is never
+ * in her hands: it has a {@link Wearable} saying where it is worn, no carry
+ * slot, and the sword stance (picked up, nothing changes but that it is
+ * hers to wear from the wardrobe). They are listed apart, in {@link
+ * Wearables#ALL}; {@link #ALL} is the weapons.
+ *
  * @param id          folder name, for both the icon and the carried layer
  * @param name        what the prompt calls it
- * @param carrySlot   which hand it goes in (a right-handed character's)
+ * @param carrySlot   which hand it goes in (a right-handed character's); null for a wearable
  * @param worldSize   metres across its world sprite is drawn
  * @param stance      the stance it is held in ({@link Stance#SWORD}: worn in the wardrobe)
+ * @param wearable    where and how it is worn, or null for a weapon
  */
 public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
-                      Supplier<BufferedImage> fallbackIcon, Stance stance) {
+                      Supplier<BufferedImage> fallbackIcon, Stance stance, Wearable wearable) {
+
+    /** A weapon (or anything else that is not a wearable). */
+    public ItemDef(String id, String name, Slot carrySlot, double worldSize,
+                   Supplier<BufferedImage> fallbackIcon, Stance stance) {
+        this(id, name, carrySlot, worldSize, fallbackIcon, stance, null);
+    }
 
     public static final ItemDef SWORD = new ItemDef("sword", "Sword", Slot.CARRY_RIGHT, 1.0,
             FallbackSprites::swordIcon, Stance.SWORD);
@@ -49,14 +62,28 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return stance != Stance.SWORD;
     }
 
+    /** Whether it is worn rather than held: clothes, armour, a dye, a hair style ({@link #wearable}). */
+    public boolean isWearable() {
+        return wearable != null;
+    }
+
+    /**
+     * Whether, picked up, it goes into the wardrobe's hand ({@link #carrySlot}):
+     * the sword - no stance of its own, and not a wearable.
+     */
+    public boolean inHand() {
+        return !held() && !isWearable();
+    }
+
     /** The weapon of {@code stance}, or null (the sword stance's are worn, the free one has none). */
     public static ItemDef of(Stance stance) {
         for (ItemDef d : ALL) if (d.stance == stance && d.held()) return d;
         return null;
     }
 
+    /** A weapon or a wearable by its id, or null. */
     public static ItemDef byId(String id) {
         for (ItemDef d : ALL) if (d.id.equals(id)) return d;
-        return null;
+        return Wearables.byId(id);
     }
 }

@@ -10,11 +10,13 @@ import java.util.Objects;
  *
  * <p>Two items that agree on all four are the same item - two Basic Axes are
  * interchangeable. A weapon's rarity is its tier's; anything without tiers
- * (a wearable) carries its own.
+ * carries its own - a wearable is found as the rarity it drops as ({@link
+ * Wearable#rarity}: a silver necklace is Rare), anything else as Common.
  *
  * <p>{@link #key()} writes it as one word for scripts and save files -
  * {@code battle_axe}, {@code battle_axe:crystal}, {@code sword:perfect:venom},
- * {@code belt:uncommon} - and {@link #parse} reads it back.
+ * {@code silver_necklace}, {@code dye_pink}, {@code belt:epic} - and {@link
+ * #parse} reads it back.
  *
  * @param def    what kind of thing it is
  * @param tier   its tier, or null (an item with no tiers)
@@ -29,10 +31,18 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
         if (rarity == null) rarity = Rarity.COMMON;
     }
 
-    /** {@code def} as it is found lying about: a weapon in its lowest tier, anything else Common. */
+    /**
+     * {@code def} as it is found lying about: a weapon in its lowest tier, a
+     * wearable of its own rarity, anything else Common.
+     */
     public static Item of(ItemDef def) {
         Tier.Row row = Tier.row(def.id());
-        return new Item(def, row == null ? null : row.lowest(), Rarity.COMMON, null);
+        return new Item(def, row == null ? null : row.lowest(), foundAs(def), null);
+    }
+
+    /** The rarity an item with no tiers is found as: a wearable's own, else Common. */
+    private static Rarity foundAs(ItemDef def) {
+        return def.isWearable() ? def.wearable().rarity() : Rarity.COMMON;
     }
 
     /** {@code def} in {@code tier}. */
@@ -76,7 +86,7 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
         Tier.Row row = Tier.row(def.id());
         if (tier != null) {
             if (row == null || tier != row.lowest()) s.append(':').append(tier.key());
-        } else if (rarity != Rarity.COMMON) {
+        } else if (rarity != foundAs(def)) {
             s.append(':').append(rarity.key());
         }
         if (border != null) s.append(':').append(border.key());

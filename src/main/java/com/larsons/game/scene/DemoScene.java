@@ -300,6 +300,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.saveWardrobe();
             ItemDef d = g.def;
             Sounds.play(SoundKeys.item(d.id(), "pickup"));
+            if (d.isWearable()) {
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));
+                return;
+            }
             var lib = game.sprites();
             var worn = world.player().wardrobe();
             var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
@@ -493,7 +498,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /**
      * A scripted pick-up without walking there: into the inventory (the
-     * sword into her hand too), and the one lying about gone from the ground.
+     * sword into her hand too; a wearable into no hand - it is hers to wear),
+     * and the one lying about gone from the ground.
      */
     private boolean give(Item item) {
         Player p = world.player();
@@ -502,7 +508,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
                 .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
                 .ifPresent(world.items()::remove);
-        if (!d.held()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
+        if (d.inHand()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
                 : d.carrySlot(), d.id());
         return true;
     }
@@ -582,7 +588,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 world.wield(s);
             }
             // the inventory: inventory [open|close], hotbar <1-5>, slots <n>,
-            // give <item> [tier|rarity] [border] (battle_axe crystal venom)
+            // give <item> [tier|rarity] [border] (battle_axe crystal venom, silver_necklace, dye_pink)
             case "inventory" -> {
                 if (argument.equals("close")) inventory.close();
                 else if (argument.equals("open")) inventory.show();
