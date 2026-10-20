@@ -38,7 +38,7 @@ final class PauseMenu {
             {"Backspace", "stop previewing"},
             {", / .", "turn the character 45°"},
             {"T", "turntable: all 8 directions"},
-            {"H / P", "toggle the HUD / the scenery (trees, grass, rocks)"},
+            {"H / P", "toggle the HUD / the 3D props"},
             {"F9", "animations: new / classic (the first version, to compare)"},
             {"F12", "screenshot"},
             {"Esc", "this menu"},
@@ -147,7 +147,7 @@ final class PauseMenu {
         ui.text(ui.body, "HUD", x, y + 8, Theme.ITEM);
         if (ui.button(s.showHud ? "On" : "Off", x + 220, y, 140, 34, s.showHud, true)) s.showHud = !s.showHud;
         y += 50;
-        ui.text(ui.body, "Scenery", x, y + 8, Theme.ITEM);
+        ui.text(ui.body, "3D props", x, y + 8, Theme.ITEM);
         if (ui.button(s.showProps ? "On" : "Off", x + 220, y, 140, 34, s.showProps, true)) {
             s.showProps = !s.showProps;
         }

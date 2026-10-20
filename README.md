@@ -22,7 +22,6 @@ ticked off as it lands.
 - [The treasure chest](#the-treasure-chest)
 - [Items, rarity and loot](#items-rarity-and-loot)
 - [Sound](#sound)
-- [The scenery](#the-scenery)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
 - [What came from the engine](#what-came-from-the-engine)
@@ -49,7 +48,7 @@ last decade). Gradle comes with the repository.
 ./gradlew gameJar       # build/libs/larsons-game.jar, LWJGL included (put assets/ beside it)
 ```
 
-The main menu has one entry, **Demo**, which loads a meadow.
+The main menu has one entry, **Demo**, which loads the void.
 
 ## Controls
 
@@ -73,7 +72,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
-| **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
+| **H** / **P** | hide the HUD / the 3D props |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F12** | screenshot (to `screenshots/`) |
 | **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
@@ -82,10 +81,9 @@ Drop sprite sheets on the window at any time to import them.
 
 ## What's in the demo
 
-- **A meadow** — an endless grass floor, one 512-pixel pixel-art tile
-  repeating out to a soft sky, drawn in a single full-screen GPU pass that
-  ray-casts the ground plane per pixel, so it has no edge and a clean horizon
-  at any zoom; oaks, grass tufts and rocks stand on it (see below).
+- **A blank 3D void** — an endless floor with a metre grid fading into a soft
+  sky, drawn in a single full-screen GPU pass that ray-casts the ground plane
+  per pixel, so it has no edge and a clean horizon at any zoom.
 - **The character**, standing in the middle as a stack of sprite layers, in
   **80 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
@@ -136,14 +134,9 @@ Drop sprite sheets on the window at any time to import them.
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
 
   <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
-- **Scenery** — oak trees swaying and tufts of grass blowing in the breeze,
-  and mossy rocks, all pixel art rendered in Blender and drawn like
-  Minecraft's plants: the same sprite on two cards crossed at right angles
-  (the rocks on one card facing the camera). The character walks behind a
-  tree and in front of it, through the grass, and not through a trunk or a
-  rock - see [The scenery](#the-scenery).
-
-  <img src="docs/screenshots/meadow.png" width="98%" alt="The meadow from 45 degrees: pixel-art oaks round a clearing, grass tufts scattered across a grass floor, three rocks, and the character by the chest and the weapons">
+- **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
+  geometry, depth-tested against the sprites so the character can walk behind a
+  tree.
 - **A pause menu** with the **Wardrobe**: all 23 cosmetic layers, each cycling
   through the items found for it on disk and, for the pixel-art items, through
   the colours they come in (swatches beside the item; the body's colour is the
@@ -544,44 +537,10 @@ assets/closeups/<layer>/<item>_px128/<clip>_side_se.png    one layer's clip, clo
   budget, its decoders); an actor's other clips load ahead, and while a new
   clip is still loading the actor holds its last complete frame.
 
-## The scenery
-
-The demo's meadow is all pixel art, modelled, rendered and drawn in Blender by
-the scripts in [3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
-`scenery/` folder, every pixel in the same 128-colour palette as the
-characters:
-
-- **An oak** - a fully textured tree, 48 frames of it swaying in the breeze
-  (a four-second loop), drawn in 128 × 128-pixel frames twice the size of
-  the characters' pixels, so it stands about 4.4 m tall and 4 m across.
-- **Three grass tufts**, 32 × 32 pixels, each 24 frames blowing in the
-  breeze. The wind rolls across the field as a gust: a tuft downwind sways a
-  moment after one upwind, so the grass moves in waves rather than all at
-  once.
-- **Three rocks** - a boulder, a mossy rock and a cluster of stones -
-  128 × 128 pixels, standing still.
-- **The ground**: a 512 × 512 grass tile, its pixels the size of the
-  characters', repeating seamlessly, sharp up close and smooth far off.
-
-Like Minecraft's plants, a tree or a tuft is the same sprite on **two cards
-crossed at right angles**, so it has body from every side and needs no
-directions of its own. A rock is one card that turns to face the camera
-instead, because from above a crossed rock reads as a star (a rock whose
-profile says `"facing": "cross"` is crossed like the rest). The cards are cut
-out at their pixels' edges and depth-tested against the characters, so she
-walks behind a tree, in front of it and through the grass, but not into a
-trunk or a rock. The trees and rocks cast shadows.
-
-The meadow is planted from whatever is in `assets/scenery/` (a folder per
-sprite: `sheet.png` and its `profile.json`; `ground/grass.png`), the same way
-every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
-Settings → Scenery) hides it all. The folder's format is in
-[assets/scenery/README.md](assets/scenery/README.md).
-
 ## GPU acceleration
 
-**The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the ground,
-the scenery, every sprite layer and shadow, and the entire UI, text included.
+**The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the void,
+the 3D props, every sprite layer and shadow, and the entire UI, text included.
 AWT is only used off-screen — to decode PNGs, rasterise the font atlas once,
 and generate the fallback sprites.
 
@@ -619,7 +578,7 @@ are being paced; `-Dlarsons.fps.log=true` prints the same to the console.
   rows stay on the GPU from frame to frame and only new colours are sent.
 - **Less overdraw.** Each sprite layer is drawn over only the box its pixels
   cover, not the whole frame card: close up, a 20-layer outfit was 20
-  full-screen passes. (Sprites test depth against the scenery but no longer
+  full-screen passes. (Sprites test depth against the 3D props but no longer
   write it - billboards all face the camera, so far-to-near order is the
   same answer - which is what lets layers be separate quads.)
 - **Loading never costs a frame.** Sheet uploads get about 2 ms of each
@@ -672,18 +631,18 @@ src/main/java/com/larsons/game/
                             Sounds, SoundPack, SoundKeys, SoundDef, SoundStore; the hooks: AnimationSound,
                             WorldSounds
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
-                            GpuInfo
+                            Mesh, GpuInfo
   math/                     Vec3, Mat4
   input/                    Input — keys, mouse, typed text, dropped files
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
                             SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe,
                             Variants, Palettes, ObjectSprites and ObjectStack (things that are not characters),
-                            ScenerySprites and SceneryProfile (the trees, grass, rocks and ground)
+                            ItemSprites (turning items, icons), TierLook and PixelPalette (weapon tiers)
   cutscene/                 CloseupLibrary, Actor, Cutscene (the script), CutsceneStage
   sprite/fallback/          the 32×32 fallback: Puppet (rigged box figure), PuppetRaster, FallbackSprites
   importer/                 SpriteImport — plan and save a drag-and-drop
-  world/                    OrbitCamera, Player, World, ItemDef, Inventory, Chest, Scenery, SceneryLayout,
-                            SceneryRenderer, VoidRenderer (the ground and sky), WorldRenderer
+  world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
+                            Chest, Props, VoidRenderer, WorldRenderer, ItemRenderer
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
@@ -691,7 +650,6 @@ src/main/java/com/larsons/game/
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest;
                             items/<id>/spin_px128/: the turning items; tiers.json, pixel_palette.json
 assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
-assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
 assets/sprites_masculine/,  the masculine body's sheets and close-ups, laid out the same
@@ -752,12 +710,8 @@ items' sheets and icons, the loot beam, halo and border motes, and the
 weapon in her hands drawn in its tier,
 the object sheets (names, layer order, all 24 views of every state of the
 chest), the sound catalogue (a sound for every animation of both bodies), the
-pack's lookup and fallbacks, its key list being up to date, the engine's
-MP3 decoder tests; and the scenery (its profiles, where each frame is in its
-sheet, the sheets and the ground tile in `assets/scenery/` keeping to their
-format, the meadow's layout - the same every run, nothing in a clearing or
-on top of anything solid -, the wind, and the player kept out of the trunks
-and rocks but not the grass).
+pack's lookup and fallbacks, its key list being up to date, and the engine's
+MP3 decoder tests.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -772,8 +726,9 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff>`, `teleport`, `pickup`,
-`dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item>`,
-`chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
+`dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
+[border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot from a seed),
+`chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
 the item's own colours) and
@@ -812,9 +767,7 @@ Engine. Each section is broken up into chunks, or tasks to be done.
 - **Items** are 2D sprites as well that hover with a shadow on the ground. They
   always face the camera from any angle.
 - All other **environmental elements** (trees, rocks, houses, etc.) are
-  rendered in 3D. *Since then the trees, the grass and the rocks have become
-  pixel-art sprites rendered in Blender and the house is gone - see
-  [The scenery](#the-scenery).*
+  rendered in 3D.
 
 **To do**
 

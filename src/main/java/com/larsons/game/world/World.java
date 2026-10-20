@@ -15,9 +15,8 @@ import java.util.Random;
 
 /**
  * Everything in the demo void that moves or can be picked up: the player,
- * the items lying around and the chests - and the {@link Scenery} they stand
- * among, whose trees and rocks the player cannot walk into (she walks
- * through the grass).
+ * the items lying around and the chests. The static 3D environment lives in
+ * {@link Props}.
  *
  * <p>What the player holds is the selected slot of her hotbar ({@link
  * Inventory}): a weapon with a stance of its own (the battle axe, the bow,
@@ -35,12 +34,6 @@ public final class World {
 
     /** How close the player has to be to pick something up, in metres. */
     public static final double PICKUP_RANGE = 1.7;
-    /**
-     * How far round her position the player's feet take up room, in metres:
-     * she is kept this much farther than a tree's or a rock's radius from its
-     * axis, so her feet stop at the trunk rather than inside it.
-     */
-    public static final double FEET = 0.22;
 
     /** How long an item thrown out of a chest is in the air, in seconds. */
     public static final double FLIGHT = 0.9;
@@ -146,7 +139,9 @@ public final class World {
     private final Player player;
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
-    private Scenery scenery = Scenery.NONE;
+    private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
+    private final Loot loot = new Loot();
+    private Random random = new Random();
     private double time;
 
     public World(Wardrobe wardrobe) {
@@ -166,18 +161,18 @@ public final class World {
 
     public double time() { return time; }
 
-    /** The trees, grass and rocks standing in the world ({@link Scenery#NONE} until it is given some). */
-    public Scenery scenery() { return scenery; }
+    /** What the chests give. */
+    public Loot loot() { return loot; }
 
-    /** Plant {@code scenery} (null: none) - drawn from the next frame, in her way from the next tick. */
-    public void setScenery(Scenery scenery) {
-        this.scenery = scenery == null ? Scenery.NONE : scenery;
+    /** Draw the chests' loot from this seed from now on (tests and scripted runs). */
+    public void seed(long seed) {
+        random = new Random(seed);
     }
 
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
      * each of a chest's states lasts, from its sheets) - and the player kept
-     * out of them, and out of the trees and the rocks.
+     * out of them.
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
@@ -212,7 +207,6 @@ public final class World {
             items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
                     time + FIRST_THROW + NEXT_THROW * i));
         }
-        for (Scenery.Placed s : scenery.solids()) player.keepOut(s.position(), s.radius() + FEET);
     }
 
     public void tick(double dt) {

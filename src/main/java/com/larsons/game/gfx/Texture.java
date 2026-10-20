@@ -1,7 +1,5 @@
 package com.larsons.game.gfx;
 
-import org.lwjgl.opengl.EXTTextureFilterAnisotropic;
-
 import java.awt.image.BufferedImage;
 
 import static org.lwjgl.opengl.GL33C.*;
@@ -18,12 +16,6 @@ import static org.lwjgl.opengl.GL33C.*;
  * ({@link PixelData#indexed()}): always nearest-neighbour (an index between
  * two others means nothing), coloured by the sprite shader from a palette
  * ({@link PaletteAtlas}).
- *
- * <p>And two kinds for the scenery's pixel art: the ground's grass is a
- * {@link #tiled} texture, repeated across the whole floor, nearest-neighbour
- * close up and mipmapped far away; the trees', tufts' and rocks' sheets are
- * {@link #cutout} textures, every texel in or out, nearest-neighbour at
- * every distance but drawn far away from smaller copies of themselves.
  */
 public final class Texture implements AutoCloseable {
 
@@ -70,79 +62,6 @@ public final class Texture implements AutoCloseable {
         boolean indexed = data.indexed();
         data.free();
         return new Texture(id, w, h, bytesFor(w, h, pixelArt, indexed), indexed);
-    }
-
-    /**
-     * Upload and free {@code data} as a texture that tiles: repeated in both
-     * directions, its texels crisp close up (nearest-neighbour magnification,
-     * the pixel art's hard edges) and averaged far away (trilinear mipmaps,
-     * anisotropic where the driver has it), so a floor of it neither blurs
-     * underfoot nor shimmers at the horizon. Must be called on the GL thread.
-     */
-    public static Texture tiled(PixelData data) {
-        int id = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, id);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, data.width(), data.height(), 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, data.buffer());
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        var caps = org.lwjgl.opengl.GL.getCapabilities();
-        if (caps.GL_EXT_texture_filter_anisotropic || caps.GL_ARB_texture_filter_anisotropic) {
-            float max = glGetFloat(EXTTextureFilterAnisotropic.GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-            glTexParameterf(GL_TEXTURE_2D, EXTTextureFilterAnisotropic.GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                    Math.min(16f, Math.max(1f, max)));
-        }
-        int w = data.width(), h = data.height();
-        data.free();
-        return new Texture(id, w, h, bytesFor(w, h, false), false);
-    }
-
-    /**
-     * Upload and free {@code data}, a sheet of pixel-art frames {@code
-     * frameWidth × frameHeight} each, as a cutout texture: nearest-neighbour
-     * at every distance - the nearest texel of the nearest mipmap level, so
-     * its pixels stay hard-edged - but with mipmaps, so a tuft thirty metres
-     * off is drawn from a copy of itself its own size rather than from every
-     * other texel of the full one, which sparkles as it moves. The mipmaps
-     * stop while a frame is still a few texels across, so no level mixes one
-     * frame into the next. Must be called on the GL thread.
-     */
-    public static Texture cutout(PixelData data, int frameWidth, int frameHeight) {
-        int id = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, id);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, data.width(), data.height(), 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, data.buffer());
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, cutoutLevels(frameWidth, frameHeight));
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        int w = data.width(), h = data.height();
-        data.free();
-        return new Texture(id, w, h, bytesFor(w, h, false), false);
-    }
-
-    /**
-     * The last mipmap level a sheet of {@code frameWidth × frameHeight}
-     * frames gets: halved while both sides still divide evenly and a frame
-     * keeps at least 4 texels across (128 → 5, 32 → 3; 0 for a size that
-     * does not halve).
-     */
-    public static int cutoutLevels(int frameWidth, int frameHeight) {
-        int levels = 0;
-        while (frameWidth % 2 == 0 && frameHeight % 2 == 0 && frameWidth >= 8 && frameHeight >= 8) {
-            frameWidth /= 2;
-            frameHeight /= 2;
-            levels++;
-        }
-        return levels;
     }
 
     /**

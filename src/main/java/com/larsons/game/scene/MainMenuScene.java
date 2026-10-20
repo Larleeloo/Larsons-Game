@@ -20,9 +20,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
  * <p>Behind it plays the main menu's cutscene ({@code assets/cutscenes/menu.cut}):
  * your own character, as the wardrobe has it, talking with Bryn - close-up
  * layers in any colours, over and over. Without the close-ups the character
- * stands in the demo's meadow on a turntable instead, among its trees, grass
- * and rocks, stepping through its eight directions while the camera drifts
- * round.
+ * stands in the void on a turntable instead, stepping through its eight
+ * directions while the camera drifts round.
  */
 public final class MainMenuScene implements Scene {
 
@@ -40,7 +39,6 @@ public final class MainMenuScene implements Scene {
     public MainMenuScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe());
-        world.setScenery(game.scenery());
         world.player().preview(AnimState.IDLE);
         this.stage = new CutsceneStage(game.sprites(), game.closeups());
         if (!game.closeups().isEmpty()) {
@@ -71,7 +69,6 @@ public final class MainMenuScene implements Scene {
             cutscene.update(dt);
             return;
         }
-        world.setScenery(game.scenery());
         world.tick(dt);
         turn += dt;
         if (turn > 1.1) {
@@ -95,7 +92,8 @@ public final class MainMenuScene implements Scene {
             stage.dialogue(ui, cutscene, 540, 0, ui.width() - 540, h);
         } else {
             var w = game.window();
-            game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
+            game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight(),
+                    game.settings().showProps);
             ui.begin();
         }
         // A soft band behind the menu for legibility over the void.

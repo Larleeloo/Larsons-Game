@@ -11,15 +11,12 @@ import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.cutscene.CloseupLibrary;
 import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.ObjectSprites;
-import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.ImportPanel;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
-import com.larsons.game.world.Scenery;
-import com.larsons.game.world.SceneryLayout;
-import com.larsons.game.world.SceneryRenderer;
+import com.larsons.game.world.Props;
 import com.larsons.game.world.VoidRenderer;
 import com.larsons.game.world.WorldRenderer;
 
@@ -60,9 +57,7 @@ public final class Game implements AutoCloseable {
     private final ItemSprites items;
     private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
-    private final ScenerySprites scenerySprites;
-    private final Scenery scenery;
-    private final SceneryRenderer sceneryRenderer;
+    private final Props props;
     private final WorldRenderer worldRenderer;
     private final Wardrobe wardrobe;
     private final ImportPanel importer = new ImportPanel();
@@ -104,11 +99,9 @@ public final class Game implements AutoCloseable {
         objects = new ObjectSprites(settings.spritesDir());
         items = new ItemSprites(settings.spritesDir());
         closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
-        scenerySprites = ScenerySprites.scan(settings.sceneryDir());
-        scenery = SceneryLayout.demo(scenerySprites, DemoScene.clearings());
-        sceneryRenderer = new SceneryRenderer(scenerySprites);
-        voidRenderer = new VoidRenderer(scenerySprites.ground());
-        worldRenderer = new WorldRenderer(voidRenderer, sceneryRenderer, batch, sprites, objects);
+        voidRenderer = new VoidRenderer();
+        props = new Props();
+        worldRenderer = new WorldRenderer(voidRenderer, props, batch, sprites, objects, items);
         startSound();
         wardrobe = Wardrobe.load(settings.wardrobeFile());
         autopilot = new Autopilot(settings.script);
@@ -262,17 +255,6 @@ public final class Game implements AutoCloseable {
 
     public WorldRenderer worldRenderer() { return worldRenderer; }
 
-    /**
-     * The scenery the demo and the menu stand in - the trees, grass and rocks
-     * of {@code assets/scenery/}, planted by {@link SceneryLayout} - or none
-     * while it is hidden (P, Pause → Settings → Scenery): hidden, it is not
-     * in her way either.
-     */
-    public Scenery scenery() { return settings.showProps ? scenery : Scenery.NONE; }
-
-    /** The scenery's sprites and the ground's grass, as found in {@code assets/scenery/}. */
-    public ScenerySprites scenerySprites() { return scenerySprites; }
-
     public Wardrobe wardrobe() { return wardrobe; }
 
     public ImportPanel importer() { return importer; }
@@ -289,7 +271,8 @@ public final class Game implements AutoCloseable {
         settings.save();
         Sounds.dispose();
         worldRenderer.close();
-        sceneryRenderer.close();
+        items.close();
+        props.close();
         voidRenderer.close();
         sprites.close();
         ui.close();
