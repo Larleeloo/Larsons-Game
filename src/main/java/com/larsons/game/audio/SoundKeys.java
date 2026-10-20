@@ -21,8 +21,6 @@ import java.util.List;
  *   chest/ornate_chest/open        -&gt; chests/ornate_chest/open.mp3
  *   item/battle_axe/pickup         -&gt; items/battle_axe/pickup.mp3
  *   ui/inventory_open              -&gt; ui/inventory_open.mp3
- *   combat/attack_dummy/hit        -&gt; combat/attack_dummy/hit.mp3
- *   combat/dice_roll               -&gt; combat/dice_roll.mp3
  * </pre>
  *
  * <p>Keys fall back from the specific to the general, as the engine's do:
@@ -45,7 +43,6 @@ public final class SoundKeys {
     public static final String CHESTS = "chests";
     public static final String ITEMS = "items";
     public static final String UI = "ui";
-    public static final String COMBAT = "combat";
     /** Where a key from an unrecognised namespace lands. */
     public static final String OTHER = "other";
 
@@ -70,20 +67,6 @@ public final class SoundKeys {
     /** The inventory: opened and closed with I, and a hotbar slot chosen. */
     public static final List<String> UI_SOUNDS = List.of("inventory_open", "inventory_close", "hotbar_select");
 
-    /** The training dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
-    public static final List<String> DUMMIES_IN_GAME = List.of("attack_dummy");
-
-    /** A dummy's reactions: struck and rocking, knocked over, springing back up. */
-    public static final List<String> DUMMY_STATES = List.of("hit", "fall", "rise");
-
-    /**
-     * The fighting: the dice tumbling, a swing's blow landing, a shot
-     * striking or sticking in the ground, a spell cast, a swing with no mana
-     * for it, poison's tick.
-     */
-    public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
-            "arrow_stick", "spell_cast", "spell_hit", "fizzle", "venom_tick");
-
     /**
      * One catalogue row: the object, the pack folder its sounds belong in,
      * the sound key, the file to name the audio (relative to the pack, no
@@ -102,8 +85,6 @@ public final class SoundKeys {
         for (String chest : CHESTS_IN_GAME) out.add(CHESTS + "/" + chest);
         for (ItemDef d : ItemDef.ALL) out.add(ITEMS + "/" + d.id());
         out.add(UI);
-        for (String dummy : DUMMIES_IN_GAME) out.add(COMBAT + "/" + dummy);
-        out.add(COMBAT);
         return out;
     }
 
@@ -120,7 +101,6 @@ public final class SoundKeys {
             case "chest" -> CHESTS;
             case "item" -> ITEMS;
             case "ui" -> UI;
-            case "combat" -> COMBAT;
             default -> null;
         };
         if (family == null) return List.of(OTHER + "/" + key.replace('/', '_'));
@@ -164,16 +144,6 @@ public final class SoundKeys {
         for (String s : UI_SOUNDS) {
             out.add(new Entry("Interface", UI, ui(s), paths(ui(s)).get(0), "Interface", s));
         }
-        for (String dummy : DUMMIES_IN_GAME) {
-            for (String state : DUMMY_STATES) {
-                String key = dummy(dummy, state);
-                out.add(new Entry("Training dummies", COMBAT + "/" + dummy, key, paths(key).get(0),
-                        "Attack dummy", state));
-            }
-        }
-        for (String s : COMBAT_SOUNDS) {
-            out.add(new Entry("Combat", COMBAT, combat(s), paths(combat(s)).get(0), "Combat", s));
-        }
         return out;
     }
 
@@ -204,16 +174,6 @@ public final class SoundKeys {
 
     public static String ui(String name) {
         return "ui/" + name;
-    }
-
-    /** A training dummy's reaction, e.g. {@code combat/attack_dummy/hit}. */
-    public static String dummy(String dummy, String state) {
-        return "combat/" + dummy + "/" + state;
-    }
-
-    /** A sound of the fighting, e.g. {@code combat/dice_roll}. */
-    public static String combat(String name) {
-        return "combat/" + name;
     }
 
     /**

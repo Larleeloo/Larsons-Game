@@ -209,23 +209,3 @@ INTERFACE  ->  ui/
   ui/inventory_open.mp3                        Interface                      ui/inventory_open
   ui/inventory_close.mp3                       Interface                      ui/inventory_close
   ui/hotbar_select.mp3                         Interface                      ui/hotbar_select
-
-
-TRAINING DUMMIES  ->  combat/attack_dummy/
-
-  combat/attack_dummy/hit.mp3                  Attack dummy                   combat/attack_dummy/hit
-  combat/attack_dummy/fall.mp3                 Attack dummy                   combat/attack_dummy/fall
-  combat/attack_dummy/rise.mp3                 Attack dummy                   combat/attack_dummy/rise
-
-
-COMBAT  ->  combat/
-
-  combat/dice_roll.mp3                         Combat                         combat/dice_roll
-  combat/blow.mp3                              Combat                         combat/blow
-  combat/arrow_hit.mp3                         Combat                         combat/arrow_hit
-  combat/bolt_hit.mp3                          Combat                         combat/bolt_hit
-  combat/arrow_stick.mp3                       Combat                         combat/arrow_stick
-  combat/spell_cast.mp3                        Combat                         combat/spell_cast
-  combat/spell_hit.mp3                         Combat                         combat/spell_hit
-  combat/fizzle.mp3                            Combat                         combat/fizzle
-  combat/venom_tick.mp3                        Combat                         combat/venom_tick

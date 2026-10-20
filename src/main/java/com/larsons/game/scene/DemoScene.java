@@ -3,9 +3,6 @@ package com.larsons.game.scene;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.audio.WorldSounds;
-import com.larsons.game.combat.CombatHud;
-import com.larsons.game.combat.CombatTuning;
-import com.larsons.game.combat.Dummy;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
@@ -37,8 +34,7 @@ import static org.lwjgl.glfw.GLFW.*;
 /**
  * The demo: a blank 3D void with the character in the middle, a sword, a
  * battle axe, a longbow and a crossbow lying about, an ornate treasure chest
- * wreathed in magical smoke, three training dummies to hit, and a few 3D
- * props round the edge.
+ * wreathed in magical smoke, and a few 3D props round the edge.
  *
  * <p>It is a viewer as much as a level. Walk, run, sprint, crouch, jump and
  * attack to see the states play live; pick the weapons up (each plays the
@@ -71,12 +67,6 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             {Item.of(ItemDef.LONGBOW), new Vec3(2.5, 0, 1.0)},
             {Item.of(ItemDef.CROSSBOW), new Vec3(-2.3, 0, 1.6)},
             {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)}};
-    /**
-     * The training dummies, each facing where she starts: one a few steps to
-     * her right, one farther off behind it, one off to her left - targets
-     * for the bow and the crossbow, and three to keep alive for Bonded.
-     */
-    private static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";
@@ -87,7 +77,6 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final PauseMenu pause;
     private final InventoryPanel inventory;
     private final WorldSounds sounds = new WorldSounds();
-    private final CombatHud combatHud;
     private boolean turntable;
     private double turntableTimer;
     private double frameDt;
@@ -111,20 +100,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         for (Object[] w : WEAPONS_AT) world.spawn((Item) w[0], (Vec3) w[1]);
         world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
-        CombatTuning tuning = CombatTuning.load(game.settings().assets);
-        world.combat().use(tuning);
-        world.combat().setMana(tuning.maxMana);
-        for (Vec3 at : DUMMIES_AT) addDummy(at);
-        combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
-    }
-
-    /** A training dummy at {@code at}, facing where she starts. */
-    private Dummy addDummy(Vec3 at) {
-        CombatTuning t = world.combat().tuning();
-        return world.addDummy(new Dummy(at, SpriteView.headingOf(-at.x(), -at.z()), t.dummyHealth,
-                t.dummyDownSeconds));
     }
 
     @Override
@@ -357,14 +334,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
-        combatHud.draw(ui, world, camera, w.scale());
         boolean hudShown = game.settings().showHud;
         if (hudShown) hud(ui);
         if (!pause.open()) {
             prompt(ui);
-            float hotbar = hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
-            inventory.drawHotbar(ui, frameDt, hotbar);
-            if (!inventory.open()) combatHud.drawMana(ui, world.combat(), hotbar - 34);
+            inventory.drawHotbar(ui, frameDt, hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10);
             if (!game.importer().visible()) inventory.draw(ui);
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
@@ -626,37 +600,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (item == null || !give(item)) return false;
                 world.equipSelected();
             }
-            // the chest's loot and the dice from a seed: seed <n>
+            // the chest's loot from a seed: seed <n>
             case "seed" -> world.seed(Long.parseLong(argument.trim()));
-            // the training dummies: dummy goto [n] [metres] [front|back|left|right] (stand
-            // that far from dummy n on that side of it, facing it), dummy add <x> <z>
-            case "dummy" -> {
-                String[] a = argument.trim().split("\\s+");
-                if (a[0].equals("add") && a.length >= 3) {
-                    addDummy(new Vec3(Double.parseDouble(a[1]), 0, Double.parseDouble(a[2])));
-                } else if (a[0].equals("goto")) {
-                    int n = a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0;
-                    if (n < 0 || n >= world.dummies().size()) return false;
-                    Dummy d = world.dummies().get(n);
-                    double r = a.length > 2 ? Double.parseDouble(a[2]) : 1.4;
-                    double turn = a.length > 3 ? switch (a[3]) {
-                        case "back" -> Math.PI;
-                        case "left" -> Math.PI / 2;
-                        case "right" -> -Math.PI / 2;
-                        default -> 0;
-                    } : 0;
-                    // a heading a quarter turn up from its face's points out of its left side
-                    Vec3 at = d.position().add(SpriteView.headingVector(d.heading() + turn).scale(r));
-                    p.setPosition(at);
-                    Vec3 to = d.position().sub(at);
-                    p.snapHeading(SpriteView.headingOf(to.x(), to.z()));
-                    camera.snapTo(pivot());
-                } else {
-                    return false;
-                }
-            }
-            // her mana: mana <n>
-            case "mana" -> world.combat().setMana(Double.parseDouble(argument.trim()));
             // the chest: chest (open it, or shut it), and where she stands to: chest goto
             case "chest" -> {
                 if (world.chests().isEmpty()) return false;

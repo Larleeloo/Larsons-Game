@@ -3,9 +3,8 @@
 Drop audio files in this folder and the game plays them. Every
 animation in the game is a sound slot - both bodies' 56 states,
 the treasure chest's four, what is done with an item, the
-inventory, the training dummy's reactions and the fighting's
-dice, blows and shots - and **every one is silent until a file
-with its name is here**. MP3 or WAV (also AIFF and AU); MP3 is read by the
+inventory - and **every one is silent until a file with its
+name is here**. MP3 or WAV (also AIFF and AU); MP3 is read by the
 game's own decoder, so no codec is needed.
 
 ## Naming
@@ -22,8 +21,6 @@ action it plays on:
     chests/ornate_chest/close.mp3     the lid slammed (once)
     items/battle_axe/pickup.mp3       picking the battle axe up
     ui/inventory_open.mp3             the inventory opening (I)
-    combat/attack_dummy/hit.mp3       a training dummy struck
-    combat/dice_roll.mp3              the damage dice tumbling over her head
 
 A file one folder up covers every object of its kind until an
 object has its own: `player/walk.mp3` is both bodies' walk,
