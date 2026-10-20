@@ -12,7 +12,8 @@ import static org.lwjgl.opengl.GL33C.*;
 /**
  * Textured, tinted quads, batched into as few draw calls as the textures
  * allow — used for everything flat in the game: the billboarded character
- * layers and items in the 3D world, their ground shadows, and the whole UI.
+ * layers and items in the 3D world, the scenery's crossed cards, the ground
+ * shadows, and the whole UI.
  *
  * <p>Quads are appended to a CPU buffer and drawn in one draw call per run of
  * same-texture quads. Colours are straight alpha on the way in and
@@ -32,10 +33,21 @@ import static org.lwjgl.opengl.GL33C.*;
  * texel from that palette's row of the {@link PaletteAtlas} - the pixel-art
  * layers, which so take any colours without being uploaded again. Quads of
  * different palettes on the same texture still share a draw call.
+ *
+ * <p><b>Upright depth.</b> A billboard faces the camera, so from above it
+ * leans back with the view, and its depth says the character's head is
+ * behind her feet: a tree's card half a metre behind her would cut her off
+ * at the shoulders. Within a {@link #setDepthPlane depth plane}, the quads
+ * of each {@link #depthAnchor anchored} billboard are drawn where they are
+ * but tested at the depth of an upright figure standing on the anchor - the
+ * point where each pixel's view ray meets a plane through the anchor that
+ * stands up from the ground and faces the camera - so whatever stands
+ * behind her feet is behind all of her, and whatever stands in front of
+ * them in front.
  */
 public final class Batch implements AutoCloseable {
 
-    private static final int FLOATS_PER_VERTEX = 14;      // xyz uv rgba clip palette
+    private static final int FLOATS_PER_VERTEX = 15;      // xyz uv rgba clip palette plane
     private static final int QUAD_BYTES = 4 * FLOATS_PER_VERTEX * Float.BYTES;
     /** Quads one upload holds (the CPU buffer, and the shared index buffer). */
     private static final int MAX_QUADS = 8192;
@@ -43,6 +55,11 @@ public final class Batch implements AutoCloseable {
     private static final int RING_QUADS = MAX_QUADS * 4;
     /** A clip rectangle nothing falls outside of: the whole quad is drawn. */
     private static final float NO_CLIP = 1e9f;
+    /**
+     * The alpha at or below which a fragment is discarded, as every batch
+     * begins: only what is all but invisible, so soft edges still blend.
+     */
+    public static final float DEFAULT_ALPHA_CUT = 0.003f;
 
     private static final String VERTEX = """
             #version 330 core
@@ -51,14 +68,25 @@ public final class Batch implements AutoCloseable {
             layout(location = 2) in vec4 aColor;
             layout(location = 3) in vec4 aClip;
             layout(location = 4) in float aPalette;
+            layout(location = 5) in float aPlane;     // the depth plane's distance from uEye along uPlaneNormal; 0: none
             uniform mat4 uProj;
+            uniform vec3 uEye;
+            uniform vec3 uPlaneNormal;
             out vec2 vUv;
             out vec4 vColor;
             out float vDepth;
             flat out vec4 vClip;
             flat out int vPalette;
             void main() {
-                gl_Position = uProj * vec4(aPos, 1.0);
+                vec4 clip = uProj * vec4(aPos, 1.0);
+                float along = dot(aPos - uEye, uPlaneNormal);
+                if (aPlane > 0.0 && along > 1e-4) {
+                    // The same pixel, at the depth of the point along its view ray on the plane.
+                    float s = clamp(aPlane / along, 0.02, 50.0);
+                    vec4 upright = uProj * vec4(uEye + (aPos - uEye) * s, 1.0);
+                    clip.z = clamp(upright.z / upright.w, -1.0, 1.0) * clip.w;
+                }
+                gl_Position = clip;
                 vUv = aUv;
                 vColor = aColor;
                 vDepth = gl_Position.w;
@@ -92,6 +120,9 @@ public final class Batch implements AutoCloseable {
                 }
                 if (any(lessThan(vUv, vClip.xy)) || any(greaterThan(vUv, vClip.zw))) discard;
                 if (c.a <= uAlphaCut) discard;
+                // A cutout (a cut of a half or more) is opaque wherever it is drawn: a texel its
+                // mipmap left partly covered keeps its own colour rather than a darkened one.
+                if (uAlphaCut >= 0.5) c = vec4(c.rgb / c.a, 1.0);
                 if (uFog.y > 0.0) {
                     float f = clamp((vDepth - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     c.rgb = mix(c.rgb, uFogColor * c.a, f * f);
@@ -113,6 +144,10 @@ public final class Batch implements AutoCloseable {
     private int ringQuads;
     private boolean drawing;
     private int drawCalls;
+    /** The depth plane's eye and normal ({@link #setDepthPlane}); null: none this batch. */
+    private Vec3 planeEye, planeNormal;
+    /** The plane the quads queued now are tested at ({@link #depthAnchor}); 0: their own depth. */
+    private float plane;
 
     public Batch() {
         shader = new Shader("batch", VERTEX, FRAGMENT);
@@ -134,6 +169,8 @@ public final class Batch implements AutoCloseable {
         glEnableVertexAttribArray(3);
         glVertexAttribPointer(4, 1, GL_FLOAT, false, stride, 13L * Float.BYTES);
         glEnableVertexAttribArray(4);
+        glVertexAttribPointer(5, 1, GL_FLOAT, false, stride, 14L * Float.BYTES);
+        glEnableVertexAttribArray(5);
 
         ebo = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -163,7 +200,11 @@ public final class Batch implements AutoCloseable {
         shader.set("uProj", projection);
         shader.set("uTex", 0);
         shader.set("uPalettes", 1);
-        shader.set("uAlphaCut", 0.003f);
+        shader.set("uAlphaCut", DEFAULT_ALPHA_CUT);
+        shader.set("uEye", 0f, 0f, 0f);
+        shader.set("uPlaneNormal", 0f, 0f, 0f);
+        planeEye = planeNormal = null;
+        plane = 0;
         palettes.newBatch();
         if (fogColor != null) {
             shader.set("uFogColor", fogColor[0], fogColor[1], fogColor[2]);
@@ -177,6 +218,56 @@ public final class Batch implements AutoCloseable {
     /** For UI and shadows: no fog. */
     public void begin(Mat4 projection) {
         begin(projection, null, 0, 0);
+    }
+
+    /**
+     * Discard fragments whose alpha is at or below {@code cut} from here to
+     * the end of this batch (or the next call). A cut of a half or more draws
+     * a <b>cutout</b>: every texel is in or out, nothing half-blended, and
+     * what is in is drawn opaque (its colour divided by its alpha, so the
+     * edge of a mipmapped cutout is not darkened) - which can write depth
+     * like solid geometry, as the scenery does ({@code world/SceneryRenderer}).
+     * What is already queued is drawn first, with the cut it was queued
+     * under. {@link #begin} starts every batch at {@link #DEFAULT_ALPHA_CUT};
+     * pass that to restore it mid-batch.
+     */
+    public void setAlphaCut(float cut) {
+        if (!drawing) throw new IllegalStateException("batch not begun");
+        flush();
+        shader.use();
+        shader.set("uAlphaCut", cut);
+    }
+
+    /**
+     * Test the billboards of this batch at an upright figure's depth (see the
+     * class notes): the camera's {@code eye}, and the unit {@code normal} the
+     * figures' depth planes face away from it with - the camera's forward
+     * along the ground, for an upright plane. Each billboard then names its
+     * anchor ({@link #depthAnchor}). What is already queued is drawn first.
+     */
+    public void setDepthPlane(Vec3 eye, Vec3 normal) {
+        if (!drawing) throw new IllegalStateException("batch not begun");
+        flush();
+        planeEye = eye;
+        planeNormal = normal;
+        shader.use();
+        shader.set("uEye", (float) eye.x(), (float) eye.y(), (float) eye.z());
+        shader.set("uPlaneNormal", (float) normal.x(), (float) normal.y(), (float) normal.z());
+    }
+
+    /**
+     * The quads queued from here on are one billboard standing on {@code
+     * anchor} (its feet, or the spot on the ground under it): tested at the
+     * depth of the {@link #setDepthPlane depth plane} through it. {@code
+     * null}, or no depth plane this batch: at their own depth.
+     */
+    public void depthAnchor(Vec3 anchor) {
+        if (anchor == null || planeEye == null) {
+            plane = 0;
+            return;
+        }
+        double d = anchor.sub(planeEye).dot(planeNormal);
+        plane = d > 1e-3 ? (float) d : 0;            // (a plane through the eye or behind it: no plane at all)
     }
 
     /** No palette: the texture is drawn as it is (RGBA). */
@@ -292,7 +383,7 @@ public final class Batch implements AutoCloseable {
                      float r, float g, float b, float a,
                      float cu0, float cv0, float cu1, float cv1, float palette) {
         data.put(x).put(y).put(z).put(u).put(v).put(r).put(g).put(b).put(a)
-                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette);
+                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette).put(plane);
     }
 
     /** Upload what is queued and draw it: one upload, one draw call per run of the same texture. */

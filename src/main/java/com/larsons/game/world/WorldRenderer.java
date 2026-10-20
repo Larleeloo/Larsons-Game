@@ -23,16 +23,18 @@ import static org.lwjgl.opengl.GL33C.*;
  * Draws a frame of the world, in the order the 2D/3D mix needs:
  *
  * <ol>
- *   <li><b>The void</b> — sky and endless floor, one full-screen pass, no depth.</li>
- *   <li><b>3D props</b> — real geometry, depth-tested and depth-writing.</li>
- *   <li><b>Shadows</b> — soft blobs on the floor under every sprite and prop,
- *       depth-tested (a trunk hides the shadow behind it) but not writing -
- *       and the warm pool of light an open chest throws round itself.</li>
+ *   <li><b>The void</b> — sky and endless grass, one full-screen pass, no depth.</li>
+ *   <li><b>Scenery</b> — the trees, grass tufts and rocks: cutout cards, two
+ *       crossed for a tree or a tuft, one facing the camera for a rock
+ *       ({@link SceneryRenderer}), depth-tested and depth-writing.</li>
+ *   <li><b>Shadows</b> — soft blobs on the ground under every sprite, tree
+ *       and rock, depth-tested (a trunk hides the shadow behind it) but not
+ *       writing - and the warm pool of light an open chest throws round itself.</li>
  *   <li><b>Sprites</b> — every character layer, every item and every chest
  *       (its smoke behind, the chest, its smoke in front), as camera-facing
  *       billboards, far to near so their soft edges blend over what is
- *       behind them; depth-tested against the props so a tree can stand in
- *       front of the player.</li>
+ *       behind them; depth-tested against the scenery so a tree can stand in
+ *       front of the player, and a tuft hide her feet.</li>
  * </ol>
  *
  * <p>Sprites test depth but do not write it. Every billboard faces the
@@ -42,6 +44,15 @@ import static org.lwjgl.opengl.GL33C.*;
  * can be drawn over only its own part of the card ({@link
  * LayerStack#drawBillboard}), not the whole card, with no risk of two
  * layers fighting over the last bit of depth.
+ *
+ * <p>Against the scenery a billboard is tested as if it stood upright on
+ * its spot ({@link Batch#setDepthPlane}): seen from above, a card facing
+ * the camera leans back, and its head would sink behind a trunk she stands
+ * in front of, or a tuft behind her feet poke through her knees. So a tree
+ * or a tuft hides her where it stands nearer the camera than her feet, and
+ * never where it stands behind them. From high above, the upright plane
+ * leans back a little with the view (from 60° on), so a figure seen from
+ * straight overhead still has some height.
  */
 public final class WorldRenderer implements AutoCloseable {
 
@@ -49,7 +60,7 @@ public final class WorldRenderer implements AutoCloseable {
     public static final float FOG = 70f;
 
     private final VoidRenderer voidRenderer;
-    private final Props props;
+    private final SceneryRenderer scenery;
     private final Batch batch;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
@@ -59,10 +70,10 @@ public final class WorldRenderer implements AutoCloseable {
 
     private LayerStack.Result playerStack;
 
-    public WorldRenderer(VoidRenderer voidRenderer, Props props, Batch batch, SpriteLibrary sprites,
+    public WorldRenderer(VoidRenderer voidRenderer, SceneryRenderer scenery, Batch batch, SpriteLibrary sprites,
                          ObjectSprites objects) {
         this.voidRenderer = voidRenderer;
-        this.props = props;
+        this.scenery = scenery;
         this.batch = batch;
         this.sprites = sprites;
         this.objects = objects;
@@ -101,7 +112,8 @@ public final class WorldRenderer implements AutoCloseable {
     /** The player's layer stack as last drawn — for the HUD. */
     public LayerStack.Result playerStack() { return playerStack; }
 
-    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight, boolean showProps) {
+    /** Draw {@code world} - its scenery as {@link World#scenery()} has it - from {@code camera}. */
+    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
@@ -109,7 +121,8 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 eye = camera.eye();
 
         voidRenderer.draw(camera, aspect, FOG);
-        if (showProps) props.draw(viewProj, fog, FOG);
+        Vec3 upright = uprightNormal(camera);
+        scenery.draw(batch, world.scenery(), viewProj, fog, FOG, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -130,13 +143,14 @@ public final class WorldRenderer implements AutoCloseable {
             double light = c.light();
             if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
         }
-        if (showProps) {
-            for (Props.Placed pl : props.placed()) groundShadow(pl.position(), pl.shadowRadius(), 0.35f);
+        for (Scenery.Placed s : world.scenery().shadowed()) {
+            groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
         }
         batch.end();
 
-        // --- sprites, far to near (tested against the props, not written) ----------
+        // --- sprites, far to near (tested against the scenery, not written) --------
         batch.begin(viewProj, fog, 0, FOG);
+        batch.setDepthPlane(eye, upright);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
@@ -145,7 +159,10 @@ public final class WorldRenderer implements AutoCloseable {
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory());
         LayerStack.Result stack = playerStack;
-        draws.add(() -> LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f));
+        draws.add(() -> {
+            batch.depthAnchor(p.ground());
+            LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
+        });
         dist.add(p.feet().sub(eye).dot(forward));
 
         for (Chest c : world.chests()) {
@@ -154,8 +171,11 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
                     c.state().loops(), c.time(), world.time(), chestView, c.light(),
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
-            draws.add(() -> LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
-                    c.position(), right, up, 1f));
+            draws.add(() -> {
+                batch.depthAnchor(c.position());
+                LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
+                        c.position(), right, up, 1f);
+            });
             dist.add(c.position().sub(eye).dot(forward));
         }
 
@@ -163,9 +183,11 @@ public final class WorldRenderer implements AutoCloseable {
             Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
             Vec3 centre = g.position.add(0, g.hover(world.time()), 0);
             double s = g.def.worldSize();
-            draws.add(() -> batch.quad(icon,
-                    centre.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s), up.scale(-s),
-                    0, 0, 1, 1, 1, 1, 1, 1));
+            draws.add(() -> {
+                batch.depthAnchor(g.position);              // (the spot it hovers over)
+                batch.quad(icon, centre.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s),
+                        up.scale(-s), 0, 0, 1, 1, 1, 1, 1, 1);
+            });
             dist.add(centre.sub(eye).dot(forward));
         }
 
@@ -175,6 +197,18 @@ public final class WorldRenderer implements AutoCloseable {
         for (int i : order) draws.get(i).run();
         batch.end();
         glDepthMask(true);
+    }
+
+    /**
+     * The way a billboard's upright depth plane faces: the camera's forward
+     * along the ground - a plane standing straight up - until the camera is
+     * 60° up, and from there leaning back by as much again as the camera
+     * climbs, so it never lies along the view (straight overhead it leans
+     * back 30°).
+     */
+    static Vec3 uprightNormal(OrbitCamera camera) {
+        double lean = Math.max(0, camera.pitch() - Math.toRadians(60));
+        return camera.groundForward().scale(Math.cos(lean)).add(0, -Math.sin(lean), 0);
     }
 
     private void groundShadow(Vec3 at, double radius, float alpha) {
