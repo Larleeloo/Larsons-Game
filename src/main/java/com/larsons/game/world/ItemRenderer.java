@@ -275,7 +275,7 @@ final class ItemRenderer implements AutoCloseable {
                 double f = fract(t / period + hash(i, 22) + phase * 0.17);
                 double x = (hash(i, 23) - 0.5) * 2 * across + 0.08 * Math.sin(t * 1.3 + i);
                 double y = (hash(i, 24) - 0.5) * half + 0.5 * f;
-                yield new Mote(x, y, 0.12 + 0.26 * f, 0.42 * Math.sin(Math.PI * f));
+                yield new Mote(x, y, 0.12 + 0.28 * f, 0.55 * Math.sin(Math.PI * f));
             }
             case BONDED -> {
                 double period = 2.2 + 0.6 * hash(i, 31);

@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * A weapon's tier: what its name starts with ("Crystal Axe"), how rare it is,
  * and how it looks - the same weapon recoloured in the engine, never a new
- * model ({@link TierLook}):
+ * model ({@link com.larsons.game.sprite.TierLook}):
  *
  * <pre>
  *   Basic     Common     exactly as rendered
