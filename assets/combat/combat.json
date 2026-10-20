@@ -1,0 +1,34 @@
+{
+  "_readme": "Combat's numbers, read when the demo starts (combat/CombatTuning.java). Change any value and restart; one left out keeps its default. The borders' own numbers (Venom +50% over 10 s, Mystic x2.5 damage and 2x mana, Bonded +10% a living target hit in 5 minutes) are in world/Border.java.",
+  "dice": {
+    "sides": 20,
+    "perRarity": {
+      "common": 1,
+      "uncommon": 2,
+      "rare": 3,
+      "epic": 4,
+      "legendary": 5,
+      "mythic": 6
+    },
+    "heavyExtra": 1,
+    "unarmed": 1
+  },
+  "mana": {
+    "max": 100,
+    "regenPerSecond": 5,
+    "spellCost": 10,
+    "mysticBaseCost": 5
+  },
+  "projectiles": {
+    "arrowSpeed": 30,
+    "boltSpeed": 38,
+    "spellSpeed": 16,
+    "range": 25,
+    "aimAssistDegrees": 25,
+    "stuckSeconds": 8
+  },
+  "dummy": {
+    "health": 100,
+    "downSeconds": 6
+  }
+}
