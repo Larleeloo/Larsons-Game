@@ -27,10 +27,11 @@ import java.util.stream.Stream;
  *                                         ({@link SceneryProfile})
  * </pre>
  *
- * <p>Every piece of scenery is one picture stood up twice, as two cards
- * crossing at right angles (the way Minecraft draws its flowers), so each
- * sprite is a single sheet of frames from one side view - no directions, no
- * heights. The sheets are drawn by 3D-Modeling's {@code scenery/} scripts in
+ * <p>Every piece of scenery is one picture from one side view - no
+ * directions, no heights: a tree or a tuft stood up twice, as two cards
+ * crossing at right angles (the way Minecraft draws its flowers), a rock on
+ * one card facing the camera ({@link SceneryProfile#facesCamera()}). So each
+ * sprite is a single sheet of frames. The sheets are drawn by 3D-Modeling's {@code scenery/} scripts in
  * the game's 128-colour palette, the frames in the near-square grid {@link
  * #gridColumns} gives (48 frames: 8 across, 6 down).
  *
