@@ -203,6 +203,21 @@ class CombatTest {
     }
 
     @Test
+    void outOfRangeTuningIsKeptInBounds() {
+        CombatTuning t = CombatTuning.parse("{\"dice\": {\"sides\": 0, \"heavyExtra\": -2}, \"mana\": {\"max\": -5},"
+                + " \"projectiles\": {\"arrowSpeed\": 0, \"range\": -1, \"aimAssistDegrees\": 400},"
+                + " \"dummy\": {\"health\": 0}}");
+        assertEquals(2, t.sides);
+        assertEquals(0, t.heavyExtra);
+        assertEquals(0, t.maxMana);
+        assertEquals(1, t.arrowSpeed);
+        assertEquals(1, t.range);
+        assertEquals(90, t.aimAssist);
+        assertEquals(1, t.dummyHealth);
+        assertEquals(20, CombatTuning.parse("{\"dice\": {\"sides\": 100}}").sides, "only 20 faces are drawn");
+    }
+
+    @Test
     void reachAndArc() {
         Dummy d = new Dummy(new Vec3(0, 0, -1.5), 0, 100, 6);
         assertTrue(Combat.inReach(Vec3.ZERO, 0, d, 1.7, 120));

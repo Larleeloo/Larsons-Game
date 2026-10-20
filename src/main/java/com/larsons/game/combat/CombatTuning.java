@@ -61,33 +61,33 @@ public final class CombatTuning {
 
     private CombatTuning(Map<String, Object> json) {
         Map<String, Object> d = Json.obj(json, "dice");
-        sides = (int) Json.num(d, "sides", 20);
+        sides = Math.max(2, Math.min(20, (int) Json.num(d, "sides", 20)));   // the dice are drawn with 20 faces
         Map<String, Object> per = Json.obj(d, "perRarity");
         int[] standard = {1, 2, 3, 4, 5, 6};
         dice = new EnumMap<>(Rarity.class);
         for (Rarity r : Rarity.values()) {
             dice.put(r, Math.max(1, (int) Json.num(per, r.key(), standard[r.ordinal()])));
         }
-        heavyExtra = (int) Json.num(d, "heavyExtra", 1);
+        heavyExtra = Math.max(0, (int) Json.num(d, "heavyExtra", 1));
         unarmedDice = Math.max(1, (int) Json.num(d, "unarmed", 1));
 
         Map<String, Object> m = Json.obj(json, "mana");
-        maxMana = Json.num(m, "max", 100);
-        manaRegen = Json.num(m, "regenPerSecond", 5);
-        spellCost = Json.num(m, "spellCost", 10);
-        mysticBaseCost = Json.num(m, "mysticBaseCost", 5);
+        maxMana = Math.max(0, Json.num(m, "max", 100));
+        manaRegen = Math.max(0, Json.num(m, "regenPerSecond", 5));
+        spellCost = Math.max(0, Json.num(m, "spellCost", 10));
+        mysticBaseCost = Math.max(0, Json.num(m, "mysticBaseCost", 5));
 
         Map<String, Object> p = Json.obj(json, "projectiles");
-        arrowSpeed = Json.num(p, "arrowSpeed", 30);
-        boltSpeed = Json.num(p, "boltSpeed", 38);
-        spellSpeed = Json.num(p, "spellSpeed", 16);
-        range = Json.num(p, "range", 25);
-        aimAssist = Json.num(p, "aimAssistDegrees", 25);
-        stuckSeconds = Json.num(p, "stuckSeconds", 8);
+        arrowSpeed = Math.max(1, Json.num(p, "arrowSpeed", 30));
+        boltSpeed = Math.max(1, Json.num(p, "boltSpeed", 38));
+        spellSpeed = Math.max(1, Json.num(p, "spellSpeed", 16));
+        range = Math.max(1, Json.num(p, "range", 25));
+        aimAssist = Math.max(0, Math.min(90, Json.num(p, "aimAssistDegrees", 25)));
+        stuckSeconds = Math.max(0, Json.num(p, "stuckSeconds", 8));
 
         Map<String, Object> t = Json.obj(json, "dummy");
-        dummyHealth = Json.num(t, "health", 100);
-        dummyDownSeconds = Json.num(t, "downSeconds", 6);
+        dummyHealth = Math.max(1, Json.num(t, "health", 100));
+        dummyDownSeconds = Math.max(0, Json.num(t, "downSeconds", 6));
     }
 
     /** Every number at its default. */
