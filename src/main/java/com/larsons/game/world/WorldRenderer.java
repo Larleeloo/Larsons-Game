@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
@@ -33,7 +34,8 @@ import static org.lwjgl.opengl.GL33C.*;
  *       the warm pool of light an open chest throws round itself, and the
  *       pool of its rarity's light under every item.</li>
  *   <li><b>Sprites</b> — every character layer, every item and every chest
- *       (its smoke behind, the chest, its smoke in front), as camera-facing
+ *       (its smoke behind, the chest, its smoke in front), the training
+ *       dummies and whatever is flying ({@link CombatRenderer}), as camera-facing
  *       billboards, far to near so their soft edges blend over what is
  *       behind them; depth-tested against the props so a tree can stand in
  *       front of the player. An item comes with its halo, its border and
@@ -64,6 +66,7 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture shadow;
     private final Texture glow;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
+    private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
 
@@ -78,7 +81,11 @@ public final class WorldRenderer implements AutoCloseable {
         this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
+        this.combat = new CombatRenderer(sprites, objects);
     }
+
+    /** The fighting's drawing (its sprites, for the HUD's dice too). */
+    public CombatRenderer combat() { return combat; }
 
     /** A soft round blob, white, alpha falling off to nothing at the rim: tinted, a pool of light. */
     private static PixelData glowPixels(int n) {
@@ -144,6 +151,7 @@ public final class WorldRenderer implements AutoCloseable {
             double light = c.light();
             if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
         }
+        combat.shadows(world, this::groundShadow);
         if (showProps) {
             for (Props.Placed pl : props.placed()) groundShadow(pl.position(), pl.shadowRadius(), 0.35f);
         }
@@ -180,6 +188,11 @@ public final class WorldRenderer implements AutoCloseable {
             draws.add(() -> itemRenderer.draw(g, t, eye, camera.yaw(), right, up));
             dist.add(g.centre(t).sub(eye).dot(forward));
         }
+
+        combat.sprites(world, batch, camera, (d, draw) -> {
+            draws.add(draw);
+            dist.add(d);
+        });
 
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;
