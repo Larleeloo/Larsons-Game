@@ -83,13 +83,14 @@ class LootTest {
     @Test
     void theDropsAreEveryTierOfEveryWeaponTheGameHas() {
         Loot loot = new Loot();
-        assertEquals(5, loot.pool(Rarity.COMMON).size(), "a Basic one of all five");
+        assertEquals(7, loot.pool(Rarity.COMMON).size(), "a Basic one of all but the wand");
         assertTrue(loot.pool(Rarity.UNCOMMON).contains(Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER)));
         assertTrue(loot.pool(Rarity.RARE).contains(Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC)));
-        assertEquals(5, loot.pool(Rarity.MYTHIC).size());
+        assertTrue(loot.pool(Rarity.RARE).contains(Item.of(ItemDef.WAND, Tier.MAGIC)));
+        assertEquals(8, loot.pool(Rarity.MYTHIC).size());
         int wand = 0;
         for (Rarity r : Rarity.values()) for (Item i : loot.pool(r)) if (i.id().equals("wand")) wand++;
-        assertEquals(0, wand, "no wand until there is one");
+        assertEquals(4, wand, "a Magic, Honed, Perfect and Mythic Wand");
         // and anything else added with its rarity
         ItemDef belt = new ItemDef("belt", "Belt", Slot.BELT, 0.8, null, com.larsons.game.sprite.Stance.SWORD);
         loot.add(Item.of(belt, Rarity.UNCOMMON));

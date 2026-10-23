@@ -70,7 +70,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             {Item.of(ItemDef.BATTLE_AXE), new Vec3(-1.9, 0, -1.7)},
             {Item.of(ItemDef.LONGBOW), new Vec3(2.5, 0, 1.0)},
             {Item.of(ItemDef.CROSSBOW), new Vec3(-2.3, 0, 1.6)},
-            {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)}};
+            {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)},
+            {Item.of(ItemDef.WAND), new Vec3(0.6, 0, 2.4)},
+            {Item.of(ItemDef.MACE), new Vec3(-2.8, 0, -0.2)},
+            {Item.of(ItemDef.DAGGER), new Vec3(-1.0, 0, 2.9)}};
     /**
      * The training dummies, each facing where she starts: one a few steps to
      * her right, one farther off behind it, one off to her left - targets
