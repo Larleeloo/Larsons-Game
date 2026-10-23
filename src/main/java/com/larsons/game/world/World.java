@@ -19,8 +19,9 @@ import java.util.Random;
 
 /**
  * Everything in the demo void that moves or can be picked up: the player,
- * the items lying around and the chests. The static 3D environment lives in
- * {@link Props}.
+ * the items lying around and the chests - and the {@link Scenery} they stand
+ * among, whose trees and rocks the player cannot walk into (she walks
+ * through the grass).
  *
  * <p>What the player holds is the selected slot of her hotbar ({@link
  * Inventory}): a weapon with a stance of its own (the battle axe, the bow,
@@ -41,6 +42,12 @@ public final class World {
 
     /** How close the player has to be to pick something up, in metres. */
     public static final double PICKUP_RANGE = 1.7;
+    /**
+     * How far round her position the player's feet take up room, in metres:
+     * she is kept this much farther than a tree's or a rock's radius from its
+     * axis, so her feet stop at the trunk rather than inside it.
+     */
+    public static final double FEET = 0.22;
 
     /** How long an item thrown out of a chest is in the air, in seconds. */
     public static final double FLIGHT = 0.9;
@@ -151,6 +158,7 @@ public final class World {
     private final List<Dummy> dummies = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
     private Random random = new Random();
+    private Scenery scenery = Scenery.NONE;
     private double time;
 
     public World(Wardrobe wardrobe) {
@@ -194,10 +202,19 @@ public final class World {
         return new ArrayList<>(dummies);
     }
 
+    /** The trees, grass and rocks standing in the world ({@link Scenery#NONE} until it is given some). */
+    public Scenery scenery() { return scenery; }
+
+    /** Plant {@code scenery} (null: none) - drawn from the next frame, in her way from the next tick. */
+    public void setScenery(Scenery scenery) {
+        this.scenery = scenery == null ? Scenery.NONE : scenery;
+    }
+
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
      * each of a chest's states lasts, from its sheets) and the dummies' - the
-     * player kept out of both - and the fighting.
+     * player kept out of them all, and out of the trees and the rocks - and
+     * the fighting.
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
@@ -214,6 +231,7 @@ public final class World {
             d.tick(dt);
             player.keepOut(d.position(), Dummy.RADIUS);
         }
+        for (Scenery.Placed s : scenery.solids()) player.keepOut(s.position(), s.radius() + FEET);
         combat.tick(dt, this);
     }
 

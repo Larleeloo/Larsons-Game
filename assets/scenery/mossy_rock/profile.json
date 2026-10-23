@@ -1,0 +1,11 @@
+{
+ "kind": "rock",
+ "frameWidth": 128,
+ "frameHeight": 128,
+ "frames": 1,
+ "fps": 1,
+ "frameWorldSize": 2.4,
+ "radius": 0.45,
+ "shadowRadius": 0.75,
+ "facing": "camera"
+}

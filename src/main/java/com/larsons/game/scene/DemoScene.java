@@ -26,19 +26,23 @@ import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * The demo: a blank 3D void with the character in the middle, a sword, a
- * battle axe, a longbow and a crossbow lying about, an ornate treasure chest
- * wreathed in magical smoke, three training dummies to hit, and a few 3D
- * props round the edge.
+ * The demo: the character in the middle of a meadow - grass underfoot,
+ * tufts blowing in the breeze, oaks and rocks round about ({@link
+ * SceneryLayout}) - with a sword, a battle axe, a longbow, a crossbow, a
+ * crystal staff, a wand, a mace and a dagger lying about, an ornate treasure
+ * chest wreathed in magical smoke and three training dummies to hit.
  *
  * <p>It is a viewer as much as a level. Walk, run, sprint, crouch, jump and
  * attack to see the states play live; pick the weapons up (each plays the
@@ -83,6 +87,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";
+    /**
+     * How much ground round the spawn, the chest, each weapon's spot and each
+     * dummy the scenery leaves bare, in metres - round the chest, enough for
+     * the fan its loot lands in (up to 2.1 m out, {@code World}) and room to
+     * walk; round a dummy, room to circle it and swing.
+     */
+    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8;
 
     private final Game game;
     private final World world;
@@ -120,6 +131,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Vec3 at : DUMMIES_AT) addDummy(at);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
+        world.setScenery(game.scenery());
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
 
@@ -128,6 +140,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         CombatTuning t = world.combat().tuning();
         return world.addDummy(new Dummy(at, SpriteView.headingOf(-at.x(), -at.z()), t.dummyHealth,
                 t.dummyDownSeconds));
+    }
+
+    /**
+     * The ground the scenery must leave bare ({@link SceneryLayout}): where
+     * she starts, the chest, the spot each weapon lies on and each dummy.
+     */
+    public static List<SceneryLayout.Clearing> clearings() {
+        List<SceneryLayout.Clearing> clear = new ArrayList<>();
+        clear.add(new SceneryLayout.Clearing(0, 0, SPAWN_CLEAR));
+        clear.add(new SceneryLayout.Clearing(CHEST_AT.x(), CHEST_AT.z(), CHEST_CLEAR));
+        clear.add(new SceneryLayout.Clearing(SWORD_AT.x(), SWORD_AT.z(), ITEM_CLEAR));
+        for (Object[] w : WEAPONS_AT) {
+            Vec3 at = (Vec3) w[1];
+            clear.add(new SceneryLayout.Clearing(at.x(), at.z(), ITEM_CLEAR));
+        }
+        for (Vec3 at : DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
+        return clear;
     }
 
     @Override
@@ -152,6 +181,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void update(double dt) {
         frameDt = dt;
         Input in = game.window().input();
+        world.setScenery(game.scenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
             sounds.update(world, camera);
             return;
@@ -355,8 +385,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void render() {
         var w = game.window();
-        game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight(),
-                game.settings().showProps);
+        game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();
         ui.begin();
@@ -683,7 +712,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "resume" -> pause.close();
             case "hud" -> game.settings().showHud = !argument.equals("off");
             case "animations" -> setClassic(argument.trim().equals("classic") || argument.trim().equals("v1"));
-            case "props" -> game.settings().showProps = !argument.equals("off");
+            case "props", "scenery" -> {
+                game.settings().showProps = !argument.equals("off");
+                world.setScenery(game.scenery());
+            }
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
             case "wear" -> {
