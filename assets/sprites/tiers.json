@@ -28,6 +28,6 @@
     },
     "wand": {"carried": {"wood": [0, 1], "handle": [2], "tip": [3]}},
     "mace": {"carried": {"blade": [0, 1], "handle": [2, 3]}},
-    "dagger": {"carried": {"blade": [0, 1], "fittings": [2], "handle": [3]}}
+    "dagger": {"carried": {"blade": [0], "fittings": [1], "handle": [2]}}
   }
 }

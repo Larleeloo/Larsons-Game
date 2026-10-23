@@ -95,6 +95,37 @@ class TierLookTest {
     }
 
     @Test
+    void everyCarriedPartIsAMaterialOfEverySheetOfItsWeapon() throws Exception {
+        TierLook look = TierLook.load(SPRITES, palette());
+        for (String id : List.of("sword", "battle_axe", "longbow", "crossbow", "crystal_staff",
+                "wand", "mace", "dagger")) {
+            Map<String, int[]> parts = look.carried(id);
+            assertNotNull(parts, id);
+            int highest = parts.values().stream().flatMapToInt(java.util.Arrays::stream).max().orElseThrow();
+            int sheets = 0;
+            for (String root : List.of("sprites", "sprites_masculine")) {
+                for (String hand : List.of("carry_right", "carry_left")) {
+                    Path dir = Path.of("assets", root, hand);
+                    if (!Files.isDirectory(dir)) continue;
+                    try (var folders = Files.list(dir)) {
+                        for (Path f : folders.filter(f -> f.getFileName().toString().startsWith(id + "_px")).toList()) {
+                            Path variants = f.resolve("variants.json");
+                            if (!Files.exists(variants)) continue;
+                            var m = java.util.regex.Pattern.compile("\"labels\"\\s*:\\s*(\\d+)")
+                                    .matcher(Files.readString(variants));
+                            assertTrue(m.find(), variants.toString());
+                            int materials = Integer.parseInt(m.group(1)) / 6;
+                            assertTrue(highest < materials, f + ": " + materials + " materials, the map names " + highest);
+                            sheets++;
+                        }
+                    }
+                }
+            }
+            assertTrue(sheets > 0, id + " is drawn in hand");
+        }
+    }
+
+    @Test
     void aCrystalSwordHasAPinkPurpleBladeAndAPerfectOneIsAllGold() throws Exception {
         TierLook look = TierLook.load(SPRITES, palette());
         int[] base = palette(anySheet("carry_right/sword_px128"));
