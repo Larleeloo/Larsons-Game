@@ -60,7 +60,12 @@ public final class CombatRenderer {
         }
     }
 
-    /** Queue the dummies, the shots and the hits' effects among the world's sprites. */
+    /**
+     * Queue the dummies, the shots and the hits' effects among the world's
+     * sprites, each tested at the depth plane through its spot on the ground
+     * ({@link Batch#depthAnchor}), as the player is - so a tree in front of a
+     * dummy hides it, and one behind it does not.
+     */
     public void sprites(World world, Batch batch, OrbitCamera camera, Draws out) {
         Vec3 eye = camera.eye(), right = camera.right(), up = camera.up(), forward = camera.forward();
         SpriteProfile framing = objects.profile(Dummy.SPRITES);
@@ -77,8 +82,10 @@ public final class CombatRenderer {
                 layers = lit;
             }
             List<LayerStack.Layer> draw = layers;
-            out.add(d.position().sub(eye).dot(forward), () -> LayerStack.drawBillboard(batch, draw, r.framing(),
-                    r.view().elevation(), d.position(), right, up, 1f));
+            out.add(d.position().sub(eye).dot(forward), () -> {
+                batch.depthAnchor(d.position());
+                LayerStack.drawBillboard(batch, draw, r.framing(), r.view().elevation(), d.position(), right, up, 1f);
+            });
         }
 
         Combat combat = world.combat();
@@ -104,8 +111,10 @@ public final class CombatRenderer {
             }
             Vec3 centre = at;
             float a = alpha;
-            out.add(centre.sub(eye).dot(forward), () -> along(batch, sheet, frame, palette, centre, dir,
-                    prof.frameWorldSize(), forward, right, a));
+            out.add(centre.sub(eye).dot(forward), () -> {
+                batch.depthAnchor(new Vec3(centre.x(), 0, centre.z()));   // (the spot it flies over)
+                along(batch, sheet, frame, palette, centre, dir, prof.frameWorldSize(), forward, right, a);
+            });
         }
 
         for (Combat.Effect e : combat.effects()) {
@@ -120,8 +129,10 @@ public final class CombatRenderer {
             double s = prof.frameWorldSize();
             Vec3 tl = e.at().sub(right.scale(s / 2)).add(up.scale(s / 2));
             // just in front of what it struck
-            out.add(e.at().sub(eye).dot(forward) - 0.5, () -> region(batch, sheet, frame, palette, tl,
-                    right.scale(s), up.scale(-s), 1f));
+            out.add(e.at().sub(eye).dot(forward) - 0.5, () -> {
+                batch.depthAnchor(new Vec3(e.at().x(), 0, e.at().z()));
+                region(batch, sheet, frame, palette, tl, right.scale(s), up.scale(-s), 1f);
+            });
         }
     }
 
