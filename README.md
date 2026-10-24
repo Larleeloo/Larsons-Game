@@ -385,9 +385,11 @@ long, beanie short).
 Until the armour's sheets are rendered (`chainmail/`, `chainmail_legs/`,
 `chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ... - see
 [`assets/sprites/README.md`](assets/sprites/README.md)) it can be found and
-worn but draws nothing; it still hides what it covers. A wearable without an
-`items/<id>/icon.png` lies on the ground as a small diamond in its rarity's
-colour.
+worn but draws nothing; it still hides what it covers. Every wearable with a
+piece of its own lies on the ground as `items/<id>/icon.png`, the piece alone
+as she wears it (3D-Modeling's `feminine_model_sprites.py ... wearable_icons`);
+the dyes, the lipstick, the makeup and the eyebrows, which have none, lie as a
+small diamond in their rarity's colour.
 
 ## The treasure chest
 
