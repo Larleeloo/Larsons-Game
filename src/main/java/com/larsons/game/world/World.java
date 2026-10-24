@@ -27,11 +27,14 @@ import java.util.Random;
  * Inventory}): a weapon with a stance of its own (the battle axe, the bow,
  * the crossbow) is taken up in its stance; the sword - worn, in the
  * wardrobe's weapon hand - or an empty slot is the sword-and-shield stance,
- * the wardrobe's own carried items ({@link #equipSelected}).
+ * the wardrobe's own carried items ({@link #equipSelected}). A wearable is
+ * never in her hands: carried, it is hers to wear from the wardrobe, and
+ * dropped (when she has no other) it comes off ({@link Wearables#takeOff}).
  *
  * <p>The chests are loot chests: the first time one is opened - and again
  * once everything it gave has been picked up - {@link Loot} draws 3 to 7
- * items, which pop out of it one after another, fly in an arc and land round
+ * items - weapons, and the wearables and the armour ({@link
+ * Wearables#addTo}) - which pop out of it one after another, fly in an arc and land round
  * its front, each in the beam of light of its rarity ({@link
  * GroundItem#beam}) until it is picked up.
  *
@@ -154,7 +157,7 @@ public final class World {
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
-    private final Loot loot = new Loot();
+    private final Loot loot = Wearables.addTo(new Loot());
     private final List<Dummy> dummies = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
     private Random random = new Random();
@@ -309,19 +312,21 @@ public final class World {
      * when that is a hotbar slot, straight into her hands (that slot is
      * selected): a weapon with a stance of its own by taking up that stance.
      * The sword is worn: it goes into its hand in the wardrobe whichever slot
-     * it lands in. Returns false (and leaves it lying) when every slot is full.
+     * it lands in. A wearable goes into no hand and changes nothing she
+     * holds: its slot is not selected. Returns false (and leaves it lying)
+     * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
         int slot = player.inventory().add(item.item);
         if (slot < 0) return false;
         items.remove(item);
-        if (!item.def.held()) {
+        if (item.def.inHand()) {
             // a left-handed character takes it in the other hand
             Slot hand = player.wardrobe().hand() == Wardrobe.Hand.LEFT ? item.def.carrySlot().twin()
                     : item.def.carrySlot();
             player.wardrobe().set(hand, item.def.id());
         }
-        if (Inventory.isHotbar(slot)) select(slot);
+        if (Inventory.isHotbar(slot) && !item.def.isWearable()) select(slot);
         return true;
     }
 
@@ -364,8 +369,9 @@ public final class World {
 
     /**
      * Take the item out of inventory slot {@code slot} and put it on the
-     * ground before her (the sword is taken out of her hand too); returns
-     * it, or null when the slot is empty.
+     * ground before her (the sword is taken out of her hand too, a wearable
+     * off her - see {@link #dropItem}); returns it, or null when the slot is
+     * empty.
      */
     public Item dropSlot(int slot) {
         Item item = player.inventory().get(slot);
@@ -377,17 +383,19 @@ public final class World {
     /**
      * Put down an item she has already taken out of her inventory (one held
      * on the pointer in the inventory screen): on the ground before her, out
-     * of her hand if it is the worn sword and she has no other. Returns it,
-     * or null for no item.
+     * of her hand if it is the worn sword and she has no other, and off her
+     * if it is a wearable she owns no other of ({@link Wearables#takeOff}).
+     * Returns it, or null for no item.
      */
     public Item dropItem(Item item) {
         if (item == null) return null;
         ItemDef def = item.def();
-        if (!def.held() && !player.inventory().contains(def)) {
+        if (def.inHand() && !player.inventory().contains(def)) {
             for (Slot hand : new Slot[]{def.carrySlot(), def.carrySlot().twin()}) {
                 if (player.wardrobe().wearing(hand, def.id())) player.wardrobe().clear(hand);
             }
         }
+        Wearables.takeOff(player.wardrobe(), player.inventory(), def);
         equipSelected();
         spawnAhead(item);
         return item;

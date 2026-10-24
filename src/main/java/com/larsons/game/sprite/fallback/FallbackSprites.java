@@ -180,6 +180,26 @@ public final class FallbackSprites {
         return image(frame.sword());
     }
 
+    /**
+     * A stand-in world sprite for something worn (a belt, a dye, a helmet)
+     * until it has an {@code icon.png}: a small folded bundle in {@code rgb}
+     * (its rarity's colour), outlined dark so a white one shows too.
+     */
+    public static BufferedImage wearableIcon(int rgb) {
+        int[] argb = new int[SIZE * SIZE];
+        int fill = 0xFF000000 | rgb, edge = 0xFF000000 | ((rgb >> 2) & 0x3F3F3F);
+        int fold = 0xFF000000 | ((rgb >> 1) & 0x7F7F7F);
+        int c = SIZE / 2, r = SIZE / 2 - 5;
+        for (int y = 0; y < SIZE; y++) {
+            for (int x = 0; x < SIZE; x++) {
+                int d = Math.abs(x - c) + Math.abs(y - c);
+                if (d > r) continue;
+                argb[y * SIZE + x] = d >= r - 1 ? edge : y == c || x == c ? fold : fill;
+            }
+        }
+        return image(argb);
+    }
+
     private static BufferedImage image(int[] argb) {
         return image(argb, SIZE);
     }

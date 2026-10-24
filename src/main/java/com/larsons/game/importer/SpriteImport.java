@@ -220,9 +220,12 @@ public final class SpriteImport {
         String item = itemVotes.entrySet().stream().max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey).orElse(dropped.isEmpty() ? "item"
                         : SpriteNames.sanitize(stripExtension(dropped.get(0).getFileName().toString())));
-        // A pickup's name says which hand it goes in ("sword" → right hand).
+        // A pickup's name says which hand it goes in ("sword" → right hand),
+        // a wearable's where it is worn ("beanie" → hat; a dye: nowhere).
         com.larsons.game.world.ItemDef known = com.larsons.game.world.ItemDef.byId(SpriteNames.sanitize(item));
-        if (known != null) slotVotes.merge(known.carrySlot(), 100, Integer::sum);
+        Slot knownSlot = known == null ? null : !known.isWearable() ? known.carrySlot()
+                : known.wearable().slots().isEmpty() ? null : known.wearable().slots().get(0);
+        if (knownSlot != null) slotVotes.merge(knownSlot, 100, Integer::sum);
         Slot slot = slotVotes.entrySet().stream().max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey).orElse(icon != null && sheets.isEmpty() ? null : Slot.BODY);
         checkFrameCounts(sheets, warnings);

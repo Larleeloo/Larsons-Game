@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * What a character is wearing and carrying: one item name (a folder under
@@ -23,6 +24,10 @@ import java.util.Map;
  * (an option of the item's {@code variants.json} - the body's colour is the
  * skin tone of every layer); and a {@link Hand}: right- or left-handed, or
  * whichever hand the sword is in.
+ *
+ * <p>Armour covers some of what is drawn over it, so those layers are left
+ * out while it is worn ({@link #hidden}): gauntlets hide the wrists - a bangle
+ * would be drawn over the gauntlet's cuff - and a chestplate the necklace.
  */
 public final class Wardrobe {
 
@@ -113,6 +118,9 @@ public final class Wardrobe {
     /** The item that makes an {@link Hand#AUTO} character left-handed when it is in the left hand. */
     public static final String WEAPON = "sword";
 
+    /** The gloves that are gauntlets: worn, nothing is drawn on the wrists. */
+    public static final Set<String> GAUNTLETS = Set.of("iron_gauntlets", "steel_gauntlets");
+
     private final EnumMap<Slot, String> items = new EnumMap<>(Slot.class);
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
     private Style style = Style.RENDERED;
@@ -133,6 +141,23 @@ public final class Wardrobe {
 
     public boolean wearing(Slot slot, String item) {
         return item != null && item.equals(items.get(slot));
+    }
+
+    /**
+     * Whether {@code slot}'s layer is left out because what is worn covers
+     * it: the wrists under gauntlets, the necklace under a chestplate. What
+     * is in the slot stays in the wardrobe - it shows again once the armour
+     * comes off.
+     */
+    public boolean hidden(Slot slot) {
+        return switch (slot) {
+            case WRISTWEAR, WRISTWEAR_LEFT -> {
+                String gloves = items.get(Slot.GLOVES);
+                yield gloves != null && GAUNTLETS.contains(gloves);
+            }
+            case NECKLACE -> items.containsKey(Slot.CHESTPLATE);
+            default -> false;
+        };
     }
 
     public Style style() { return style; }

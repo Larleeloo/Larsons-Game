@@ -19,6 +19,7 @@ ticked off as it lands.
 - [What's in the demo](#whats-in-the-demo)
 - [The sprite stack](#the-sprite-stack)
 - [The inventory and the hotbar](#the-inventory-and-the-hotbar)
+- [Wearing what you own](#wearing-what-you-own)
 - [The treasure chest](#the-treasure-chest)
 - [Items, rarity and loot](#items-rarity-and-loot)
 - [Fighting](#fighting)
@@ -161,12 +162,13 @@ Drop sprite sheets on the window at any time to import them.
   rock - see [The scenery](#the-scenery).
 
   <img src="docs/screenshots/meadow.png" width="98%" alt="The meadow from 45 degrees: pixel-art oaks round a clearing, grass tufts scattered across a grass floor, three rocks, and the character by the chest and the weapons">
-- **A pause menu** with the **Wardrobe**: all 23 cosmetic layers, each cycling
-  through the items found for it on disk and, for the pixel-art items, through
-  the colours they come in (swatches beside the item; the body's colour is the
-  skin tone of every layer), plus the drawing style and the hand - with a live
-  preview you can turn through the eight directions, tip through the three
-  heights and play in every state.
+- **A pause menu** with the **Wardrobe**: all 27 cosmetic layers, each cycling
+  through what she owns to wear in it (see
+  [Wearing what you own](#wearing-what-you-own)) and, for the pixel-art
+  items, through the colours she has dyes for (swatches beside the item; the
+  body's colour is the skin tone of every layer), plus the drawing style and
+  the hand - with a live preview you can turn through the eight directions,
+  tip through the three heights and play in every state.
 - **A cutscene** behind the main menu: **your own character** - exactly as
   the wardrobe has her - talking with Bryn, close up, so their faces show:
   every character a stack of close-up layers, one per item she wears, each
@@ -332,8 +334,9 @@ fits is put on the ground). The first five slots are the **hotbar**:
   which was 0, is **Backspace**; the wheel zooms while orbiting, and **+ / −**
   always do.)
 - Picking an item up puts it in the first free slot, the hotbar first; when
-  that is a hotbar slot it is selected, so it is in her hands. With every slot
-  full, nothing is picked up.
+  that is a hotbar slot it is selected, so it is in her hands. A wearable is
+  never in her hands: it changes neither what she holds nor her stance, and is
+  hers to wear from the wardrobe. With every slot full, nothing is picked up.
 - **G** drops what is in the selected slot.
 
 **I** opens the inventory over the middle of the screen: every slot a
@@ -353,6 +356,64 @@ again whenever the file changes, so a new background shows the next time the
 inventory opens. Where things go on it, as fractions of the picture: the title
 in the top 10 %, the lattice in the box 7 – 93 % across and 11 – 74 % down
 (from its top), the hotbar's row 78 – 96 % down.
+
+## Wearing what you own
+
+What she wears is **items** (`world/Wearables`): clothes, armour, jewellery,
+dyes, makeup, lipstick, hair styles and eyebrows are picked up or found in
+chests like the weapons, carried in the inventory, and only then offered by
+Pause → Wardrobe - each by its name ("Silver wrist band"), a wrist band on
+either wrist, a sheath on either hip. The **underwear**, the **bra** and a
+starter look - the **long waves** and the **arched eyebrows** - are hers from
+the start (`Wearables.OWNED_BY_DEFAULT`); everything else has to be found.
+**Free**, not items, as before: the body and the skin tone, the ears, the
+eyes and their colour, the nose and the mouth's shape - every folder found for
+the body - and the carried items in the hands.
+
+| Rarity | Wearables |
+|---|---|
+| Common | underwear, bra (both owned by default), shoes, pants, baggy shirt, straw sun hat, beanie |
+| Uncommon | belt, gloves, sheath, laced shirt, wool mantle, chainmail shirt, chainmail pants |
+| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin) - the long waves and the arched eyebrows owned by default - iron chestplate, iron leg plating, iron gauntlets, iron helmet |
+| Epic | gold wrist band, gold necklace, gold hoops, steel chestplate, steel leg plating, steel gauntlets, steel helmet |
+
+The first four rows are Larson's list; the rest are picks he did not make
+himself: the chainmail Uncommon, the iron armour Rare and the steel Epic; the
+straw sun hat and the beanie Common, the wool mantle Uncommon, the silver
+hoops Rare and the gold hoops Epic. The **dyes** are the 14 colours every
+item's `variants.json` shares - brown, black, auburn, copper, honey blonde,
+platinum, cherry red, pink, electric blue, violet ombre, emerald, mint, green
+ombre, royal blue - and the hair styles every folder under `hair/` (long waves,
+bob, ponytail, pixie, braids, curls, crew cut, side part, undercut, beanie
+long, beanie short).
+
+- **Colours are items too.** An item's colour row offers the colours she has a
+  dye for (`dye_<colour>`), and its own colours; the **lips** every colour
+  once she has the **lipstick**; a **metal** wearable only its own - the silver
+  and the gold wrist band are one `gold_bangle`, worn in its `silver` or
+  `gold` option. The skin tone and the eyes' colour are free.
+- **Outfits saved before** keep what they wear, owned or not - it is listed
+  in its layer, and so is a colour already on. Once taken off, it is offered
+  again only if she owns it.
+- **Losing an item** - dropping it, or it spilling out of a smaller inventory -
+  takes it off when she has no other that gives the same, and the last dye of
+  a colour takes that colour off whatever wears it. What is owned by default
+  and the free layers never come off.
+- **Chests** drop the wearables and the armour at their rarities, but never
+  what is owned by default. So that the dyes and the hair styles do not drown
+  out the weapons, each **family** - the dyes, the hair styles, the eyebrows,
+  the makeup - is one drop of its rarity, and when it comes up, any one of it.
+- Scripts give them like the weapons: `give silver_necklace`, `give dye_pink`,
+  `give hair_long_waves`, `give steel_helmet`.
+
+Until the armour's sheets are rendered (`chainmail/`, `chainmail_legs/`,
+`chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ... - see
+[`assets/sprites/README.md`](assets/sprites/README.md)) it can be found and
+worn but draws nothing; it still hides what it covers. Every wearable with a
+piece of its own lies on the ground as `items/<id>/icon.png`, the piece alone
+as she wears it (3D-Modeling's `feminine_model_sprites.py ... wearable_icons`);
+the dyes, the lipstick, the makeup and the eyebrows, which have none, lie as a
+small diamond in their rarity's colour.
 
 ## The treasure chest
 
@@ -800,7 +861,7 @@ src/main/java/com/larsons/game/
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
                             Chest, Scenery, SceneryLayout, SceneryRenderer, VoidRenderer (the ground and sky),
-                            WorldRenderer, ItemRenderer
+                            WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
