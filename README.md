@@ -19,9 +19,12 @@ ticked off as it lands.
 - [What's in the demo](#whats-in-the-demo)
 - [The sprite stack](#the-sprite-stack)
 - [The inventory and the hotbar](#the-inventory-and-the-hotbar)
+- [Wearing what you own](#wearing-what-you-own)
 - [The treasure chest](#the-treasure-chest)
 - [Items, rarity and loot](#items-rarity-and-loot)
+- [Fighting](#fighting)
 - [Sound](#sound)
+- [The scenery](#the-scenery)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
 - [What came from the engine](#what-came-from-the-engine)
@@ -48,7 +51,7 @@ last decade). Gradle comes with the repository.
 ./gradlew gameJar       # build/libs/larsons-game.jar, LWJGL included (put assets/ beside it)
 ```
 
-The main menu has one entry, **Demo**, which loads the void.
+The main menu has one entry, **Demo**, which loads a meadow.
 
 ## Controls
 
@@ -57,22 +60,22 @@ The main menu has one entry, **Demo**, which loads the void.
 | **W A S D** | walk, relative to the camera |
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
-| **Space** | jump - with the sword, the axe, the bow, the crossbow or the crystal staff |
-| **Left click** or **F** | attack - with the bow, hold to draw and let go to loose |
-| **X** / **R** / **Q** | heavy attack (the axe) / spin attack (sword or axe) / parry |
+| **Space** | jump - with the sword, the axe, the bow, the crossbow, the crystal staff, the wand, the mace or the dagger |
+| **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
+| **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
-| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow or crystal staff in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
+| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot |
 | **F1 – F4** | laugh, cry, surprise, anger |
 | **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
-| **[ / ]** | loop the previous / next of all 80 states in place |
+| **[ / ]** | loop the previous / next of all 119 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
-| **H** / **P** | hide the HUD / the 3D props |
+| **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F12** | screenshot (to `screenshots/`) |
 | **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
@@ -81,20 +84,21 @@ Drop sprite sheets on the window at any time to import them.
 
 ## What's in the demo
 
-- **A blank 3D void** — an endless floor with a metre grid fading into a soft
-  sky, drawn in a single full-screen GPU pass that ray-casts the ground plane
-  per pixel, so it has no edge and a clean horizon at any zoom.
+- **A meadow** — an endless grass floor, one 512-pixel pixel-art tile
+  repeating out to a soft sky, drawn in a single full-screen GPU pass that
+  ray-casts the ground plane per pixel, so it has no edge and a clean horizon
+  at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **80 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **119 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
   the shield held ready and bashed; the sword held alone, with no shield (11
-  more: `blade_*`); and the three weapons' stances below. The
+  more: `blade_*`); and the weapons' stances below. The
   HUD names the exact sheet each layer is drawing (and, where a set has no
   sheets for a state, the state it is shown as instead), and a gauge at the
   top right shows the camera's angle against the three height zones.
-- **A sword, a battle axe, a longbow, a crossbow and a crystal staff** hovering over their
+- **A sword, a battle axe, a longbow, a crossbow, a crystal staff, a wand, a mace and a dagger** hovering over their
   shadows nearby. Walk up and press **E**: she reaches out for it (crouched,
   if she is) and it is hers as her hand closes on it - in the first free
   slot of her [hotbar](#the-inventory-and-the-hotbar), which is selected,
@@ -108,7 +112,15 @@ Drop sprite sheets on the window at any time to import them.
   a block), the **crystal staff** (carried in the right hand and used as a
   walking stick on the walk; both hands on it to fight: a cast - the crystal
   thrust out at the enemy -, a heavy slam into the ground, a spin attack, a
-  crouched sweep, a parry and a block). **1 – 5** or the mouse wheel choose between the hotbar's slots,
+  crouched sweep, a parry and a block), and the three one-handed weapons, each
+  in the right hand: the **wand** (30 cm of carved wood: a cast - flicked out
+  at the enemy -, a great two-handed cast, a casting turn, a flick from the
+  crouch, a ward thrown up to parry and a ward held to block), the **mace** (a
+  flanged iron head on a 63 cm haft: an overhand smash, a two-handed smash
+  into the ground, a spin attack, a low sweep, the haft thrown up overhead to
+  parry and held across in both hands to block) and the **dagger** (40 cm, the
+  left hand up as a guard: a thrust, a slash and a lunge, a spinning slash, a
+  rising stab from the crouch, a parry and a guard). **1 – 5** or the mouse wheel choose between the hotbar's slots,
   **G** puts down what she holds. A
   left-handed character (Pause → Wardrobe → Hand) takes everything in the other
   hand and fights left-handed.
@@ -128,21 +140,35 @@ Drop sprite sheets on the window at any time to import them.
   colour of its rarity - see [Items, rarity and loot](#items-rarity-and-loot).
 
   <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
-- **Sound for every animation** - both bodies' 80 states, the chest's four,
+- **Three training dummies** to fight - straw-stuffed burlap on a stake, a
+  target painted on the chest. Every swing rolls **D20s over her head** in
+  the colour of the weapon's rarity, and their total is the damage; the bow
+  and crossbow loose arrows and bolts, wands and staffs cast spells, and her
+  **mana** is beside the hotbar - see [Fighting](#fighting).
+
+  <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
+  <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
+- **Sound for every animation** - both bodies' 119 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
 
   <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
-- **3D scenery** round the edge — a cottage, trees, rocks — real low-poly
-  geometry, depth-tested against the sprites so the character can walk behind a
-  tree.
-- **A pause menu** with the **Wardrobe**: all 23 cosmetic layers, each cycling
-  through the items found for it on disk and, for the pixel-art items, through
-  the colours they come in (swatches beside the item; the body's colour is the
-  skin tone of every layer), plus the drawing style and the hand - with a live
-  preview you can turn through the eight directions, tip through the three
-  heights and play in every state.
+- **Scenery** — oak trees swaying and tufts of grass blowing in the breeze,
+  and mossy rocks, all pixel art rendered in Blender and drawn like
+  Minecraft's plants: the same sprite on two cards crossed at right angles
+  (the rocks on one card facing the camera). The character walks behind a
+  tree and in front of it, through the grass, and not through a trunk or a
+  rock - see [The scenery](#the-scenery).
+
+  <img src="docs/screenshots/meadow.png" width="98%" alt="The meadow from 45 degrees: pixel-art oaks round a clearing, grass tufts scattered across a grass floor, three rocks, and the character by the chest and the weapons">
+- **A pause menu** with the **Wardrobe**: all 27 cosmetic layers, each cycling
+  through what she owns to wear in it (see
+  [Wearing what you own](#wearing-what-you-own)) and, for the pixel-art
+  items, through the colours she has dyes for (swatches beside the item; the
+  body's colour is the skin tone of every layer), plus the drawing style and
+  the hand - with a live preview you can turn through the eight directions,
+  tip through the three heights and play in every state.
 - **A cutscene** behind the main menu: **your own character** - exactly as
   the wardrobe has her - talking with Bryn, close up, so their faces show:
   every character a stack of close-up layers, one per item she wears, each
@@ -256,8 +282,8 @@ assets/sprites/items/sword/icon.png                 (the pickup, lying in the wo
   (`sprite/Stance`): the wardrobe's own carried items (the sword and shield -
   or, with no shield in either hand, the sword alone: its own `blade_*`
   states, the free arm down instead of holding a shield up), the battle axe,
-  the bow, the crossbow or the crystal staff, or nothing at all (the emotes and the pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
-  `carry_right/battle_axe`, `carry_left/longbow`, `carry_right/crossbow` or `carry_right/crystal_staff` (the
+  the bow, the crossbow, the crystal staff or a one-handed weapon - the wand, the mace or the dagger -, or nothing at all (the emotes and the pick-ups). The hands draw the stance's: a weapon of a stance is drawn from
+  `carry_right/battle_axe`, `carry_left/longbow`, `carry_right/crossbow`, `carry_right/crystal_staff`, `carry_right/wand`, `carry_right/mace` or `carry_right/dagger` (the
   twin hand, mirrored, for a left-handed character) whatever the wardrobe holds,
   and the other hand is empty.
 - **Fallbacks.** No body sheet for a state from a view → the first state along
@@ -300,7 +326,7 @@ script's `slots <n>` changes it while the game runs; anything that no longer
 fits is put on the ground). The first five slots are the **hotbar**:
 
 - **1 – 5** or the **mouse wheel** choose a hotbar slot, and what is in it is
-  what she holds. The battle axe, the bow, the crossbow and the crystal staff are each taken up
+  what she holds. The battle axe, the bow, the crossbow, the crystal staff, the wand, the mace and the dagger are each taken up
   in their own stance; the sword - worn in the wardrobe's weapon hand - or an
   empty slot is the sword-and-shield stance, the wardrobe's own carried items
   (the sword alone when no shield is worn: no shield to block or bash with).
@@ -308,8 +334,9 @@ fits is put on the ground). The first five slots are the **hotbar**:
   which was 0, is **Backspace**; the wheel zooms while orbiting, and **+ / −**
   always do.)
 - Picking an item up puts it in the first free slot, the hotbar first; when
-  that is a hotbar slot it is selected, so it is in her hands. With every slot
-  full, nothing is picked up.
+  that is a hotbar slot it is selected, so it is in her hands. A wearable is
+  never in her hands: it changes neither what she holds nor her stance, and is
+  hers to wear from the wardrobe. With every slot full, nothing is picked up.
 - **G** drops what is in the selected slot.
 
 **I** opens the inventory over the middle of the screen: every slot a
@@ -329,6 +356,64 @@ again whenever the file changes, so a new background shows the next time the
 inventory opens. Where things go on it, as fractions of the picture: the title
 in the top 10 %, the lattice in the box 7 – 93 % across and 11 – 74 % down
 (from its top), the hotbar's row 78 – 96 % down.
+
+## Wearing what you own
+
+What she wears is **items** (`world/Wearables`): clothes, armour, jewellery,
+dyes, makeup, lipstick, hair styles and eyebrows are picked up or found in
+chests like the weapons, carried in the inventory, and only then offered by
+Pause → Wardrobe - each by its name ("Silver wrist band"), a wrist band on
+either wrist, a sheath on either hip. The **underwear**, the **bra** and a
+starter look - the **long waves** and the **arched eyebrows** - are hers from
+the start (`Wearables.OWNED_BY_DEFAULT`); everything else has to be found.
+**Free**, not items, as before: the body and the skin tone, the ears, the
+eyes and their colour, the nose and the mouth's shape - every folder found for
+the body - and the carried items in the hands.
+
+| Rarity | Wearables |
+|---|---|
+| Common | underwear, bra (both owned by default), shoes, pants, baggy shirt, straw sun hat, beanie |
+| Uncommon | belt, gloves, sheath, laced shirt, wool mantle, chainmail shirt, chainmail pants |
+| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin) - the long waves and the arched eyebrows owned by default - iron chestplate, iron leg plating, iron gauntlets, iron helmet |
+| Epic | gold wrist band, gold necklace, gold hoops, steel chestplate, steel leg plating, steel gauntlets, steel helmet |
+
+The first four rows are Larson's list; the rest are picks he did not make
+himself: the chainmail Uncommon, the iron armour Rare and the steel Epic; the
+straw sun hat and the beanie Common, the wool mantle Uncommon, the silver
+hoops Rare and the gold hoops Epic. The **dyes** are the 14 colours every
+item's `variants.json` shares - brown, black, auburn, copper, honey blonde,
+platinum, cherry red, pink, electric blue, violet ombre, emerald, mint, green
+ombre, royal blue - and the hair styles every folder under `hair/` (long waves,
+bob, ponytail, pixie, braids, curls, crew cut, side part, undercut, beanie
+long, beanie short).
+
+- **Colours are items too.** An item's colour row offers the colours she has a
+  dye for (`dye_<colour>`), and its own colours; the **lips** every colour
+  once she has the **lipstick**; a **metal** wearable only its own - the silver
+  and the gold wrist band are one `gold_bangle`, worn in its `silver` or
+  `gold` option. The skin tone and the eyes' colour are free.
+- **Outfits saved before** keep what they wear, owned or not - it is listed
+  in its layer, and so is a colour already on. Once taken off, it is offered
+  again only if she owns it.
+- **Losing an item** - dropping it, or it spilling out of a smaller inventory -
+  takes it off when she has no other that gives the same, and the last dye of
+  a colour takes that colour off whatever wears it. What is owned by default
+  and the free layers never come off.
+- **Chests** drop the wearables and the armour at their rarities, but never
+  what is owned by default. So that the dyes and the hair styles do not drown
+  out the weapons, each **family** - the dyes, the hair styles, the eyebrows,
+  the makeup - is one drop of its rarity, and when it comes up, any one of it.
+- Scripts give them like the weapons: `give silver_necklace`, `give dye_pink`,
+  `give hair_long_waves`, `give steel_helmet`.
+
+The armour is drawn on both bodies in every state (`chainmail/`,
+`chainmail_legs/`, `chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ...
+- see [`assets/sprites/README.md`](assets/sprites/README.md)) and hides what it
+covers. Every wearable with a
+piece of its own lies on the ground as `items/<id>/icon.png`, the piece alone
+as she wears it (3D-Modeling's `feminine_model_sprites.py ... wearable_icons`);
+the dyes, the lipstick, the makeup and the eyebrows, which have none, lie as a
+small diamond in their rarity's colour.
 
 ## The treasure chest
 
@@ -468,6 +553,101 @@ assets/sprites/pixel_palette.json                the art's 128 colours (3D-Model
 assets/sprites/items/<id>/spin_px128/            profile.json, spin_side/middle/top.png (32 frames), variants.json, parts.json
 ```
 
+## Fighting
+
+**Three training dummies** stand round her at the start
+(`combat/Dummy`): a straw-stuffed burlap figure on a stake with a target
+painted on its chest, a 2D sprite like the chest - 8 directions × 3 heights
+of 128 × 128 pixel art - drawn by
+[3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
+`items/attack_dummy/attack_dummy_sprites.py`:
+
+```
+assets/sprites/objects/attack_dummy/dummy/idle_<elev>_<dir>.png          48 frames, loops: a slow sway
+assets/sprites/objects/attack_dummy/dummy/hit_<side>_<elev>_<dir>.png    16 frames: rocks away from the blow, wobbles back
+assets/sprites/objects/attack_dummy/dummy/fall_<side>_<elev>_<dir>.png   12 frames: tips over away from the blow
+assets/sprites/objects/attack_dummy/dummy/down_<side>_<elev>_<dir>.png    1 frame: lying there
+assets/sprites/objects/attack_dummy/dummy/rise_<side>_<elev>_<dir>.png   18 frames: springs back up
+```
+
+Every reaction is drawn four ways - struck on its **front**, **back**,
+**left** or **right** - and it plays the one for the side the blow came from,
+flashing white as it is struck. It takes **100** before it falls, lies for
+**6 s** and springs back up whole; lying down, nothing touches it. A health
+bar shows over it once it is hurt. She cannot walk through it.
+
+### The damage dice
+
+**Every swing rolls D20s above her head**, in the **colour of the weapon's
+rarity** (a rare border's colour as the die's rim), tumbling as she swings
+and coming up their numbers one after another as the blow lands; **their
+total is the damage**, which floats up off whatever was struck in the same
+colour. The number of dice is the rarity's:
+
+| Rarity | Dice | Damage |
+|---|---|---|
+| Common | 1d20 | 1 – 20 |
+| Uncommon | 2d20 | 2 – 40 |
+| Rare | 3d20 | 3 – 60 |
+| Epic | 4d20 | 4 – 80 |
+| Legendary | 5d20 | 5 – 100 |
+| Mythic | 6d20 | 6 – 120 |
+
+A **heavy** attack (the axe's and the staff's) rolls **one die more**, and her
+bare hands one Common die. A sword swing, the axe's and the staff's blows and
+the spins hit everything alive in front of her within reach (the spins all
+round); a swing turns her toward a dummy just off to one side. The dice are
+the 64-pixel sheets on an ordinary screen and the 128-pixel ones on a
+high-density one (`assets/sprites/combat/d20_px64/`, `d20_px128/`: a
+tumbling `roll.png` and `land_01` … `land_20.png`, the die coming down on
+that number), drawn once in grey and coloured on the GPU by a palette swap.
+
+### Arrows, bolts and spells
+
+- **The bow** looses an arrow when the draw is let go, **the crossbow** a bolt
+  as it fires: they fly in an arc, **aimed at the dummy she faces** (within
+  25° either side, 25 m away at most), and **stick in the ground** where they
+  miss, fading after 8 s. The roll is made as she shoots and lands on what
+  the shot strikes.
+- **A wand, or a Magic or better staff**, casts a **spell** (the staff's
+  attack) that flies straight and bursts on what it hits or at the end of
+  its flight: **blue** for a Magic Staff or wand (and a plain wand), **yellow**
+  for a Honed one, otherwise the rarity's colour (a Perfect staff's orange,
+  a Mythic one's teal). A Basic staff has no magic in it and thrusts. Each spell costs
+  **10 mana**.
+
+### Mana
+
+Her **mana** is the blue bar beside the hotbar: **100**, filling back up at
+**5 a second**. A spell with too little mana fizzles ("Not enough mana", no
+dice).
+
+### The rare borders
+
+The borders the [rarity](#items-rarity-and-loot) system gives some
+weapons do what they say, and each one's effect is written under the dice:
+
+- **Venom** - the blow's damage again by half, as poison over the next
+  **10 s** (a tick a second, in small green numbers): 100 becomes 150. Every
+  blow poisons anew.
+- **Mystic** - **×2.5** damage (+150 %), for **twice the mana**: a spell costs
+  20, and a Mystic melee weapon spends 10 a blow (its bonus is lost when she
+  has too little; a Mystic spell fizzles).
+- **Bonded** - **+10 %** for each living thing this very weapon has struck in
+  the last **5 minutes**, the one it is striking included (a dummy lying
+  knocked down does not count until it is up again).
+
+### Tuning
+
+The numbers are in **`assets/combat/combat.json`**, read when the demo
+starts - the dice per rarity, the heavy die, mana, the shots' speeds, range
+and aim, how long arrows stay stuck, a dummy's health and how long it lies.
+Any value left out keeps its default (`combat/CombatTuning`); the borders'
+own numbers are `world/Border`'s. The fighting's other sprites are under
+`assets/sprites/combat/`: `arrow/` and `bolt/` (`fly.png`, the head to the
+right), `magic_bolt/` (`fly.png`, 8 frames), `magic_burst/` and `hit_spark/`
+(`burst.png`), each with a `profile.json` saying how big it is in the world.
+
 ## Sound
 
 The sound system is Larsons-Game-Engine's (`audio/`): its own **MP3 decoder**
@@ -490,9 +670,12 @@ assets/sounds/
   SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 80 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/feminine/        <state>.mp3 for each of her 119 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
+  combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
+  combat/                 dice_roll.mp3, blow.mp3, arrow_hit.mp3, bolt_hit.mp3, arrow_stick.mp3,
+                          spell_cast.mp3, spell_hit.mp3, fizzle.mp3, venom_tick.mp3
   items/<item>/           pickup.mp3, drop.mp3, equip.mp3
   ui/                     inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
 ```
@@ -537,10 +720,44 @@ assets/closeups/<layer>/<item>_px128/<clip>_side_se.png    one layer's clip, clo
   budget, its decoders); an actor's other clips load ahead, and while a new
   clip is still loading the actor holds its last complete frame.
 
+## The scenery
+
+The demo's meadow is all pixel art, modelled, rendered and drawn in Blender by
+the scripts in [3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
+`scenery/` folder, every pixel in the same 128-colour palette as the
+characters:
+
+- **An oak** - a fully textured tree, 48 frames of it swaying in the breeze
+  (a four-second loop), drawn in 128 × 128-pixel frames twice the size of
+  the characters' pixels, so it stands about 4.4 m tall and 4 m across.
+- **Three grass tufts**, 32 × 32 pixels, each 24 frames blowing in the
+  breeze. The wind rolls across the field as a gust: a tuft downwind sways a
+  moment after one upwind, so the grass moves in waves rather than all at
+  once.
+- **Three rocks** - a boulder, a mossy rock and a cluster of stones -
+  128 × 128 pixels, standing still.
+- **The ground**: a 512 × 512 grass tile, its pixels the size of the
+  characters', repeating seamlessly, sharp up close and smooth far off.
+
+Like Minecraft's plants, a tree or a tuft is the same sprite on **two cards
+crossed at right angles**, so it has body from every side and needs no
+directions of its own. A rock is one card that turns to face the camera
+instead, because from above a crossed rock reads as a star (a rock whose
+profile says `"facing": "cross"` is crossed like the rest). The cards are cut
+out at their pixels' edges and depth-tested against the characters, so she
+walks behind a tree, in front of it and through the grass, but not into a
+trunk or a rock. The trees and rocks cast shadows.
+
+The meadow is planted from whatever is in `assets/scenery/` (a folder per
+sprite: `sheet.png` and its `profile.json`; `ground/grass.png`), the same way
+every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
+Settings → Scenery) hides it all. The folder's format is in
+[assets/scenery/README.md](assets/scenery/README.md).
+
 ## GPU acceleration
 
-**The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the void,
-the 3D props, every sprite layer and shadow, and the entire UI, text included.
+**The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the ground,
+the scenery, every sprite layer and shadow, and the entire UI, text included.
 AWT is only used off-screen — to decode PNGs, rasterise the font atlas once,
 and generate the fallback sprites.
 
@@ -578,7 +795,7 @@ are being paced; `-Dlarsons.fps.log=true` prints the same to the console.
   rows stay on the GPU from frame to frame and only new colours are sent.
 - **Less overdraw.** Each sprite layer is drawn over only the box its pixels
   cover, not the whole frame card: close up, a 20-layer outfit was 20
-  full-screen passes. (Sprites test depth against the 3D props but no longer
+  full-screen passes. (Sprites test depth against the scenery but no longer
   write it - billboards all face the camera, so far-to-near order is the
   same answer - which is what lets layers be separate quads.)
 - **Loading never costs a frame.** Sheet uploads get about 2 ms of each
@@ -631,25 +848,33 @@ src/main/java/com/larsons/game/
                             Sounds, SoundPack, SoundKeys, SoundDef, SoundStore; the hooks: AnimationSound,
                             WorldSounds
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
-                            Mesh, GpuInfo
+                            GpuInfo
   math/                     Vec3, Mat4
   input/                    Input — keys, mouse, typed text, dropped files
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
                             SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe,
                             Variants, Palettes, ObjectSprites and ObjectStack (things that are not characters),
-                            ItemSprites (turning items, icons), TierLook and PixelPalette (weapon tiers)
+                            ItemSprites (turning items, icons), TierLook and PixelPalette (weapon tiers),
+                            ScenerySprites and SceneryProfile (the trees, grass, rocks and ground)
   cutscene/                 CloseupLibrary, Actor, Cutscene (the script), CutsceneStage
   sprite/fallback/          the 32×32 fallback: Puppet (rigged box figure), PuppetRaster, FallbackSprites
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
-                            Chest, Props, VoidRenderer, WorldRenderer, ItemRenderer
+                            Chest, Scenery, SceneryLayout, SceneryRenderer, VoidRenderer (the ground and sky),
+                            WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items)
+  combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
+                            DiceRoll, Strike, Target, Dummy, Projectile; drawing: CombatRenderer, CombatHud,
+                            CombatSprites, CombatColours
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
-assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest;
-                            items/<id>/spin_px128/: the turning items; tiers.json, pixel_palette.json
+assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest
+                            and the attack dummy; items/<id>/spin_px128/: the turning items; combat/: the
+                            dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
+assets/combat/              combat.json: the fighting's numbers
 assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
+assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
 assets/sprites_masculine/,  the masculine body's sheets and close-ups, laid out the same
@@ -711,7 +936,15 @@ weapon in her hands drawn in its tier,
 the object sheets (names, layer order, all 24 views of every state of the
 chest), the sound catalogue (a sound for every animation of both bodies), the
 pack's lookup and fallbacks, its key list being up to date, and the engine's
-MP3 decoder tests.
+MP3 decoder tests; the fighting (`combat/CombatTest`): the dice per
+rarity, swings' reach and arc, heavy and unarmed rolls, every attack state
+having a move, arrows arcing onto a dummy, bolts sticking, spells' colours
+and mana, fizzling, Venom's 150 %, Mystic's damage and mana, Bonded's count,
+and a dummy's hits, fall and rise; and the scenery (its profiles, where each
+frame is in its sheet, the sheets and the ground tile in `assets/scenery/`
+keeping to their format, the meadow's layout - the same every run, nothing in
+a clearing or on top of anything solid -, the wind, and the player kept out
+of the trunks and rocks but not the grass).
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -725,10 +958,11 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
-`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff>`, `teleport`, `pickup`,
+`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger>`, `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
-[border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot from a seed),
-`chest` (open or shut it), `chest goto`, `pause`, `resume`, `hud`, `props`, `style` (`rendered`, `px128`,
+[border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
+`chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
+by dummy n, facing it), `dummy add <x> <z>`, `mana <n>`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
 the item's own colours) and
@@ -767,7 +1001,9 @@ Engine. Each section is broken up into chunks, or tasks to be done.
 - **Items** are 2D sprites as well that hover with a shadow on the ground. They
   always face the camera from any angle.
 - All other **environmental elements** (trees, rocks, houses, etc.) are
-  rendered in 3D.
+  rendered in 3D. *Since then the trees, the grass and the rocks have become
+  pixel-art sprites rendered in Blender and the house is gone - see
+  [The scenery](#the-scenery).*
 
 **To do**
 

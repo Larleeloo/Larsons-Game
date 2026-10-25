@@ -22,7 +22,7 @@ import java.util.Map;
  *   -Dlarsons.fps.log=true        print the frame rate and frame times to the console twice a second
  *   -Dlarsons.sprites.scale=1     shrink sprite frames on load (0.5 = half size)
  *   -Dlarsons.sprites.vramMB=1536 video memory the sprite cache may use
- *   -Dlarsons.assets=assets       where assets/sprites lives
+ *   -Dlarsons.assets=assets       where the assets are (sprites/, scenery/, sounds/ ...)
  *   -Dlarsons.start=menu          start in "menu" or straight in "demo"
  *   -Dlarsons.inventory.slots=25  the player's inventory slots, the 5 of the hotbar included
  *   -Dlarsons.animations=classic  start with the first version of the weapon animations (or "new")
@@ -54,6 +54,10 @@ public final class Settings {
     /** Print the frame numbers to the console ({@code -Dlarsons.fps.log}). */
     public final boolean logFrames;
     public boolean showHud = true;
+    /**
+     * Show the scenery - the trees, grass tufts and rocks (P). Saved as
+     * {@code showProps}, the name it had when they were 3D props.
+     */
     public boolean showProps = true;
     /**
      * Draw the first version of the states animated again (the weapon stances'
@@ -135,6 +139,11 @@ public final class Settings {
     /** {@code assets/sprites}. */
     public Path spritesDir() {
         return assets.resolve("sprites");
+    }
+
+    /** {@code assets/scenery}: the trees, grass tufts and rocks, and the ground's grass. */
+    public Path sceneryDir() {
+        return assets.resolve(com.larsons.game.sprite.ScenerySprites.FOLDER);
     }
 
     /**

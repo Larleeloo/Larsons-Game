@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
@@ -26,17 +27,20 @@ import static org.lwjgl.opengl.GL33C.*;
  * Draws a frame of the world, in the order the 2D/3D mix needs:
  *
  * <ol>
- *   <li><b>The void</b> — sky and endless floor, one full-screen pass, no depth.</li>
- *   <li><b>3D props</b> — real geometry, depth-tested and depth-writing.</li>
- *   <li><b>Shadows</b> — soft blobs on the floor under every sprite and prop,
- *       depth-tested (a trunk hides the shadow behind it) but not writing -
- *       the warm pool of light an open chest throws round itself, and the
- *       pool of its rarity's light under every item.</li>
+ *   <li><b>The void</b> — sky and endless grass, one full-screen pass, no depth.</li>
+ *   <li><b>Scenery</b> — the trees, grass tufts and rocks: cutout cards, two
+ *       crossed for a tree or a tuft, one facing the camera for a rock
+ *       ({@link SceneryRenderer}), depth-tested and depth-writing.</li>
+ *   <li><b>Shadows</b> — soft blobs on the ground under every sprite, tree
+ *       and rock, depth-tested (a trunk hides the shadow behind it) but not
+ *       writing - the warm pool of light an open chest throws round itself,
+ *       and the pool of its rarity's light under every item.</li>
  *   <li><b>Sprites</b> — every character layer, every item and every chest
- *       (its smoke behind, the chest, its smoke in front), as camera-facing
+ *       (its smoke behind, the chest, its smoke in front), the training
+ *       dummies and whatever is flying ({@link CombatRenderer}), as camera-facing
  *       billboards, far to near so their soft edges blend over what is
- *       behind them; depth-tested against the props so a tree can stand in
- *       front of the player. An item comes with its halo, its border and
+ *       behind them; depth-tested against the scenery so a tree can stand in
+ *       front of the player, and a tuft hide her feet. An item comes with its halo, its border and
  *       its beam of light ({@link ItemRenderer}); the weapon in her hands is
  *       drawn in its tier's colours ({@link ItemSprites#carriedPalette}).</li>
  * </ol>
@@ -48,6 +52,15 @@ import static org.lwjgl.opengl.GL33C.*;
  * can be drawn over only its own part of the card ({@link
  * LayerStack#drawBillboard}), not the whole card, with no risk of two
  * layers fighting over the last bit of depth.
+ *
+ * <p>Against the scenery a billboard is tested as if it stood upright on
+ * its spot ({@link Batch#setDepthPlane}): seen from above, a card facing
+ * the camera leans back, and its head would sink behind a trunk she stands
+ * in front of, or a tuft behind her feet poke through her knees. So a tree
+ * or a tuft hides her where it stands nearer the camera than her feet, and
+ * never where it stands behind them. From high above, the upright plane
+ * leans back a little with the view (from 60° on), so a figure seen from
+ * straight overhead still has some height.
  */
 public final class WorldRenderer implements AutoCloseable {
 
@@ -55,7 +68,7 @@ public final class WorldRenderer implements AutoCloseable {
     public static final float FOG = 70f;
 
     private final VoidRenderer voidRenderer;
-    private final Props props;
+    private final SceneryRenderer scenery;
     private final Batch batch;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
@@ -64,13 +77,14 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture shadow;
     private final Texture glow;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
+    private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
 
-    public WorldRenderer(VoidRenderer voidRenderer, Props props, Batch batch, SpriteLibrary sprites,
+    public WorldRenderer(VoidRenderer voidRenderer, SceneryRenderer scenery, Batch batch, SpriteLibrary sprites,
                          ObjectSprites objects, ItemSprites items) {
         this.voidRenderer = voidRenderer;
-        this.props = props;
+        this.scenery = scenery;
         this.batch = batch;
         this.sprites = sprites;
         this.objects = objects;
@@ -78,7 +92,11 @@ public final class WorldRenderer implements AutoCloseable {
         this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
+        this.combat = new CombatRenderer(sprites, objects);
     }
+
+    /** The fighting's drawing (its sprites, for the HUD's dice too). */
+    public CombatRenderer combat() { return combat; }
 
     /** A soft round blob, white, alpha falling off to nothing at the rim: tinted, a pool of light. */
     private static PixelData glowPixels(int n) {
@@ -111,7 +129,8 @@ public final class WorldRenderer implements AutoCloseable {
     /** The player's layer stack as last drawn — for the HUD. */
     public LayerStack.Result playerStack() { return playerStack; }
 
-    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight, boolean showProps) {
+    /** Draw {@code world} - its scenery as {@link World#scenery()} has it - from {@code camera}. */
+    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
@@ -119,7 +138,8 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 eye = camera.eye();
 
         voidRenderer.draw(camera, aspect, FOG);
-        if (showProps) props.draw(viewProj, fog, FOG);
+        Vec3 upright = uprightNormal(camera);
+        scenery.draw(batch, world.scenery(), viewProj, fog, FOG, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -144,13 +164,15 @@ public final class WorldRenderer implements AutoCloseable {
             double light = c.light();
             if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
         }
-        if (showProps) {
-            for (Props.Placed pl : props.placed()) groundShadow(pl.position(), pl.shadowRadius(), 0.35f);
+        combat.shadows(world, this::groundShadow);
+        for (Scenery.Placed s : world.scenery().shadowed()) {
+            groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
         }
         batch.end();
 
-        // --- sprites, far to near (tested against the props, not written) ----------
+        // --- sprites, far to near (tested against the scenery, not written) --------
         batch.begin(viewProj, fog, 0, FOG);
+        batch.setDepthPlane(eye, upright);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
@@ -160,7 +182,10 @@ public final class WorldRenderer implements AutoCloseable {
         playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory()),
                 world.wielded(), items);
         LayerStack.Result stack = playerStack;
-        draws.add(() -> LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f));
+        draws.add(() -> {
+            batch.depthAnchor(p.ground());
+            LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
+        });
         dist.add(p.feet().sub(eye).dot(forward));
 
         for (Chest c : world.chests()) {
@@ -169,17 +194,29 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
                     c.state().loops(), c.time(), world.time(), chestView, c.light(),
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
-            draws.add(() -> LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
-                    c.position(), right, up, 1f));
+            draws.add(() -> {
+                batch.depthAnchor(c.position());
+                LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
+                        c.position(), right, up, 1f);
+            });
             dist.add(c.position().sub(eye).dot(forward));
         }
 
         double t = world.time();
         for (World.GroundItem g : world.items()) {
             if (!g.out(t)) continue;
-            draws.add(() -> itemRenderer.draw(g, t, eye, camera.yaw(), right, up));
+            draws.add(() -> {
+                Vec3 c = g.centre(t);
+                batch.depthAnchor(new Vec3(c.x(), 0, c.z()));   // (the spot it hovers or flies over)
+                itemRenderer.draw(g, t, eye, camera.yaw(), right, up);
+            });
             dist.add(g.centre(t).sub(eye).dot(forward));
         }
+
+        combat.sprites(world, batch, camera, (d, draw) -> {
+            draws.add(draw);
+            dist.add(d);
+        });
 
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;
@@ -216,6 +253,18 @@ public final class WorldRenderer implements AutoCloseable {
     static boolean isCarried(LayerStack.Layer l, String id) {
         return (l.slot() == Slot.CARRY_RIGHT || l.slot() == Slot.CARRY_LEFT) && l.item() != null
                 && Wardrobe.Style.base(l.item()).equals(id);
+    }
+
+    /**
+     * The way a billboard's upright depth plane faces: the camera's forward
+     * along the ground - a plane standing straight up - until the camera is
+     * 60° up, and from there leaning back by as much again as the camera
+     * climbs, so it never lies along the view (straight overhead it leans
+     * back 30°).
+     */
+    static Vec3 uprightNormal(OrbitCamera camera) {
+        double lean = Math.max(0, camera.pitch() - Math.toRadians(60));
+        return camera.groundForward().scale(Math.cos(lean)).add(0, -Math.sin(lean), 0);
     }
 
     private void groundShadow(Vec3 at, double radius, float alpha) {

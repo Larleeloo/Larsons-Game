@@ -3,6 +3,9 @@ package com.larsons.game.scene;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.audio.WorldSounds;
+import com.larsons.game.combat.CombatHud;
+import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.combat.Dummy;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
@@ -23,18 +26,23 @@ import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * The demo: a blank 3D void with the character in the middle, a sword, a
- * battle axe, a longbow and a crossbow lying about, an ornate treasure chest
- * wreathed in magical smoke, and a few 3D props round the edge.
+ * The demo: the character in the middle of a meadow - grass underfoot,
+ * tufts blowing in the breeze, oaks and rocks round about ({@link
+ * SceneryLayout}) - with a sword, a battle axe, a longbow, a crossbow, a
+ * crystal staff, a wand, a mace and a dagger lying about, an ornate treasure
+ * chest wreathed in magical smoke and three training dummies to hit.
  *
  * <p>It is a viewer as much as a level. Walk, run, sprint, crouch, jump and
  * attack to see the states play live; pick the weapons up (each plays the
@@ -66,10 +74,26 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             {Item.of(ItemDef.BATTLE_AXE), new Vec3(-1.9, 0, -1.7)},
             {Item.of(ItemDef.LONGBOW), new Vec3(2.5, 0, 1.0)},
             {Item.of(ItemDef.CROSSBOW), new Vec3(-2.3, 0, 1.6)},
-            {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)}};
+            {Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC), new Vec3(2.6, 0, -0.9)},
+            {Item.of(ItemDef.WAND), new Vec3(0.6, 0, 2.4)},
+            {Item.of(ItemDef.MACE), new Vec3(-2.8, 0, -0.2)},
+            {Item.of(ItemDef.DAGGER), new Vec3(-1.0, 0, 2.9)}};
+    /**
+     * The training dummies, each facing where she starts: one a few steps to
+     * her right, one farther off behind it, one off to her left - targets
+     * for the bow and the crossbow, and three to keep alive for Bonded.
+     */
+    private static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";
+    /**
+     * How much ground round the spawn, the chest, each weapon's spot and each
+     * dummy the scenery leaves bare, in metres - round the chest, enough for
+     * the fan its loot lands in (up to 2.1 m out, {@code World}) and room to
+     * walk; round a dummy, room to circle it and swing.
+     */
+    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8;
 
     private final Game game;
     private final World world;
@@ -77,6 +101,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final PauseMenu pause;
     private final InventoryPanel inventory;
     private final WorldSounds sounds = new WorldSounds();
+    private final CombatHud combatHud;
     private boolean turntable;
     private double turntableTimer;
     private double frameDt;
@@ -100,8 +125,38 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         for (Object[] w : WEAPONS_AT) world.spawn((Item) w[0], (Vec3) w[1]);
         world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
+        CombatTuning tuning = CombatTuning.load(game.settings().assets);
+        world.combat().use(tuning);
+        world.combat().setMana(tuning.maxMana);
+        for (Vec3 at : DUMMIES_AT) addDummy(at);
+        combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
+        world.setScenery(game.scenery());
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
+    }
+
+    /** A training dummy at {@code at}, facing where she starts. */
+    private Dummy addDummy(Vec3 at) {
+        CombatTuning t = world.combat().tuning();
+        return world.addDummy(new Dummy(at, SpriteView.headingOf(-at.x(), -at.z()), t.dummyHealth,
+                t.dummyDownSeconds));
+    }
+
+    /**
+     * The ground the scenery must leave bare ({@link SceneryLayout}): where
+     * she starts, the chest, the spot each weapon lies on and each dummy.
+     */
+    public static List<SceneryLayout.Clearing> clearings() {
+        List<SceneryLayout.Clearing> clear = new ArrayList<>();
+        clear.add(new SceneryLayout.Clearing(0, 0, SPAWN_CLEAR));
+        clear.add(new SceneryLayout.Clearing(CHEST_AT.x(), CHEST_AT.z(), CHEST_CLEAR));
+        clear.add(new SceneryLayout.Clearing(SWORD_AT.x(), SWORD_AT.z(), ITEM_CLEAR));
+        for (Object[] w : WEAPONS_AT) {
+            Vec3 at = (Vec3) w[1];
+            clear.add(new SceneryLayout.Clearing(at.x(), at.z(), ITEM_CLEAR));
+        }
+        for (Vec3 at : DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
+        return clear;
     }
 
     @Override
@@ -126,6 +181,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void update(double dt) {
         frameDt = dt;
         Input in = game.window().input();
+        world.setScenery(game.scenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
             sounds.update(world, camera);
             return;
@@ -300,6 +356,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.saveWardrobe();
             ItemDef d = g.def;
             Sounds.play(SoundKeys.item(d.id(), "pickup"));
+            if (d.isWearable()) {
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));
+                return;
+            }
             var lib = game.sprites();
             var worn = world.player().wardrobe();
             var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
@@ -329,16 +390,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void render() {
         var w = game.window();
-        game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight(),
-                game.settings().showProps);
+        game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();
         ui.begin();
+        combatHud.draw(ui, world, camera, w.scale());
         boolean hudShown = game.settings().showHud;
         if (hudShown) hud(ui);
         if (!pause.open()) {
             prompt(ui);
-            inventory.drawHotbar(ui, frameDt, hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10);
+            float hotbar = hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
+            inventory.drawHotbar(ui, frameDt, hotbar);
+            if (!inventory.open()) combatHud.drawMana(ui, world.combat(), hotbar - 34);
             if (!game.importer().visible()) inventory.draw(ui);
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
@@ -493,7 +556,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /**
      * A scripted pick-up without walking there: into the inventory (the
-     * sword into her hand too), and the one lying about gone from the ground.
+     * sword into her hand too; a wearable into no hand - it is hers to wear),
+     * and the one lying about gone from the ground.
      */
     private boolean give(Item item) {
         Player p = world.player();
@@ -502,7 +566,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
                 .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
                 .ifPresent(world.items()::remove);
-        if (!d.held()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
+        if (d.inHand()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
                 : d.carrySlot(), d.id());
         return true;
     }
@@ -582,7 +646,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 world.wield(s);
             }
             // the inventory: inventory [open|close], hotbar <1-5>, slots <n>,
-            // give <item> [tier|rarity] [border] (battle_axe crystal venom)
+            // give <item> [tier|rarity] [border] (battle_axe crystal venom, silver_necklace, dye_pink)
             case "inventory" -> {
                 if (argument.equals("close")) inventory.close();
                 else if (argument.equals("open")) inventory.show();
@@ -600,8 +664,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (item == null || !give(item)) return false;
                 world.equipSelected();
             }
-            // the chest's loot from a seed: seed <n>
+            // the chest's loot and the dice from a seed: seed <n>
             case "seed" -> world.seed(Long.parseLong(argument.trim()));
+            // the training dummies: dummy goto [n] [metres] [front|back|left|right] (stand
+            // that far from dummy n on that side of it, facing it), dummy add <x> <z>
+            case "dummy" -> {
+                String[] a = argument.trim().split("\\s+");
+                if (a[0].equals("add") && a.length >= 3) {
+                    addDummy(new Vec3(Double.parseDouble(a[1]), 0, Double.parseDouble(a[2])));
+                } else if (a[0].equals("goto")) {
+                    int n = a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0;
+                    if (n < 0 || n >= world.dummies().size()) return false;
+                    Dummy d = world.dummies().get(n);
+                    double r = a.length > 2 ? Double.parseDouble(a[2]) : 1.4;
+                    double turn = a.length > 3 ? switch (a[3]) {
+                        case "back" -> Math.PI;
+                        case "left" -> Math.PI / 2;
+                        case "right" -> -Math.PI / 2;
+                        default -> 0;
+                    } : 0;
+                    // a heading a quarter turn up from its face's points out of its left side
+                    Vec3 at = d.position().add(SpriteView.headingVector(d.heading() + turn).scale(r));
+                    p.setPosition(at);
+                    Vec3 to = d.position().sub(at);
+                    p.snapHeading(SpriteView.headingOf(to.x(), to.z()));
+                    camera.snapTo(pivot());
+                } else {
+                    return false;
+                }
+            }
+            // her mana: mana <n>
+            case "mana" -> world.combat().setMana(Double.parseDouble(argument.trim()));
             // the chest: chest (open it, or shut it), and where she stands to: chest goto
             case "chest" -> {
                 if (world.chests().isEmpty()) return false;
@@ -625,7 +718,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "resume" -> pause.close();
             case "hud" -> game.settings().showHud = !argument.equals("off");
             case "animations" -> setClassic(argument.trim().equals("classic") || argument.trim().equals("v1"));
-            case "props" -> game.settings().showProps = !argument.equals("off");
+            case "props", "scenery" -> {
+                game.settings().showProps = !argument.equals("off");
+                world.setScenery(game.scenery());
+            }
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
             case "wear" -> {

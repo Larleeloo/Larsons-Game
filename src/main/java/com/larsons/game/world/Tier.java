@@ -23,9 +23,8 @@ import java.util.Map;
  *
  * <p>Which weapon comes in which tiers, and what each is called, is Larson's
  * chart ({@link #CHART}): the battle axe is a Basic, Sharper, Crystal, Perfect
- * or Mythic Axe; the staff a Basic, Magic, Honed, Perfect or Mythic Staff.
- * The wand, the mace and the dagger are in it ahead of their models: they
- * drop once their {@link ItemDef}s exist.
+ * or Mythic Axe; the staff a Basic, Magic, Honed, Perfect or Mythic Staff;
+ * the wand a Magic, Honed, Perfect or Mythic Wand.
  */
 public enum Tier {
     BASIC("basic", "Basic", Rarity.COMMON, -1),

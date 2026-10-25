@@ -91,6 +91,45 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/staff_crouch_attack.mp3      Staff sweep, crouched          player/feminine/staff_crouch_attack
   player/feminine/staff_parry.mp3              Staff parry                    player/feminine/staff_parry
   player/feminine/staff_block.mp3              Staff block (held)             player/feminine/staff_block
+  player/feminine/wand_idle.mp3                Wand idle (held)               player/feminine/wand_idle
+  player/feminine/wand_walk.mp3                Wand walk (held)               player/feminine/wand_walk
+  player/feminine/wand_run.mp3                 Wand run (held)                player/feminine/wand_run
+  player/feminine/wand_sprint.mp3              Wand sprint (held)             player/feminine/wand_sprint
+  player/feminine/wand_crouch_idle.mp3         Wand crouch (held)             player/feminine/wand_crouch_idle
+  player/feminine/wand_crouch_walk.mp3         Wand crouch walk (held)        player/feminine/wand_crouch_walk
+  player/feminine/wand_jump.mp3                Wand jump                      player/feminine/wand_jump
+  player/feminine/wand_attack.mp3              Wand cast                      player/feminine/wand_attack
+  player/feminine/wand_heavy_attack.mp3        Wand great cast                player/feminine/wand_heavy_attack
+  player/feminine/wand_spin_attack.mp3         Wand casting turn              player/feminine/wand_spin_attack
+  player/feminine/wand_crouch_attack.mp3       Wand flick, crouched           player/feminine/wand_crouch_attack
+  player/feminine/wand_parry.mp3               Wand parry                     player/feminine/wand_parry
+  player/feminine/wand_block.mp3               Wand block (held)              player/feminine/wand_block
+  player/feminine/mace_idle.mp3                Mace idle (held)               player/feminine/mace_idle
+  player/feminine/mace_walk.mp3                Mace walk (held)               player/feminine/mace_walk
+  player/feminine/mace_run.mp3                 Mace run (held)                player/feminine/mace_run
+  player/feminine/mace_sprint.mp3              Mace sprint (held)             player/feminine/mace_sprint
+  player/feminine/mace_crouch_idle.mp3         Mace crouch (held)             player/feminine/mace_crouch_idle
+  player/feminine/mace_crouch_walk.mp3         Mace crouch walk (held)        player/feminine/mace_crouch_walk
+  player/feminine/mace_jump.mp3                Mace jump                      player/feminine/mace_jump
+  player/feminine/mace_attack.mp3              Mace smash                     player/feminine/mace_attack
+  player/feminine/mace_heavy_attack.mp3        Mace ground smash              player/feminine/mace_heavy_attack
+  player/feminine/mace_spin_attack.mp3         Mace spin attack               player/feminine/mace_spin_attack
+  player/feminine/mace_crouch_attack.mp3       Mace sweep, crouched           player/feminine/mace_crouch_attack
+  player/feminine/mace_parry.mp3               Mace parry                     player/feminine/mace_parry
+  player/feminine/mace_block.mp3               Mace block (held)              player/feminine/mace_block
+  player/feminine/dagger_idle.mp3              Dagger idle (held)             player/feminine/dagger_idle
+  player/feminine/dagger_walk.mp3              Dagger walk (held)             player/feminine/dagger_walk
+  player/feminine/dagger_run.mp3               Dagger run (held)              player/feminine/dagger_run
+  player/feminine/dagger_sprint.mp3            Dagger sprint (held)           player/feminine/dagger_sprint
+  player/feminine/dagger_crouch_idle.mp3       Dagger crouch (held)           player/feminine/dagger_crouch_idle
+  player/feminine/dagger_crouch_walk.mp3       Dagger crouch walk (held)      player/feminine/dagger_crouch_walk
+  player/feminine/dagger_jump.mp3              Dagger jump                    player/feminine/dagger_jump
+  player/feminine/dagger_attack.mp3            Dagger thrust                  player/feminine/dagger_attack
+  player/feminine/dagger_heavy_attack.mp3      Dagger slash and lunge         player/feminine/dagger_heavy_attack
+  player/feminine/dagger_spin_attack.mp3       Dagger spinning slash          player/feminine/dagger_spin_attack
+  player/feminine/dagger_crouch_attack.mp3     Dagger rising stab, crouched   player/feminine/dagger_crouch_attack
+  player/feminine/dagger_parry.mp3             Dagger parry                   player/feminine/dagger_parry
+  player/feminine/dagger_block.mp3             Dagger block (held)            player/feminine/dagger_block
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -175,6 +214,45 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/staff_crouch_attack.mp3     Staff sweep, crouched          player/masculine/staff_crouch_attack
   player/masculine/staff_parry.mp3             Staff parry                    player/masculine/staff_parry
   player/masculine/staff_block.mp3             Staff block (held)             player/masculine/staff_block
+  player/masculine/wand_idle.mp3               Wand idle (held)               player/masculine/wand_idle
+  player/masculine/wand_walk.mp3               Wand walk (held)               player/masculine/wand_walk
+  player/masculine/wand_run.mp3                Wand run (held)                player/masculine/wand_run
+  player/masculine/wand_sprint.mp3             Wand sprint (held)             player/masculine/wand_sprint
+  player/masculine/wand_crouch_idle.mp3        Wand crouch (held)             player/masculine/wand_crouch_idle
+  player/masculine/wand_crouch_walk.mp3        Wand crouch walk (held)        player/masculine/wand_crouch_walk
+  player/masculine/wand_jump.mp3               Wand jump                      player/masculine/wand_jump
+  player/masculine/wand_attack.mp3             Wand cast                      player/masculine/wand_attack
+  player/masculine/wand_heavy_attack.mp3       Wand great cast                player/masculine/wand_heavy_attack
+  player/masculine/wand_spin_attack.mp3        Wand casting turn              player/masculine/wand_spin_attack
+  player/masculine/wand_crouch_attack.mp3      Wand flick, crouched           player/masculine/wand_crouch_attack
+  player/masculine/wand_parry.mp3              Wand parry                     player/masculine/wand_parry
+  player/masculine/wand_block.mp3              Wand block (held)              player/masculine/wand_block
+  player/masculine/mace_idle.mp3               Mace idle (held)               player/masculine/mace_idle
+  player/masculine/mace_walk.mp3               Mace walk (held)               player/masculine/mace_walk
+  player/masculine/mace_run.mp3                Mace run (held)                player/masculine/mace_run
+  player/masculine/mace_sprint.mp3             Mace sprint (held)             player/masculine/mace_sprint
+  player/masculine/mace_crouch_idle.mp3        Mace crouch (held)             player/masculine/mace_crouch_idle
+  player/masculine/mace_crouch_walk.mp3        Mace crouch walk (held)        player/masculine/mace_crouch_walk
+  player/masculine/mace_jump.mp3               Mace jump                      player/masculine/mace_jump
+  player/masculine/mace_attack.mp3             Mace smash                     player/masculine/mace_attack
+  player/masculine/mace_heavy_attack.mp3       Mace ground smash              player/masculine/mace_heavy_attack
+  player/masculine/mace_spin_attack.mp3        Mace spin attack               player/masculine/mace_spin_attack
+  player/masculine/mace_crouch_attack.mp3      Mace sweep, crouched           player/masculine/mace_crouch_attack
+  player/masculine/mace_parry.mp3              Mace parry                     player/masculine/mace_parry
+  player/masculine/mace_block.mp3              Mace block (held)              player/masculine/mace_block
+  player/masculine/dagger_idle.mp3             Dagger idle (held)             player/masculine/dagger_idle
+  player/masculine/dagger_walk.mp3             Dagger walk (held)             player/masculine/dagger_walk
+  player/masculine/dagger_run.mp3              Dagger run (held)              player/masculine/dagger_run
+  player/masculine/dagger_sprint.mp3           Dagger sprint (held)           player/masculine/dagger_sprint
+  player/masculine/dagger_crouch_idle.mp3      Dagger crouch (held)           player/masculine/dagger_crouch_idle
+  player/masculine/dagger_crouch_walk.mp3      Dagger crouch walk (held)      player/masculine/dagger_crouch_walk
+  player/masculine/dagger_jump.mp3             Dagger jump                    player/masculine/dagger_jump
+  player/masculine/dagger_attack.mp3           Dagger thrust                  player/masculine/dagger_attack
+  player/masculine/dagger_heavy_attack.mp3     Dagger slash and lunge         player/masculine/dagger_heavy_attack
+  player/masculine/dagger_spin_attack.mp3      Dagger spinning slash          player/masculine/dagger_spin_attack
+  player/masculine/dagger_crouch_attack.mp3    Dagger rising stab, crouched   player/masculine/dagger_crouch_attack
+  player/masculine/dagger_parry.mp3            Dagger parry                   player/masculine/dagger_parry
+  player/masculine/dagger_block.mp3            Dagger block (held)            player/masculine/dagger_block
 
 
 CHESTS  ->  chests/ornate_chest/
@@ -202,6 +280,15 @@ ITEMS  ->  items/sword/
   items/crystal_staff/pickup.mp3               Crystal staff                  item/crystal_staff/pickup
   items/crystal_staff/drop.mp3                 Crystal staff                  item/crystal_staff/drop
   items/crystal_staff/equip.mp3                Crystal staff                  item/crystal_staff/equip
+  items/wand/pickup.mp3                        Wand                           item/wand/pickup
+  items/wand/drop.mp3                          Wand                           item/wand/drop
+  items/wand/equip.mp3                         Wand                           item/wand/equip
+  items/mace/pickup.mp3                        Mace                           item/mace/pickup
+  items/mace/drop.mp3                          Mace                           item/mace/drop
+  items/mace/equip.mp3                         Mace                           item/mace/equip
+  items/dagger/pickup.mp3                      Dagger                         item/dagger/pickup
+  items/dagger/drop.mp3                        Dagger                         item/dagger/drop
+  items/dagger/equip.mp3                       Dagger                         item/dagger/equip
 
 
 INTERFACE  ->  ui/
@@ -209,3 +296,23 @@ INTERFACE  ->  ui/
   ui/inventory_open.mp3                        Interface                      ui/inventory_open
   ui/inventory_close.mp3                       Interface                      ui/inventory_close
   ui/hotbar_select.mp3                         Interface                      ui/hotbar_select
+
+
+TRAINING DUMMIES  ->  combat/attack_dummy/
+
+  combat/attack_dummy/hit.mp3                  Attack dummy                   combat/attack_dummy/hit
+  combat/attack_dummy/fall.mp3                 Attack dummy                   combat/attack_dummy/fall
+  combat/attack_dummy/rise.mp3                 Attack dummy                   combat/attack_dummy/rise
+
+
+COMBAT  ->  combat/
+
+  combat/dice_roll.mp3                         Combat                         combat/dice_roll
+  combat/blow.mp3                              Combat                         combat/blow
+  combat/arrow_hit.mp3                         Combat                         combat/arrow_hit
+  combat/bolt_hit.mp3                          Combat                         combat/bolt_hit
+  combat/arrow_stick.mp3                       Combat                         combat/arrow_stick
+  combat/spell_cast.mp3                        Combat                         combat/spell_cast
+  combat/spell_hit.mp3                         Combat                         combat/spell_hit
+  combat/fizzle.mp3                            Combat                         combat/fizzle
+  combat/venom_tick.mp3                        Combat                         combat/venom_tick

@@ -35,6 +35,8 @@ import java.util.List;
  *   <li>A cosmetic with no sheet for this view is not drawn. The one
  *       exception is the sword in the weapon hand, which has a generated
  *       fallback that matches the fallback body frame for frame.</li>
+ *   <li>A layer the armour covers is not drawn ({@link Wardrobe#hidden}):
+ *       the wrists under gauntlets, the necklace under a chestplate.</li>
  *   <li>Each layer is drawn in the colours the wardrobe picked for its slot
  *       (and the skin tone, wherever it shows skin): a palette swap of its
  *       pixel-art sheets from the item's {@code variants.json}
@@ -184,7 +186,7 @@ public final class LayerStack {
         Slot[] order = drawOrder(left, elev, facing);
         for (Slot slot : order) {
             String item = slot.carried() ? asked.stance().carried(slot, wardrobe) : wardrobe.get(slot);
-            if (item == null) continue;
+            if (item == null || wardrobe.hidden(slot)) continue;
             SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
             if (file != null) file = file.withRecolor(lib.recolor(src, slot, wardrobe));

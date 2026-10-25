@@ -102,11 +102,19 @@ public final class FallbackSprites {
 
     /**
      * A stand-in world sprite for a stance weapon ({@code battle_axe},
-     * {@code longbow}, {@code crossbow}, {@code crystal_staff}) until it has an {@code icon.png}: a
-     * few boxes, like the sword's.
+     * {@code longbow}, {@code crossbow}, {@code crystal_staff}, {@code wand},
+     * {@code mace}, {@code dagger}) until it has an {@code icon.png}: a few
+     * boxes, like the sword's. The one-handed weapons are short, so each is
+     * drawn in a frame its own size (its world size) to fill the icon.
      */
     public static BufferedImage weaponIcon(String item) {
-        PuppetRaster raster = new PuppetRaster(SIZE, 1.5, 0);
+        double across = switch (item) {
+            case "wand" -> 0.4;
+            case "mace" -> 0.75;
+            case "dagger" -> 0.5;
+            default -> 1.5;
+        };
+        PuppetRaster raster = new PuppetRaster(SIZE, across, 0);
         List<Box> boxes = new ArrayList<>();
         Mat4 t = Mat4.rotationZ(Math.toRadians(-45)).mul(Mat4.rotationX(Math.toRadians(90)));
         switch (item) {
@@ -134,6 +142,32 @@ public final class FallbackSprites {
                 boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.62)), 0.05, 0.04, 0.09, Puppet.BLADE,
                         Box.Layer.SWORD));
             }
+            case "wand" -> {
+                // 30 cm of carved wood, thin to the tip, the handle a little thicker and darker
+                boxes.add(new Box(t, 0.007, 0.007, 0.15, Puppet.GRIP, Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.1)), 0.012, 0.012, 0.05, Puppet.HAIR,
+                        Box.Layer.SWORD));
+            }
+            case "mace" -> {
+                // a 50 cm haft, the flanged iron head on top and a knob at the foot: 63 cm
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.06)), 0.014, 0.014, 0.25, Puppet.GRIP,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.24)), 0.055, 0.045, 0.07, Puppet.BLADE,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.3)), 0.022, 0.022, 0.015, Puppet.BLADE,
+                        Box.Layer.SWORD));
+            }
+            case "dagger" -> {
+                // a short grip, a cross-guard and a 26 cm blade: 40 cm
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.14)), 0.012, 0.012, 0.05, Puppet.GRIP,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.195)), 0.017, 0.017, 0.012, Puppet.GUARD,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, 0.08)), 0.045, 0.012, 0.01, Puppet.GUARD,
+                        Box.Layer.SWORD));
+                boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.06)), 0.016, 0.005, 0.13, Puppet.BLADE,
+                        Box.Layer.SWORD));
+            }
             default -> {
                 boxes.add(new Box(t, 0.035, 0.03, 0.36, Puppet.GRIP, Box.Layer.SWORD));
                 boxes.add(new Box(t.mul(Mat4.translation(0, 0, -0.3)), 0.34, 0.02, 0.025, Puppet.SHOES,
@@ -144,6 +178,26 @@ public final class FallbackSprites {
         }
         PuppetRaster.Frame frame = raster.render(boxes, Elevation.SIDE, Facing.NORTH);
         return image(frame.sword());
+    }
+
+    /**
+     * A stand-in world sprite for something worn (a belt, a dye, a helmet)
+     * until it has an {@code icon.png}: a small folded bundle in {@code rgb}
+     * (its rarity's colour), outlined dark so a white one shows too.
+     */
+    public static BufferedImage wearableIcon(int rgb) {
+        int[] argb = new int[SIZE * SIZE];
+        int fill = 0xFF000000 | rgb, edge = 0xFF000000 | ((rgb >> 2) & 0x3F3F3F);
+        int fold = 0xFF000000 | ((rgb >> 1) & 0x7F7F7F);
+        int c = SIZE / 2, r = SIZE / 2 - 5;
+        for (int y = 0; y < SIZE; y++) {
+            for (int x = 0; x < SIZE; x++) {
+                int d = Math.abs(x - c) + Math.abs(y - c);
+                if (d > r) continue;
+                argb[y * SIZE + x] = d >= r - 1 ? edge : y == c || x == c ? fold : fill;
+            }
+        }
+        return image(argb);
     }
 
     private static BufferedImage image(int[] argb) {

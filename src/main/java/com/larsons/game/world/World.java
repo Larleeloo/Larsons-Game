@@ -1,5 +1,9 @@
 package com.larsons.game.world;
 
+import com.larsons.game.combat.Combat;
+import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.combat.Dummy;
+import com.larsons.game.combat.Target;
 import com.larsons.game.sprite.Slot;
 
 import com.larsons.game.math.Vec3;
@@ -15,25 +19,38 @@ import java.util.Random;
 
 /**
  * Everything in the demo void that moves or can be picked up: the player,
- * the items lying around and the chests. The static 3D environment lives in
- * {@link Props}.
+ * the items lying around and the chests - and the {@link Scenery} they stand
+ * among, whose trees and rocks the player cannot walk into (she walks
+ * through the grass).
  *
  * <p>What the player holds is the selected slot of her hotbar ({@link
  * Inventory}): a weapon with a stance of its own (the battle axe, the bow,
  * the crossbow) is taken up in its stance; the sword - worn, in the
  * wardrobe's weapon hand - or an empty slot is the sword-and-shield stance,
- * the wardrobe's own carried items ({@link #equipSelected}).
+ * the wardrobe's own carried items ({@link #equipSelected}). A wearable is
+ * never in her hands: carried, it is hers to wear from the wardrobe, and
+ * dropped (when she has no other) it comes off ({@link Wearables#takeOff}).
  *
  * <p>The chests are loot chests: the first time one is opened - and again
  * once everything it gave has been picked up - {@link Loot} draws 3 to 7
- * items, which pop out of it one after another, fly in an arc and land round
+ * items - weapons, and the wearables and the armour ({@link
+ * Wearables#addTo}) - which pop out of it one after another, fly in an arc and land round
  * its front, each in the beam of light of its rarity ({@link
  * GroundItem#beam}) until it is picked up.
+ *
+ * <p>The training dummies stand about to be hit, and {@link Combat} plays
+ * out every swing and shot: the dice, the damage, the arrows in flight.
  */
 public final class World {
 
     /** How close the player has to be to pick something up, in metres. */
     public static final double PICKUP_RANGE = 1.7;
+    /**
+     * How far round her position the player's feet take up room, in metres:
+     * she is kept this much farther than a tree's or a rock's radius from its
+     * axis, so her feet stop at the trunk rather than inside it.
+     */
+    public static final double FEET = 0.22;
 
     /** How long an item thrown out of a chest is in the air, in seconds. */
     public static final double FLIGHT = 0.9;
@@ -140,8 +157,11 @@ public final class World {
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
-    private final Loot loot = new Loot();
+    private final Loot loot = Wearables.addTo(new Loot());
+    private final List<Dummy> dummies = new ArrayList<>();
+    private final Combat combat = new Combat(CombatTuning.defaults());
     private Random random = new Random();
+    private Scenery scenery = Scenery.NONE;
     private double time;
 
     public World(Wardrobe wardrobe) {
@@ -164,15 +184,40 @@ public final class World {
     /** What the chests give. */
     public Loot loot() { return loot; }
 
-    /** Draw the chests' loot from this seed from now on (tests and scripted runs). */
+    /** Draw the chests' loot - and roll the dice - from this seed from now on (tests and scripted runs). */
     public void seed(long seed) {
         random = new Random(seed);
+        combat.seed(seed);
+    }
+
+    /** The fighting: the dice, the damage, the shots in flight, her mana. */
+    public Combat combat() { return combat; }
+
+    public List<Dummy> dummies() { return dummies; }
+
+    public Dummy addDummy(Dummy dummy) {
+        dummies.add(dummy);
+        return dummy;
+    }
+
+    /** Everything that can be hit. */
+    public List<Target> targets() {
+        return new ArrayList<>(dummies);
+    }
+
+    /** The trees, grass and rocks standing in the world ({@link Scenery#NONE} until it is given some). */
+    public Scenery scenery() { return scenery; }
+
+    /** Plant {@code scenery} (null: none) - drawn from the next frame, in her way from the next tick. */
+    public void setScenery(Scenery scenery) {
+        this.scenery = scenery == null ? Scenery.NONE : scenery;
     }
 
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
-     * each of a chest's states lasts, from its sheets) - and the player kept
-     * out of them.
+     * each of a chest's states lasts, from its sheets) and the dummies' - the
+     * player kept out of them all, and out of the trees and the rocks - and
+     * the fighting.
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
@@ -185,6 +230,12 @@ public final class World {
                 opened(c);
             }
         }
+        for (Dummy d : dummies) {
+            d.tick(dt);
+            player.keepOut(d.position(), Dummy.RADIUS);
+        }
+        for (Scenery.Placed s : scenery.solids()) player.keepOut(s.position(), s.radius() + FEET);
+        combat.tick(dt, this);
     }
 
     /**
@@ -261,19 +312,21 @@ public final class World {
      * when that is a hotbar slot, straight into her hands (that slot is
      * selected): a weapon with a stance of its own by taking up that stance.
      * The sword is worn: it goes into its hand in the wardrobe whichever slot
-     * it lands in. Returns false (and leaves it lying) when every slot is full.
+     * it lands in. A wearable goes into no hand and changes nothing she
+     * holds: its slot is not selected. Returns false (and leaves it lying)
+     * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
         int slot = player.inventory().add(item.item);
         if (slot < 0) return false;
         items.remove(item);
-        if (!item.def.held()) {
+        if (item.def.inHand()) {
             // a left-handed character takes it in the other hand
             Slot hand = player.wardrobe().hand() == Wardrobe.Hand.LEFT ? item.def.carrySlot().twin()
                     : item.def.carrySlot();
             player.wardrobe().set(hand, item.def.id());
         }
-        if (Inventory.isHotbar(slot)) select(slot);
+        if (Inventory.isHotbar(slot) && !item.def.isWearable()) select(slot);
         return true;
     }
 
@@ -316,8 +369,9 @@ public final class World {
 
     /**
      * Take the item out of inventory slot {@code slot} and put it on the
-     * ground before her (the sword is taken out of her hand too); returns
-     * it, or null when the slot is empty.
+     * ground before her (the sword is taken out of her hand too, a wearable
+     * off her - see {@link #dropItem}); returns it, or null when the slot is
+     * empty.
      */
     public Item dropSlot(int slot) {
         Item item = player.inventory().get(slot);
@@ -329,17 +383,19 @@ public final class World {
     /**
      * Put down an item she has already taken out of her inventory (one held
      * on the pointer in the inventory screen): on the ground before her, out
-     * of her hand if it is the worn sword and she has no other. Returns it,
-     * or null for no item.
+     * of her hand if it is the worn sword and she has no other, and off her
+     * if it is a wearable she owns no other of ({@link Wearables#takeOff}).
+     * Returns it, or null for no item.
      */
     public Item dropItem(Item item) {
         if (item == null) return null;
         ItemDef def = item.def();
-        if (!def.held() && !player.inventory().contains(def)) {
+        if (def.inHand() && !player.inventory().contains(def)) {
             for (Slot hand : new Slot[]{def.carrySlot(), def.carrySlot().twin()}) {
                 if (player.wardrobe().wearing(hand, def.id())) player.wardrobe().clear(hand);
             }
         }
+        Wearables.takeOff(player.wardrobe(), player.inventory(), def);
         equipSelected();
         spawnAhead(item);
         return item;
