@@ -382,10 +382,10 @@ long, beanie short).
 - Scripts give them like the weapons: `give silver_necklace`, `give dye_pink`,
   `give hair_long_waves`, `give steel_helmet`.
 
-Until the armour's sheets are rendered (`chainmail/`, `chainmail_legs/`,
-`chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ... - see
-[`assets/sprites/README.md`](assets/sprites/README.md)) it can be found and
-worn but draws nothing; it still hides what it covers. Every wearable with a
+The armour is drawn on both bodies in every state (`chainmail/`,
+`chainmail_legs/`, `chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ...
+- see [`assets/sprites/README.md`](assets/sprites/README.md)) and hides what it
+covers. Every wearable with a
 piece of its own lies on the ground as `items/<id>/icon.png`, the piece alone
 as she wears it (3D-Modeling's `feminine_model_sprites.py ... wearable_icons`);
 the dyes, the lipstick, the makeup and the eyebrows, which have none, lie as a
