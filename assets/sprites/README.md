@@ -423,9 +423,9 @@ holdouts were cut against.
 | gloves | `black_leather` ● | black leather gloves |
 | wristwear | `gold_bangle` ● | a gold bangle on the right wrist |
 | wristwear_left | `gold_bangle` | the same on the left wrist |
-| chainmail, chainmail_legs | `chainmail_shirt`, `chainmail_pants` | not rendered yet: the mail shirt and leggings |
-| chestplate, leg_plating | `iron_chestplate`, `steel_chestplate`; `iron_leg_plating`, `steel_leg_plating` | not rendered yet: plate armour in iron and steel |
-| gloves, hat | `iron_gauntlets`, `steel_gauntlets`; `iron_helmet`, `steel_helmet` | not rendered yet: gauntlets (gloves and all) and helmets |
+| chainmail, chainmail_legs | `chainmail_shirt`, `chainmail_pants` | a mail shirt to the hips with brass-ringed edges; mail leggings from a leather waistband into the boots |
+| chestplate, leg_plating | `iron_chestplate`, `steel_chestplate`; `iron_leg_plating`, `steel_leg_plating` | plate armour: breast- and backplate with a hip lame and pauldrons; thigh plates, knee cops and greaves - iron dark and plain, steel polished with brass edges |
+| gloves, hat | `iron_gauntlets`, `steel_gauntlets`; `iron_helmet`, `steel_helmet` | gauntlets (leather gloves under a flared cuff and plates); open-faced helmets, the iron one with a nasal bar, the steel one crested |
 | sheath | `sword_left_hip`, `sword_right_hip` | a leather scabbard for the sword, hung from the belt on the left or the right hip |
 | ears | `round` ●, `pointed` ●, `elven` ● | human ears; half-elf points; long, swept-back elven ears |
 | earrings | `gold_hoops` ● | gold hoops |
