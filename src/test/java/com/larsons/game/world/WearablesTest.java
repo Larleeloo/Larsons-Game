@@ -172,12 +172,16 @@ class WearablesTest {
         Wardrobe before = world.player().wardrobe().copy();
         world.spawn(w("silver_necklace"), new Vec3(0.3, 0, 0));
         assertTrue(world.pickUp(world.reachable()));
-        assertEquals(Stance.SWORD, world.player().stance());
+        assertTrue(world.player().handsEmpty(), "no sword of hers in hand: the wardrobe's is not drawn");
         assertEquals(before.toJson(), world.player().wardrobe().toJson(), "nothing put on, nothing in hand");
-        assertEquals(Item.of(w("silver_necklace")), world.player().inventory().get(0));
-        // selected, it is no weapon: the sword stance
+        assertEquals(Item.of(w("silver_necklace")), world.player().inventory().get(Inventory.HOTBAR),
+                "into the rest of the inventory, out of the hotbar's way");
+        // put in the hotbar and selected, it is no weapon: her hands stay empty
+        world.player().inventory().swap(Inventory.HOTBAR, 0);
         assertEquals(Item.of(w("silver_necklace")), world.select(0));
-        assertEquals(Stance.SWORD, world.player().stance());
+        assertTrue(world.player().handsEmpty());
+        assertEquals(Stance.BLADE, world.player().stance());
+        assertNull(world.wielded());
 
         // with the axe in hand, a wearable picked up leaves it there
         world.select(1);
@@ -283,5 +287,32 @@ class WearablesTest {
         assertEquals(new Wearables.Pickup(Wearables.BOTTLE, "liquid", 0xca1525), dye, "in the dye's own colour");
         for (String colour : Wearables.DYE_COLOURS) assertTrue(Wearables.DYE_RGB.containsKey(colour), colour);
         assertNull(Wearables.pickup(Item.parse("sword")), "a weapon is its own sprite");
+    }
+
+    @Test
+    void whatSheWearsAtTheStartIsHersAndComesOffWhenItLeavesTheInventory() {
+        Wardrobe wardrobe = new Wardrobe();
+        wardrobe.set(Slot.CHAINMAIL, "chainmail_shirt");
+        wardrobe.set(Slot.UNDERWEAR, "cotton_briefs");
+        World world = new World(wardrobe);
+        assertEquals(1, world.ownWhatIsWorn(), "the chainmail; the underwear is hers from the start");
+        Inventory inv = world.player().inventory();
+        assertEquals(Inventory.HOTBAR, inv.indexOf(w("chainmail_shirt")), "into the bag, out of the hotbar's way");
+        assertEquals(0, world.ownWhatIsWorn(), "hers now");
+        assertNotNull(world.dropSlot(Inventory.HOTBAR));
+        assertNull(world.player().wardrobe().get(Slot.CHAINMAIL), "out of the inventory: taken off");
+        assertEquals("cotton_briefs", world.player().wardrobe().get(Slot.UNDERWEAR));
+    }
+
+    @Test
+    void theDebugSwitchOffersEveryWearable() {
+        Inventory inv = new Inventory(Inventory.DEFAULT_SLOTS);
+        try {
+            Wearables.setEverything(true);
+            assertTrue(Wearables.owned(inv).containsAll(Wearables.ALL));
+        } finally {
+            Wearables.setEverything(false);
+        }
+        assertEquals(Set.copyOf(Wearables.OWNED_BY_DEFAULT), Wearables.owned(inv));
     }
 }

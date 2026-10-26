@@ -112,7 +112,9 @@ class InventoryTest {
         w.select(0);
         assertEquals(Stance.AXE, p.stance());
         w.select(3);
-        assertEquals(Stance.SWORD, p.stance(), "an empty hand: the wardrobe's sword and shield");
+        assertTrue(p.handsEmpty(), "an empty slot: empty hands, not the wardrobe's sword and shield");
+        assertEquals(Stance.BLADE, p.stance());
+        assertNull(w.wielded());
     }
 
     @Test
@@ -125,9 +127,10 @@ class InventoryTest {
         assertEquals(0, p.inventory().indexOf(ItemDef.CRYSTAL_STAFF));
         assertEquals(ItemDef.CRYSTAL_STAFF, ItemDef.of(Stance.STAFF));
         w.select(3);
-        assertEquals(Stance.SWORD, p.stance());
+        assertTrue(p.handsEmpty());
         w.select(0);
         assertEquals(Stance.STAFF, p.stance());
+        assertFalse(p.handsEmpty());
     }
 
     @Test
@@ -148,7 +151,7 @@ class InventoryTest {
         assertEquals("mace", ItemDef.MACE.id());
         assertEquals("dagger", ItemDef.DAGGER.id());
         w.select(3);
-        assertEquals(Stance.SWORD, p.stance());
+        assertTrue(p.handsEmpty());
         w.select(0);
         assertEquals(Stance.WAND, p.stance());
         w.select(1);
@@ -190,5 +193,111 @@ class InventoryTest {
         assertNull(w.player().wardrobe().get(Slot.CARRY_RIGHT));
         assertEquals(1, w.items().size(), "lying on the ground before her");
         assertNull(w.dropSlot(at), "nothing left to drop");
+    }
+
+    // --- what is in her hands ------------------------------------------------------------
+
+    @Test
+    void theSwordIsInHerHandOnlyWhileItsHotbarSlotIsSelected() {
+        World w = new World(swordAndShield());
+        Player p = w.player();
+        w.equipSelected();
+        assertTrue(p.handsEmpty(), "carrying nothing she holds nothing, whatever the wardrobe has in its hands");
+        assertNull(w.wielded());
+        p.inventory().add(Item.of(ItemDef.SWORD));
+        w.equipSelected();
+        assertFalse(p.handsEmpty());
+        assertEquals(Stance.SWORD, p.stance(), "the sword, and the wardrobe's shield with it");
+        assertEquals(Item.of(ItemDef.SWORD), w.wielded());
+        w.select(2);
+        assertTrue(p.handsEmpty(), "an empty slot: no sword");
+        assertNull(w.wielded(), "and a swing is a blow with no weapon");
+        w.select(0);
+        assertFalse(p.handsEmpty());
+        // moved out of the hotbar into the rest of the inventory, it is no longer in hand
+        p.inventory().swap(0, 7);
+        w.equipSelected();
+        assertTrue(p.handsEmpty());
+        assertTrue(w.wield(Stance.SWORD), "taken up again: swapped into the selected slot");
+        assertEquals(0, p.inventory().indexOf(ItemDef.SWORD));
+        assertFalse(p.handsEmpty());
+        assertTrue(w.wield(Stance.FREE), "empty hands: an empty hotbar slot is selected");
+        assertTrue(p.handsEmpty());
+        assertNull(p.inventory().held());
+    }
+
+    @Test
+    void theSwordSelectedIsPutBackInTheWardrobesHandIfItHadLetGo() {
+        World w = new World(new Wardrobe());
+        w.player().inventory().add(Item.of(ItemDef.SWORD));
+        w.equipSelected();
+        assertEquals("sword", w.player().wardrobe().get(Slot.CARRY_RIGHT));
+        assertFalse(w.player().handsEmpty());
+    }
+
+    // --- sorting -----------------------------------------------------------------------
+
+    private static Item wearable(String id) {
+        return Item.of(Wearables.byId(id));
+    }
+
+    @Test
+    void theRestOfTheInventorySortsByNameOrRarityAndTheHotbarStays() {
+        Inventory inv = new Inventory(14);
+        Item mace = Item.of(ItemDef.MACE), wand = Item.of(ItemDef.WAND);
+        inv.set(0, mace);
+        inv.set(2, wand);
+        Item belt = wearable("belt"), epicBelt = Item.of(Wearables.byId("belt"), Rarity.EPIC);
+        Item beanie = wearable("beanie"), hoops = wearable("gold_hoops"), shoes = wearable("shoes");
+        Item necklace = wearable("silver_necklace"), gloves = wearable("gloves");
+        inv.set(6, shoes);
+        inv.set(7, necklace);
+        inv.set(9, belt);
+        inv.set(10, hoops);
+        inv.set(11, beanie);
+        inv.set(12, gloves);
+        inv.set(13, epicBelt);
+
+        inv.sort(Inventory.Order.NAME);
+        assertEquals(List.of(beanie, epicBelt, belt, gloves, hoops, shoes, necklace), bag(inv),
+                "A to Z, packed to the front; the rarer of two alike first");
+        assertNull(inv.get(12));
+        assertNull(inv.get(13));
+        assertEquals(mace, inv.get(0), "the hotbar stays as it is");
+        assertNull(inv.get(1));
+        assertEquals(wand, inv.get(2));
+
+        inv.sort(Inventory.Order.RARITY);
+        assertEquals(List.of(epicBelt, hoops, necklace, belt, gloves, beanie, shoes), bag(inv),
+                "the rarest first (Epic, Rare, Uncommon, Common), by name within one");
+        assertEquals(mace, inv.get(0));
+        assertEquals(9, inv.count(), "nothing lost or doubled");
+    }
+
+    /** What is in the rest of the inventory, in slot order. */
+    private static List<Item> bag(Inventory inv) {
+        List<Item> out = new java.util.ArrayList<>();
+        for (int i = Inventory.HOTBAR; i < inv.size(); i++) if (inv.get(i) != null) out.add(inv.get(i));
+        return out;
+    }
+
+    @Test
+    void stowingPutsAnItemInTheRestOfTheInventoryBeforeTheHotbar() {
+        Inventory inv = new Inventory(7);
+        assertEquals(Inventory.HOTBAR, inv.stow(Item.of(ItemDef.DAGGER)));
+        assertEquals(Inventory.HOTBAR + 1, inv.stow(Item.of(ItemDef.MACE)));
+        assertEquals(0, inv.stow(Item.of(ItemDef.WAND)), "the rest full: the hotbar");
+    }
+
+    @Test
+    void clearingTheGroundTakesEveryItemOffIt() {
+        World w = new World(swordAndShield());
+        w.spawn(ItemDef.BATTLE_AXE, new Vec3(1, 0, 0));
+        w.spawn(ItemDef.LONGBOW, new Vec3(2, 0, 0));
+        w.spawn(Item.of(Wearables.byId("belt")), new Vec3(3, 0, 0));
+        assertEquals(3, w.clearGround());
+        assertTrue(w.items().isEmpty());
+        assertNull(w.reachable());
+        assertEquals(0, w.clearGround());
     }
 }

@@ -586,4 +586,69 @@ class CombatTest {
         assertEquals("2", Combat.format(2.0));
         assertEquals("13", Combat.format(12.6));
     }
+
+    // --- the heavy attack ----------------------------------------------------------------
+
+    @Test
+    void aWandsHeavyAttackIsOneD20WithNoMagicInIt() {
+        Item wand = Item.of(ItemDef.WAND, Rarity.MYTHIC).withBorder(Border.MYSTIC);
+        World w = holding(wand);
+        Dummy d = ahead(w, 1.2, 1000);
+        Combat c = w.combat();
+        c.setMana(50);
+        play(w, HEAVY, 2);
+        assertEquals(AnimState.WAND_HEAVY_ATTACK, w.player().state());
+        Combat.Show show = c.show();
+        assertNotNull(show);
+        assertEquals(1, show.strike().roll().count(), "one D20, not a Mythic's six and one more");
+        assertTrue(show.strike().plain());
+        assertNull(show.strike().border(), "Mystic adds nothing: no magic is cast");
+        assertTrue(show.notes().isEmpty());
+        assertEquals(50, c.mana(), 0.5, "and it costs no mana");
+        idle(w, 1.5);
+        assertEquals(1000 - show.strike().roll().total(), d.health(), 1e-9, "the die's number, no more");
+        assertTrue(c.projectiles().isEmpty(), "nothing flew");
+    }
+
+    @Test
+    void anotherWeaponsHeavyAttackStillRollsItsRaritysDiceAndOneMore() {
+        World w = holding(Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER));
+        play(w, HEAVY, 2);
+        Combat.Show show = w.combat().show();
+        assertEquals(CombatTuning.defaults().dice(Tier.SHARPER.rarity()) + 1, show.strike().roll().count());
+        assertFalse(show.strike().plain());
+    }
+
+    @Test
+    void aHeavyAttackComesBackOnlyAfterItsCooldown() {
+        World w = holding(Item.of(ItemDef.BATTLE_AXE));
+        Player p = w.player();
+        assertEquals(Player.HEAVY_COOLDOWN, p.heavyCooldown());
+        assertEquals(10, CombatTuning.defaults().heavyCooldown);
+        play(w, HEAVY, 1);
+        assertEquals(AnimState.AXE_HEAVY_ATTACK, p.state());
+        idle(w, 3);
+        assertEquals(AnimState.AXE_IDLE, p.state(), "the heavy attack is over");
+        play(w, HEAVY, 1);
+        assertNotEquals(AnimState.AXE_HEAVY_ATTACK, p.state(), "too soon: nothing happens");
+        assertEquals(7, p.heavyWait(), 0.1);
+        play(w, ATTACK, 1);
+        assertEquals(AnimState.AXE_ATTACK, p.state(), "the other attacks are not held up");
+        idle(w, 7.2);
+        assertEquals(0, p.heavyWait());
+        play(w, HEAVY, 1);
+        assertEquals(AnimState.AXE_HEAVY_ATTACK, p.state(), "ten seconds on: again");
+        p.setHeavyCooldown(0);
+        assertEquals(0, p.heavyWait(), "no cooldown: no wait");
+    }
+
+    @Test
+    void theHeavyCooldownAndTheWandsDiceAreTunable() {
+        CombatTuning t = CombatTuning.parse("{\"dice\": {\"wandHeavy\": 2}, \"cooldowns\": {\"heavySeconds\": 4.5}}");
+        assertEquals(2, t.wandHeavyDice);
+        assertEquals(4.5, t.heavyCooldown);
+        CombatTuning file = CombatTuning.load(Path.of("assets"));
+        assertEquals(CombatTuning.defaults().wandHeavyDice, file.wandHeavyDice);
+        assertEquals(CombatTuning.defaults().heavyCooldown, file.heavyCooldown);
+    }
 }

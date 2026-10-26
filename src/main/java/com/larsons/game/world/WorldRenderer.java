@@ -179,8 +179,8 @@ public final class WorldRenderer implements AutoCloseable {
 
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
-        playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory()),
-                world.wielded(), items);
+        playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
+                p.handsEmpty()), world.wielded(), items);
         LayerStack.Result stack = playerStack;
         draws.add(() -> {
             batch.depthAnchor(p.ground());

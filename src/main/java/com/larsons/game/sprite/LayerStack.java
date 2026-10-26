@@ -175,6 +175,17 @@ public final class LayerStack {
      */
     public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                  double time, SpriteView view, Memory memory) {
+        return resolve(lib, wardrobe, state, time, view, memory, false);
+    }
+
+    /**
+     * {@link #resolve(SpriteLibrary, Wardrobe, AnimState, double, SpriteView, Memory)},
+     * with the character's hands empty ({@code handsEmpty}): what the
+     * wardrobe carries - the sword, the shield - is not drawn (a weapon
+     * stance's own weapon still is).
+     */
+    public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
+                                 double time, SpriteView view, Memory memory, boolean handsEmpty) {
         Elevation elev = view.elevation();
         Facing facing = view.facing();
         boolean missing = false;
@@ -187,7 +198,8 @@ public final class LayerStack {
         List<Want> wants = new ArrayList<>();
         Slot[] order = drawOrder(left, elev, facing);
         for (Slot slot : order) {
-            String item = slot.carried() ? asked.stance().carried(slot, wardrobe) : wardrobe.get(slot);
+            String item = !slot.carried() ? wardrobe.get(slot)
+                    : handsEmpty && !asked.stance().weapon() ? null : asked.stance().carried(slot, wardrobe);
             if (item == null || wardrobe.hidden(slot)) continue;
             SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);

@@ -62,10 +62,10 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **C** | crouch / stand up |
 | **Space** | jump - with the sword, the axe, the bow, the crossbow, the crystal staff, the wand, the mace or the dagger |
 | **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
-| **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger) / spin attack (all but the bow and the crossbow) / parry |
+| **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger; once every 10 s) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
-| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword (or an empty slot) the sword and shield - or, with no shield worn, the sword alone |
-| **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot |
+| **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword with the sword and shield - or, with no shield worn, the sword alone; an empty slot, empty hands |
+| **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot; **A–Z** / **Rarity** sort it |
 | **F1 – F4** | laugh, cry, surprise, anger |
 | **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
@@ -77,7 +77,9 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
+| **F11** | full screen, with the display switched to its fastest refresh rate - or back to the window ([frame rate](#120-frames-a-second)) |
 | **F12** | screenshot (to `screenshots/`) |
+| **Num-pad 1 0 2 5** | the debug code: every cosmetic offered in the wardrobe, and **Clear the ground** in the pause menu (every item lying about, the starting weapons and the chests' loot, taken away); typed again, off |
 | **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
 
 Drop sprite sheets on the window at any time to import them.
@@ -329,18 +331,27 @@ script's `slots <n>` changes it while the game runs; anything that no longer
 fits is put on the ground). The first five slots are the **hotbar**:
 
 - **1 – 5** or the **mouse wheel** choose a hotbar slot, and what is in it is
-  what she holds. The battle axe, the bow, the crossbow, the crystal staff, the wand, the mace and the dagger are each taken up
-  in their own stance; the sword - worn in the wardrobe's weapon hand - or an
-  empty slot is the sword-and-shield stance, the wardrobe's own carried items
-  (the sword alone when no shield is worn: no shield to block or bash with).
+  what she holds - and nothing else is. The battle axe, the bow, the crossbow, the crystal staff, the wand, the mace and the dagger are each taken up
+  in their own stance; the sword - worn in the wardrobe's weapon hand - is the
+  sword-and-shield stance, the wardrobe's own carried items (the sword alone
+  when no shield is worn: no shield to block or bash with). An **empty slot**,
+  or one holding something worn, is **empty hands**: nothing is drawn in
+  either hand (the sword alone's poses, the free arm hanging) and a swing is a
+  bare-handed blow, one Common die. The sword is in her hand only while its
+  slot is selected - moved out of the hotbar or dropped, it is put away.
   (The emotes, which were on 5 – 8, are on **F1 – F4**; stopping a preview,
   which was 0, is **Backspace**; the wheel zooms while orbiting, and **+ / −**
   always do.)
 - Picking an item up puts it in the first free slot, the hotbar first; when
   that is a hotbar slot it is selected, so it is in her hands. A wearable is
-  never in her hands: it changes neither what she holds nor her stance, and is
-  hers to wear from the wardrobe. With every slot full, nothing is picked up.
+  never in her hands: it goes into the rest of the inventory first (the hotbar
+  only when that is full), changes neither what she holds nor her stance, and
+  is hers to wear from the wardrobe. With every slot full, nothing is picked up.
 - **G** drops what is in the selected slot.
+- **Whatever leaves the inventory is unequipped**: a weapon is out of her
+  hands, a wearable comes off (unless she owns another like it). What she
+  wears when the demo starts - the wardrobe is saved, the inventory is not - is
+  put in her inventory as hers, so dropping it takes it off too.
 
 **I** opens the inventory over the middle of the screen: every slot a
 **diamond** - a square stood on its corner - with a **white border**, the rest
@@ -349,8 +360,11 @@ there are (`InventoryPanel.lattice`), the hotbar's five in a row along the
 bottom, the selected one in gold. Click an item to pick it up, click a slot to
 put it there (swapping with what was in it), click outside the panel to put it
 on the ground; right-click (or Shift-click) moves an item between the hotbar
-and the rest; 1 – 5 over a slot swaps it into that hotbar slot. She stands
-still while it is open; **I** or **Esc** closes it.
+and the rest; 1 – 5 over a slot swaps it into that hotbar slot. **A–Z** and
+**Rarity**, either side of the title, sort the rest of the inventory - by name,
+or the rarest first (Mythic down to Common, by name within a rarity) - packed
+into its first slots; the hotbar stays as it is. She stands still while it is
+open; **I** or **Esc** closes it.
 
 **The background** is `assets/ui/inventory_background.png`, a **432 × 768**
 picture, scaled to the height of the window (never above its own size) and
@@ -610,8 +624,13 @@ colour. The number of dice is the rarity's:
 | Legendary | 5d20 | 5 – 100 |
 | Mythic | 6d20 | 6 – 120 |
 
-A **heavy** attack (the axe's and the staff's) rolls **one die more**, and her
-bare hands one Common die. A sword swing, the axe's and the staff's blows and
+A **heavy** attack (the axe's, the staff's, the mace's and the dagger's) rolls
+**one die more**, and her bare hands one Common die. **The wand's heavy
+attack** - its great two-handed cast - sends no spell: it is the wand brought
+down on what is in front of her, so it rolls **one D20** whatever the wand's
+rarity, costs no mana, and its border adds nothing. A heavy attack can be made
+**once every 10 seconds**: the orange bar to the left of the hotbar fills back
+up after each one ("Heavy (X) ready"), and X before then does nothing. A sword swing, the axe's and the staff's blows and
 the spins hit everything alive in front of her within reach (the spins all
 round); a swing turns her toward a dummy just off to one side. The dice are
 the 64-pixel sheets on an ordinary screen and the 128-pixel ones on a
@@ -657,7 +676,8 @@ weapons do what they say, and each one's effect is written under the dice:
 ### Tuning
 
 The numbers are in **`assets/combat/combat.json`**, read when the demo
-starts - the dice per rarity, the heavy die, mana, the shots' speeds, range
+starts - the dice per rarity, the heavy die, the wand's heavy dice
+(`dice.wandHeavy`), the heavy attack's cooldown (`cooldowns.heavySeconds`), mana, the shots' speeds, range
 and aim, how long arrows stay stuck, a dummy's health and how long it lies.
 Any value left out keeps its default (`combat/CombatTuning`); the borders'
 own numbers are `world/Border`'s. The fighting's other sprites are under
@@ -802,8 +822,19 @@ are being paced; `-Dlarsons.fps.log=true` prints the same to the console.
   spinning the last fraction of a millisecond - so frames start within a few
   hundredths of a millisecond of their slot (with G-Sync, FreeSync or
   ProMotion they are also shown exactly so). A 60 Hz display shows 60: 120
-  there needs `-Dlarsons.gpu.vsync=off` and tears. If the driver ignores vsync
-  the cap takes over. While frames keep to the cadence, animation steps by
+  there needs vsync off (Pause → Settings → Vsync, saved; or
+  `-Dlarsons.gpu.vsync=off` for one run) and tears. If the driver ignores vsync
+  the cap takes over.
+- **A fast display set to 60 Hz.** The refresh rate is the one the system
+  runs the display at, and that is often 60 Hz on a 120 or 144 Hz screen (the
+  system's default, a power-saving setting, the cable). The game reads the
+  monitor's other modes too, and when it can go faster it says so - on the
+  HUD ("the display is set to 60 Hz but can do 144"), in Pause → Settings and
+  in the console - with the ways to get it: **F11** (or the Settings button)
+  plays **full screen with the display switched to its fastest mode** while
+  the game has it; the system's display settings raise it for good (Windows:
+  Settings → System → Display → Advanced display → Choose a refresh rate); or
+  vsync off. While frames keep to the cadence, animation steps by
   the cadence's period rather than the measured time, whose sub-millisecond
   wobble would otherwise show as stutter.
 - **No GPU stalls.** The sprite and UI batch uploads each batch's vertices
@@ -837,7 +868,7 @@ runs the Gradle task `runGpu`, which on top of a plain `run`:
   NVIDIA PRIME render offload when the NVIDIA driver is loaded). On Windows,
   set `java.exe` to *High performance* once in Settings → System → Display →
   Graphics; macOS switches to the discrete GPU by itself;
-- turns on 4× MSAA and vsync explicitly;
+- turns on 4× MSAA explicitly (vsync is the saved choice in Pause → Settings, on until changed);
 - sets `larsons.gpu=required`, so a software renderer is flagged in red.
 
 Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
@@ -845,7 +876,7 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 | Option | Default | |
 |---|---|---|
 | `-Dlarsons.gpu.msaa=4` | 4 | multisample anti-aliasing (0 = off) |
-| `-Dlarsons.gpu.vsync=on` | on | wait for the display refresh |
+| `-Dlarsons.gpu.vsync=on` | saved (on) | wait for the display refresh, for this run (otherwise Pause → Settings → Vsync) |
 | `-Dlarsons.fps=120` | 120 | the frame rate to hold, for this run (0 = uncapped); otherwise Pause → Settings → Frame rate |
 | `-Dlarsons.fps.log=true` | off | print the frame rate, average and longest frame twice a second |
 | `-Dlarsons.sprites.scale=1` | 1 | shrink sprite frames on load (0.5 = half) |
@@ -942,7 +973,8 @@ library's lookup and mirroring rules, palette sheets staying palette indices
 palette rows a batch shares, cutscene scripts and their timeline, actors'
 colour fades and flashes, the close-up folders, the camera and the player's
 state machine; the inventory (slots, the hotbar, resizing, what the selected
-slot puts in her hands, dropping), the inventory screen's diamonds (every
+slot puts in her hands - and that nothing else is -, dropping, sorting by name and by rarity, what she wears made hers and
+taken off when it leaves), the debug code, the inventory screen's diamonds (every
 slot placed, none overlapping, for any number), the chest's states and light,
 rarity and the weapon chart (the drop rates, the borders, names and keys, a
 chest's 3 to 7 items with one Rare or better), the weapon tiers' looks (a
@@ -954,7 +986,7 @@ the object sheets (names, layer order, all 24 views of every state of the
 chest), the sound catalogue (a sound for every animation of both bodies), the
 pack's lookup and fallbacks, its key list being up to date, and the engine's
 MP3 decoder tests; the fighting (`combat/CombatTest`): the dice per
-rarity, swings' reach and arc, heavy and unarmed rolls, every attack state
+rarity, swings' reach and arc, heavy and unarmed rolls, the wand's one-die heavy blow, the heavy attack's cooldown, every attack state
 having a move, arrows arcing onto a dummy, bolts sticking, spells' colours
 and mana, fizzling, Venom's 150 %, Mystic's damage and mana, Bonded's count,
 and a dummy's hits, fall and rise; and the scenery (its profiles, where each
@@ -975,11 +1007,12 @@ Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
 `yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
-`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger>`, `teleport`, `pickup`,
+`emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
 `chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
-by dummy n, facing it), `dummy add <x> <z>`, `mana <n>`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
+by dummy n, facing it), `dummy add <x> <z>`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
+`debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:
 the item's own colours) and

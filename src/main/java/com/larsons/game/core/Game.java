@@ -85,6 +85,7 @@ public final class Game implements AutoCloseable {
         GpuInfo gpu = window.gpu();
         System.out.println("[gpu] " + gpu.describe().replace('—', '-'));
         System.out.println("[gpu] frame pacing: " + pacer.describe());
+        if (pacer.advice() != null) System.out.println("[gpu] " + pacer.advice());
         if (gpu.software()) {
             String msg = "[gpu] WARNING: OpenGL is running on a software rasteriser, not a GPU. "
                     + "Update or install the graphics driver"
@@ -145,6 +146,7 @@ public final class Game implements AutoCloseable {
                 importer.open(drop.stream().map(Path::of).toList());
             }
             if (in.pressed(GLFW_KEY_F12)) pendingShot = Screenshot.defaultPath();
+            if (in.pressed(GLFW_KEY_F11)) toggleFullscreen();
             autopilot.step(dt, this);
 
             sprites.beginFrame();
@@ -170,6 +172,20 @@ public final class Game implements AutoCloseable {
             in.endFrame();
             pacer.endFrame();
         }
+    }
+
+    /**
+     * F11: full screen on the monitor the window is on, switched to its
+     * fastest refresh rate ({@link Window#setFullscreen}) - or back into the
+     * window.
+     */
+    public void toggleFullscreen() {
+        int hz = window.setFullscreen(!window.fullscreen());
+        pacer.recheck();
+        System.out.println("[gpu] " + (window.fullscreen() ? "full screen at " + hz + " Hz" : "windowed")
+                + " - frame pacing: " + pacer.describe());
+        toast(window.fullscreen() ? "Full screen, " + hz + " Hz (F11: back to the window)" : "Windowed",
+                Theme.HINT);
     }
 
     private void drawOverlays(double dt) {
