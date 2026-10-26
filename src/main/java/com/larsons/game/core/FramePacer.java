@@ -18,6 +18,14 @@ import com.larsons.game.gfx.Window;
  * own refresh: 120 frames a second cannot be shown on a 60 Hz screen
  * without tearing, and vsync off is what trades that.
  *
+ * <p><b>A display held below what it can do.</b> The refresh rate is the one
+ * the system runs the display at, which is often 60 Hz on a 120 or 144 Hz
+ * screen (the system's default, a power-saving setting, the cable). The
+ * monitor's other modes say how fast it can go ({@link Window#maxRefreshRate});
+ * when that is faster, {@link #advice} says how to get it: full screen (F11,
+ * which switches the display to its fastest mode while the game has it), the
+ * system's display settings, or vsync off (Pause → Settings, saved).
+ *
  * <p><b>Waiting precisely.</b> The OS sleeps a thread for at least what it
  * is asked and often a good deal more, so the wait sleeps a millisecond at a
  * time only while more remains than a sleep has been seen to take
@@ -65,10 +73,10 @@ public final class FramePacer {
     }
 
     private final Window window;
-    private final boolean vsync;
+    private boolean vsync;
     private boolean log;
     private int target;
-    private int refresh;
+    private int refresh, fastest;
     private Plan plan = new Plan(1, 0);
 
     /** Start of the frame being worked on, and of the frame slot the cadence is in (nanoseconds). */
@@ -90,6 +98,7 @@ public final class FramePacer {
         this.vsync = vsync;
         this.target = Math.max(0, target);
         refresh = window.refreshRate();
+        fastest = window.maxRefreshRate();
         apply();
     }
 
@@ -109,6 +118,32 @@ public final class FramePacer {
     }
 
     public int target() { return target; }
+
+    /** Wait for the display's refresh, or not (then the game holds the target itself). */
+    public void setVsync(boolean on) {
+        if (on == vsync) return;
+        vsync = on;
+        apply();
+    }
+
+    public boolean vsync() { return vsync; }
+
+    /**
+     * Read the display's refresh rate again now - the window went full screen
+     * or back - rather than at the next of the once-a-second checks.
+     */
+    public void recheck() {
+        sinceCheck = 0;
+        refresh = window.refreshRate();
+        fastest = window.maxRefreshRate();
+        apply();
+    }
+
+    /** The refresh rate the display runs at now, in Hz (0: unknown). */
+    public int refresh() { return refresh; }
+
+    /** The fastest refresh rate the display can be set to at its resolution, in Hz (0: unknown). */
+    public int fastest() { return fastest; }
 
     /** Print the numbers to the console every half second. */
     public void setLog(boolean log) {
@@ -214,6 +249,7 @@ public final class FramePacer {
             int r = window.refreshRate();
             if (r != refresh) {
                 refresh = r;
+                fastest = window.maxRefreshRate();
                 apply();
             }
         }
@@ -230,6 +266,14 @@ public final class FramePacer {
 
     /** How frames are paced, in a few words: "vsync 120 Hz", "capped at 120 (144 Hz display)". */
     public String describe() {
+        return describe(plan, target, refresh, fastest);
+    }
+
+    /**
+     * How {@code plan} paces frames for {@code target} on a display running at
+     * {@code refresh} Hz that can go up to {@code fastest} (0s: unknown).
+     */
+    static String describe(Plan plan, int target, int refresh, int fastest) {
         String display = refresh > 0 ? refresh + " Hz display" : "display rate unknown";
         if (plan.interval() == 0) {
             return plan.limit() > 0 ? "vsync off, capped at " + plan.limit() + " fps" : "vsync off, uncapped";
@@ -237,7 +281,31 @@ public final class FramePacer {
         if (plan.limit() > 0) return "vsync, capped at " + plan.limit() + " fps (" + display + ")";
         if (plan.interval() > 1) return "vsync every " + plan.interval() + " refreshes (" + display + ")";
         if (refresh <= 0) return "vsync (" + display + ")";
+        if (held(target, refresh, fastest)) {
+            return "vsync " + refresh + " Hz (the display is set to " + refresh + " Hz but can do " + fastest + ")";
+        }
         if (target > 0 && refresh < target - 2) return "vsync " + refresh + " Hz (the display is below " + target + ")";
         return "vsync " + refresh + " Hz";
+    }
+
+    /** Whether vsync holds the game below the target only because the display is set slower than it can go. */
+    static boolean held(int target, int refresh, int fastest) {
+        int want = target > 0 ? target : fastest;
+        return refresh > 0 && fastest > refresh + 2 && refresh < want - 2;
+    }
+
+    /**
+     * What to do when vsync holds the game to a display set slower than it
+     * can go (see the class notes), or null when nothing holds it back.
+     */
+    public String advice() {
+        if (!vsync || !held(target, refresh, fastest)) return null;
+        return advice(refresh, fastest);
+    }
+
+    static String advice(int refresh, int fastest) {
+        return "the display runs at " + refresh + " Hz but can do " + fastest + " Hz: press F11 for full screen at "
+                + fastest + " Hz, raise its refresh rate in the system's display settings (Windows: Settings > "
+                + "System > Display > Advanced display), or turn vsync off in Pause > Settings";
     }
 }

@@ -17,7 +17,7 @@ import java.util.Map;
  * <pre>
  *   -Dlarsons.gpu=required        warn loudly if the driver is a software rasteriser
  *   -Dlarsons.gpu.msaa=4          multisample anti-aliasing samples (0 = off)
- *   -Dlarsons.gpu.vsync=on        wait for the display's refresh
+ *   -Dlarsons.gpu.vsync=on        wait for the display's refresh, for this run (else Pause → Settings → Vsync)
  *   -Dlarsons.fps=120             the frame rate to hold (0 = as fast as it goes; see FramePacer)
  *   -Dlarsons.fps.log=true        print the frame rate and frame times to the console twice a second
  *   -Dlarsons.sprites.scale=1     shrink sprite frames on load (0.5 = half size)
@@ -33,7 +33,14 @@ public final class Settings {
 
     public final boolean gpuRequired;
     public final int msaa;
-    public final boolean vsync;
+    /**
+     * Wait for the display's refresh ({@link FramePacer}). {@code
+     * -Dlarsons.gpu.vsync} sets it for one run without changing what is
+     * saved; {@link #setVsync} is the player's choice (Pause → Settings).
+     */
+    public boolean vsync;
+    private boolean savedVsync = true;
+    private final boolean vsyncGiven;
     public final long vramBytes;
     public final Path assets;
     public final Path config;
@@ -64,11 +71,19 @@ public final class Settings {
      * moves, kept in assets/animations_v1/) instead of the new one - to compare.
      */
     public boolean classicAnimations;
+    /**
+     * The debugging tools are on - every cosmetic offered, the pause menu's
+     * "Clear the ground" - after the num-pad code ({@code scene/DebugCode}).
+     * Not saved.
+     */
+    public boolean debugTools;
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
         msaa = intProperty("larsons.gpu.msaa", 4);
-        vsync = !isOff(System.getProperty("larsons.gpu.vsync", "on"));
+        String v = System.getProperty("larsons.gpu.vsync");
+        vsyncGiven = v != null && !v.isBlank();
+        vsync = !vsyncGiven || !isOff(v);
         vramBytes = (long) intProperty("larsons.sprites.vramMB", 1536) << 20;
         assets = resolveAssets();
         config = Path.of("config");
@@ -94,12 +109,14 @@ public final class Settings {
                 s.showHud = Json.bool(j, "showHud", true);
                 s.showProps = Json.bool(j, "showProps", true);
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
+                s.savedVsync = Json.bool(j, "vsync", true);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
         }
         if (s.spriteScale <= 0) s.spriteScale = 1.0;
         if (!fpsGiven) s.fps = s.savedFps;
+        if (!s.vsyncGiven) s.vsync = s.savedVsync;
         String anim = System.getProperty("larsons.animations", "").trim().toLowerCase();
         if (anim.equals("classic") || anim.equals("v1")) s.classicAnimations = true;
         else if (anim.equals("new")) s.classicAnimations = false;
@@ -113,6 +130,7 @@ public final class Settings {
         j.put("showHud", showHud);
         j.put("showProps", showProps);
         j.put("classicAnimations", classicAnimations);
+        j.put("vsync", savedVsync);
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);
@@ -124,6 +142,11 @@ public final class Settings {
     /** The player picks a frame rate (0: uncapped): used now, and saved. */
     public void setFps(int fps) {
         this.fps = this.savedFps = Math.max(0, fps);
+    }
+
+    /** The player turns vsync on or off: used now, and saved. */
+    public void setVsync(boolean on) {
+        vsync = savedVsync = on;
     }
 
     /** {@code config/wardrobe.json}. */

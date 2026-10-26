@@ -120,19 +120,19 @@ fun discreteGpuEnvironment(): Map<String, String> {
 //   ./gradlew runGpu
 //
 // Same game, same classpath as `run`, plus: the discrete GPU requested where
-// the OS lets us ask, vsync and 4x MSAA on, and `larsons.gpu=required`, which
+// the OS lets us ask, 4x MSAA on, and `larsons.gpu=required`, which
 // makes the game say so loudly (console and HUD) if the driver it got is a
 // software rasteriser rather than real GPU acceleration.
 tasks.register<JavaExec>("runGpu") {
     group = "application"
-    description = "Run the game with GPU acceleration on (discrete GPU preferred, vsync, MSAA)"
+    description = "Run the game with GPU acceleration on (discrete GPU preferred, MSAA)"
     mainClass = "com.larsons.game.Main"
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs(application.applicationDefaultJvmArgs)
 
     systemProperty("larsons.gpu", System.getProperty("larsons.gpu") ?: "required")
     systemProperty("larsons.gpu.msaa", System.getProperty("larsons.gpu.msaa") ?: "4")
-    systemProperty("larsons.gpu.vsync", System.getProperty("larsons.gpu.vsync") ?: "on")
+    // vsync is the player's choice (Pause > Settings, saved); -Dlarsons.gpu.vsync=off sets it for one run
     environment(discreteGpuEnvironment())
 
     doFirst {

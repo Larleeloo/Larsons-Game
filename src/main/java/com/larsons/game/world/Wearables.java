@@ -181,8 +181,19 @@ public final class Wearables {
 
     // --- owning --------------------------------------------------------------------
 
-    /** What the player owns to wear: what is owned by default, then every wearable she carries. */
+    private static volatile boolean everything;
+
+    /** Offer every wearable and every colour, owned or not (the debug code), or only what is owned again. */
+    public static void setEverything(boolean on) {
+        everything = on;
+    }
+
+    /** Whether every wearable is offered ({@link #setEverything}). */
+    public static boolean everything() { return everything; }
+
+    /** What the player owns to wear: what is owned by default, then every wearable she carries (or all of them). */
     public static Set<ItemDef> owned(Inventory inventory) {
+        if (everything) return new LinkedHashSet<>(ALL);
         Set<ItemDef> out = new LinkedHashSet<>(OWNED_BY_DEFAULT);
         for (Item item : inventory) if (item.def().isWearable()) out.add(item.def());
         return out;

@@ -8,7 +8,7 @@
       - asks for the discrete GPU on hybrid Linux laptops (DRI_PRIME / NVIDIA
         PRIME offload); on Windows set java.exe to "High performance" in
         Settings > System > Display > Graphics once, macOS switches by itself
-      - vsync on and 4x MSAA
+      - 4x MSAA (vsync: the saved choice, Pause > Settings)
       - larsons.gpu=required: if the driver turns out to be a software
         rasteriser the console and the in-game HUD say so in red
 

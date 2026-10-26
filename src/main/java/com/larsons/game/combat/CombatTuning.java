@@ -11,8 +11,8 @@ import java.util.Map;
 
 /**
  * The numbers combat runs on, in one place to tune: how many D20s a weapon
- * of each rarity rolls, the mana pool, how fast the projectiles fly, how
- * much a dummy takes. Read from {@code assets/combat/combat.json} (every
+ * of each rarity rolls, how long a heavy attack takes to come back, the
+ * mana pool, how fast the projectiles fly, how much a dummy takes. Read from {@code assets/combat/combat.json} (every
  * value is optional: one left out keeps its default here); the borders'
  * own numbers - Venom's share, Mystic's multipliers, Bonded's step - are
  * the rarity system's ({@link com.larsons.game.world.Border}).
@@ -20,7 +20,9 @@ import java.util.Map;
  * <pre>
  *   Common     1d20      Rare       3d20      Legendary  5d20
  *   Uncommon   2d20      Epic       4d20      Mythic     6d20
- *   a heavy attack rolls one die more; no weapon at all rolls one
+ *   a heavy attack rolls one die more; no weapon at all rolls one;
+ *   a wand's heavy attack - a blow, no spell in it - rolls one, whatever the wand
+ *   a heavy attack can be made once every 10 seconds
  * </pre>
  */
 public final class CombatTuning {
@@ -35,6 +37,10 @@ public final class CombatTuning {
     public final int heavyExtra;
     /** Dice a swing with nothing in hand rolls. */
     public final int unarmedDice;
+    /** Dice a wand's heavy attack rolls, whatever the wand's rarity: no magic is cast ({@link Combat#plainBlow}). */
+    public final int wandHeavyDice;
+    /** The least time from one heavy attack to the next, in seconds. */
+    public final double heavyCooldown;
 
     /** The mana pool, and how fast it fills back up (per second). */
     public final double maxMana, manaRegen;
@@ -70,6 +76,9 @@ public final class CombatTuning {
         }
         heavyExtra = Math.max(0, (int) Json.num(d, "heavyExtra", 1));
         unarmedDice = Math.max(1, (int) Json.num(d, "unarmed", 1));
+        wandHeavyDice = Math.max(1, (int) Json.num(d, "wandHeavy", 1));
+
+        heavyCooldown = Math.max(0, Json.num(Json.obj(json, "cooldowns"), "heavySeconds", 10));
 
         Map<String, Object> m = Json.obj(json, "mana");
         maxMana = Math.max(0, Json.num(m, "max", 100));

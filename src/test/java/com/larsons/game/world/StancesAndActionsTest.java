@@ -82,9 +82,14 @@ class StancesAndActionsTest {
         assertTrue(peak > 0.2, "left the ground: " + peak);
         assertEquals(AnimState.AXE_IDLE, p.state());
         assertEquals(ItemDef.BATTLE_AXE, w.dropHeld().def());
-        assertEquals(Stance.SWORD, p.stance());
+        assertTrue(p.handsEmpty(), "dropped: nothing in her hands - not the wardrobe's sword and shield");
+        assertEquals(Stance.BLADE, p.stance());
         assertFalse(w.wield(Stance.AXE), "not carried any more");
+        assertFalse(w.wield(Stance.SWORD), "no sword carried");
+        p.inventory().add(Item.of(ItemDef.SWORD));
         assertTrue(w.wield(Stance.SWORD));
+        assertFalse(p.handsEmpty());
+        assertEquals(Stance.SWORD, p.stance(), "the sword, and the wardrobe's shield with it");
     }
 
     @Test

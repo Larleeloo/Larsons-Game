@@ -28,6 +28,7 @@ import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Tier;
+import com.larsons.game.world.Wearables;
 import com.larsons.game.world.World;
 
 import java.nio.file.Path;
@@ -55,6 +56,9 @@ import static org.lwjgl.glfw.GLFW.*;
  * camera through the three elevations. The HUD says exactly which sheet of
  * which layer is on screen, and whether it came from {@code assets/sprites}
  * or the fallback.
+ *
+ * <p>Typing the debug code on the num-pad ({@link DebugCode}) offers every
+ * cosmetic in the wardrobe and puts "Clear the ground" in the pause menu.
  */
 public final class DemoScene implements Scene, Autopilot.Scriptable {
 
@@ -102,6 +106,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final InventoryPanel inventory;
     private final WorldSounds sounds = new WorldSounds();
     private final CombatHud combatHud;
+    private final DebugCode debugCode = new DebugCode();
+    /** When the heavy attack's "ready in" was last said (so held-down presses are not a pile of toasts). */
+    private double heavyToast = Double.NEGATIVE_INFINITY;
     private boolean turntable;
     private double turntableTimer;
     private double frameDt;
@@ -112,10 +119,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
-        this.pause = new PauseMenu(game);
+        this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
-        // hand; the stances' weapons lie round about.
+        // hand; the stances' weapons lie round about. What she wears is hers
+        // (so it comes off when it leaves her inventory).
         Player p = world.player();
         if (game.wardrobe().wearing(ItemDef.SWORD.carrySlot(), ItemDef.SWORD.id())
                 || game.wardrobe().wearing(ItemDef.SWORD.carrySlot().twin(), ItemDef.SWORD.id())) {
@@ -123,11 +131,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         } else {
             world.spawn(ItemDef.SWORD, SWORD_AT);
         }
+        world.ownWhatIsWorn();
         for (Object[] w : WEAPONS_AT) world.spawn((Item) w[0], (Vec3) w[1]);
         world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
         CombatTuning tuning = CombatTuning.load(game.settings().assets);
         world.combat().use(tuning);
         world.combat().setMana(tuning.maxMana);
+        p.setHeavyCooldown(tuning.heavyCooldown);
         for (Vec3 at : DUMMIES_AT) addDummy(at);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
@@ -194,6 +204,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         if (in.pressed(GLFW_KEY_I)) inventory.toggle();
         Player p = world.player();
+        for (int key = GLFW_KEY_KP_0; key <= GLFW_KEY_KP_9; key++) {
+            if (in.pressed(key) && debugCode.type(DebugCode.digit(key), world.time())) toggleDebug();
+        }
 
         // --- the hotbar: 1-5, the wheel (over a slot in the inventory, 1-5 swaps it there) ---
         for (int i = 0; i < HOTBAR_KEYS.length; i++) {
@@ -254,6 +267,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         // --- the character (still while the inventory is open) ----------------------------
         Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
+        if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
+            heavyToast = world.time();
+            game.toast("Heavy attack ready in " + (int) Math.ceil(p.heavyWait()) + " s", Theme.HINT);
+        }
         p.update(dt, intent, durations());
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again
@@ -263,6 +280,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         camera.update(dt, pivot());
         sounds.update(world, camera);
+    }
+
+    /**
+     * The debug code was typed: every cosmetic offered in the wardrobe and
+     * the pause menu's "Clear the ground" - or, typed again, back to normal.
+     */
+    private void toggleDebug() {
+        var s = game.settings();
+        s.debugTools = !s.debugTools;
+        Wearables.setEverything(s.debugTools);
+        game.toast(s.debugTools ? "Debug on: every cosmetic unlocked · Pause menu → Clear the ground"
+                : "Debug off", Theme.ACCENT);
     }
 
     /** Select hotbar slot {@code i}: what is in it is taken up. */
@@ -401,7 +430,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             prompt(ui);
             float hotbar = hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
             inventory.drawHotbar(ui, frameDt, hotbar);
-            if (!inventory.open()) combatHud.drawMana(ui, world.combat(), hotbar - 34);
+            if (!inventory.open()) {
+                combatHud.drawMana(ui, world.combat(), hotbar - 34);
+                combatHud.drawHeavy(ui, world.player(), hotbar - 34);
+            }
             if (!game.importer().visible()) inventory.draw(ui);
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
@@ -413,8 +445,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold to draw) · "
                     + "X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
-                    + "Backspace live · , . turn · T turntable · Tab height · Right-drag orbit · +/- zoom · "
-                    + "H HUD · F9 classic/new animations · Esc menu"};
+                    + "Backspace live · , . turn · T turntable",
+            "Tab height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · F11 full screen · Esc menu"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
@@ -497,7 +529,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Item it : p.inventory()) carried.add(it.fullName());
         Inventory inv = p.inventory();
         ui.text(ui.small, String.format("Stance  %s%s   ·   hotbar %d of %d slots   ·   carrying %s",
-                p.stance().label(), p.crouched() ? ", crouched" : "", inv.selected() + 1, inv.size(),
+                p.handsEmpty() ? "Empty hands" : p.stance().label(), p.crouched() ? ", crouched" : "",
+                inv.selected() + 1, inv.size(),
                 carried.length() == 0 ? "nothing" : carried), x, y, Theme.ITEM);
         y += lh;
         y += ui.paragraph(ui.small, layerText, x, y, 640, Theme.ITEM) + 2;
@@ -562,7 +595,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private boolean give(Item item) {
         Player p = world.player();
         ItemDef d = item.def();
-        if (p.inventory().add(item) < 0) return false;
+        if ((d.isWearable() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
                 .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
                 .ifPresent(world.items()::remove);
@@ -641,9 +674,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 Stance s = Stance.byKey(argument);
                 if (s == null) return false;
                 // (scripts may take up a stance without the weapon lying about first)
-                ItemDef d = ItemDef.of(s);
+                ItemDef d = s == Stance.SWORD || s == Stance.BLADE ? ItemDef.SWORD : ItemDef.of(s);
                 if (d != null && !p.inventory().contains(d)) give(Item.of(d));
-                world.wield(s);
+                if (!world.wield(s)) return false;
             }
             // the inventory: inventory [open|close], hotbar <1-5>, slots <n>,
             // give <item> [tier|rarity] [border] (battle_axe crystal venom, silver_necklace, dye_pink)
@@ -695,6 +728,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             // her mana: mana <n>
             case "mana" -> world.combat().setMana(Double.parseDouble(argument.trim()));
+            // the heavy attack's cooldown: cooldown <seconds> (0: none)
+            case "cooldown" -> p.setHeavyCooldown(Double.parseDouble(argument.trim()));
+            // the debug code, as if typed: debug [on|off]
+            case "debug" -> {
+                boolean want = !argument.trim().equals("off");
+                if (game.settings().debugTools != want) toggleDebug();
+            }
+            // the debug tools' "Clear the ground"
+            case "clearground" -> world.clearGround();
+            // the inventory sorted: sort name|rarity
+            case "sort" -> p.inventory().sort(argument.trim().equals("rarity") ? Inventory.Order.RARITY
+                    : Inventory.Order.NAME);
             // the chest: chest (open it, or shut it), and where she stands to: chest goto
             case "chest" -> {
                 if (world.chests().isEmpty()) return false;
