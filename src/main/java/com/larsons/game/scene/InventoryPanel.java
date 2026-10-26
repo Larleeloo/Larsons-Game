@@ -12,6 +12,7 @@ import com.larsons.game.world.Border;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Wearables;
 import com.larsons.game.world.World;
 
 import javax.imageio.ImageIO;
@@ -58,7 +59,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  * border's effect in its tooltip. An item with turning sprites ({@link
  * ItemSprites#icon}) is drawn from them in its weapon tier's colours, lying
  * corner to corner, and turns while it is under the pointer, selected or
- * carried on the pointer.
+ * carried on the pointer. A wearable is drawn as its pickup ({@link
+ * Wearables#pickup}) - the t-shirt on its hanger, the shield, the dye's
+ * bottle - upright, in its rarity's colour or its dye's.
  *
  * <p>Where things go, as fractions of the 432 × 768 background, so a
  * background can be drawn round them: the title at the top (to 10 %), the
@@ -82,6 +85,8 @@ final class InventoryPanel {
     private static final float RARITY_FILL = 0.14f, RARITY_EDGE = 0.85f, RARITY_GLOW = 0.5f;
     /** How long a turning icon takes to go once round, in seconds. */
     private static final double ICON_TURN = 3.2;
+    /** A wearable's pickup's frame, in half-diagonals of its slot: the pickup a little less than the slot's width. */
+    private static final float PICKUP_ICON = 1.75f;
 
     private final Game game;
     private final World world;
@@ -381,17 +386,22 @@ final class InventoryPanel {
     private void icon(Ui ui, Item item, float x, float y, float r, float alpha, boolean turning) {
         ItemDef d = item.def();
         ItemSprites items = game.items();
-        ItemSprites.Spin spin = items.spin(d.id());
-        ItemSprites.Icon icon = spin == null ? null : items.icon(d.id(), item.tier() == null ? null : item.tier().key());
+        Wearables.Pickup pickup = Wearables.pickup(item);
+        String id = pickup == null ? d.id() : pickup.spin();
+        ItemSprites.Spin spin = items.spin(id);
+        ItemSprites.Icon icon = spin == null ? null
+                : pickup != null ? items.icon(id, pickup.part(), pickup.rgb())
+                : items.icon(id, item.tier() == null ? null : item.tier().key());
         if (icon == null) {
             Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
             float s = r * 1.2f;
             ui.image(t, x - s / 2, y - s / 2, s, s, Theme.rgb(255, 255, 255, alpha));
             return;
         }
-        // the item as long as the diamond's side, lying along it at rest
-        float s = (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
-        int frame = ItemSprites.ICON_REST_FRAME;
+        // a weapon as long as the diamond's side, lying along it at rest; a pickup upright, inside it
+        float s = pickup != null ? r * PICKUP_ICON
+                : (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
+        int frame = pickup != null ? 0 : ItemSprites.ICON_REST_FRAME;
         if (turning) frame += (int) Math.floor(world.time() / ICON_TURN * icon.frames());
         float[] uv = icon.uv(frame);
         float x0 = x - s / 2, y0 = y - s / 2;

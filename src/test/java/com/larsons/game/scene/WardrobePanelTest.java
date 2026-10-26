@@ -70,7 +70,8 @@ class WardrobePanelTest {
         assertEquals(java.util.Arrays.asList(null, "cotton_briefs"), items(Slot.UNDERWEAR));
         assertEquals(List.of("None", "Underwear"), labels(Slot.UNDERWEAR));
         assertEquals(List.of("None", "Bra"), labels(Slot.BRA));
-        assertEquals(List.of("None", "Long waves hairstyle"), labels(Slot.HAIR));
+        assertEquals(List.of("None", "Long waves hairstyle", "Side part hairstyle"), labels(Slot.HAIR),
+                "two hair styles to start with, a long and a short");
         assertEquals(List.of("None", "Arched eyebrows"), labels(Slot.EYEBROWS));
         for (Slot s : List.of(Slot.SHIRT, Slot.CHESTPLATE, Slot.WRISTWEAR, Slot.MAKEUP)) {
             assertEquals(java.util.Collections.singletonList(null), items(s), s + ": nothing found yet");
@@ -78,9 +79,12 @@ class WardrobePanelTest {
         // the free layers: every folder there is
         assertEquals(java.util.Arrays.asList(null, "elven", "round"), items(Slot.EARS));
         assertEquals(java.util.Arrays.asList(null, "full"), items(Slot.MOUTH));
-        // the hands: what is carried that is held in them, not the stances' weapons
+        // the hands are the hotbar's, not the wardrobe's
         player.inventory().add(Item.of(w("belt")));
-        assertEquals(java.util.Arrays.asList(null, "sword"), items(Slot.CARRY_RIGHT));
+        for (Slot s : List.of(Slot.CARRY_RIGHT, Slot.CARRY_LEFT)) {
+            assertEquals(java.util.Collections.singletonList(null), items(s), s + ": nothing to choose");
+            assertFalse(WardrobePanel.SLOTS.contains(s), s + ": not on the page");
+        }
     }
 
     @Test
@@ -91,8 +95,8 @@ class WardrobePanelTest {
         player.inventory().add(Item.of(w("sheath")));
         player.inventory().add(Item.of(w("iron_chestplate")));
         player.inventory().add(Item.of(w("dye_pink")));
-        assertEquals(List.of("None", "Long waves hairstyle", "Bob hairstyle"), labels(Slot.HAIR));
-        assertEquals(java.util.Arrays.asList(null, "long_waves", "bob"), items(Slot.HAIR));
+        assertEquals(List.of("None", "Long waves hairstyle", "Side part hairstyle", "Bob hairstyle"), labels(Slot.HAIR));
+        assertEquals(java.util.Arrays.asList(null, "long_waves", "side_part", "bob"), items(Slot.HAIR));
         assertEquals(List.of("None", "Silver wrist band"), labels(Slot.WRISTWEAR));
         assertEquals(List.of("None", "Silver wrist band"), labels(Slot.WRISTWEAR_LEFT), "either wrist");
         assertEquals(List.of("None", "Sheath (sword left hip)", "Sheath (sword right hip)"), labels(Slot.SHEATH));
@@ -128,49 +132,117 @@ class WardrobePanelTest {
         wr.set(Slot.NECKLACE, "gold_pendant");
         wr.setColour(Slot.NECKLACE, "silver");
         List<WardrobePanel.Option> hair = WardrobePanel.options(lib, Slot.HAIR, player);
-        assertEquals(List.of("None", "Long waves hairstyle", "Bob hairstyle"),
+        assertEquals(List.of("None", "Long waves hairstyle", "Side part hairstyle", "Bob hairstyle"),
                 hair.stream().map(o -> o.label(Slot.HAIR)).toList());
-        assertEquals(2, WardrobePanel.current(hair, Slot.HAIR, wr));
+        assertEquals(3, WardrobePanel.current(hair, Slot.HAIR, wr));
         assertEquals(List.of("None", "Baggy shirt"), labels(Slot.SHIRT));
         assertEquals(List.of("None", "Silver necklace"), labels(Slot.NECKLACE));
         WardrobePanel.choose(wr, Slot.HAIR, hair.get(0));
-        assertEquals(java.util.Arrays.asList(null, "long_waves"), items(Slot.HAIR), "once off, only if she owns it");
+        assertEquals(java.util.Arrays.asList(null, "long_waves", "side_part"), items(Slot.HAIR),
+                "once off, only if she owns it");
         // a folder no item puts there is listed by its folder
         wr.set(Slot.HAT, "party_hat");
         assertEquals(List.of("None", "party_hat"), labels(Slot.HAT));
     }
 
+    private long pinkDyes() {
+        return player.inventory().items().stream().filter(i -> i.def() == w("dye_pink")).count();
+    }
+
+    private static List<String> open(List<Wearables.Colour> colours) {
+        return colours.stream().filter(Wearables.Colour::unlocked).map(Wearables.Colour::option).toList();
+    }
+
+    private static List<String> options(List<Wearables.Colour> colours) {
+        return colours.stream().map(Wearables.Colour::option).toList();
+    }
+
     @Test
-    void theColoursAreTheDyesSheOwns() {
+    void everyColourIsShownAndADyeUnlocksOneForThatItemForGood() {
         Wardrobe wr = player.wardrobe();
         wr.set(Slot.SHIRT, "plaid_flannel");
-        assertEquals(List.of(), WardrobePanel.colours(lib, Slot.SHIRT, player), "no dyes: its own colours only");
-        player.inventory().add(Item.of(w("dye_mint")));
+        List<Wearables.Colour> colours = WardrobePanel.colours(lib, Slot.SHIRT, player);
+        assertEquals(List.of("pink", "black", "mint"), options(colours), "in the item's own order");
+        assertEquals(List.of(), open(colours), "no dye used yet: all locked");
+        Wearables.Colour pink = colours.get(0);
+        assertNull(WardrobePanel.pick(wr, player, Slot.SHIRT, pink), "no pink dye: nothing to offer");
+        assertNull(wr.colour(Slot.SHIRT));
+
         player.inventory().add(Item.of(w("dye_pink")));
-        assertEquals(List.of("pink", "mint"), WardrobePanel.colours(lib, Slot.SHIRT, player),
-                "in the item's own order");
-        wr.setColour(Slot.SHIRT, "black");
-        assertEquals(List.of("pink", "black", "mint"), WardrobePanel.colours(lib, Slot.SHIRT, player),
-                "a colour already on stays, and is shown");
+        player.inventory().add(Item.of(w("dye_pink")));
+        assertEquals("pink", WardrobePanel.pick(wr, player, Slot.SHIRT, pink), "offered, not yet used");
+        assertNull(wr.colour(Slot.SHIRT));
+        assertTrue(Wearables.useDye(wr, player.inventory(), Slot.SHIRT, "pink"));
+        assertEquals("pink", wr.colour(Slot.SHIRT));
+        assertEquals(1, pinkDyes(), "one dye used up");
+        assertFalse(Wearables.useDye(wr, player.inventory(), Slot.SHIRT, "pink"), "already unlocked: no dye wasted");
+        assertEquals(1, pinkDyes());
+        assertEquals(List.of("pink"), open(WardrobePanel.colours(lib, Slot.SHIRT, player)));
+
+        // its own colours back, then pink again with no dye: it stays unlocked
+        wr.setColour(Slot.SHIRT, null);
+        player.inventory().remove(Wearables.dyeIn(player.inventory(), "pink"));
+        Wearables.Colour unlocked = WardrobePanel.colours(lib, Slot.SHIRT, player).get(0);
+        assertTrue(unlocked.unlocked());
+        assertNull(WardrobePanel.pick(wr, player, Slot.SHIRT, unlocked));
+        assertEquals("pink", wr.colour(Slot.SHIRT));
+
+        // that shirt only: another item's pink is still locked
+        assertFalse(wr.unlocked(Slot.HAIR, "long_waves", "pink"));
+        assertFalse(Wearables.useDye(wr, player.inventory(), Slot.HAIR, "mint"), "no mint dye");
+        wr.clear(Slot.SHIRT);
+        assertFalse(Wearables.useDye(wr, player.inventory(), Slot.SHIRT, "pink"), "nothing worn");
+    }
+
+    @Test
+    void theUnlockedColoursAreSavedWithTheOutfit() {
+        Wardrobe wr = player.wardrobe();
+        wr.set(Slot.HAIR, "long_waves");
+        player.inventory().add(Item.of(w("dye_cherry_red")));
+        assertTrue(Wearables.useDye(wr, player.inventory(), Slot.HAIR, "cherry_red"));
+        Wardrobe back = Wardrobe.fromJson(wr.toJson());
+        assertTrue(back.unlocked(Slot.HAIR, "long_waves", "cherry_red"));
+        assertFalse(back.unlocked(Slot.HAIR, "long_waves", "pink"));
+        assertEquals("cherry_red", back.colour(Slot.HAIR));
+        assertTrue(wr.copy().unlocked(Slot.HAIR, "long_waves", "cherry_red"));
     }
 
     @Test
     void theSkinAndEyesAreFreeTheLipsTheLipsticksAndAMetalItsOwn() {
         List<String> all = List.of("brown", "pink", "royal_blue");
+        Wardrobe wr = new Wardrobe();
         Set<ItemDef> none = Wearables.owned(player.inventory());
-        assertEquals(all, Wearables.colours(Slot.BODY, "feminine", all, null, none));
-        assertEquals(all, Wearables.colours(Slot.EYES, "hazel", all, null, none));
-        assertEquals(List.of(), Wearables.colours(Slot.MOUTH, "full", all, null, none));
-        assertEquals(List.of("pink"), Wearables.colours(Slot.MOUTH, "full", all, "pink", none), "lips already pink");
+        assertEquals(all, open(Wearables.colours(Slot.BODY, "feminine", all, null, none, wr)));
+        assertEquals(all, open(Wearables.colours(Slot.EYES, "hazel", all, null, none, wr)));
+        assertEquals(all, options(Wearables.colours(Slot.MOUTH, "full", all, null, none, wr)), "all shown");
+        assertEquals(List.of(), open(Wearables.colours(Slot.MOUTH, "full", all, null, none, wr)));
+        assertEquals(List.of("pink"), open(Wearables.colours(Slot.MOUTH, "full", all, "pink", none, wr)),
+                "lips already pink");
         player.inventory().add(Item.of(w("dye_pink")));
         Set<ItemDef> dye = Wearables.owned(player.inventory());
-        assertEquals(List.of(), Wearables.colours(Slot.MOUTH, "full", all, null, dye), "a dye is not lipstick");
-        assertEquals(List.of("pink"), Wearables.colours(Slot.HAIR, "bob", all, null, dye));
+        assertEquals(List.of(), open(Wearables.colours(Slot.HAIR, "bob", all, null, dye, wr)),
+                "a dye in the bag unlocks nothing until it is used");
+        wr.unlock(Slot.MAKEUP, "eyeliner", "pink");
+        assertEquals(List.of("pink"), open(Wearables.colours(Slot.MAKEUP, "eyeliner", all, null, none, wr)),
+                "makeup is dyed like the rest");
         player.inventory().add(Item.of(Wearables.LIPSTICK));
         Set<ItemDef> lipstick = Wearables.owned(player.inventory());
-        assertEquals(all, Wearables.colours(Slot.MOUTH, "full", all, null, lipstick));
+        assertEquals(all, open(Wearables.colours(Slot.MOUTH, "full", all, null, lipstick, wr)));
         assertEquals(List.of(), Wearables.colours(Slot.WRISTWEAR, "gold_bangle", List.of("gold", "silver", "pink"),
-                "silver", lipstick), "a metal is its own colour");
-        assertEquals(all, Wearables.colours(Slot.CARRY_LEFT, "round_shield", all, null, none), "the hands as before");
+                "silver", lipstick, wr), "a metal is its own colour");
+        assertEquals(all, open(Wearables.colours(Slot.CARRY_LEFT, "round_shield", all, null, none, wr)),
+                "the hands as before");
+    }
+
+    @Test
+    void everythingUnlockedOpensEveryColour() {
+        List<String> all = List.of("brown", "pink");
+        try {
+            Wearables.setEverything(true);
+            assertEquals(all, open(Wearables.colours(Slot.SHIRT, "plaid_flannel", all, null,
+                    Wearables.owned(player.inventory()), new Wardrobe())));
+        } finally {
+            Wearables.setEverything(false);
+        }
     }
 }

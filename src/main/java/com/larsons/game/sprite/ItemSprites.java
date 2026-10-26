@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
@@ -37,6 +38,10 @@ import java.util.stream.Stream;
  * through the {@link SpriteLibrary} like any other ({@link #resolve}) and
  * drawn in a weapon tier's colours by a palette swap ({@link #palette},
  * {@link TierLook}). The item's centre is the frame's centre.
+ *
+ * <p>What is worn is drawn as one of three pickups made the same way - a
+ * t-shirt on a hanger, a shield, a bottle - one part of it in a colour
+ * ({@link #paint}): the rarity's, or the dye's.
  *
  * <p>The inventory's icons ({@link #icon}) are made here instead, on the CPU:
  * an icon is a third or a half of a frame across, and palette indices cannot
@@ -205,6 +210,16 @@ public final class ItemSprites implements AutoCloseable {
     }
 
     /**
+     * The palette {@code id}'s turning sheet {@code sheet} is drawn in with
+     * its {@code part} in {@code rgb} ({@link TierLook#paint}): a wearable's
+     * pickup in the colour of its rarity, or of its dye.
+     */
+    public int[] paint(SheetTexture sheet, String id, String part, int rgb) {
+        Spin s = spin(id);
+        return tiers.paint(sheet.sharedPalette(), id, s == null ? null : s.parts(), part, rgb);
+    }
+
+    /**
      * The palette an in-hand layer of weapon {@code id} (palette {@code base})
      * is drawn in for {@code tier}: its parts by {@code tiers.json}'s {@code
      * carried} map. {@code base} itself when nothing changes.
@@ -243,11 +258,28 @@ public final class ItemSprites implements AutoCloseable {
      * when the item has no turning sprites. GL thread.
      */
     public Icon icon(String id, String tier) {
-        String key = id + "/" + tier;
+        Spin s = spin(id);
+        return icon(id + "/" + tier, id, Elevation.TOP,
+                base -> tiers.palette(base, id, tier, s == null ? null : s.parts()));
+    }
+
+    /**
+     * {@code id}'s icon with its {@code part} in {@code rgb} ({@link #paint}):
+     * a wearable's pickup - seen from the side, standing up and facing out
+     * (frame 0), the shirt on its hanger, the bottle upright. As {@link
+     * #icon(String, String)}.
+     */
+    public Icon icon(String id, String part, int rgb) {
+        Spin s = spin(id);
+        return icon(id + "/" + part + "#" + Integer.toHexString(rgb & 0xFFFFFF), id, Elevation.SIDE,
+                base -> tiers.paint(base, id, s == null ? null : s.parts(), part, rgb));
+    }
+
+    private Icon icon(String key, String id, Elevation from, UnaryOperator<int[]> look) {
         Icon i = icons.get(key);
         if (i != null || noIcon.containsKey(key)) return i;
         Spin s = spin(id);
-        Path p = s == null ? null : s.sheet(Elevation.TOP);
+        Path p = s == null ? null : s.sheet(from);
         IconPixels px = null;
         if (p != null) {
             try {
@@ -256,7 +288,7 @@ public final class ItemSprites implements AutoCloseable {
                     int[] base = new int[256];
                     icm.getRGBs(base);
                     for (int e = icm.getMapSize(); e < 256; e++) base[e] = 0;
-                    int[] pal = tiers.palette(base, id, tier, s.parts());
+                    int[] pal = look.apply(base);
                     px = iconPixels(img, s.profile().frameWidth(), s.profile().frameHeight(), s.frames(), pal);
                 }
             } catch (IOException | RuntimeException e) {

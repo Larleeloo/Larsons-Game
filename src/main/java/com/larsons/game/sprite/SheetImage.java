@@ -256,6 +256,57 @@ public final class SheetImage {
         return pack(kept, scale, maxTexture, pixelArt, size[0], size[1], crop);
     }
 
+    /**
+     * {@code sheet} worn under {@code over} (the same state from the same
+     * view: a dress under a mail shirt), with what of it pokes out from under
+     * {@code over} taken out: frame by frame, in each column of the frame,
+     * every pixel of it {@code over} does not cover that is above {@code
+     * over}'s lowest there - the collar over the mail's neck, the bodice past
+     * its sides - while what hangs below it (a skirt) stays. Both must be
+     * palette sheets of the same size; otherwise {@code sheet} is returned as
+     * it is. A new image; {@code sheet} is not changed. Pure; any thread.
+     */
+    public static BufferedImage cutUnder(BufferedImage sheet, BufferedImage over, int frameW, int frameH) {
+        if (!(sheet.getColorModel() instanceof IndexColorModel icm)
+                || !(over.getColorModel() instanceof IndexColorModel ocm)
+                || sheet.getWidth() != over.getWidth() || sheet.getHeight() != over.getHeight()) {
+            return sheet;
+        }
+        int w = sheet.getWidth(), h = sheet.getHeight();
+        int[] size = frameSize(w, h, frameW, frameH);
+        int fw = size[0], fh = size[1];
+        int[] mine = sheet.getRaster().getPixels(0, 0, w, h, (int[]) null);
+        int[] theirs = over.getRaster().getPixels(0, 0, w, h, (int[]) null);
+        int clear = transparentIndex(icm);
+        WritableRaster out = sheet.copyData(null);
+        for (int fy = 0; fy + fh <= h; fy += fh) {
+            for (int fx = 0; fx + fw <= w; fx += fw) {
+                for (int x = fx; x < fx + fw; x++) {
+                    int lowest = -1;
+                    for (int y = fy + fh - 1; y >= fy && lowest < 0; y--) {
+                        if (visible(ocm, theirs[y * w + x])) lowest = y;
+                    }
+                    for (int y = fy; y <= lowest; y++) {
+                        int i = y * w + x;
+                        if (visible(icm, mine[i]) && !visible(ocm, theirs[i])) out.setSample(x, y, 0, clear);
+                    }
+                }
+            }
+        }
+        return new BufferedImage(icm, out, false, null);
+    }
+
+    /** Whether palette entry {@code i} is drawn (not transparent, nor the near-invisible empty-frame marker). */
+    private static boolean visible(IndexColorModel cm, int i) {
+        return i < cm.getMapSize() && cm.getAlpha(i) > 1;
+    }
+
+    /** The palette's first fully transparent entry (0 in the pipeline's sheets). */
+    private static int transparentIndex(IndexColorModel cm) {
+        for (int i = 0; i < cm.getMapSize(); i++) if (cm.getAlpha(i) == 0) return i;
+        return 0;
+    }
+
     /** Pack same-sized frames into a near-square grid, shrinking if they cannot fit. */
     public static SheetImage pack(List<BufferedImage> frames, double scale, int maxTexture,
                                   boolean pixelArt) {

@@ -121,29 +121,46 @@ public final class SpriteLibrary implements AutoCloseable {
      * in, or the left-handed character), and the palette swap it is drawn with
      * (null: its own colours). The colours are applied when the layer is drawn
      * ({@link Variants#recolored}), so every colour of a sheet is one texture.
+     * A sheet worn under another may be cut by it ({@code cut}: that one's
+     * file, or null) - what pokes out from under it is taken out as it loads
+     * ({@link SheetImage#cutUnder}).
      */
-    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
+    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor, Path cut) {
 
         public Resolved(Path file, boolean mirrored, SpriteProfile profile) {
-            this(file, mirrored, profile, null);
+            this(file, mirrored, profile, null, null);
         }
 
-        /** What the library keeps it under: the file (whatever its colours). */
+        public Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
+            this(file, mirrored, profile, recolor, null);
+        }
+
+        /** What the library keeps it under: the file (whatever its colours), and what cuts it. */
         public Key key() {
-            return new Key(file);
+            return new Key(file, cut);
         }
 
         public Resolved withRecolor(Variants.Recolor r) {
-            return new Resolved(file, mirrored, profile, r);
+            return new Resolved(file, mirrored, profile, r, cut);
+        }
+
+        /** This sheet with what pokes out from under {@code over}'s sheet taken out (null: as it is). */
+        public Resolved cutBy(Path over) {
+            return new Resolved(file, mirrored, profile, recolor, over);
         }
 
         public Resolved flipped() {
-            return new Resolved(file, !mirrored, profile, recolor);
+            return new Resolved(file, !mirrored, profile, recolor, cut);
         }
     }
 
-    /** A decoded sheet's identity: one file. */
-    public record Key(Path file) {}
+    /** A decoded sheet's identity: one file, and the file of the sheet it is cut by (null: none). */
+    public record Key(Path file, Path cut) {
+
+        public Key(Path file) {
+            this(file, null);
+        }
+    }
 
     private record Decoded(Key key, int epoch, SheetImage layout, PixelData pixels, String error) {}
 
@@ -659,6 +676,10 @@ public final class SpriteLibrary implements AutoCloseable {
         try {
             BufferedImage img = ImageIO.read(key.file().toFile());
             if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
+            if (key.cut() != null) {
+                BufferedImage over = ImageIO.read(key.cut().toFile());
+                if (over != null) img = SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
+            }
             boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),
                     pixelArt ? 1.0 : scale, maxTexture, pixelArt);

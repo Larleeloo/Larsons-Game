@@ -222,4 +222,37 @@ class SheetImageTest {
         assertEquals(32, s.frameWidth());
         assertArrayEquals(new double[]{0, 0, 1, 1}, s.region(false));
     }
+
+    /** A palette sheet: 0 transparent, 1 the empty-frame marker, 2 and 3 colours. */
+    static BufferedImage indexed(int w, int h, int[] pixels) {
+        byte[] r = {0, 0, (byte) 200, 10}, g = {0, 0, 50, 10}, b = {0, 0, 50, (byte) 200}, a = {0, 1, (byte) 255, (byte) 255};
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_INDEXED, new IndexColorModel(8, 4, r, g, b, a));
+        img.getRaster().setPixels(0, 0, w, h, pixels);
+        return img;
+    }
+
+    @Test
+    void aLayerCutUnderAnotherKeepsOnlyWhatHangsBelowIt() {
+        // two 4x4 frames side by side; the dress (2) fills each; the mail (3) covers the top rows of some columns
+        int[] dress = new int[8 * 4], mail = new int[8 * 4];
+        java.util.Arrays.fill(dress, 2);
+        mail[0 * 8 + 1] = 3;                              // frame 0, column 1: mail on row 0 only
+        mail[2 * 8 + 1] = 3;                              // ... and row 2 (row 1 a gap in the mail)
+        mail[2 * 8 + 6] = 3;                              // frame 1, column 6: row 2
+        mail[3 * 8 + 0] = 1;                              // the empty-frame marker is not mail
+        BufferedImage cut = SheetImage.cutUnder(indexed(8, 4, dress), indexed(8, 4, mail), 4, 4);
+        int[] px = cut.getRaster().getPixels(0, 0, 8, 4, (int[]) null);
+        for (int y = 0; y < 4; y++) {
+            assertEquals(y == 1 ? 0 : 2, px[y * 8 + 1], "column 1, row " + y + ": the gap above the mail's bottom is cut");
+            assertEquals(2, px[y * 8 + 0], "column 0: no mail, the dress stays");
+            assertEquals(2, px[y * 8 + 5], "column 5: no mail");
+        }
+        assertEquals(List.of(0, 0, 2, 2), List.of(px[6], px[8 + 6], px[16 + 6], px[24 + 6]),
+                "frame 1 by its own mail: the collar above it cut, under it and the skirt below kept");
+        assertInstanceOf(IndexColorModel.class, cut.getColorModel(), "still a palette sheet");
+        // not two palette sheets of one size: left as it is
+        BufferedImage odd = indexed(4, 4, new int[16]);
+        BufferedImage same = indexed(8, 4, dress);
+        assertSame(same, SheetImage.cutUnder(same, odd, 4, 4));
+    }
 }

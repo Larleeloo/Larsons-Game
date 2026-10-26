@@ -162,13 +162,16 @@ Drop sprite sheets on the window at any time to import them.
   rock - see [The scenery](#the-scenery).
 
   <img src="docs/screenshots/meadow.png" width="98%" alt="The meadow from 45 degrees: pixel-art oaks round a clearing, grass tufts scattered across a grass floor, three rocks, and the character by the chest and the weapons">
-- **A pause menu** with the **Wardrobe**: all 27 cosmetic layers, each cycling
-  through what she owns to wear in it (see
-  [Wearing what you own](#wearing-what-you-own)) and, for the pixel-art
-  items, through the colours she has dyes for (swatches beside the item; the
-  body's colour is the skin tone of every layer), plus the drawing style and
-  the hand - with a live preview you can turn through the eight directions,
-  tip through the three heights and play in every state.
+- **A pause menu** with the **Wardrobe**: an oak armoire with its doors open
+  (`ui/Medieval`: carved wood, iron brackets, parchment labels, a gilded
+  mirror), its shelves every cosmetic layer, each cycling through what she
+  owns to wear in it (see [Wearing what you own](#wearing-what-you-own)) and,
+  for the pixel-art items, a shelf of colour gems - each unlocked once a dye
+  of it is used on that item (the body's colour is the skin tone of every
+  layer) - plus the drawing style and the hand, with a live preview in the
+  mirror you can turn through the eight directions, tip through the three
+  heights and play in every state. The hands are the hotbar's, not the
+  wardrobe's.
 - **A cutscene** behind the main menu: **your own character** - exactly as
   the wardrobe has her - talking with Bryn, close up, so their faces show:
   every character a stack of close-up layers, one per item she wears, each
@@ -230,7 +233,7 @@ Drop sprite sheets on the window at any time to import them.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe: 23 cosmetic layers with colour swatches, the colour row, style and hand, and a live preview">
+  <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe: an oak armoire with its doors open, shelves of cosmetic layers, a row of colour gems (the locked ones padlocked) asking to use up a cherry red dye, style and hand, and the character in a gilded mirror">
   <img src="docs/screenshots/import.png" width="49%" alt="The drag-and-drop importer reviewing 144 sheets">
   <br><sub>Pause → Wardrobe, and the importer after a folder of sheets was dropped on the window.
   (Captured headlessly by a scripted run on a software renderer — hence the red GPU line.)</sub>
@@ -364,17 +367,18 @@ dyes, makeup, lipstick, hair styles and eyebrows are picked up or found in
 chests like the weapons, carried in the inventory, and only then offered by
 Pause → Wardrobe - each by its name ("Silver wrist band"), a wrist band on
 either wrist, a sheath on either hip. The **underwear**, the **bra** and a
-starter look - the **long waves** and the **arched eyebrows** - are hers from
-the start (`Wearables.OWNED_BY_DEFAULT`); everything else has to be found.
-**Free**, not items, as before: the body and the skin tone, the ears, the
-eyes and their colour, the nose and the mouth's shape - every folder found for
-the body - and the carried items in the hands.
+starter look - two hair styles, the **long waves** and the short **side
+part**, and the **arched eyebrows** - are hers from the start
+(`Wearables.OWNED_BY_DEFAULT`); everything else has to be found. **Free**,
+not items, as before: the body and the skin tone, the ears, the eyes and their
+colour, the nose and the mouth's shape - every folder found for the body. The
+hands hold what the hotbar selects; the wardrobe leaves them alone.
 
 | Rarity | Wearables |
 |---|---|
 | Common | underwear, bra (both owned by default), shoes, pants, baggy shirt, straw sun hat, beanie |
 | Uncommon | belt, gloves, sheath, laced shirt, wool mantle, chainmail shirt, chainmail pants |
-| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin) - the long waves and the arched eyebrows owned by default - iron chestplate, iron leg plating, iron gauntlets, iron helmet |
+| Rare | laced dress, silver wrist band, silver necklace, silver hoops, the 14 dyes, makeup (noir, rose, plum), lipstick, the 11 hair styles, eyebrows (arched, soft, thin) - the long waves, the side part and the arched eyebrows owned by default - iron chestplate, iron leg plating, iron gauntlets, iron helmet |
 | Epic | gold wrist band, gold necklace, gold hoops, steel chestplate, steel leg plating, steel gauntlets, steel helmet |
 
 The first four rows are Larson's list; the rest are picks he did not make
@@ -387,18 +391,24 @@ ombre, royal blue - and the hair styles every folder under `hair/` (long waves,
 bob, ponytail, pixie, braids, curls, crew cut, side part, undercut, beanie
 long, beanie short).
 
-- **Colours are items too.** An item's colour row offers the colours she has a
-  dye for (`dye_<colour>`), and its own colours; the **lips** every colour
-  once she has the **lipstick**; a **metal** wearable only its own - the silver
-  and the gold wrist band are one `gold_bangle`, worn in its `silver` or
-  `gold` option. The skin tone and the eyes' colour are free.
+- **Dyes unlock colours for good.** A dye (`dye_<colour>`) is a universal
+  unlock for anything that takes a colour, from the makeup to the clothes:
+  the colour shelf shows every colour of what is worn, the locked ones
+  padlocked; with a dye of a locked colour in her bag, clicking it asks
+  "Use up a red dye to make the bob hairstyle red for good?" and one dye is
+  used up to unlock that colour on that item only (`Wearables.useDye`,
+  saved in `wardrobe.json` under `unlocked`). An unlocked colour can be put
+  on and taken off freely afterwards. The **lips** take every colour once she
+  has the **lipstick**; a **metal** wearable only its own - the silver and
+  the gold wrist band are one `gold_bangle`, worn in its `silver` or `gold`
+  option. The skin tone and the eyes' colour are free.
 - **Outfits saved before** keep what they wear, owned or not - it is listed
   in its layer, and so is a colour already on. Once taken off, it is offered
   again only if she owns it.
 - **Losing an item** - dropping it, or it spilling out of a smaller inventory -
-  takes it off when she has no other that gives the same, and the last dye of
-  a colour takes that colour off whatever wears it. What is owned by default
-  and the free layers never come off.
+  takes it off when she has no other that gives the same; losing the lipstick
+  takes the lips' colour off unless a dye unlocked it. What is owned by
+  default, the free layers and the colours dyes unlocked never come off.
 - **Chests** drop the wearables and the armour at their rarities, but never
   what is owned by default. So that the dyes and the hair styles do not drown
   out the weapons, each **family** - the dyes, the hair styles, the eyebrows,
@@ -409,11 +419,18 @@ long, beanie short).
 The armour is drawn on both bodies in every state (`chainmail/`,
 `chainmail_legs/`, `chestplate/`, `leg_plating/`, `gloves/iron_gauntlets` ...
 - see [`assets/sprites/README.md`](assets/sprites/README.md)) and hides what it
-covers. Every wearable with a
-piece of its own lies on the ground as `items/<id>/icon.png`, the piece alone
-as she wears it (3D-Modeling's `feminine_model_sprites.py ... wearable_icons`);
-the dyes, the lipstick, the makeup and the eyebrows, which have none, lie as a
-small diamond in their rarity's colour.
+covers: the mail shirt the shirt and the bra, the mail leggings the underwear
+and the pants (`Wardrobe.hidden`); a dress under the mail shirt keeps its
+skirt and loses only what would poke out above the mail's hem
+(`Wardrobe.cutBy`, `SheetImage.cutUnder`).
+
+Lying on the ground and in the inventory, a wearable is one of three turning
+128-pixel pickups (`Wearables.pickup`, `items/wearable_hanger/`,
+`items/armour_shield/`, `items/dye_bottle/`, drawn by 3D-Modeling's
+`items/item_spin_sprites.py`): clothes, jewellery, hair styles, makeup and
+the lipstick a **t-shirt on a coat hanger** in their rarity's colour, armour
+a **shield** in it, and a dye a **bottle** of its colour (Rare blue glow).
+The old `items/<id>/icon.png` renders are only a fallback now.
 
 ## The treasure chest
 

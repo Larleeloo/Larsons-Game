@@ -6,10 +6,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * What a character is wearing and carrying: one item name (a folder under
@@ -28,6 +33,13 @@ import java.util.Set;
  * <p>Armour covers some of what is drawn over it, so those layers are left
  * out while it is worn ({@link #hidden}): gauntlets hide the wrists - a bangle
  * would be drawn over the gauntlet's cuff - and a chestplate the necklace.
+ * Mail is drawn close to the body, so what is worn under it would poke out
+ * round it: mail leggings hide the underwear and the pants, a mail shirt the
+ * bra and the shirt - but not a dress, whose skirt hangs below the mail; the
+ * dress is cut at the mail's edge instead ({@link #cutBy}).
+ *
+ * <p>And it remembers the colours dyes have unlocked, item by item ({@link
+ * #unlocked}): a dye is used up to unlock its colour on one item for good.
  */
 public final class Wardrobe {
 
@@ -120,9 +132,13 @@ public final class Wardrobe {
 
     /** The gloves that are gauntlets: worn, nothing is drawn on the wrists. */
     public static final Set<String> GAUNTLETS = Set.of("iron_gauntlets", "steel_gauntlets");
+    /** The shirts that are dresses: under a mail shirt the skirt still shows ({@link #cutBy}). */
+    public static final Set<String> DRESSES = Set.of("laced_dress");
 
     private final EnumMap<Slot, String> items = new EnumMap<>(Slot.class);
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
+    /** The colours dyes have unlocked: {@code "<slot>/<item>"} to its colour options. */
+    private final Map<String, Set<String>> unlocked = new TreeMap<>();
     private Style style = Style.RENDERED;
     private Hand hand = Hand.AUTO;
 
@@ -145,9 +161,10 @@ public final class Wardrobe {
 
     /**
      * Whether {@code slot}'s layer is left out because what is worn covers
-     * it: the wrists under gauntlets, the necklace under a chestplate. What
-     * is in the slot stays in the wardrobe - it shows again once the armour
-     * comes off.
+     * it: the wrists under gauntlets, the necklace under a chestplate, the
+     * underwear and the pants under mail leggings, the bra and a shirt (not a
+     * dress) under a mail shirt. What is in the slot stays in the wardrobe -
+     * it shows again once the armour comes off.
      */
     public boolean hidden(Slot slot) {
         return switch (slot) {
@@ -156,8 +173,24 @@ public final class Wardrobe {
                 yield gloves != null && GAUNTLETS.contains(gloves);
             }
             case NECKLACE -> items.containsKey(Slot.CHESTPLATE);
+            case UNDERWEAR, PANTS -> items.containsKey(Slot.CHAINMAIL_LEGS);
+            case BRA -> items.containsKey(Slot.CHAINMAIL);
+            case SHIRT -> items.containsKey(Slot.CHAINMAIL) && !DRESSES.contains(items.get(Slot.SHIRT));
             default -> false;
         };
+    }
+
+    /**
+     * The slot whose layer {@code slot}'s is cut by, or null: a dress under a
+     * mail shirt loses what pokes out from under the mail - its collar, its
+     * bodice past the mail's sides - and keeps its skirt
+     * ({@link SheetImage#cutUnder}).
+     */
+    public Slot cutBy(Slot slot) {
+        if (slot == Slot.SHIRT && DRESSES.contains(items.get(Slot.SHIRT)) && items.containsKey(Slot.CHAINMAIL)) {
+            return Slot.CHAINMAIL;
+        }
+        return null;
     }
 
     public Style style() { return style; }
@@ -186,6 +219,27 @@ public final class Wardrobe {
         return colours.get(Slot.BODY);
     }
 
+    /** Whether a dye has unlocked colour option {@code colour} for {@code item} worn in {@code slot}. */
+    public boolean unlocked(Slot slot, String item, String colour) {
+        Set<String> s = item == null ? null : unlocked.get(slot.key() + "/" + item);
+        return s != null && s.contains(colour);
+    }
+
+    /** Unlock colour option {@code colour} for {@code item} worn in {@code slot}, for good. */
+    public void unlock(Slot slot, String item, String colour) {
+        if (item == null || colour == null || colour.isBlank()) return;
+        unlocked.computeIfAbsent(slot.key() + "/" + item, k -> new TreeSet<>()).add(colour);
+    }
+
+    /** Every colour dyes have unlocked: {@code "<slot>/<item>"} to its colours. */
+    public Map<String, Set<String>> unlocks() {
+        Map<String, Set<String>> out = new TreeMap<>();
+        for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) {
+            out.put(e.getKey(), Collections.unmodifiableSet(new TreeSet<>(e.getValue())));
+        }
+        return Collections.unmodifiableMap(out);
+    }
+
     public Hand hand() { return hand; }
 
     public void setHand(Hand hand) {
@@ -205,6 +259,7 @@ public final class Wardrobe {
         Wardrobe w = new Wardrobe();
         w.items.putAll(items);
         w.colours.putAll(colours);
+        for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) w.unlocked.put(e.getKey(), new TreeSet<>(e.getValue()));
         w.style = style;
         w.hand = hand;
         return w;
@@ -219,6 +274,11 @@ public final class Wardrobe {
             Map<String, Object> c = new LinkedHashMap<>();
             for (Map.Entry<Slot, String> e : colours.entrySet()) c.put(e.getKey().key(), e.getValue());
             out.put("colours", c);
+        }
+        if (!unlocked.isEmpty()) {
+            Map<String, Object> u = new LinkedHashMap<>();
+            for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) u.put(e.getKey(), new ArrayList<>(e.getValue()));
+            out.put("unlocked", u);
         }
         return out;
     }
@@ -236,6 +296,14 @@ public final class Wardrobe {
             for (Map.Entry<?, ?> e : c.entrySet()) {
                 Slot slot = Slot.byKey(String.valueOf(e.getKey()));
                 if (slot != null && e.getValue() instanceof String s) w.setColour(slot, s);
+            }
+        }
+        if (json.get("unlocked") instanceof Map<?, ?> u) {
+            for (Map.Entry<?, ?> e : u.entrySet()) {
+                String[] key = String.valueOf(e.getKey()).split("/", 2);
+                Slot slot = key.length == 2 ? Slot.byKey(key[0]) : null;
+                if (slot == null || !(e.getValue() instanceof List<?> l)) continue;
+                for (Object c : l) if (c instanceof String s) w.unlock(slot, key[1], s);
             }
         }
         return w;

@@ -104,6 +104,14 @@ final class PauseMenu {
 
         float w = Math.min(1100, ui.width() - 40), h = Math.min(640, ui.height() - 40);
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        if (page == Page.WARDROBE) {
+            // the wardrobe draws its own armoire, title and Back button and all
+            if (wardrobe.draw(ui, dt, x, y, w, h, player) || escape) {
+                page = Page.MAIN;
+                game.saveWardrobe();
+            }
+            return;
+        }
         ui.panel(x, y, w, h);
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
@@ -120,7 +128,6 @@ final class PauseMenu {
         }
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
-            case WARDROBE -> wardrobe.draw(ui, dt, cx, cy, cw, ch, player);
             case SETTINGS -> settings(ui, cx, cy);
             case CONTROLS -> controls(ui, cx, cy);
             case IMPORT -> importHelp(ui, cx, cy, cw);

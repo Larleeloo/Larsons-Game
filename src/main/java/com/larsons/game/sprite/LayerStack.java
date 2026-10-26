@@ -36,7 +36,9 @@ import java.util.List;
  *       exception is the sword in the weapon hand, which has a generated
  *       fallback that matches the fallback body frame for frame.</li>
  *   <li>A layer the armour covers is not drawn ({@link Wardrobe#hidden}):
- *       the wrists under gauntlets, the necklace under a chestplate.</li>
+ *       the wrists under gauntlets, the necklace under a chestplate, what
+ *       is worn under mail; a dress under a mail shirt is drawn cut at the
+ *       mail's edge ({@link Wardrobe#cutBy}).</li>
  *   <li>Each layer is drawn in the colours the wardrobe picked for its slot
  *       (and the skin tone, wherever it shows skin): a palette swap of its
  *       pixel-art sheets from the item's {@code variants.json}
@@ -190,6 +192,12 @@ public final class LayerStack {
             SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
             if (file != null) file = file.withRecolor(lib.recolor(src, slot, wardrobe));
+            Slot cutBy = wardrobe.cutBy(slot);
+            if (file != null && cutBy != null) {
+                SpriteLibrary.Resolved over = lib.resolve(
+                        lib.source(bodyItem, cutBy, wardrobe.get(cutBy), wardrobe.style(), left), state, elev, facing);
+                if (over != null && over.mirrored() == file.mirrored()) file = file.cutBy(over.file());
+            }
             SheetTexture sheet = null;
             if (file != null) {
                 sheet = lib.sheet(file);

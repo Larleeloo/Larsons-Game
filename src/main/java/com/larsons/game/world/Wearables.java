@@ -8,17 +8,20 @@ import com.larsons.game.sprite.fallback.FallbackSprites;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Everything that can be worn, as items: clothes, armour, jewellery, the
  * dyes, makeup, lipstick, the hair styles and the eyebrows. The wardrobe
  * offers what the player owns - what is in her inventory, picked up or out of
- * a chest, and the underwear, the bra and a starter look (the long waves and
- * the arched eyebrows), which are hers from the start ({@link #OWNED_BY_DEFAULT}).
+ * a chest, and the underwear, the bra and a starter look (two hair styles,
+ * the long waves and the short side part, and the arched eyebrows), which
+ * are hers from the start ({@link #OWNED_BY_DEFAULT}).
  *
  * <pre>
  *   Common    underwear, bra (owned by default), shoes, pants, baggy shirt,
@@ -27,7 +30,8 @@ import java.util.Set;
  *             chainmail shirt, chainmail pants
  *   Rare      laced dress, silver wrist band, silver necklace, silver hoops,
  *             the 14 dyes, makeup (noir, rose, plum), lipstick, the hair
- *             styles, the eyebrows (long waves and arched owned by default),
+ *             styles, the eyebrows (long waves, side part and arched owned
+ *             by default),
  *             the iron armour
  *   Epic      gold wrist band, gold necklace, gold hoops, the steel armour
  * </pre>
@@ -36,11 +40,19 @@ import java.util.Set;
  * body itself and the skin tone, the ears, the eyes and their colour, the
  * nose and the mouth ({@link #FREE}). The carried slots are the weapons'.
  *
- * <p>A colour is an item too: an item's colour row offers the options of its
- * {@code variants.json} the player has a dye for ({@code dye_<option>}), the
- * lips all of them once she has the lipstick, and a metal wearable only its
- * own ({@link #colours}). Lose the item and what it gave is taken off
+ * <p>A colour is unlocked with a dye: every item with a colour choice in its
+ * {@code variants.json} - clothes, hair, makeup, the lips - offers the 14
+ * dyes' colours, and a colour she has not unlocked for that item is put on
+ * by using up a dye of it ({@link #useDye}): one red dye makes one shirt or
+ * one hair style red for good ({@link Wardrobe#unlocked}). The lipstick
+ * unlocks every colour of the lips, and a metal wearable has only its own
+ * ({@link #colours}). Lose a wearable and what it gave is taken off
  * ({@link #takeOff}).
+ *
+ * <p>Lying in the world and in the inventory a wearable is not drawn as
+ * itself but as one of three pickups coloured for it ({@link #pickup}): a
+ * t-shirt on a coat hanger in its rarity's colour, a shield in it for
+ * armour, a bottle of the dye for a dye.
  */
 public final class Wearables {
 
@@ -48,6 +60,12 @@ public final class Wearables {
     public static final List<String> DYE_COLOURS = List.of("brown", "black", "auburn", "copper", "honey_blonde",
             "platinum", "cherry_red", "pink", "electric_blue", "violet_ombre", "emerald", "mint", "green_ombre",
             "royal_blue");
+    /**
+     * Each dye's colour in its bottle (RGB): the mid shade a shirt takes in
+     * it ({@code shirt/plaid_flannel}'s {@code variants.json}), one of the
+     * 128 colours.
+     */
+    public static final Map<String, Integer> DYE_RGB = dyeRgb();
     /** The hair styles: every folder under {@code assets/sprites/hair/}. */
     public static final List<String> HAIR_STYLES = List.of("long_waves", "bob", "ponytail", "pixie", "braids",
             "curls", "crew_cut", "side_part", "undercut", "beanie_long", "beanie_short");
@@ -68,15 +86,32 @@ public final class Wearables {
     public static final ItemDef LIPSTICK = def("lipstick", "Lipstick",
             new Wearable(Rarity.RARE, List.of(), List.of(), null, null, null));
 
-    /** The starter look: the hair style and the eyebrows every character has. */
-    public static final ItemDef LONG_WAVES = hair("long_waves"), ARCHED_EYEBROWS = eyebrows("arched");
+    /** The starter look: a long and a short hair style, and the eyebrows every character has. */
+    public static final ItemDef LONG_WAVES = hair("long_waves"), SIDE_PART = hair("side_part"),
+            ARCHED_EYEBROWS = eyebrows("arched");
 
     /**
      * What every character owns without picking anything up: the underwear,
-     * the bra and the starter look. The other hair styles and eyebrows are
-     * Rare finds.
+     * the bra and the starter look - the long waves or the short side part,
+     * and the arched eyebrows. The other hair styles and eyebrows are Rare
+     * finds.
      */
-    public static final List<ItemDef> OWNED_BY_DEFAULT = List.of(UNDERWEAR, BRA, LONG_WAVES, ARCHED_EYEBROWS);
+    public static final List<ItemDef> OWNED_BY_DEFAULT = List.of(UNDERWEAR, BRA, LONG_WAVES, SIDE_PART,
+            ARCHED_EYEBROWS);
+
+    /** The pickups a wearable is drawn as (3D-Modeling's {@code items/item_spin_sprites.py}): their folders under {@code items/}. */
+    public static final String HANGER = "wearable_hanger", SHIELD = "armour_shield", BOTTLE = "dye_bottle";
+
+    /**
+     * How a wearable lies in the world and sits in the inventory: the turning
+     * sprite of one of the pickups ({@link #HANGER}, {@link #SHIELD}, {@link
+     * #BOTTLE}), its {@code part} in {@code rgb} - the shirt's cloth or the
+     * shield's face in the rarity's colour, the bottle's liquid in the dye's.
+     */
+    public record Pickup(String spin, String part, int rgb) {}
+
+    /** Every wearable to choose from and every colour unlocked: the debug code's switch ({@link #setEverything}). */
+    private static volatile boolean everything;
 
     /** Every wearable, by rarity and then as the table lists them. */
     public static final List<ItemDef> ALL = all();
@@ -116,7 +151,9 @@ public final class Wearables {
                     new Wearable(Rarity.RARE, List.of(Slot.MAKEUP), List.of(look), null, null, MAKEUP)));
         }
         out.add(LIPSTICK);
-        for (String style : HAIR_STYLES) out.add(style.equals("long_waves") ? LONG_WAVES : hair(style));
+        for (String style : HAIR_STYLES) {
+            out.add(style.equals("long_waves") ? LONG_WAVES : style.equals("side_part") ? SIDE_PART : hair(style));
+        }
         for (String brows : List.of("arched", "soft", "thin")) {
             out.add(brows.equals("arched") ? ARCHED_EYEBROWS : eyebrows(brows));
         }
@@ -162,8 +199,16 @@ public final class Wearables {
                 Stance.SWORD, w);
     }
 
+    private static Map<String, Integer> dyeRgb() {
+        int[] rgb = {0x7c3c24, 0x231c18, 0xa44f08, 0xd9740d, 0xfab33e, 0xfeedc7, 0xca1525, 0xfd81a5, 0x0b61c5,
+                0xb722e7, 0x0d9e44, 0xc3fec0, 0x7ee728, 0x4b52f4};
+        Map<String, Integer> out = new LinkedHashMap<>();
+        for (int i = 0; i < rgb.length; i++) out.put(DYE_COLOURS.get(i), rgb[i]);
+        return Collections.unmodifiableMap(out);
+    }
+
     /** "honey_blonde" -> "Honey blonde". */
-    private static String readable(String key) {
+    static String readable(String key) {
         String s = key.replace('_', ' ');
         return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1);
     }
@@ -179,12 +224,60 @@ public final class Wearables {
         return d != null && colour.equals(d.wearable().dye()) ? d : null;
     }
 
+    /** Whether {@code d} is armour: chainmail, plate, gauntlets or a helmet (drawn as the shield). */
+    public static boolean armour(ItemDef d) {
+        if (d == null || !d.isWearable()) return false;
+        for (Slot s : d.wearable().slots()) {
+            if (s == Slot.CHAINMAIL || s == Slot.CHAINMAIL_LEGS || s == Slot.CHESTPLATE || s == Slot.LEG_PLATING) {
+                return true;
+            }
+        }
+        for (String f : d.wearable().folders()) {
+            if (Wardrobe.GAUNTLETS.contains(f) || f.endsWith("_helmet")) return true;
+        }
+        return false;
+    }
+
+    /**
+     * What {@code item} is drawn as lying about and in the inventory: a dye
+     * as a bottle of it, armour as a shield in its rarity's colour, anything
+     * else worn as a t-shirt on a hanger in it; null for a weapon (drawn as
+     * itself).
+     */
+    public static Pickup pickup(Item item) {
+        ItemDef d = item.def();
+        if (!d.isWearable()) return null;
+        String dye = d.wearable().dye();
+        if (dye != null) return new Pickup(BOTTLE, "liquid", DYE_RGB.getOrDefault(dye, item.rarity().rgb()));
+        return new Pickup(armour(d) ? SHIELD : HANGER, armour(d) ? "face" : "cloth", item.rarity().rgb());
+    }
+
+    // --- the debug code ---------------------------------------------------------------
+
+    /**
+     * Offer every wearable in the wardrobe and unlock every colour, whatever
+     * she owns (on), or only what she owns (off): the debug code's switch.
+     */
+    public static void setEverything(boolean on) {
+        everything = on;
+    }
+
+    /** Whether every wearable and every colour is offered ({@link #setEverything}). */
+    public static boolean everything() {
+        return everything;
+    }
+
     // --- owning --------------------------------------------------------------------
 
-    /** What the player owns to wear: what is owned by default, then every wearable she carries. */
+    /**
+     * What the player owns to wear: what is owned by default, then every
+     * wearable she carries - every wearable there is while {@link
+     * #everything()} is on.
+     */
     public static Set<ItemDef> owned(Inventory inventory) {
         Set<ItemDef> out = new LinkedHashSet<>(OWNED_BY_DEFAULT);
         for (Item item : inventory) if (item.def().isWearable()) out.add(item.def());
+        if (everything) out.addAll(ALL);
         return out;
     }
 
@@ -206,32 +299,63 @@ public final class Wearables {
     }
 
     /**
-     * The colours offered for {@code folder} worn in {@code slot}, out of
-     * {@code all} (its {@code variants.json}'s): every one for the skin, the
-     * eyes and the other free layers and for what is carried; for the lips
-     * every one with the lipstick owned, else none; none for a metal (its
-     * colour is the item's); otherwise those the player owns a dye for. The
-     * colour already applied ({@code current}) is always among them.
+     * One colour of what is worn in a slot, and whether it can be put on as
+     * it is ({@code unlocked}) or only by using up a dye of it.
      */
-    public static List<String> colours(Slot slot, String folder, List<String> all, String current,
-                                       Set<ItemDef> owned) {
-        if (slot.carried() || (free(slot) && slot != Slot.MOUTH)) return all;
-        if (metal(slot, folder)) return List.of();
-        boolean lips = slot == Slot.MOUTH;
-        List<String> out = new ArrayList<>();
+    public record Colour(String option, boolean unlocked) {}
+
+    /**
+     * The colours of {@code folder} worn in {@code slot}, out of {@code all}
+     * (its {@code variants.json}'s): every one unlocked for the skin, the eyes
+     * and the other free layers and for what is carried; none for a metal (its
+     * colour is the item's); otherwise every one, unlocked where a dye of it
+     * was used on this item ({@link Wardrobe#unlocked}), for the lips every
+     * one with the lipstick owned, and the colour already applied ({@code
+     * current}); every one while {@link #everything()} is on.
+     */
+    public static List<Colour> colours(Slot slot, String folder, List<String> all, String current,
+                                       Set<ItemDef> owned, Wardrobe wardrobe) {
+        List<Colour> out = new ArrayList<>();
+        if (metal(slot, folder)) return out;
+        boolean open = everything || slot.carried() || (free(slot) && slot != Slot.MOUTH)
+                || (slot == Slot.MOUTH && owned.contains(LIPSTICK));
         for (String c : all) {
-            boolean unlocked = lips ? owned.contains(LIPSTICK) : owned.contains(dye(c));
-            if (unlocked || c.equals(current)) out.add(c);
+            out.add(new Colour(c, open || c.equals(current) || wardrobe.unlocked(slot, folder, c)));
         }
         return out;
+    }
+
+    /** The first dye of colour {@code colour} in {@code inventory}, or null. */
+    public static Item dyeIn(Inventory inventory, String colour) {
+        ItemDef d = dye(colour);
+        if (d == null) return null;
+        for (Item item : inventory) if (item.def() == d) return item;
+        return null;
+    }
+
+    /**
+     * Use up a dye of {@code colour} from {@code inventory} on what is worn in
+     * {@code slot}: the colour is unlocked for that item for good and put on.
+     * False (and nothing changes) when nothing is worn there, she has no dye
+     * of it, or the colour is already unlocked.
+     */
+    public static boolean useDye(Wardrobe wardrobe, Inventory inventory, Slot slot, String colour) {
+        String folder = wardrobe.get(slot);
+        if (folder == null || colour == null || wardrobe.unlocked(slot, folder, colour)) return false;
+        Item dye = dyeIn(inventory, colour);
+        if (dye == null || !inventory.remove(dye)) return false;
+        wardrobe.unlock(slot, folder, colour);
+        wardrobe.setColour(slot, colour);
+        return true;
     }
 
     /**
      * After the player has lost {@code lost} (dropped it, or it spilled out
      * of a smaller inventory), take off what it gave her - unless she still
-     * owns another that gives the same: what she wears of it, the colours of
-     * its dye, the lips' colour with the lipstick. What is owned by default
-     * and the free layers are never taken off.
+     * owns another that gives the same: what she wears of it, the lips'
+     * colour with the lipstick. What is owned by default, the free layers and
+     * the colours dyes have unlocked (the dye was used up) are never taken
+     * off.
      */
     public static void takeOff(Wardrobe wardrobe, Inventory inventory, ItemDef lost) {
         if (lost == null || !lost.isWearable()) return;
@@ -248,14 +372,12 @@ public final class Wearables {
             wardrobe.clear(slot);
             wardrobe.setColour(slot, null);
         }
-        if (w.dye() != null) {
-            for (Slot slot : Slot.values()) {
-                if (slot == Slot.MOUTH && owned.contains(LIPSTICK)) continue;
-                if (slot.carried() || (free(slot) && slot != Slot.MOUTH)) continue;
-                if (w.dye().equals(wardrobe.colour(slot))) wardrobe.setColour(slot, null);
+        if (lost == LIPSTICK) {
+            String lips = wardrobe.get(Slot.MOUTH), colour = wardrobe.colour(Slot.MOUTH);
+            if (lips == null || colour == null || !wardrobe.unlocked(Slot.MOUTH, lips, colour)) {
+                wardrobe.setColour(Slot.MOUTH, null);
             }
         }
-        if (lost == LIPSTICK) wardrobe.setColour(Slot.MOUTH, null);
     }
 
     // --- dropping ------------------------------------------------------------------

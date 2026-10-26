@@ -24,7 +24,10 @@ import java.util.Map;
  *   <li><b>The item</b> ({@link #draw}, the sprites pass, where it falls far
  *       to near): its turning sprite ({@link ItemSprites}) at the frame its
  *       spin has reached, from the height the camera sees it from, in its
- *       weapon tier's colours; round it the halo of its rarity - a soft glow
+ *       weapon tier's colours - a wearable as its pickup ({@link
+ *       Wearables#pickup}): a t-shirt on a hanger, or for armour a shield,
+ *       in its rarity's colour, a dye as a bottle of it; round it the halo of
+ *       its rarity - a soft glow
  *       and a brighter one hugging its outline; a rare border, if it has one,
  *       as a crisp outline in the border's colour with what comes off it
  *       (Venom's lime drips, Mystic's smoky purple puffs, Bonded's pink
@@ -93,7 +96,8 @@ final class ItemRenderer implements AutoCloseable {
     void draw(World.GroundItem g, double t, Vec3 eye, double yaw, Vec3 right, Vec3 up) {
         if (!g.out(t)) return;
         Vec3 c = g.centre(t);
-        String id = g.def.id();
+        Wearables.Pickup pickup = Wearables.pickup(g.item);
+        String id = pickup == null ? g.def.id() : pickup.spin();
         float[] rc = rgb(g.item.rarity().rgb());
         double b = beamStrength(g, t);
         // the beam stands upright and turns to face the camera only about the vertical
@@ -110,9 +114,9 @@ final class ItemRenderer implements AutoCloseable {
         SheetTexture sheet = spin == null ? null : sheet(id, SpriteView.of(eye, c, 0, yaw).elevation());
         Border border = g.item.border();
         if (sheet != null) {
-            drawSprite(g, t, c, right, up, spin, sheet, rc, border);
+            drawSprite(g, t, c, right, up, spin, sheet, rc, border, pickup);
         } else {
-            Texture icon = sprites.icon(id, g.def.fallbackIcon());
+            Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
             double s = g.def.worldSize();
             batch.quad(icon, corner(c, right, up, s), right.scale(s), up.scale(-s), 0, 0, 1, 1, 1, 1, 1, 1);
         }
@@ -121,7 +125,7 @@ final class ItemRenderer implements AutoCloseable {
     }
 
     private void drawSprite(World.GroundItem g, double t, Vec3 c, Vec3 right, Vec3 up, ItemSprites.Spin spin,
-                            SheetTexture sheet, float[] rc, Border border) {
+                            SheetTexture sheet, float[] rc, Border border, Wearables.Pickup pickup) {
         double w = spin.profile().frameWorldSize(), h = spin.profile().frameWorldHeight();
         double texel = w / Math.max(1, spin.profile().frameWidth());
         Vec3 topLeft = c.sub(right.scale(w / 2)).add(up.scale(h / 2));
@@ -150,7 +154,8 @@ final class ItemRenderer implements AutoCloseable {
             }
         }
         String tier = g.item.tier() == null ? null : g.item.tier().key();
-        int palette = batch.palette(items.palette(sheet, g.def.id(), tier));
+        int palette = batch.palette(pickup != null ? items.paint(sheet, pickup.spin(), pickup.part(), pickup.rgb())
+                : items.palette(sheet, g.def.id(), tier));
         batch.quadClipped(sheet.texture(), q[0], q[1], q[2], uv[0], uv[1], uv[2], uv[3],
                 cu0, cv0, cu1, cv1, 1, 1, 1, 1, palette);
     }

@@ -84,8 +84,9 @@ class WearablesTest {
         assertEquals(w("gold_necklace"), Wearables.wornAs(Slot.NECKLACE, "gold_pendant", "gold"));
         assertEquals(w("silver_hoops"), Wearables.wornAs(Slot.EARRINGS, "gold_hoops", "silver"));
         assertNull(Wearables.wornAs(Slot.NECKLACE, "gold_pendant", null), "a pendant in no metal is neither");
-        assertEquals(List.of(Wearables.UNDERWEAR, Wearables.BRA, w("hair_long_waves"), w("eyebrows_arched")),
-                Wearables.OWNED_BY_DEFAULT, "the underwear, the bra and the starter look");
+        assertEquals(List.of(Wearables.UNDERWEAR, Wearables.BRA, w("hair_long_waves"), w("hair_side_part"),
+                w("eyebrows_arched")), Wearables.OWNED_BY_DEFAULT,
+                "the underwear, the bra and the starter look: a long and a short hair style");
     }
 
     @Test
@@ -117,7 +118,7 @@ class WearablesTest {
                 "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; the dyes, the makeup, the lipstick, the hair "
                         + "styles and the eyebrows one each; the iron armour");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 14), "the dyes");
-        assertTrue(rare.stream().anyMatch(d -> d.size() == 10), "the hair styles, less the starter's");
+        assertTrue(rare.stream().anyMatch(d -> d.size() == 9), "the hair styles, less the starter's two");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 2 && d.get(0).id().startsWith("eyebrows_")));
         assertTrue(rare.stream().anyMatch(d -> d.size() == 3 && d.get(0).id().startsWith("makeup_")));
     }
@@ -240,7 +241,7 @@ class WearablesTest {
     }
 
     @Test
-    void losingTheLastDyeOfAColourTakesThatColourOff() {
+    void aDyeColourIsTheItemsForGoodTheLipsAreTheLipsticks() {
         World world = new World(new Wardrobe());
         Player p = world.player();
         Wardrobe wr = p.wardrobe();
@@ -250,17 +251,37 @@ class WearablesTest {
             wr.set(s, "something");
             wr.setColour(s, "pink");
         }
-        wr.setColour(Slot.PANTS, "black");
         world.dropSlot(0);
-        assertNull(wr.colour(Slot.SHIRT));
-        assertNull(wr.colour(Slot.HAIR));
-        assertEquals("pink", wr.colour(Slot.EYES), "the eyes' colour is free");
-        assertEquals("pink", wr.colour(Slot.BODY), "and the skin tone");
+        for (Slot s : List.of(Slot.SHIRT, Slot.HAIR, Slot.EYES, Slot.BODY)) {
+            assertEquals("pink", wr.colour(s), s + ": a dye in the bag is no colour; losing it takes none off");
+        }
         assertEquals("pink", wr.colour(Slot.MOUTH), "the lips are the lipstick's");
-        assertEquals("black", wr.colour(Slot.PANTS), "another colour stays");
-        assertEquals("something", wr.get(Slot.SHIRT), "what was dyed stays on");
         world.dropSlot(1);
-        assertNull(wr.colour(Slot.MOUTH));
+        assertNull(wr.colour(Slot.MOUTH), "no lipstick, no lip colour");
         assertEquals("something", wr.get(Slot.MOUTH));
+
+        // a lip colour a dye unlocked stays without the lipstick
+        p.inventory().add(Item.of(w("dye_cherry_red")));
+        p.inventory().add(Item.of(Wearables.LIPSTICK));
+        assertTrue(Wearables.useDye(wr, p.inventory(), Slot.MOUTH, "cherry_red"));
+        world.dropSlot(p.inventory().indexOf(Wearables.LIPSTICK));
+        assertEquals("cherry_red", wr.colour(Slot.MOUTH));
+    }
+
+    @Test
+    void thePickupsAreAHangerAShieldAndABottleInTheirColours() {
+        Item dress = Item.of(w("laced_dress"));
+        assertEquals(new Wearables.Pickup(Wearables.HANGER, "cloth", dress.rarity().rgb()), Wearables.pickup(dress));
+        assertEquals(Wearables.HANGER, Wearables.pickup(Item.of(w("hair_bob"))).spin(), "a hair style too");
+        assertEquals(Wearables.HANGER, Wearables.pickup(Item.of(w("silver_necklace"))).spin());
+        for (String armour : List.of("iron_chestplate", "steel_helmet", "iron_helmet")) {
+            Item item = Item.of(w(armour));
+            assertEquals(new Wearables.Pickup(Wearables.SHIELD, "face", item.rarity().rgb()), Wearables.pickup(item),
+                    armour);
+        }
+        Wearables.Pickup dye = Wearables.pickup(Item.of(w("dye_cherry_red")));
+        assertEquals(new Wearables.Pickup(Wearables.BOTTLE, "liquid", 0xca1525), dye, "in the dye's own colour");
+        for (String colour : Wearables.DYE_COLOURS) assertTrue(Wearables.DYE_RGB.containsKey(colour), colour);
+        assertNull(Wearables.pickup(Item.parse("sword")), "a weapon is its own sprite");
     }
 }
