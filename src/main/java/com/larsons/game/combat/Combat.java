@@ -202,8 +202,9 @@ public final class Combat {
         Player p = world.player();
         double at = move.at() * p.actionDuration();
 
-        boolean mystic = weapon != null && weapon.border() == Border.MYSTIC;
-        double cost = manaCost(weapon, move);
+        boolean plain = plainBlow(weapon, move);
+        boolean mystic = !plain && weapon != null && weapon.border() == Border.MYSTIC;
+        double cost = plain ? 0 : manaCost(weapon, move);
         boolean paid = cost <= mana + 1e-9;
         if (paid) mana -= cost;
         if (!paid) {
@@ -214,9 +215,9 @@ public final class Combat {
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
 
-        int n = (weapon == null ? tuning.unarmedDice : tuning.dice(weapon.rarity()))
-                + (move.heavy() ? tuning.heavyExtra : 0);
-        Strike strike = new Strike(weapon, DiceRoll.roll(n, tuning.sides, random), mystic && paid);
+        int n = plain ? tuning.wandHeavyDice
+                : (weapon == null ? tuning.unarmedDice : tuning.dice(weapon.rarity())) + (move.heavy() ? tuning.heavyExtra : 0);
+        Strike strike = new Strike(weapon, DiceRoll.roll(n, tuning.sides, random), mystic && paid, plain);
         show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes(strike, aimed));
         sounds.add(new Sound("combat/dice_roll", p.ground()));
         return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
@@ -521,6 +522,18 @@ public final class Combat {
         if (weapon == null) return false;
         if (weapon.id().contains("wand")) return true;
         return weapon.def().stance() == Stance.STAFF && weapon.tier() != null && weapon.tier() != Tier.BASIC;
+    }
+
+    /**
+     * Whether {@code move} with {@code weapon} is a plain blow: a wand's heavy
+     * attack. Its great two-handed cast sends no spell - it is the wand
+     * brought down on whatever is in front of her - so it rolls one D20
+     * ({@link CombatTuning#wandHeavyDice}) whatever the wand's rarity, costs
+     * no mana, and its border (Mystic, Venom, Bonded) adds nothing.
+     */
+    public static boolean plainBlow(Item weapon, Move move) {
+        return weapon != null && move != null && move.heavy() && !move.shoots()
+                && (weapon.def().stance() == Stance.WAND || weapon.id().contains("wand"));
     }
 
     /**

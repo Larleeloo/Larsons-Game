@@ -9,6 +9,7 @@ import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
 import com.larsons.game.world.World;
 
@@ -23,7 +24,8 @@ import com.larsons.game.world.World;
  *   <li><b>the damage</b> floating up off whatever was hit, in the weapon's
  *       colour, and poison's ticks in Venom's green;</li>
  *   <li>a dummy's <b>health</b> over it once it has been hit;</li>
- *   <li>her <b>mana</b>, beside the hotbar.</li>
+ *   <li>her <b>mana</b>, beside the hotbar, and on its other side how soon
+ *       she can make a <b>heavy attack</b> again.</li>
  * </ul>
  *
  * <p>The dice are pixel art, drawn at a whole number of screen pixels a
@@ -42,6 +44,7 @@ public final class CombatHud {
     public static final double STAGGER = 0.06;
 
     private static final int MANA_RGB = 0x5D86FA, MANA_LIGHT = 0x92B9FF;
+    private static final int HEAVY_RGB = 0xFB992C, HEAVY_LIGHT = 0xFFD27A;
 
     private final CombatSprites fx;
 
@@ -151,6 +154,27 @@ public final class CombatHud {
         ui.rect(x, y, w * k, 3, CombatColours.rgba(MANA_LIGHT, 0.95f));
         String label = "Mana " + (int) Math.floor(combat.mana());
         ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(MANA_LIGHT, 1f));
+    }
+
+    /**
+     * The heavy attack's cooldown: a bar to the left of the hotbar, whose
+     * slots' middle is {@code cy} on screen, filling back up after each heavy
+     * attack - "Heavy (X) ready" once it is full. Nothing while what she
+     * holds has no heavy attack.
+     */
+    public void drawHeavy(Ui ui, Player player, float cy) {
+        if (player.stance().heavy() == null) return;
+        float w = 150, h = 12;
+        float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - h / 2;
+        double wait = player.heavyWait(), full = player.heavyCooldown();
+        float k = full <= 0 ? 1 : (float) Math.max(0, Math.min(1, 1 - wait / full));
+        boolean ready = wait <= 0;
+        ui.rect(x - 2, y - 2, w + 4, h + 4, Theme.withAlpha(Theme.BACKGROUND, 0.7f));
+        ui.rect(x, y, w * k, h, CombatColours.rgba(HEAVY_RGB, ready ? 0.95f : 0.55f));
+        ui.rect(x, y, w * k, 3, CombatColours.rgba(HEAVY_LIGHT, ready ? 0.95f : 0.55f));
+        String label = ready ? "Heavy (X) ready" : "Heavy (X) in " + (int) Math.ceil(wait) + " s";
+        ui.textShadowed(ui.small, label, x + w - ui.small.width(label), y - ui.small.lineHeight() - 3,
+                CombatColours.rgba(ready ? HEAVY_LIGHT : 0xFFFFFF, 1f));
     }
 
     /** One frame of a sheet over a {@code size}-point square at {@code (x, y)} (its cells are cropped). */

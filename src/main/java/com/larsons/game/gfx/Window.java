@@ -39,6 +39,8 @@ public final class Window implements AutoCloseable {
     private int width, height;           // logical (window) pixels
     private int fbWidth, fbHeight;       // device (framebuffer) pixels
     private boolean focused = true;
+    /** Where the window was, and how big, before it went full screen: x, y, width, height. */
+    private final int[] windowed = new int[4];
 
     public Window(String title, int width, int height, int samples, boolean vsync) {
         GLFWErrorCallback.createPrint(System.err).set();
@@ -134,12 +136,82 @@ public final class Window implements AutoCloseable {
      * or 0 if GLFW does not know.
      */
     public int refreshRate() {
-        long monitor = glfwGetWindowMonitor(handle);
-        if (monitor == MemoryUtil.NULL) monitor = monitorUnderCentre();
-        if (monitor == MemoryUtil.NULL) monitor = glfwGetPrimaryMonitor();
+        long monitor = monitor();
         if (monitor == MemoryUtil.NULL) return 0;
         GLFWVidMode mode = glfwGetVideoMode(monitor);
         return mode == null ? 0 : Math.max(0, mode.refreshRate());
+    }
+
+    /**
+     * The fastest refresh rate, in Hz, the monitor the window is on can be
+     * set to at the resolution it runs at - from its list of video modes -
+     * or 0 if GLFW does not know. Above {@link #refreshRate} when the system
+     * runs a fast display slower than it can go (60 Hz on a 144 Hz screen).
+     */
+    public int maxRefreshRate() {
+        long monitor = monitor();
+        if (monitor == MemoryUtil.NULL) return 0;
+        int fastest = fastestRate(monitor);
+        return fastest > 0 ? fastest : refreshRate();
+    }
+
+    /** The monitor's fastest refresh rate at the resolution it runs at now, in Hz, or 0. */
+    private static int fastestRate(long monitor) {
+        GLFWVidMode now = glfwGetVideoMode(monitor);
+        GLFWVidMode.Buffer modes = glfwGetVideoModes(monitor);
+        if (now == null || modes == null) return 0;
+        int best = 0;
+        for (int i = 0; i < modes.limit(); i++) {
+            GLFWVidMode m = modes.get(i);
+            if (m.width() == now.width() && m.height() == now.height()) best = Math.max(best, m.refreshRate());
+        }
+        return best;
+    }
+
+    /** Whether the window has its monitor to itself, full screen ({@link #setFullscreen}). */
+    public boolean fullscreen() {
+        return glfwGetWindowMonitor(handle) != MemoryUtil.NULL;
+    }
+
+    /**
+     * Go full screen on the monitor the window is on - at the resolution the
+     * monitor runs at, switched to its fastest refresh rate there, so a
+     * 144 Hz display the system keeps at 60 shows the game at 144 - or back
+     * into the window it was. Returns the refresh rate asked for (0: back in
+     * a window).
+     */
+    public int setFullscreen(boolean on) {
+        if (on == fullscreen()) return on ? refreshRate() : 0;
+        if (!on) {
+            glfwSetWindowMonitor(handle, MemoryUtil.NULL, windowed[0], windowed[1], windowed[2], windowed[3],
+                    GLFW_DONT_CARE);
+            measure();
+            return 0;
+        }
+        long monitor = monitor();
+        if (monitor == MemoryUtil.NULL) return 0;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1);
+            glfwGetWindowPos(handle, x, y);
+            windowed[0] = x.get(0);
+            windowed[1] = y.get(0);
+        }
+        windowed[2] = width;
+        windowed[3] = height;
+        GLFWVidMode now = glfwGetVideoMode(monitor);
+        if (now == null) return 0;
+        int hz = Math.max(now.refreshRate(), fastestRate(monitor));
+        glfwSetWindowMonitor(handle, monitor, 0, 0, now.width(), now.height(), hz);
+        measure();
+        return hz;
+    }
+
+    /** The monitor the window is on: its own when full screen, else the one under its centre, else the primary. */
+    private long monitor() {
+        long monitor = glfwGetWindowMonitor(handle);
+        if (monitor == MemoryUtil.NULL) monitor = monitorUnderCentre();
+        if (monitor == MemoryUtil.NULL) monitor = glfwGetPrimaryMonitor();
+        return monitor;
     }
 
     private long monitorUnderCentre() {

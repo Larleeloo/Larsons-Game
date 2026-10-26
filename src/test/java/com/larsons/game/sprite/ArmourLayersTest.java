@@ -68,6 +68,31 @@ class ArmourLayersTest {
     }
 
     @Test
+    void theMailHidesTheClothesThatWouldPokeThroughItButADressKeepsItsSkirt() {
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.UNDERWEAR, "cotton_briefs");
+        w.set(Slot.BRA, "leather_bralette");
+        w.set(Slot.PANTS, "cargo_pants");
+        w.set(Slot.SHIRT, "plaid_flannel");
+        w.set(Slot.CHAINMAIL_LEGS, "chainmail_pants");
+        for (Slot s : List.of(Slot.UNDERWEAR, Slot.PANTS)) assertTrue(w.hidden(s), s + " under mail leggings");
+        assertFalse(w.hidden(Slot.SHIRT));
+        assertFalse(w.hidden(Slot.BRA));
+        w.set(Slot.CHAINMAIL, "chainmail_shirt");
+        assertTrue(w.hidden(Slot.SHIRT), "the baggy shirt under the mail shirt");
+        assertTrue(w.hidden(Slot.BRA));
+        assertNull(w.cutBy(Slot.SHIRT));
+        w.set(Slot.SHIRT, "laced_dress");
+        assertFalse(w.hidden(Slot.SHIRT), "a dress shows below the mail");
+        assertEquals(Slot.CHAINMAIL, w.cutBy(Slot.SHIRT), "but is cut where the mail covers it");
+        w.clear(Slot.CHAINMAIL);
+        w.clear(Slot.CHAINMAIL_LEGS);
+        assertNull(w.cutBy(Slot.SHIRT));
+        for (Slot s : Slot.values()) assertFalse(w.hidden(s), s + " with the mail off");
+        assertEquals("cargo_pants", w.get(Slot.PANTS), "what was hidden stayed worn");
+    }
+
+    @Test
     void aHiddenLayerIsLeftOutOfTheStack() throws Exception {
         for (String rel : List.of("body/hero", "wristwear/gold_bangle", "necklace/gold_pendant",
                 "gloves/iron_gauntlets", "chestplate/iron_chestplate")) {

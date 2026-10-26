@@ -12,6 +12,7 @@ import com.larsons.game.world.Border;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Wearables;
 import com.larsons.game.world.World;
 
 import javax.imageio.ImageIO;
@@ -46,6 +47,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  *   <li>Right-click (or Shift-click) moves an item between the hotbar and the
  *       rest of the inventory.</li>
  *   <li>1 – 5 over a slot swaps it with that hotbar slot.</li>
+ *   <li>"A–Z" and "Rarity", at the top, sort the rest of the inventory by
+ *       name or rarest first ({@link Inventory#sort}); the hotbar stays.</li>
  * </ul>
  *
  * <p>With the screen shut the hotbar stands at the bottom of the screen,
@@ -58,7 +61,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  * border's effect in its tooltip. An item with turning sprites ({@link
  * ItemSprites#icon}) is drawn from them in its weapon tier's colours, lying
  * corner to corner, and turns while it is under the pointer, selected or
- * carried on the pointer.
+ * carried on the pointer. A wearable is drawn as its pickup ({@link
+ * Wearables#pickup}) - the t-shirt on its hanger, the shield, the dye's
+ * bottle - upright, in its rarity's colour or its dye's.
  *
  * <p>Where things go, as fractions of the 432 × 768 background, so a
  * background can be drawn round them: the title at the top (to 10 %), the
@@ -82,6 +87,8 @@ final class InventoryPanel {
     private static final float RARITY_FILL = 0.14f, RARITY_EDGE = 0.85f, RARITY_GLOW = 0.5f;
     /** How long a turning icon takes to go once round, in seconds. */
     private static final double ICON_TURN = 3.2;
+    /** A wearable's pickup's frame, in half-diagonals of its slot: the pickup a little less than the slot's width. */
+    private static final float PICKUP_ICON = 1.75f;
 
     private final Game game;
     private final World world;
@@ -247,6 +254,7 @@ final class InventoryPanel {
         ui.textCentered(ui.large, "Inventory", px + pw / 2, py + ph * 0.035f, Theme.TITLE);
         ui.textCentered(ui.small, inv.count() + " / " + inv.size(), px + pw / 2, py + ph * 0.035f + 30,
                 Theme.ITEM_DISABLED);
+        sortButtons(ui, inv, px, py, pw, ph);
 
         List<Spot> spots = spots(inv.size(), px, py, pw, ph);
         hovered = -1;
@@ -306,7 +314,24 @@ final class InventoryPanel {
             icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
         }
         ui.textCentered(ui.small, "Click: pick up / put down · Right-click: to / from the hotbar · "
-                + "Click outside: drop · I or Esc: close", ui.width() / 2f, py + ph + 10, Theme.HINT);
+                + "Click outside: drop · A–Z / Rarity: sort · I or Esc: close", ui.width() / 2f, py + ph + 10, Theme.HINT);
+    }
+
+    /** Where the sort buttons go: in the title's band, either side of it, as {@code {x, y, w, h}} of the left one. */
+    static float[] sortButton(float px, float py, float pw, float ph) {
+        float w = Math.max(64, pw * 0.2f), h = Math.max(24, ph * 0.04f);
+        return new float[]{px + pw * 0.05f, py + ph * 0.035f + 2, w, h};
+    }
+
+    /** "A–Z" (left of the title) and "Rarity" (right of it): sort the rest of the inventory. */
+    private void sortButtons(Ui ui, Inventory inv, float px, float py, float pw, float ph) {
+        float[] b = sortButton(px, py, pw, ph);
+        Inventory.Order order = null;
+        if (ui.button("A–Z", b[0], b[1], b[2], b[3])) order = Inventory.Order.NAME;
+        if (ui.button("Rarity", px + pw - (b[0] - px) - b[2], b[1], b[2], b[3])) order = Inventory.Order.RARITY;
+        if (order == null) return;
+        inv.sort(order);
+        Sounds.play(SoundKeys.ui("hotbar_select"));
     }
 
     /** Right-click: the hotbar's item into the rest of the inventory, or the other way. */
@@ -346,8 +371,7 @@ final class InventoryPanel {
                     sel ? SELECTED : Theme.withAlpha(Theme.HINT, 0.9f));
         }
         if (nameTimer > 0) {
-            String name = held == null ? "Empty hand - " + world.player().stance().label().toLowerCase()
-                    : held.fullName();
+            String name = held == null ? "Empty hands" : held.fullName();
             float a = (float) Math.min(1, nameTimer / 0.4);
             float w = ui.body.width(name) + 24;
             ui.rect(ui.width() / 2f - w / 2, cy - r - 44, w, 28, Theme.withAlpha(Theme.PANEL, 0.75f * a));
@@ -381,17 +405,22 @@ final class InventoryPanel {
     private void icon(Ui ui, Item item, float x, float y, float r, float alpha, boolean turning) {
         ItemDef d = item.def();
         ItemSprites items = game.items();
-        ItemSprites.Spin spin = items.spin(d.id());
-        ItemSprites.Icon icon = spin == null ? null : items.icon(d.id(), item.tier() == null ? null : item.tier().key());
+        Wearables.Pickup pickup = Wearables.pickup(item);
+        String id = pickup == null ? d.id() : pickup.spin();
+        ItemSprites.Spin spin = items.spin(id);
+        ItemSprites.Icon icon = spin == null ? null
+                : pickup != null ? items.icon(id, pickup.part(), pickup.rgb())
+                : items.icon(id, item.tier() == null ? null : item.tier().key());
         if (icon == null) {
             Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
             float s = r * 1.2f;
             ui.image(t, x - s / 2, y - s / 2, s, s, Theme.rgb(255, 255, 255, alpha));
             return;
         }
-        // the item as long as the diamond's side, lying along it at rest
-        float s = (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
-        int frame = ItemSprites.ICON_REST_FRAME;
+        // a weapon as long as the diamond's side, lying along it at rest; a pickup upright, inside it
+        float s = pickup != null ? r * PICKUP_ICON
+                : (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
+        int frame = pickup != null ? 0 : ItemSprites.ICON_REST_FRAME;
         if (turning) frame += (int) Math.floor(world.time() / ICON_TURN * icon.frames());
         float[] uv = icon.uv(frame);
         float x0 = x - s / 2, y0 = y - s / 2;

@@ -16,7 +16,8 @@ import java.util.function.ToDoubleFunction;
  *
  * <p>What plays depends on her {@link Stance} - what she holds: the
  * wardrobe's sword and shield, or a battle axe, a bow or a crossbow she has
- * picked up - and on whether she is crouched (C toggles it):
+ * picked up, or nothing at all ({@link #handsEmpty}) - and on whether she is
+ * crouched (C toggles it):
  *
  * <pre>
  *   airborne or mid-jump          → the stance's jump
@@ -33,7 +34,8 @@ import java.util.function.ToDoubleFunction;
  * and holds at full draw while the attack is held, and letting go looses the
  * arrow - or, before the draw is most of the way back, lets the string down.
  * She moves at the speed her locomotion state's feet travel at
- * ({@link AnimState#speed()}).
+ * ({@link AnimState#speed()}). A heavy attack can only be made once every
+ * {@link #HEAVY_COOLDOWN} seconds ({@link #heavyWait}).
  *
  * <p>For looking at the art rather than playing, a state can be
  * <em>previewed</em>: it loops in place (the one-shots included) until the
@@ -54,6 +56,12 @@ public final class Player {
     public static final double GRAB_AT = 0.5;
     /** How far back the bow must be drawn (a fraction of the draw) for letting go to loose it. */
     public static final double DRAW_READY = 0.7;
+    /**
+     * The least time from one heavy attack to the next, in seconds, unless
+     * the game says otherwise ({@link #setHeavyCooldown}; {@code combat.json}'s
+     * {@code cooldowns.heavySeconds}).
+     */
+    public static final double HEAVY_COOLDOWN = 10;
 
     /**
      * What the controls ask for this frame. The one-frame requests ({@code
@@ -97,6 +105,7 @@ public final class Player {
     private AnimState preview;
 
     private Stance stance = Stance.SWORD;
+    private boolean handsEmpty;
     private boolean crouched;
     private boolean jumping, launched;
     /** The jump under way: the stance's own (they all leave the ground on the same frames). */
@@ -106,6 +115,8 @@ public final class Player {
     private double actionDuration = 0.6;
     private boolean drawing;
     private Runnable grab;
+    /** How long a heavy attack takes to come back, and how long is left before the next can start. */
+    private double heavyCooldown = HEAVY_COOLDOWN, heavyWait;
 
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
@@ -127,6 +138,7 @@ public final class Player {
      * which is how long a jump, a swing or an emote takes.
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
+        heavyWait = Math.max(0, heavyWait - dt);
         if (preview != null && (in.moving() || in.acts())) preview = null;
         if (preview != null) {
             velocity = Vec3.ZERO;
@@ -175,9 +187,10 @@ public final class Player {
             } else if (in.spin() && st.spin() != null) {
                 next = st.spin();
                 crouched = false;
-            } else if (in.heavy() && st.heavy() != null) {
+            } else if (in.heavy() && st.heavy() != null && heavyWait <= 0) {
                 next = st.heavy();
                 crouched = false;
+                heavyWait = heavyCooldown;
             } else if (st.bash() != null && (in.bash() || in.block() && in.attack())) {
                 next = st.bash();
                 crouched = false;
@@ -266,10 +279,30 @@ public final class Player {
 
     /**
      * What she holds: a weapon she picked up, or the wardrobe's own - the
-     * sword and shield, or the sword alone when she carries no shield.
+     * sword and shield, or the sword alone when she carries no shield - or,
+     * with her hands empty, the sword alone's stance with nothing drawn in
+     * either hand (the free arm hanging, no shield to raise).
      */
     public Stance stance() {
-        return stance == Stance.SWORD ? Stance.ofWardrobe(wardrobe) : stance;
+        if (stance != Stance.SWORD) return stance;
+        return handsEmpty ? Stance.BLADE : Stance.ofWardrobe(wardrobe);
+    }
+
+    /**
+     * Whether nothing is in her hands: the selected hotbar slot is empty or
+     * holds something worn ({@link World#equipSelected}). The wardrobe's sword
+     * and shield are then not drawn, and a swing is a blow with no weapon.
+     */
+    public boolean handsEmpty() {
+        return handsEmpty && stance == Stance.SWORD;
+    }
+
+    /** Empty her hands, or take the wardrobe's sword (and shield) back up (interrupting a swing). */
+    public void setHandsEmpty(boolean empty) {
+        if (empty == handsEmpty) return;
+        handsEmpty = empty;
+        if (stance == Stance.SWORD && action != null && !isEmote(action)) action = null;
+        drawing = false;
     }
 
     /** Take up {@code s} (interrupting whatever she was doing with the last weapon). */
@@ -301,6 +334,20 @@ public final class Player {
 
     /** How long the one-shot under way lasts, in seconds (from its sheets). */
     public double actionDuration() { return actionDuration; }
+
+    // --- the heavy attack's cooldown ---------------------------------------------------
+
+    /** Seconds until a heavy attack can be made again (0: now). */
+    public double heavyWait() { return heavyWait; }
+
+    /** The least time from one heavy attack to the next, in seconds. */
+    public double heavyCooldown() { return heavyCooldown; }
+
+    /** Make heavy attacks wait {@code seconds} after each other from now on (0: no wait). */
+    public void setHeavyCooldown(double seconds) {
+        heavyCooldown = Math.max(0, seconds);
+        heavyWait = Math.min(heavyWait, heavyCooldown);
+    }
 
     // --- preview and posing ----------------------------------------------------------
 

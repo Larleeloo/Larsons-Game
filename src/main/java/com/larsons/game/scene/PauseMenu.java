@@ -5,12 +5,18 @@ import com.larsons.game.ui.MenuList;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.World;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 
 /**
  * The pause menu: resume, the wardrobe (cosmetics), settings, the controls,
- * how to import sprite sheets, back to the main menu, quit.
+ * how to import sprite sheets, back to the main menu, quit - and, once the
+ * debug code has been typed ({@link DebugCode}), a button that clears every
+ * item off the ground ({@link World#clearGround}).
  */
 final class PauseMenu {
 
@@ -18,6 +24,8 @@ final class PauseMenu {
 
     private static final String[] MAIN_ITEMS = {
             "Resume", "Wardrobe", "Settings", "Controls", "Import sprite sheets", "Main menu", "Quit"};
+    /** The debug tools' item, before "Main menu". */
+    static final String CLEAR_GROUND = "Clear the ground (debug)";
 
     static final String[][] CONTROLS = {
             {"W A S D", "walk (relative to the camera)"},
@@ -40,19 +48,29 @@ final class PauseMenu {
             {"T", "turntable: all 8 directions"},
             {"H / P", "toggle the HUD / the scenery (trees, grass, rocks)"},
             {"F9", "animations: new / classic (the first version, to compare)"},
+            {"F11", "full screen at the display's fastest refresh rate / back to the window"},
             {"F12", "screenshot"},
             {"Esc", "this menu"},
     };
 
     private final Game game;
+    private final World world;
     private final MenuList menu = new MenuList();
     private final WardrobePanel wardrobe;
     private Page page = Page.MAIN;
     private boolean open;
 
-    PauseMenu(Game game) {
+    PauseMenu(Game game, World world) {
         this.game = game;
+        this.world = world;
         this.wardrobe = new WardrobePanel(game);
+    }
+
+    /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
+    static List<String> mainItems(boolean debug) {
+        List<String> items = new ArrayList<>(List.of(MAIN_ITEMS));
+        if (debug) items.add(items.indexOf("Main menu"), CLEAR_GROUND);
+        return items;
     }
 
     boolean open() { return open; }
@@ -81,22 +99,27 @@ final class PauseMenu {
                 close();
                 return;
             }
-            float w = 360, h = 70 + MAIN_ITEMS.length * 58;
+            List<String> items = mainItems(game.settings().debugTools);
+            float w = 360, h = 70 + items.size() * 58;
             float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
             ui.panel(x, y, w, h);
             ui.textCentered(ui.large, "Paused", x + w / 2, y + 18, Theme.TITLE);
-            int chosen = menu.show(ui, MAIN_ITEMS, x + 30, y + 64, w - 60, 46, 12);
-            switch (chosen) {
-                case 0 -> close();
-                case 1 -> page = Page.WARDROBE;
-                case 2 -> page = Page.SETTINGS;
-                case 3 -> page = Page.CONTROLS;
-                case 4 -> page = Page.IMPORT;
-                case 5 -> {
+            int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, 46, 12);
+            switch (chosen < 0 ? "" : items.get(chosen)) {
+                case "Resume" -> close();
+                case "Wardrobe" -> page = Page.WARDROBE;
+                case "Settings" -> page = Page.SETTINGS;
+                case "Controls" -> page = Page.CONTROLS;
+                case "Import sprite sheets" -> page = Page.IMPORT;
+                case CLEAR_GROUND -> {
+                    int n = world.clearGround();
+                    game.toast("Debug: cleared " + n + (n == 1 ? " item" : " items") + " off the ground", Theme.HINT);
+                }
+                case "Main menu" -> {
                     close();
                     game.switchTo("menu");
                 }
-                case 6 -> game.quit();
+                case "Quit" -> game.quit();
                 default -> { }
             }
             return;
@@ -104,6 +127,14 @@ final class PauseMenu {
 
         float w = Math.min(1100, ui.width() - 40), h = Math.min(640, ui.height() - 40);
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        if (page == Page.WARDROBE) {
+            // the wardrobe draws its own armoire, title and Back button and all
+            if (wardrobe.draw(ui, dt, x, y, w, h, player) || escape) {
+                page = Page.MAIN;
+                game.saveWardrobe();
+            }
+            return;
+        }
         ui.panel(x, y, w, h);
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
@@ -120,7 +151,6 @@ final class PauseMenu {
         }
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
-            case WARDROBE -> wardrobe.draw(ui, dt, cx, cy, cw, ch, player);
             case SETTINGS -> settings(ui, cx, cy);
             case CONTROLS -> controls(ui, cx, cy);
             case IMPORT -> importHelp(ui, cx, cy, cw);
@@ -177,12 +207,31 @@ final class PauseMenu {
         ui.text(ui.small, String.format("Now %.0f fps, %.1f ms a frame, the longest %.1f ms  ·  %s",
                 pacer.fps(), pacer.averageMs(), pacer.worstMs(), pacer.describe()), x, y + 44, Theme.ITEM_DISABLED);
         y += 90;
+        ui.text(ui.body, "Vsync", x, y + 8, Theme.ITEM);
+        for (boolean on : new boolean[]{true, false}) {
+            if (ui.button(on ? "On" : "Off", x + 220 + (on ? 0 : 120), y, 110, 34, pacer.vsync() == on, true)) {
+                s.setVsync(on);
+                pacer.setVsync(on);
+            }
+        }
+        if (ui.button(game.window().fullscreen() ? "Windowed (F11)" : "Full screen (F11)", x + 480, y, 190, 34)) {
+            game.toggleFullscreen();
+        }
+        boolean held = pacer.advice() != null;
+        ui.text(ui.small, held ? String.format("The display runs at %d Hz but can do %d: F11 plays full screen at %d Hz"
+                        + " - or raise it in the system's display settings, or turn vsync off.",
+                        pacer.refresh(), pacer.fastest(), pacer.fastest())
+                        : "On: frames wait for the display (no tearing). Off: the game holds the frame rate itself.",
+                x, y + 44, held ? Theme.WARNING : Theme.ITEM_DISABLED);
+        y += 90;
         var gpu = game.window().gpu();
         ui.text(ui.body, "Renderer", x, y, Theme.ITEM);
         ui.text(ui.body, gpu.describe(), x + 220, y, gpu.software() ? Theme.WARNING : Theme.OK);
         ui.text(ui.small, "OpenGL " + gpu.version() + " · MSAA " + gpu.samples() + "x · max texture "
-                + gpu.maxTexture() + " px · vsync " + (s.vsync ? "on" : "off (-Dlarsons.gpu.vsync)"), x + 220, y + 26,
-                Theme.ITEM_DISABLED);
+                + gpu.maxTexture() + " px · " + (pacer.refresh() <= 0 ? "display rate unknown"
+                : pacer.fastest() > pacer.refresh() ? "display " + pacer.refresh() + " Hz (can do " + pacer.fastest() + ")"
+                : "display " + pacer.refresh() + " Hz"),
+                x + 220, y + 26, Theme.ITEM_DISABLED);
         ui.text(ui.small, "Sprite cache: " + lib.residentCount() + " sheets, "
                 + (lib.residentBytes() >> 20) + " MB of " + (s.vramBytes >> 20) + " MB budget",
                 x + 220, y + 46, Theme.ITEM_DISABLED);

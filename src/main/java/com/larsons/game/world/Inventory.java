@@ -2,8 +2,10 @@ package com.larsons.game.world;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -23,9 +25,29 @@ import java.util.Objects;
  * however many there are ({@code ui/InventoryPanel}).
  *
  * <p>Iterating gives the items carried, in slot order, skipping the empty
- * slots.
+ * slots. The rest of the inventory can be sorted, by name or by rarity
+ * ({@link #sort}); the hotbar stays as it is.
  */
 public final class Inventory implements Iterable<Item> {
+
+    /** How {@link #sort} orders the rest of the inventory. */
+    public enum Order {
+        /** A to Z by name ("Basic Axe" before "Belt"); the rarest first where two are named alike. */
+        NAME,
+        /** The rarest first - Mythic down to Common - and by name within a rarity. */
+        RARITY;
+
+        private static final Comparator<Item> BY_NAME =
+                Comparator.comparing((Item i) -> i.fullName().toLowerCase(Locale.ROOT));
+        private static final Comparator<Item> RAREST_FIRST =
+                Comparator.comparing(Item::rarity, Comparator.reverseOrder());
+
+        /** The order as a comparison of two items (ties broken by {@link Item#key()}, so it is total). */
+        public Comparator<Item> comparator() {
+            Comparator<Item> c = this == NAME ? BY_NAME.thenComparing(RAREST_FIRST) : RAREST_FIRST.thenComparing(BY_NAME);
+            return c.thenComparing(Item::key);
+        }
+    }
 
     /** Slots in the hotbar: chosen with 1 – 5 or the mouse wheel. */
     public static final int HOTBAR = 5;
@@ -97,6 +119,37 @@ public final class Inventory implements Iterable<Item> {
             }
         }
         return -1;
+    }
+
+    /**
+     * Put {@code item} in the first empty slot of the rest of the inventory,
+     * or in the hotbar's when that is full - out of the way of what is in
+     * hand - and return that slot, or -1 when every slot is full.
+     */
+    public int stow(Item item) {
+        Objects.requireNonNull(item);
+        for (int i = HOTBAR; i < slots.length; i++) {
+            if (slots[i] == null) {
+                slots[i] = item;
+                return i;
+            }
+        }
+        return add(item);
+    }
+
+    /**
+     * Sort the rest of the inventory by {@code order}, packed into its first
+     * slots and the empty ones after; the hotbar - what is to hand - is left
+     * as it is.
+     */
+    public void sort(Order order) {
+        List<Item> rest = new ArrayList<>();
+        for (int i = HOTBAR; i < slots.length; i++) if (slots[i] != null) rest.add(slots[i]);
+        rest.sort(order.comparator());
+        for (int i = HOTBAR; i < slots.length; i++) {
+            int k = i - HOTBAR;
+            slots[i] = k < rest.size() ? rest.get(k) : null;
+        }
     }
 
     /** The first slot holding {@code item}, or -1. */

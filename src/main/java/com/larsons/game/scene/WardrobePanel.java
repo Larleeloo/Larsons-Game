@@ -1,6 +1,7 @@
 package com.larsons.game.scene;
 
 import com.larsons.game.core.Game;
+import com.larsons.game.gfx.Font;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Elevation;
 import com.larsons.game.sprite.Facing;
@@ -10,8 +11,10 @@ import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
+import com.larsons.game.ui.Medieval;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Wearables;
@@ -21,32 +24,37 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The cosmetics editor, from the pause menu: every layer of the sprite stack
- * with what the player owns to wear in it, and a live preview that can be
- * turned through the eight directions, tipped through the three elevations
- * and played in all six states.
+ * The cosmetics editor, from the pause menu, drawn as an oak armoire standing
+ * open ({@link Medieval}): every worn layer of the sprite stack on its shelf
+ * with what the player owns to wear in it, and her reflection in a gilded
+ * mirror, which can be turned through the eight directions, tipped through
+ * the three elevations and played in every state.
  *
  * <p>What is worn is items ({@link Wearables}): a layer offers the wearables
- * in her inventory - picked up, or out of a chest - and the underwear and the
- * bra, which are always hers, each by its name ("Silver wrist band"). What
- * she wears that she does not own (an outfit saved before) stays on and is
- * listed too; once taken off it is offered again only when she owns it. The
- * body, the ears, the eyes, the nose and the mouth are not items: every
- * folder found for the body under {@code assets/sprites/<slot>/} is offered,
- * as are the carried items for the hands.
+ * in her inventory - picked up, or out of a chest - and the underwear, the
+ * bra and the starter look, which are always hers, each by its name ("Silver
+ * wrist band"). What she wears that she does not own (an outfit saved before)
+ * stays on and is listed too; once taken off it is offered again only when
+ * she owns it. The body, the ears, the eyes, the nose and the mouth are not
+ * items: every folder found for the body under {@code assets/sprites/<slot>/}
+ * is offered. What is in her hands - the sword, the shield - is not the
+ * wardrobe's: the hotbar puts it there ({@link #SLOTS}).
  *
  * <p>A style row switches the whole character between the 512-pixel renders
  * and the pixel art made of them ({@link Wardrobe.Style}); the items' versions
  * in a style are not listed as items of their own, and an item that is only
  * pixel art is drawn from its 128-pixel version among the renders (marked
- * "(pixel art)"). An item with a colour
- * choice in the style (its {@code variants.json}) shows a swatch beside it:
- * click the swatch (or the layer's name) and pick the colour in the colour
- * row - for the base body that is the skin tone, which every item showing
- * skin follows. The colours are items too: a layer offers those she has a
- * dye for, the lips every colour with the lipstick, and a metal wearable only
- * its own (silver, gold); the skin tone and the eyes' colour are free. A
- * colour already applied stays, and is listed.
+ * "(pixel art)"). An item with a colour choice in the style (its {@code
+ * variants.json}) shows a gem beside it: click the gem (or the layer's name)
+ * and its colours are set out on the dye shelf - for the base body that is the
+ * skin tone, which every item showing skin follows.
+ *
+ * <p>The colours are unlocked with dyes ({@link Wearables#colours}): a colour
+ * not yet unlocked for the item is shown locked, and with a dye of it in her
+ * bag, clicking it offers to use the dye up and unlock that colour on that
+ * item for good ({@link Wearables#useDye}). The lips take every colour with
+ * the lipstick, a metal wearable only its own (silver, gold); the skin tone
+ * and the eyes' colour are free. A colour already applied stays.
  *
  * <p>A hand row makes the character left- or right-handed (Auto:
  * left-handed while the sword is in the left hand only).
@@ -56,24 +64,36 @@ import java.util.Locale;
  */
 final class WardrobePanel {
 
+    /** The layers the wardrobe dresses: every one but the hands, which hold what the hotbar gives them. */
+    static final List<Slot> SLOTS = slots();
+
     private final Game game;
     private final LayerStack.Memory previewMemory = new LayerStack.Memory();
+    private Medieval skin;
     private Facing facing = Facing.SOUTH_EAST;
     private Elevation elevation = Elevation.MIDDLE;
     private AnimState state = AnimState.IDLE;
     private boolean spin = true;
     private double time, spinTimer;
-    /** The layer whose colours the colour row shows. */
+    /** The layer whose colours the dye shelf shows. */
     private Slot focus = Slot.HAIR;
+    /** A locked colour of the focused layer she has clicked and has a dye of: offered to be used up, or null. */
+    private String offered;
 
     WardrobePanel(Game game) {
         this.game = game;
     }
 
+    private static List<Slot> slots() {
+        List<Slot> out = new ArrayList<>();
+        for (Slot s : Slot.values()) if (!s.carried()) out.add(s);
+        return List.copyOf(out);
+    }
+
     /**
      * One choice for a slot: the item folder it puts there (null: nothing),
-     * and the wearable that is (null for a free layer's folder, a carried
-     * item, or a folder no wearable puts there).
+     * and the wearable that is (null for a free layer's folder, or a folder
+     * no wearable puts there).
      */
     record Option(String item, ItemDef wearable) {
 
@@ -94,33 +114,27 @@ final class WardrobePanel {
      * The choices for a slot: nothing (or the fallback body), then
      * <ul>
      *   <li>for a free layer (the body, the ears, the eyes, the nose, the
-     *       mouth: {@link Wearables#FREE}) and the hands, every item folder
-     *       found for the body worn - but not the stances' weapons (the
-     *       battle axe, the bow, the crossbow), which are held by picking
-     *       them up, not worn - and in the hands what she carries;</li>
+     *       mouth: {@link Wearables#FREE}), every item folder found for the
+     *       body worn;</li>
      *   <li>for any other layer, the wearables she owns that go there
      *       ({@link Wearables#owned}): each of their folders (a sheath on
      *       either hip; a wrist band on either wrist) - and what she wears
      *       there now, owned or not.</li>
      * </ul>
+     * The hands are not the wardrobe's: they offer nothing.
      */
     static List<Option> options(SpriteLibrary lib, Slot slot, Player player) {
         List<Option> out = new ArrayList<>();
         out.add(new Option(null, null));
+        if (slot.carried()) return out;
         Wardrobe wardrobe = player.wardrobe();
-        if (Wearables.free(slot) || slot.carried()) {
+        if (Wearables.free(slot)) {
             // the items drawn for the body worn (every body under the body itself)
             for (String item : lib.items(wardrobe.get(Slot.BODY), slot)) {
                 String base = Wardrobe.Style.base(item);
                 if (Stance.ofItem(base) != null) continue;
                 Option o = new Option(base, null);
                 if (!out.contains(o)) out.add(o);        // (an item with only pixel art is listed too)
-            }
-            if (slot.carried()) {
-                for (com.larsons.game.world.Item carried : player.inventory()) {
-                    Option o = new Option(carried.id(), null);
-                    if (carried.def().inHand() && !out.contains(o) && Stance.ofItem(o.item()) == null) out.add(o);
-                }
             }
             return out;
         }
@@ -161,15 +175,30 @@ final class WardrobePanel {
     }
 
     /**
-     * The colours offered for what is worn in {@code slot}: its {@code
-     * variants.json}'s, as far as she owns them ({@link Wearables#colours}).
+     * The colours of what is worn in {@code slot}: its {@code variants.json}'s,
+     * each unlocked or not ({@link Wearables#colours}).
      */
-    static List<String> colours(SpriteLibrary lib, Slot slot, Player player) {
+    static List<Wearables.Colour> colours(SpriteLibrary lib, Slot slot, Player player) {
         Wardrobe wardrobe = player.wardrobe();
         String item = wardrobe.get(slot);
         if (item == null) return List.of();
         List<String> all = lib.colourOptions(wardrobe.get(Slot.BODY), slot, item, wardrobe.style());
-        return Wearables.colours(slot, item, all, wardrobe.colour(slot), Wearables.owned(player.inventory()));
+        return Wearables.colours(slot, item, all, wardrobe.colour(slot), Wearables.owned(player.inventory()),
+                wardrobe);
+    }
+
+    /**
+     * Click colour {@code c} of what is worn in {@code slot}: put it on if it
+     * is unlocked; otherwise, with a dye of it in her bag, offer it (the
+     * caller asks before the dye is used up); otherwise nothing. Returns the
+     * colour now offered, or null.
+     */
+    static String pick(Wardrobe wardrobe, Player player, Slot slot, Wearables.Colour c) {
+        if (c.unlocked()) {
+            wardrobe.setColour(slot, c.option());
+            return null;
+        }
+        return Wearables.dyeIn(player.inventory(), c.option()) != null ? c.option() : null;
     }
 
     static String label(Slot slot, String item) {
@@ -184,15 +213,24 @@ final class WardrobePanel {
         return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1);
     }
 
-    private static float[] rgb(int rgb) {
-        return new float[]{((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f};
+    /** How many dyes of {@code colour} she carries. */
+    private static int dyes(Player player, String colour) {
+        ItemDef d = Wearables.dye(colour);
+        int n = 0;
+        for (Item item : player.inventory()) if (item.def() == d) n++;
+        return n;
     }
 
-    void draw(Ui ui, double dt, float x, float y, float w, float h, Player player) {
-        Wardrobe wardrobe = player.wardrobe();
-        SpriteLibrary lib = game.sprites();
-        Wardrobe.Style style = wardrobe.style();
-        String body = wardrobe.get(Slot.BODY);
+    // --- drawing ---------------------------------------------------------------------------
+
+    /**
+     * Draw the whole page - the armoire filling {@code x, y, w, h}, its
+     * title on its cornice - and handle it. Returns whether its Back button
+     * was clicked.
+     */
+    boolean draw(Ui ui, double dt, float x, float y, float w, float h, Player player) {
+        if (skin == null) skin = new Medieval(ui);
+        Medieval m = skin;
         time += dt;
         if (spin) {
             spinTimer += dt;
@@ -202,16 +240,53 @@ final class WardrobePanel {
             }
         }
 
-        // --- the slot list, three columns ---------------------------------------------
-        Slot[] slots = Slot.values();
+        // --- the armoire: its doors open, its boards, its cornice and its iron --------
+        float door = Math.min(84, (ui.width() - w) / 2 - 4);
+        if (door > 30) {
+            m.door(x, y + 30, h - 40, door, -1);
+            m.door(x + w, y + 30, h - 40, door, 1);
+        }
+        m.shadow(x, y, w, h, 12);
+        m.boards(x, y, w, h, 96, 0.92f);
+        m.bevel(x, y, w, h, 4, 1f);
+        float corniceH = 66;
+        m.moulding(x - 6, y - 6, w + 12, 16, 0.85f);
+        m.moulding(x + 4, y + 10, w - 8, 12, 0.72f);
+        m.moulding(x + 10, y + corniceH - 14, w - 20, 10, 0.78f);
+        float pw = 300, ph = 44;
+        m.plaque(x + (w - pw) / 2, y + 14, pw, ph);
+        m.carvedCentred(m.title, "Wardrobe", x + w / 2, y + 14 + (ph - m.title.lineHeight()) / 2, Medieval.GOLD);
+        boolean back = m.button("Back", x + w - 128, y + 22, 100, 34, false, true);
+        m.bracket(x, y, 54, 1, 1);
+        m.bracket(x + w, y, 54, -1, 1);
+        m.bracket(x, y + h, 54, 1, -1);
+        m.bracket(x + w, y + h, 54, -1, -1);
+
+        // --- the open cabinet: a recess with the shelves on the left, the mirror on the right
+        float ix = x + 20, iy = y + corniceH + 6, iw = w - 40, ih = h - corniceH - 26;
+        m.recess(ix, iy, iw, ih, 14);
+        float cx = ix + 26, cy = iy + 24, cw = iw - 52, ch = ih - 40;
+        float mirrorW = Math.min(320, cw * 0.33f);
+        float listW = cw - mirrorW - 24;
+        shelves(ui, m, cx, cy, listW, player);
+        mirror(ui, m, cx + cw - mirrorW, cy - 6, mirrorW, ch + 10, player);
+        return back;
+    }
+
+    /** The layers on their shelves, the dye shelf under them, the style and the hand, and a note. */
+    private void shelves(Ui ui, Medieval m, float x, float y, float w, Player player) {
+        Wardrobe wardrobe = player.wardrobe();
+        SpriteLibrary lib = game.sprites();
+        Wardrobe.Style style = wardrobe.style();
+        String body = wardrobe.get(Slot.BODY);
+
         int columns = 3;
-        int perColumn = (slots.length + columns - 1) / columns;
-        float listW = w - 360;
-        float colW = Math.min(250, (listW - (columns - 1) * 12) / columns), rowH = 36;
-        for (int i = 0; i < slots.length; i++) {
-            Slot slot = slots[i];
-            float cx = x + (i / perColumn) * (colW + 12);
-            float cy = y + (i % perColumn) * rowH;
+        int perColumn = (SLOTS.size() + columns - 1) / columns;
+        float gap = 14, colW = (w - (columns - 1) * gap) / columns, rowH = 36, knob = 20;
+        for (int i = 0; i < SLOTS.size(); i++) {
+            Slot slot = SLOTS.get(i);
+            float sx = x + (i / perColumn) * (colW + gap);
+            float sy = y + (i % perColumn) * rowH;
             List<Option> opts = options(lib, slot, player);
             String current = wardrobe.get(slot);
             int at = current(opts, slot, wardrobe);
@@ -223,140 +298,191 @@ final class WardrobePanel {
             boolean asPixels = hasArt && current != null && style == Wardrobe.Style.RENDERED && !current.equals(folder);
 
             String name = slot == Slot.BODY ? "Base body · skin" : slot.label();
-            if (ui.clicked(cx, cy, colW, 14)) focus = slot;
-            ui.text(ui.small, name, cx, cy, focus == slot ? Theme.ACCENT : Theme.ITEM_DISABLED);
+            if (ui.clicked(sx, sy, colW, 14)) focusOn(slot);
+            m.carved(m.small, name.toUpperCase(Locale.ROOT), sx + 2, sy, focus == slot ? Medieval.GOLD : Medieval.BRASS);
             boolean any = opts.size() > 1;
-            if (ui.button("<", cx, cy + 15, 22, 20, false, any)) {
+            float ry = sy + 15;
+            if (m.knob("<", sx, ry, knob, any)) {
                 choose(wardrobe, slot, opts.get(Math.floorMod(idx - 1, opts.size())));
-                focus = slot;
+                focusOn(slot);
             }
-            List<String> colours = colours(lib, slot, player);
-            float swW = colours.isEmpty() ? 0 : 24;
+            List<Wearables.Colour> colours = colours(lib, slot, player);
+            float gemW = colours.isEmpty() ? 0 : 24;
+            float stripX = sx + knob + 3, stripW = colW - 2 * knob - 6 - gemW;
+            m.parchment(stripX, ry, stripW, knob);
             String shown = at < 0 ? label(slot, current) : opts.get(at).label(slot);
             String text = missing ? current + " (missing)" : !hasArt ? shown + " (no art)"
                     : asPixels ? shown + " (pixel art)" : shown;
-            float[] c = missing || !hasArt ? Theme.WARNING : current == null ? Theme.ITEM_DISABLED : Theme.ITEM_SELECTED;
-            ui.text(ui.body, fit(ui, text, colW - 60 - swW), cx + 28, cy + 15, c);
-            if (ui.button(">", cx + colW - 26 - swW, cy + 15, 22, 20, false, any)) {
+            float[] c = missing || !hasArt ? Medieval.EMBER : current == null ? Medieval.INK_FADED : Medieval.INK;
+            ui.text(m.body, fit(m.body, text, stripW - 10), stripX + 5, ry + (knob - m.body.lineHeight()) / 2, c);
+            if (m.knob(">", sx + colW - knob - gemW, ry, knob, any)) {
                 choose(wardrobe, slot, opts.get((idx + 1) % opts.size()));
-                focus = slot;
+                focusOn(slot);
             }
             if (!colours.isEmpty()) {
-                // the colour picked for it (the item's own colours: an outline)
-                float sx = cx + colW - 20, sy = cy + 16;
+                // the colour picked for it (its own colours: an empty bezel)
+                float gx = sx + colW - 10, gy = ry + knob / 2;
                 String picked = wardrobe.colour(slot);
                 int sw = picked == null ? -1 : lib.swatch(body, slot, current, style, picked);
-                if (sw >= 0) ui.rect(sx, sy, 18, 18, rgb(sw));
-                ui.outline(sx, sy, 18, 18, focus == slot ? 2 : 1, focus == slot ? Theme.ACCENT : Theme.PANEL_EDGE);
-                if (ui.clicked(sx, sy, 18, 18)) focus = slot;
+                m.gem(gx, gy, 10, sw, true);
+                if (focus == slot) ui.outline(gx - 12, gy - 12, 24, 24, 1, Medieval.GOLD);
+                if (ui.clicked(gx - 10, gy - 10, 20, 20)) focusOn(slot);
             }
         }
-        float by0 = y + perColumn * rowH + 4;
+        float shelfY = y + perColumn * rowH + 2;
+        m.shelf(x - 8, shelfY, w + 16);
 
-        // --- the colour row: the focused layer's colours -----------------------------
+        // --- the dye shelf: the focused layer's colours ----------------------------------
+        float dy = shelfY + 26;
         String fItem = wardrobe.get(focus);
-        List<String> fOpts = colours(lib, focus, player);
+        List<Wearables.Colour> fOpts = colours(lib, focus, player);
         boolean anyInStyle = fItem != null && !lib.colourOptions(body, focus, fItem, style).isEmpty();
         String what = focus == Slot.BODY ? "Skin" : focus.label();
         String picked = fItem == null ? "nothing worn"
                 : !fOpts.isEmpty() ? colourName(wardrobe.colour(focus))
                 : Wearables.metal(focus, fItem) ? colourName(wardrobe.colour(focus)) + " (the metal's own)"
                 : !anyInStyle ? "none in this style"
-                : focus == Slot.MOUTH ? "own colours (the lipstick has the rest)"
-                : "own colours (dyes add more)";
-        ui.text(ui.body, "Colour · " + what + ": " + picked,
-                x, by0 + 4, fOpts.isEmpty() ? Theme.ITEM_DISABLED : Theme.ITEM);
-        float sy = by0 + 24;
+                : "own colours";
+        if (offered != null && fOpts.stream().noneMatch(o -> o.option().equals(offered) && !o.unlocked())) {
+            offered = null;
+        }
+        m.carved(m.heading, "Colour · " + what + ": " + picked, x, dy, fOpts.isEmpty() ? Medieval.BRASS : Medieval.GOLD);
+        float gy = dy + 36, r = 13, step = 2 * r + 9;
         if (!fOpts.isEmpty()) {
-            float s = 22, gap = 4;
-            if (ui.button("-", x, sy, s, s, wardrobe.colour(focus) == null, true)) wardrobe.setColour(focus, null);
+            if (m.knob("-", x, gy - 10, 20, wardrobe.colour(focus) != null)) wardrobe.setColour(focus, null);
             for (int i = 0; i < fOpts.size(); i++) {
-                float bx = x + (i + 1) * (s + gap);
-                if (bx + s > x + listW) break;
-                String o = fOpts.get(i);
-                int rgb = lib.swatch(body, focus, fItem, style, o);
-                ui.rect(bx, sy, s, s, rgb >= 0 ? rgb(rgb) : Theme.BUTTON);
-                boolean on = o.equals(wardrobe.colour(focus));
-                ui.outline(bx, sy, s, s, on ? 2 : 1, on ? Theme.ACCENT : ui.hover(bx, sy, s, s) ? Theme.HINT : Theme.PANEL_EDGE);
-                if (ui.clicked(bx, sy, s, s)) wardrobe.setColour(focus, o);
+                float gx = x + 40 + i * step;
+                if (gx + r > x + w) break;
+                Wearables.Colour o = fOpts.get(i);
+                int rgb = lib.swatch(body, focus, fItem, style, o.option());
+                int carried = o.unlocked() ? 0 : dyes(player, o.option());
+                m.gem(gx, gy, r, rgb, o.unlocked() || carried > 0);
+                boolean on = o.option().equals(wardrobe.colour(focus)) || o.option().equals(offered);
+                if (on) ui.outline(gx - r - 3, gy - r - 3, 2 * r + 6, 2 * r + 6, 2, Medieval.GOLD);
+                else if (ui.hover(gx - r, gy - r, 2 * r, 2 * r)) ui.outline(gx - r - 2, gy - r - 2, 2 * r + 4, 2 * r + 4, 1, Medieval.CREAM);
+                if (!o.unlocked()) {
+                    if (carried > 0) {
+                        m.bottle(gx + r - 4, gy + r + 2, rgb >= 0 ? rgb : 0xffffff);
+                        if (carried > 1) ui.text(m.small, "x" + carried, gx + r - 2, gy - r - 8, Medieval.CREAM);
+                    } else {
+                        m.padlock(gx + r - 5, gy + r - 6);
+                    }
+                }
+                if (ui.clicked(gx - r, gy - r, 2 * r, 2 * r)) offered = pick(wardrobe, player, focus, o);
             }
         }
+        float ny = gy + r + 10;
+        if (offered != null) {
+            String dye = colourName(offered);
+            String on = focus == Slot.BODY ? "the skin" : current(focus, player);
+            String ask = "Use up a " + dye + " dye to make " + on + " " + dye.toLowerCase(Locale.ROOT) + " for good?";
+            ui.text(m.small, fit(m.small, ask, w - 214), x, ny + 6, Medieval.CREAM);
+            if (m.button("Use dye", x + w - 204, ny - 2, 100, 30, false, true)) {
+                if (Wearables.useDye(wardrobe, player.inventory(), focus, offered)) {
+                    game.toast(dye + " unlocked for " + on, com.larsons.game.world.Rarity.RARE.colour(1f));
+                    game.saveWardrobe();
+                }
+                offered = null;
+            }
+            if (m.button("Keep it", x + w - 100, ny - 2, 100, 30, false, true)) offered = null;
+        } else if (!fOpts.isEmpty()) {
+            ui.text(m.small, "Locked colours take a dye of their colour: one dye unlocks it on this item for good.",
+                    x, ny + 6, Theme.withAlpha(Medieval.CREAM, 0.75f));
+        }
 
-        // --- the style: the renders, or the pixel art made of them -------------------
-        float stY = sy + 30;
-        ui.text(ui.body, "Style", x, stY + 6, Theme.ITEM);
+        // --- the style and the hand, side by side ----------------------------------------
+        float stY = ny + 34;
+        float bw = Math.min(92, (w - 130) / 6 - 4);
+        m.carved(m.heading, "Style", x, stY + 4, Medieval.BRASS);
         Wardrobe.Style[] styles = Wardrobe.Style.values();
         for (int i = 0; i < styles.length; i++) {
-            if (ui.button(styles[i].label(), x + 70 + i * 116, stY, 110, 30, style == styles[i], true)) {
+            if (m.button(styles[i].label(), x + 58 + i * (bw + 4), stY, bw, 30, style == styles[i], true)) {
                 wardrobe.setStyle(styles[i]);
             }
         }
-        // --- the hand that leads -----------------------------------------------------
-        float hy = stY + 34;
-        ui.text(ui.body, "Hand", x, hy + 6, Theme.ITEM);
+        float hx = x + 58 + styles.length * (bw + 4) + 14;
+        m.carved(m.heading, "Hand", hx, stY + 4, Medieval.BRASS);
+        hx += m.heading.width("Hand") + 8 - 54;
         Wardrobe.Hand[] hands = Wardrobe.Hand.values();
         for (int i = 0; i < hands.length; i++) {
-            if (ui.button(hands[i].label(), x + 70 + i * 116, hy, 110, 30, wardrobe.hand() == hands[i], true)) {
+            String l = hands[i] == Wardrobe.Hand.AUTO ? "Auto (" + (wardrobe.leftHanded() ? "L" : "R") + ")"
+                    : hands[i].label();
+            if (m.button(l, hx + 54 + i * (bw + 4), stY, bw, 30, wardrobe.hand() == hands[i], true)) {
                 wardrobe.setHand(hands[i]);
             }
         }
-        ui.text(ui.small, wardrobe.leftHanded() ? "left-handed" : "right-handed",
-                x + 70 + hands.length * 116 + 8, hy + 8, Theme.HINT);
-        ui.paragraph(ui.small, "Items come from your inventory - picked up, or out of a chest - and the "
-                        + "underwear, bra, long waves and arched brows are always yours. Dyes and lipstick unlock "
-                        + "colours. Empty layers "
-                        + "are not drawn.",
-                x, hy + 36, listW, Theme.ITEM_DISABLED);
+    }
 
-        // --- the preview ------------------------------------------------------------
-        float px = x + w - 340, pw = 340, ph = h - 110;
-        ui.rect(px, y, pw, ph, Theme.withAlpha(Theme.BACKGROUND, 0.9f));
-        ui.outline(px, y, pw, ph, 1, Theme.PANEL_EDGE);
+    /** What the focused layer wears, by name: "the Baggy shirt". */
+    private String current(Slot slot, Player player) {
+        List<Option> opts = options(game.sprites(), slot, player);
+        int at = current(opts, slot, player.wardrobe());
+        return "the " + (at < 0 ? label(slot, player.wardrobe().get(slot)) : opts.get(at).label(slot));
+    }
+
+    private void focusOn(Slot slot) {
+        if (focus != slot) offered = null;
+        focus = slot;
+    }
+
+    /** Her reflection in the mirror, and the controls that turn it. */
+    private void mirror(Ui ui, Medieval m, float x, float y, float w, float h, Player player) {
+        Wardrobe wardrobe = player.wardrobe();
+        SpriteLibrary lib = game.sprites();
+        float controls = 80;
+        float[] glass = m.mirror(x, y, w, h - controls);
+        float gx = glass[0], gy = glass[1], gw = glass[2], gh = glass[3];
         SpriteView view = new SpriteView(elevation, facing, elevation.renderAngle());
         double duration = LayerStack.duration(lib, wardrobe, state, view);
         double t = state.loops() ? time : time % (duration + 0.4);
         LayerStack.Result r = LayerStack.resolve(lib, wardrobe, state, t, view, previewMemory);
-        float ppm = (float) Math.min((ph - 30) / r.framing().frameWorldHeight(),
-                (pw - 20) / r.framing().frameWorldSize());
+        float ppm = (float) Math.min((gh - 40) / r.framing().frameWorldHeight(),
+                (gw - 10) / r.framing().frameWorldSize());
         double[] anchor = r.framing().anchor(elevation);
         float frameH = (float) (r.framing().frameWorldHeight() * ppm);
-        float footY = y + (ph - frameH) / 2 + (float) anchor[1] * frameH;
-        LayerStack.drawFlat(ui.batch(), r, px + pw / 2, footY, ppm);
-        ui.text(ui.small, facing.key().toUpperCase() + " · " + elevation.label() + " · " + state.label()
-                + " · frame " + (r.frame() + 1) + "/" + r.frames(), px + 10, y + ph - 22, Theme.HINT);
+        float footY = gy + 10 + (gh - 30 - frameH) / 2 + (float) anchor[1] * frameH;
+        // her shadow on the floor the mirror shows
+        ui.batch().rect(ui.white(), gx + gw / 2 - 40, footY - 4, 80, 8, 0, 0, 1, 1, 0, 0, 0, 0.25f);
+        LayerStack.drawFlat(ui.batch(), r, gx + gw / 2, footY, ppm);
+        String caption = facing.key().toUpperCase() + " · " + elevation.label() + " · frame " + (r.frame() + 1)
+                + "/" + r.frames();
+        ui.text(m.small, caption, gx + (gw - m.small.width(caption)) / 2, gy + gh - 22, Theme.withAlpha(Medieval.CREAM, 0.7f));
 
-        // Preview controls.
-        float by = y + ph + 8;
-        if (ui.button("<", px, by, 34, 30)) {
+        // the controls, on the mirror's stand
+        float by = y + h - controls + 10;
+        if (m.button("<", x, by, 36, 30, false, true)) {
             facing = facing.clockwise();
             spin = false;
         }
-        if (ui.button(spin ? "Stop" : "Spin", px + 40, by, 70, 30)) spin = !spin;
-        if (ui.button(">", px + 116, by, 34, 30)) {
+        if (m.button(spin ? "Stop" : "Spin", x + 40, by, 66, 30, false, true)) spin = !spin;
+        if (m.button(">", x + 110, by, 36, 30, false, true)) {
             facing = facing.counterClockwise();
             spin = false;
         }
+        float ew = (w - 154) / Elevation.values().length;
         for (int i = 0; i < Elevation.values().length; i++) {
             Elevation e = Elevation.values()[i];
-            if (ui.button(e.key(), px + 160 + i * 60, by, 56, 30, e == elevation, true)) elevation = e;
+            if (m.button(e.key(), x + 154 + i * ew, by, ew - 4, 30, e == elevation, true)) elevation = e;
         }
         by += 36;
         // the state: one of many, stepped through
         AnimState[] states = AnimState.values();
         int at = state.ordinal(), step = 0;
-        if (ui.button("<", px, by, 34, 30)) step = -1;
-        if (ui.button(">", px + pw - 34, by, 34, 30)) step = 1;
+        if (m.button("<", x, by, 36, 30, false, true)) step = -1;
+        if (m.button(">", x + w - 36, by, 36, 30, false, true)) step = 1;
         if (step != 0) {
             state = states[Math.floorMod(at + step, states.length)];
             time = 0;
         }
-        ui.textCentered(ui.body, state.label() + "   (" + (state.ordinal() + 1) + " / " + states.length + ")",
-                px + pw / 2f, by + 5, Theme.ITEM);
+        m.parchment(x + 42, by, w - 84, 30);
+        String s = state.label() + "  (" + (state.ordinal() + 1) + " / " + states.length + ")";
+        ui.text(m.body, fit(m.body, s, w - 94), x + w / 2 - Math.min(m.body.width(s), w - 94) / 2,
+                by + (30 - m.body.lineHeight()) / 2, Medieval.INK);
     }
 
-    private static String fit(Ui ui, String s, float width) {
-        if (ui.body.width(s) <= width) return s;
-        while (s.length() > 1 && ui.body.width(s + "…") > width) s = s.substring(0, s.length() - 1);
+    private static String fit(Font font, String s, float width) {
+        if (font.width(s) <= width) return s;
+        while (s.length() > 1 && font.width(s + "…") > width) s = s.substring(0, s.length() - 1);
         return s + "…";
     }
 }

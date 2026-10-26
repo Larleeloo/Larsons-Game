@@ -37,9 +37,21 @@ public final class Font implements AutoCloseable {
      * @param scale device pixels per logical pixel
      */
     public Font(int size, boolean bold, float scale) {
+        this(java.awt.Font.SANS_SERIF, size, bold, scale);
+    }
+
+    /**
+     * @param family a font family, such as {@link java.awt.Font#SERIF} (the
+     *               wardrobe's lettering); one the system lacks falls back to
+     *               its default
+     * @param size   point size in logical pixels
+     * @param bold   bold weight
+     * @param scale  device pixels per logical pixel
+     */
+    public Font(String family, int size, boolean bold, float scale) {
         float s = Math.max(1f, scale);
         pad = 1f / s;
-        java.awt.Font awt = new java.awt.Font(java.awt.Font.SANS_SERIF,
+        java.awt.Font awt = new java.awt.Font(family,
                 bold ? java.awt.Font.BOLD : java.awt.Font.PLAIN, Math.round(size * s));
 
         BufferedImage probe = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);

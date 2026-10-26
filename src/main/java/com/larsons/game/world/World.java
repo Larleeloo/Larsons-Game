@@ -24,12 +24,14 @@ import java.util.Random;
  * through the grass).
  *
  * <p>What the player holds is the selected slot of her hotbar ({@link
- * Inventory}): a weapon with a stance of its own (the battle axe, the bow,
- * the crossbow) is taken up in its stance; the sword - worn, in the
- * wardrobe's weapon hand - or an empty slot is the sword-and-shield stance,
- * the wardrobe's own carried items ({@link #equipSelected}). A wearable is
- * never in her hands: carried, it is hers to wear from the wardrobe, and
- * dropped (when she has no other) it comes off ({@link Wearables#takeOff}).
+ * Inventory}), and nothing else: a weapon with a stance of its own (the
+ * battle axe, the bow, the crossbow) is taken up in its stance; the sword -
+ * worn, in the wardrobe's weapon hand - is the sword-and-shield stance, the
+ * wardrobe's own carried items; an empty slot, or one holding something
+ * worn, leaves her hands empty ({@link #equipSelected}). A wearable is never
+ * in her hands: carried, it is hers to wear from the wardrobe, and dropped
+ * (when she has no other) it comes off ({@link Wearables#takeOff}) - as
+ * anything taken out of the hotbar and the inventory is no longer equipped.
  *
  * <p>The chests are loot chests: the first time one is opened - and again
  * once everything it gave has been picked up - {@link Loot} draws 3 to 7
@@ -171,6 +173,7 @@ public final class World {
     /** A world whose player carries an inventory of {@code slots} slots. */
     public World(Wardrobe wardrobe, int slots) {
         player = new Player(wardrobe, slots);
+        equipSelected();                // nothing carried yet: her hands are empty
     }
 
     public Player player() { return player; }
@@ -312,12 +315,14 @@ public final class World {
      * when that is a hotbar slot, straight into her hands (that slot is
      * selected): a weapon with a stance of its own by taking up that stance.
      * The sword is worn: it goes into its hand in the wardrobe whichever slot
-     * it lands in. A wearable goes into no hand and changes nothing she
-     * holds: its slot is not selected. Returns false (and leaves it lying)
+     * it lands in, and is drawn there while its slot is the selected one. A
+     * wearable goes into no hand and changes nothing she holds: it goes into
+     * the rest of the inventory first ({@link Inventory#stow}), out of the
+     * hotbar's way, and is not selected. Returns false (and leaves it lying)
      * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
-        int slot = player.inventory().add(item.item);
+        int slot = item.def.isWearable() ? player.inventory().stow(item.item) : player.inventory().add(item.item);
         if (slot < 0) return false;
         items.remove(item);
         if (item.def.inHand()) {
@@ -338,28 +343,36 @@ public final class World {
 
     /**
      * Take up what is in the selected hotbar slot: a weapon with a stance of
-     * its own in that stance; anything else - the sword, or nothing - is the
-     * sword-and-shield stance (what the wardrobe carries). Returns the item,
-     * or null.
+     * its own in that stance; the sword in the sword-and-shield stance (what
+     * the wardrobe carries - the sword put back in its hand if the wardrobe
+     * had let go of it); and with nothing in the slot, or something worn,
+     * nothing at all: her hands are empty ({@link Player#handsEmpty}).
+     * Returns the item, or null.
      */
     public Item equipSelected() {
         Item held = player.inventory().held();
-        player.setStance(held != null && held.def().held() ? held.def().stance() : Stance.SWORD);
+        boolean weapon = held != null && held.def().held();
+        boolean sword = held != null && held.def().inHand();
+        player.setStance(weapon ? held.def().stance() : Stance.SWORD);
+        player.setHandsEmpty(!weapon && !sword);
+        if (sword) {
+            Wardrobe w = player.wardrobe();
+            ItemDef d = held.def();
+            if (!w.wearing(d.carrySlot(), d.id()) && !w.wearing(d.carrySlot().twin(), d.id())) {
+                w.set(w.hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin() : d.carrySlot(), d.id());
+            }
+        }
         return held;
     }
 
     /**
-     * The item whose look her hands draw: the one in the selected slot when
-     * that is a weapon - a stance's, or the sword - and otherwise (the sword
-     * stance with something else selected) the first sword she carries, the
-     * one the wardrobe's hand holds. Null when it is none of hers.
+     * The item in her hands, whose look they draw and whose dice a swing
+     * rolls: the one in the selected slot when that is a weapon - a
+     * stance's, or the sword. Null when her hands are empty.
      */
     public Item wielded() {
-        Inventory inv = player.inventory();
-        Item held = inv.held();
-        if (held != null && (held.def().held() || held.is(ItemDef.SWORD))) return held;
-        int sword = inv.indexOf(ItemDef.SWORD);
-        return sword >= 0 ? inv.get(sword) : null;
+        Item held = player.inventory().held();
+        return held != null && (held.def().held() || held.is(ItemDef.SWORD)) ? held : null;
     }
 
     /** Put down what she holds - the item in the selected hotbar slot; returns it, or null. */
@@ -401,6 +414,40 @@ public final class World {
         return item;
     }
 
+    /**
+     * Make what she wears hers: every wearable the wardrobe has on her that
+     * she does not own yet goes into her inventory - the rest of it before
+     * the hotbar - so that taking it out of the inventory takes it off
+     * ({@link #dropItem}). For the start of a game, whose wardrobe was saved
+     * and whose inventory was not; what has no room is left on. Returns how
+     * many were put in.
+     */
+    public int ownWhatIsWorn() {
+        Wardrobe w = player.wardrobe();
+        Inventory inv = player.inventory();
+        int added = 0;
+        for (Slot slot : Slot.values()) {
+            if (slot.carried() || Wearables.free(slot)) continue;
+            String folder = w.get(slot);
+            if (folder == null) continue;
+            ItemDef d = Wearables.wornAs(slot, folder, w.colour(slot));
+            if (d == null || Wearables.owned(inv).contains(d)) continue;
+            if (inv.stow(Item.of(d)) >= 0) added++;
+        }
+        return added;
+    }
+
+    /**
+     * Take every item off the ground - what lay about from the start (the
+     * weapons) and what the chests gave - so a chest opened again gives a new
+     * lot. Returns how many there were.
+     */
+    public int clearGround() {
+        int n = items.size();
+        items.clear();
+        return n;
+    }
+
     private void spawnAhead(Item item) {
         Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
         spawn(item, player.ground().add(ahead));
@@ -409,26 +456,24 @@ public final class World {
     /**
      * Take up {@code stance} with a weapon she carries: true if she has it.
      * Its hotbar slot is selected - one in the rest of the inventory is
-     * swapped into the selected slot first. The sword stance needs nothing
-     * (it is the wardrobe's): the sword's slot, else a slot with no weapon of
-     * a stance of its own, is selected.
+     * swapped into the selected slot first. The sword stances' weapon is the
+     * sword; the free stance (empty hands) selects a hotbar slot with no
+     * weapon in it, false when every one holds one.
      */
     public boolean wield(Stance stance) {
         Inventory inv = player.inventory();
-        ItemDef weapon = ItemDef.of(stance);
-        if (weapon == null) {
-            int pick = inv.indexOf(ItemDef.SWORD);
-            if (!Inventory.isHotbar(pick)) {
-                pick = -1;
-                for (int i = 0; i < Inventory.HOTBAR && pick < 0; i++) {
-                    Item d = inv.get(i);
-                    if (d == null || !d.def().held()) pick = i;
+        if (stance == Stance.FREE) {
+            for (int i = 0; i < Inventory.HOTBAR; i++) {
+                Item d = inv.get(i);
+                if (d == null || d.def().isWearable()) {
+                    select(i);
+                    return true;
                 }
             }
-            if (pick >= 0) inv.select(pick);
-            player.setStance(Stance.SWORD);
-            return true;
+            return false;
         }
+        ItemDef weapon = ItemDef.of(stance);
+        if (weapon == null) weapon = ItemDef.SWORD;
         int at = inv.indexOf(weapon);
         if (at < 0) return false;
         if (!Inventory.isHotbar(at)) {

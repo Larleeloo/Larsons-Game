@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "face": [
+   0
+  ],
+  "fittings": [
+   1
+  ],
+  "wood": [
+   2
+  ]
+ },
+ "materials": [
+  "face",
+  "fittings",
+  "wood"
+ ]
+}

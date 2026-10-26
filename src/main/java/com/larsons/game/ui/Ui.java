@@ -44,6 +44,9 @@ public final class Ui implements AutoCloseable {
 
     public Batch batch() { return batch; }
 
+    /** Device pixels per logical pixel (2 on a Retina screen): what a font made for the UI is rasterised at. */
+    public float scale() { return window.scale(); }
+
     public Texture white() { return white; }
 
     public Input input() { return window.input(); }

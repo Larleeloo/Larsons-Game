@@ -205,6 +205,31 @@ public final class TierLook {
         return out;
     }
 
+    /**
+     * A sheet's palette ({@code base}) of {@code item} with its {@code part}
+     * in {@code rgb} ({@link #shift}) - a wearable's pickup, its shirt in the
+     * rarity's colour or its bottle in the dye's - {@code base} itself when
+     * the sheet has no such part. Kept like {@link #palette}'s.
+     */
+    public int[] paint(int[] base, String item, Map<String, int[]> parts, String part, int rgb) {
+        if (base == null || parts == null || !parts.containsKey(part)) return base;
+        Map<String, int[]> forBase = memo.get(base);
+        String key = item + "/" + part + "#" + Integer.toHexString(rgb & 0xFFFFFF);
+        if (forBase != null) {
+            int[] hit = forBase.get(key);
+            if (hit != null) return hit;
+        }
+        int[] out = base.clone();
+        for (int m : parts.get(part)) shift(base, out, m, rgb & 0xFFFFFF);
+        if (memoSize >= MEMO) {
+            memo.clear();
+            memoSize = 0;
+        }
+        memo.computeIfAbsent(base, b -> new HashMap<>()).put(key, out);
+        memoSize++;
+        return out;
+    }
+
     /** {@code base} with {@code look} made on {@code parts}: the whole weapon tinted first, then each named part. */
     int[] recolour(int[] base, Map<String, int[]> parts, Map<String, String> look) {
         int[] out = base.clone();
