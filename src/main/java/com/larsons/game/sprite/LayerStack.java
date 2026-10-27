@@ -26,7 +26,8 @@ import java.util.List;
  *       wardrobe's carried items for the sword stance, the stance's own
  *       weapon in its hand (and nothing in the other) for the axe, the bow
  *       and the crossbow, and nothing at all for the emotes and pick-ups
- *       ({@link Stance#carried}).</li>
+ *       ({@link Stance#carried}); the dash and the roll draw whatever she
+ *       holds ({@link Stance#in}).</li>
  *   <li>The body's sheet decides the frame: {@code frame = time × fps},
  *       wrapped (looping states) or held on the last frame (jump, attack).</li>
  *   <li>Every cosmetic plays the <em>same</em> frame index. They are authored
@@ -186,11 +187,24 @@ public final class LayerStack {
      */
     public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                  double time, SpriteView view, Memory memory, boolean handsEmpty) {
+        return resolve(lib, wardrobe, state, time, view, memory, handsEmpty, null);
+    }
+
+    /**
+     * {@link #resolve(SpriteLibrary, Wardrobe, AnimState, double, SpriteView, Memory, boolean)}
+     * for a character holding what stance {@code holding} holds: what the
+     * states played with whatever is in hand (the dash, the roll: {@link
+     * Stance#ALL}) draw in her hands - null: the wardrobe's own.
+     */
+    public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
+                                 double time, SpriteView view, Memory memory, boolean handsEmpty,
+                                 Stance holding) {
         Elevation elev = view.elevation();
         Facing facing = view.facing();
         boolean missing = false;
         boolean left = wardrobe.leftHanded();
         AnimState asked = state;
+        Stance hands = asked.stance().in(holding, wardrobe);
         String bodyItem = wardrobe.get(Slot.BODY);
         state = shown(lib, lib.source(bodyItem, Slot.BODY, bodyItem, wardrobe.style(), left),
                 asked, elev, facing);
@@ -199,7 +213,7 @@ public final class LayerStack {
         Slot[] order = drawOrder(left, elev, facing);
         for (Slot slot : order) {
             String item = !slot.carried() ? wardrobe.get(slot)
-                    : handsEmpty && !asked.stance().weapon() ? null : asked.stance().carried(slot, wardrobe);
+                    : handsEmpty && !hands.weapon() ? null : hands.carried(slot, wardrobe);
             if (item == null || wardrobe.hidden(slot)) continue;
             SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);
@@ -221,7 +235,7 @@ public final class LayerStack {
         // on nothing else.
         if (!missing) {
             for (Want w : wants) {
-                if (w.file() != null) prefetch(lib, w.source(), state, asked.stance(), elev, facing);
+                if (w.file() != null) prefetch(lib, w.source(), state, hands, elev, facing);
             }
         }
         if (missing && memory.last != null && usable(memory.last)) {
@@ -322,15 +336,16 @@ public final class LayerStack {
     /**
      * Queue what the character is likely to need next: every other state of
      * the same stance from this view (it may start walking or swinging at any
-     * moment - though not drop the axe for the bow), and this state from the
-     * two neighbouring directions (the camera or the character may turn).
-     * Queued loads are cheap to ask for twice, and the library only takes them
-     * while the memory budget has room (see {@link SpriteLibrary#prefetch}).
+     * moment - though not drop the axe for the bow) and the dodges (played
+     * with whatever is in hand: she may dash or roll at any moment), and this
+     * state from the two neighbouring directions (the camera or the character
+     * may turn). Queued loads are cheap to ask for twice, and the library only
+     * takes them while the memory budget has room (see {@link SpriteLibrary#prefetch}).
      */
     private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src,
                                  AnimState state, Stance stance, Elevation elev, Facing facing) {
         for (AnimState other : AnimState.values()) {
-            if (other != state && other.stance() == stance) {
+            if (other != state && (other.stance() == stance || other.stance() == Stance.ALL)) {
                 lib.prefetch(lib.resolve(src, other, elev, facing));
             }
         }
@@ -370,6 +385,17 @@ public final class LayerStack {
      */
     public static void drawBillboard(Batch batch, List<Layer> layers, SpriteProfile framing, Elevation elevation,
                                      Vec3 feet, Vec3 cameraRight, Vec3 cameraUp, float alpha) {
+        drawBillboard(batch, layers, framing, elevation, feet, cameraRight, cameraUp, 1, 1, 1, alpha);
+    }
+
+    /**
+     * {@link #drawBillboard(Batch, List, SpriteProfile, Elevation, Vec3, Vec3, Vec3, float)}
+     * tinted: every layer's colours times {@code (r, g, b)} - a dash's
+     * afterimages.
+     */
+    public static void drawBillboard(Batch batch, List<Layer> layers, SpriteProfile framing, Elevation elevation,
+                                     Vec3 feet, Vec3 cameraRight, Vec3 cameraUp,
+                                     float r, float g, float b, float alpha) {
         double w = framing.frameWorldSize(), h = framing.frameWorldHeight();
         double[] anchor = framing.anchor(elevation);
         Vec3 topLeft = feet.sub(cameraRight.scale(anchor[0] * w)).add(cameraUp.scale(anchor[1] * h));
@@ -384,7 +410,7 @@ public final class LayerStack {
                     uv[0], uv[1], uv[2], uv[3],
                     Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]),
                     Math.max(uv[0], uv[2]), Math.max(uv[1], uv[3]),
-                    1, 1, 1, alpha, batch.palette(l.sheet().indexed() ? l.palette() : null));
+                    r, g, b, alpha, batch.palette(l.sheet().indexed() ? l.palette() : null));
         }
     }
 

@@ -66,6 +66,10 @@ public final class WorldRenderer implements AutoCloseable {
 
     /** How far the fog reaches, in metres. */
     public static final float FOG = 70f;
+    /** A dash's afterimages: one left behind every so many seconds, each fading out over so many. */
+    static final double GHOST_EVERY = 0.035, GHOST_LIFE = 0.2;
+    /** How opaque an afterimage starts, and the cool tint it is drawn in. */
+    static final float GHOST_ALPHA = 0.4f, GHOST_R = 0.62f, GHOST_G = 0.78f, GHOST_B = 1f;
 
     private final VoidRenderer voidRenderer;
     private final SceneryRenderer scenery;
@@ -80,6 +84,10 @@ public final class WorldRenderer implements AutoCloseable {
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
+    /** A frame of the player left behind by a dodge, fading. */
+    private record Ghost(LayerStack.Result stack, Vec3 feet, double born) { }
+    private final java.util.ArrayDeque<Ghost> ghosts = new java.util.ArrayDeque<>();
+    private double lastGhost = Double.NEGATIVE_INFINITY;
 
     public WorldRenderer(VoidRenderer voidRenderer, SceneryRenderer scenery, Batch batch, SpriteLibrary sprites,
                          ObjectSprites objects, ItemSprites items) {
@@ -180,13 +188,33 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
-                p.handsEmpty()), world.wielded(), items);
+                p.handsEmpty(), p.stance()), world.wielded(), items);
         LayerStack.Result stack = playerStack;
         draws.add(() -> {
             batch.depthAnchor(p.ground());
             LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
         });
         dist.add(p.feet().sub(eye).dot(forward));
+
+        // the dash's afterimages: the frames she leaves behind, fading where they were
+        double now = world.time();
+        if (p.afterimages() && now - lastGhost >= GHOST_EVERY && !stack.layers().isEmpty()) {
+            ghosts.addLast(new Ghost(stack, p.feet(), now));
+            lastGhost = now;
+        }
+        while (!ghosts.isEmpty() && now - ghosts.peekFirst().born() > GHOST_LIFE) ghosts.removeFirst();
+        for (Ghost g : ghosts) {
+            // (not the one left this frame, where she still stands)
+            if (g.born() >= now || g.stack().layers().stream().anyMatch(l -> l.sheet().closed())) continue;
+            float a = GHOST_ALPHA * (float) (1 - (now - g.born()) / GHOST_LIFE);
+            if (a <= 0.01f) continue;
+            draws.add(() -> {
+                batch.depthAnchor(new Vec3(g.feet().x(), 0, g.feet().z()));
+                LayerStack.drawBillboard(batch, g.stack().layers(), g.stack().framing(),
+                        g.stack().view().elevation(), g.feet(), right, up, GHOST_R, GHOST_G, GHOST_B, a);
+            });
+            dist.add(g.feet().sub(eye).dot(forward));
+        }
 
         for (Chest c : world.chests()) {
             Vec3 chestPivot = c.position().add(0, objects.profile(c.id()).pivotHeight(), 0);

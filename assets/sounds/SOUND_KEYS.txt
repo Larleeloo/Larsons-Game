@@ -130,6 +130,8 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/dagger_crouch_attack.mp3     Dagger rising stab, crouched   player/feminine/dagger_crouch_attack
   player/feminine/dagger_parry.mp3             Dagger parry                   player/feminine/dagger_parry
   player/feminine/dagger_block.mp3             Dagger block (held)            player/feminine/dagger_block
+  player/feminine/dash.mp3                     Dash                           player/feminine/dash
+  player/feminine/roll.mp3                     Combat roll                    player/feminine/roll
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -253,6 +255,8 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/dagger_crouch_attack.mp3    Dagger rising stab, crouched   player/masculine/dagger_crouch_attack
   player/masculine/dagger_parry.mp3            Dagger parry                   player/masculine/dagger_parry
   player/masculine/dagger_block.mp3            Dagger block (held)            player/masculine/dagger_block
+  player/masculine/dash.mp3                    Dash                           player/masculine/dash
+  player/masculine/roll.mp3                    Combat roll                    player/masculine/roll
 
 
 CHESTS  ->  chests/ornate_chest/
