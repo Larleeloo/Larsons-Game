@@ -22,7 +22,8 @@ import java.util.function.ToDoubleFunction;
  * <pre>
  *   airborne or mid-jump          → the stance's jump
  *   an action under way           → it (attack, heavy, spin, parry, bash,
- *                                   the bow's draw and loose, an emote, a pick-up)
+ *                                   the bow's draw and loose, an emote, a pick-up,
+ *                                   the dash, the roll)
  *   blocking (held)               → the stance's block / the shield up
  *   moving                        → the stance's walk / run (Shift) / sprint (Ctrl),
  *                                   or its crouch walk (fast with Shift)
@@ -36,6 +37,17 @@ import java.util.function.ToDoubleFunction;
  * She moves at the speed her locomotion state's feet travel at
  * ({@link AnimState#speed()}). A heavy attack can only be made once every
  * {@link #HEAVY_COOLDOWN} seconds ({@link #heavyWait}).
+ *
+ * <p>The dodge key starts a <b>dash</b> at once - a low burst of ~3.5 m the
+ * way she is moving (or facing), whatever she holds. Still held when its
+ * push-off is over ({@link AnimState#DODGE_SHARED} frames, a sixth of a
+ * second), it turns into the <b>combat roll</b> there: a dive into a shoulder
+ * roll and up again, ~4.7 m, during which nothing can hurt her
+ * ({@link #invulnerable}) and she rolls through the training dummies
+ * ({@link #passesThrough}). Either can start from standing, moving, crouched
+ * or behind the shield, not in the air or in the middle of another action
+ * (an emote is cut short); the next one can start {@link #DODGE_COOLDOWN}
+ * seconds after the last one ended.
  *
  * <p>For looking at the art rather than playing, a state can be
  * <em>previewed</em>: it loops in place (the one-shots included) until the
@@ -62,25 +74,65 @@ public final class Player {
      * {@code cooldowns.heavySeconds}).
      */
     public static final double HEAVY_COOLDOWN = 10;
+    /**
+     * The least time from the end of one dodge to the start of the next, in
+     * seconds, unless the game says otherwise ({@link #setDodgeCooldown};
+     * {@code combat.json}'s {@code cooldowns.dodgeSeconds}): dodging is no
+     * quicker a way about than sprinting.
+     */
+    public static final double DODGE_COOLDOWN = 0.35;
+    /**
+     * How fast the dash carries her (m/s) at its frames (30 a second): the
+     * push-off, the glide, the brake on the back foot - 3.5 m in all.
+     */
+    private static final double[][] DASH_SPEED = {{0, 5}, {1.5, 14}, {6, 13}, {9, 4}, {11, 0}};
+    /**
+     * The roll's: the dash's up to its push-off's end (the two the same to
+     * {@link AnimState#DODGE_SHARED}), then the dive and the roll over the
+     * shoulder, slowing as she comes up out of it - 4.7 m in all.
+     */
+    private static final double[][] ROLL_SPEED = {{0, 5}, {1.5, 14}, {6, 13}, {9, 7}, {15, 3}, {18, 1}, {20, 0}};
+    /** The roll's frames (from, to) nothing can hurt her in: from the dive until she lands. */
+    private static final double[] ROLL_SAFE = {AnimState.DODGE_SHARED, 16};
+    /** Faster than this (m/s), a dodge leaves afterimages behind her. */
+    public static final double AFTERIMAGE_SPEED = 6;
 
     /**
      * What the controls ask for this frame. The one-frame requests ({@code
      * jump}, {@code attack}, {@code crouch}, {@code heavy}, {@code spin},
      * {@code parry}, {@code bash}, {@code emote}) are true on the frame the key
-     * goes down; {@code attackHeld} and {@code block} for as long as it is held.
+     * goes down; {@code attackHeld}, {@code block} and {@code dodgeHeld} for as
+     * long as it is held.
      *
      * @param crouch toggles crouching
      * @param emote  an emote to play ({@link AnimState#EMOTE_LAUGH} ...), or null
+     * @param dodge  the dodge key went down: a dash - a roll if it is still
+     *               held ({@code dodgeHeld}) once the dash's push-off is over
      */
     public record Intent(double moveX, double moveZ, boolean run, boolean sprint,
                          boolean jump, boolean attack, boolean attackHeld, boolean crouch,
                          boolean heavy, boolean spin, boolean parry, boolean block, boolean bash,
-                         AnimState emote) {
+                         AnimState emote, boolean dodge, boolean dodgeHeld) {
         public static final Intent NONE = new Intent(0, 0, false, false, false, false);
 
         /** Moving, running, jumping and attacking only. */
         public Intent(double moveX, double moveZ, boolean run, boolean sprint, boolean jump, boolean attack) {
             this(moveX, moveZ, run, sprint, jump, attack, attack, false, false, false, false, false, false, null);
+        }
+
+        /** Everything but the dodge. */
+        public Intent(double moveX, double moveZ, boolean run, boolean sprint,
+                      boolean jump, boolean attack, boolean attackHeld, boolean crouch,
+                      boolean heavy, boolean spin, boolean parry, boolean block, boolean bash,
+                      AnimState emote) {
+            this(moveX, moveZ, run, sprint, jump, attack, attackHeld, crouch, heavy, spin, parry, block, bash, emote,
+                    false, false);
+        }
+
+        /** This, with the dodge key gone down ({@code dodge}) and held ({@code held}) or not. */
+        public Intent withDodge(boolean dodge, boolean held) {
+            return new Intent(moveX, moveZ, run, sprint, jump, attack, attackHeld, crouch, heavy, spin, parry, block,
+                    bash, emote, dodge, held);
         }
 
         boolean moving() {
@@ -89,7 +141,7 @@ public final class Player {
 
         /** Whether it asks for anything to happen besides moving. */
         boolean acts() {
-            return jump || attack || crouch || heavy || spin || parry || block || bash || emote != null;
+            return jump || attack || crouch || heavy || spin || parry || block || bash || emote != null || dodge;
         }
     }
 
@@ -117,6 +169,12 @@ public final class Player {
     private Runnable grab;
     /** How long a heavy attack takes to come back, and how long is left before the next can start. */
     private double heavyCooldown = HEAVY_COOLDOWN, heavyWait;
+    /** The same for a dodge (counted from the end of the last). */
+    private double dodgeCooldown = DODGE_COOLDOWN, dodgeWait;
+    /** The dodge under way: the way it goes, its animation's length over the art's (1: as authored). */
+    private double dodgeHeading, dodgeScale = 1;
+    /** Whether the dodge key was let go since the dash started (it stays a dash). */
+    private boolean dodgeLetGo;
 
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
@@ -139,6 +197,7 @@ public final class Player {
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
+        if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (preview != null && (in.moving() || in.acts())) preview = null;
         if (preview != null) {
             velocity = Vec3.ZERO;
@@ -154,8 +213,12 @@ public final class Player {
         Stance st = stance();
 
         // --- what is under way ---------------------------------------------------------
-        if (action != null && in.moving() && isEmote(action)) action = null;   // moving cuts an emote short
-        if (action != null && !drawing && stateTime >= actionDuration) action = null;
+        // moving, or a dodge, cuts an emote short
+        if (action != null && (in.moving() || in.dodge()) && isEmote(action)) action = null;
+        if (action != null && !drawing && stateTime >= actionDuration) {
+            if (dodging()) dodgeWait = dodgeCooldown;
+            action = null;
+        }
         if (drawing && !in.attackHeld()) {
             // the bow: let go - loosed if drawn far enough, else the string let down
             drawing = false;
@@ -179,7 +242,14 @@ public final class Player {
         boolean blocking = false;
         if (!busy && grounded) {
             AnimState next = null;
-            if (in.emote() != null) {
+            if (in.dodge() && dodgeWait <= 0) {
+                // the way she is moving, else the way she faces; she turns to it at once
+                next = AnimState.DASH;
+                crouched = false;
+                dodgeHeading = in.moving() ? SpriteView.headingOf(in.moveX(), in.moveZ()) : wantHeading;
+                heading = wantHeading = dodgeHeading;
+                dodgeLetGo = !in.dodgeHeld();
+            } else if (in.emote() != null) {
                 next = in.emote();
                 crouched = false;
             } else if (in.parry()) {
@@ -210,6 +280,7 @@ public final class Player {
                 crouched = false;
             }
             if (next != null) start(next, durations);
+            if (next == AnimState.DASH) dodgeScale = scale(AnimState.DASH);
         }
         busy = action != null || jumping;
 
@@ -221,7 +292,11 @@ public final class Player {
         boolean rooted = (busy && !jumping) || blocking;
         if (rooted) wish = Vec3.ZERO;
         Vec3 target = wish.scale(moving.speed());
-        velocity = velocity.lerp(target, 1 - Math.exp(-dt * (grounded ? 14 : 3)));
+        if (dodging()) {
+            velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
+        } else {
+            velocity = velocity.lerp(target, 1 - Math.exp(-dt * (grounded ? 14 : 3)));
+        }
         position = position.add(velocity.scale(dt));
         if (in.moving() && !rooted) wantHeading = SpriteView.headingOf(wish.x(), wish.z());
 
@@ -248,6 +323,48 @@ public final class Player {
         else next = st.idle(crouched);
         setState(next);
         stateTime += dt;
+
+        // The dash: held through its push-off, it turns into the roll - at
+        // the frame it has reached, the two being the same until then.
+        if (action == AnimState.DASH) {
+            if (!in.dodgeHeld()) dodgeLetGo = true;
+            if (!dodgeLetGo && stateTime >= AnimState.DODGE_SHARED / AnimState.DEFAULT_FPS * dodgeScale) {
+                double t = stateTime;
+                start(AnimState.ROLL, durations);
+                dodgeScale = scale(AnimState.ROLL);
+                stateTime = t;
+            }
+        }
+    }
+
+    /** The dodge under way's animation's length over its art's ({@link AnimState#defaultFrames} at 30 a second). */
+    private double scale(AnimState s) {
+        double art = s.defaultFrames() / AnimState.DEFAULT_FPS;
+        return actionDuration > 1e-6 ? actionDuration / art : 1;
+    }
+
+    /** How fast dodge {@code s} carries her {@code t} seconds into it (m/s). */
+    private double dodgeSpeed(AnimState s, double t) {
+        double[][] keys = s == AnimState.ROLL ? ROLL_SPEED : DASH_SPEED;
+        double f = t / dodgeScale * AnimState.DEFAULT_FPS;
+        if (f <= keys[0][0]) return keys[0][1] / dodgeScale;
+        for (int i = 1; i < keys.length; i++) {
+            if (f <= keys[i][0]) {
+                double u = (f - keys[i - 1][0]) / (keys[i][0] - keys[i - 1][0]);
+                return (keys[i - 1][1] + u * (keys[i][1] - keys[i - 1][1])) / dodgeScale;
+            }
+        }
+        return keys[keys.length - 1][1] / dodgeScale;
+    }
+
+    /** How far dodge {@code s} carries her, in metres, played as authored. */
+    public static double dodgeDistance(AnimState s) {
+        double[][] keys = s == AnimState.ROLL ? ROLL_SPEED : DASH_SPEED;
+        double d = 0;
+        for (int i = 1; i < keys.length; i++) {
+            d += (keys[i][0] - keys[i - 1][0]) * (keys[i][1] + keys[i - 1][1]) / 2;
+        }
+        return d / AnimState.DEFAULT_FPS;
     }
 
     private void start(AnimState s, ToDoubleFunction<AnimState> durations) {
@@ -297,20 +414,20 @@ public final class Player {
         return handsEmpty && stance == Stance.SWORD;
     }
 
-    /** Empty her hands, or take the wardrobe's sword (and shield) back up (interrupting a swing). */
+    /** Empty her hands, or take the wardrobe's sword (and shield) back up (interrupting a swing, not a dodge). */
     public void setHandsEmpty(boolean empty) {
         if (empty == handsEmpty) return;
         handsEmpty = empty;
-        if (stance == Stance.SWORD && action != null && !isEmote(action)) action = null;
+        if (stance == Stance.SWORD && action != null && !isEmote(action) && !dodging()) action = null;
         drawing = false;
     }
 
-    /** Take up {@code s} (interrupting whatever she was doing with the last weapon). */
+    /** Take up {@code s} (interrupting whatever she was doing with the last weapon, but a dodge). */
     public void setStance(Stance s) {
         if (s == Stance.BLADE) s = Stance.SWORD;          // the wardrobe's, with or without a shield
-        if (s == null || s == Stance.FREE || s == stance) return;
+        if (s == null || s == Stance.FREE || s == Stance.ALL || s == stance) return;
         stance = s;
-        if (action != null && !isEmote(action)) action = null;
+        if (action != null && !isEmote(action) && !dodging()) action = null;   // (a dodge goes on, whatever is in hand)
         drawing = false;
     }
 
@@ -347,6 +464,42 @@ public final class Player {
     public void setHeavyCooldown(double seconds) {
         heavyCooldown = Math.max(0, seconds);
         heavyWait = Math.min(heavyWait, heavyCooldown);
+    }
+
+    // --- the dodges ------------------------------------------------------------------
+
+    /** Whether she is dashing or rolling. */
+    public boolean dodging() {
+        return action == AnimState.DASH || action == AnimState.ROLL;
+    }
+
+    /** Whether nothing can hurt her now: from the roll's dive until she lands. */
+    public boolean invulnerable() {
+        if (action != AnimState.ROLL) return false;
+        double f = stateTime / dodgeScale * AnimState.DEFAULT_FPS;
+        return f >= ROLL_SAFE[0] && f < ROLL_SAFE[1];
+    }
+
+    /** Whether she rolls through what would stop her (the training dummies): all the roll long. */
+    public boolean passesThrough() {
+        return action == AnimState.ROLL;
+    }
+
+    /** Whether she is going fast enough in a dodge to leave afterimages. */
+    public boolean afterimages() {
+        return dodging() && speed() > AFTERIMAGE_SPEED;
+    }
+
+    /** Seconds until she can dodge again (0: now). */
+    public double dodgeWait() { return dodgeWait; }
+
+    /** The least time from the end of one dodge to the start of the next, in seconds. */
+    public double dodgeCooldown() { return dodgeCooldown; }
+
+    /** Make dodges wait {@code seconds} after the last one ended from now on (0: no wait). */
+    public void setDodgeCooldown(double seconds) {
+        dodgeCooldown = Math.max(0, seconds);
+        dodgeWait = Math.min(dodgeWait, dodgeCooldown);
     }
 
     // --- preview and posing ----------------------------------------------------------

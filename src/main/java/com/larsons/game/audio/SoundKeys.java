@@ -12,7 +12,7 @@ import java.util.List;
  * for it — the engine's {@code SoundKeys}, with the game's own catalogue.
  *
  * <p>A sound key names an <em>object</em> and an <em>action state</em>, and
- * every animation is one: a body's 119 states, the chest's four, what is
+ * every animation is one: a body's 121 states, the chest's four, what is
  * done with an item, the inventory.
  *
  * <pre>
@@ -32,7 +32,7 @@ import java.util.List;
  * ({@code chests/open.mp3}), an item's to every item's ({@code
  * items/pickup.mp3}). Where the engine flattens a key into one file name per
  * family folder ({@code mobs/slime_attack.wav}), the game gives an object a
- * folder of its own - a body has 119 states - so the files of one body or
+ * folder of its own - a body has 121 states - so the files of one body or
  * chest sit together.
  *
  * <p>Every one of these defaults to <b>silence</b>: nothing makes a sound

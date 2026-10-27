@@ -66,6 +66,11 @@ public final class WorldRenderer implements AutoCloseable {
 
     /** How far the fog reaches, in metres. */
     public static final float FOG = 70f;
+    /** A dash's afterimages: one left behind every so many seconds, each fading out over so many. */
+    static final double GHOST_EVERY = 0.035, GHOST_LIFE = 0.2;
+    /** How opaque an afterimage starts, and the one cool colour it is drawn in (a silhouette). */
+    static final float GHOST_ALPHA = 0.4f;
+    static final int GHOST_RGB = 0x9CC4FF;
 
     private final VoidRenderer voidRenderer;
     private final SceneryRenderer scenery;
@@ -80,6 +85,12 @@ public final class WorldRenderer implements AutoCloseable {
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
+    /** A frame of the player left behind by a dodge, fading. */
+    private record Ghost(LayerStack.Result stack, Vec3 feet, double born) { }
+    private final java.util.ArrayDeque<Ghost> ghosts = new java.util.ArrayDeque<>();
+    private double lastGhost = Double.NEGATIVE_INFINITY;
+    /** Each layer palette's silhouette ({@link #silhouette}), made once. */
+    private final Map<int[], int[]> silhouettes = new IdentityHashMap<>();
 
     public WorldRenderer(VoidRenderer voidRenderer, SceneryRenderer scenery, Batch batch, SpriteLibrary sprites,
                          ObjectSprites objects, ItemSprites items) {
@@ -180,13 +191,40 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 pivot = p.feet().add(0, 0.9, 0);
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
-                p.handsEmpty()), world.wielded(), items);
+                p.handsEmpty(), p.stance()), world.wielded(), items);
         LayerStack.Result stack = playerStack;
         draws.add(() -> {
             batch.depthAnchor(p.ground());
             LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
         });
         dist.add(p.feet().sub(eye).dot(forward));
+
+        // the dash's afterimages: the frames she leaves behind, fading where they were
+        double now = world.time();
+        if (p.afterimages() && now - lastGhost >= GHOST_EVERY && !stack.layers().isEmpty()) {
+            ghosts.addLast(new Ghost(stack, p.feet(), now));
+            lastGhost = now;
+        }
+        while (!ghosts.isEmpty() && now - ghosts.peekFirst().born() > GHOST_LIFE) ghosts.removeFirst();
+        if (silhouettes.size() > 256) silhouettes.clear();
+        for (Ghost g : ghosts) {
+            // (not the one left this frame, where she still stands)
+            if (g.born() >= now || g.stack().layers().stream().anyMatch(l -> l.sheet().closed())) continue;
+            float a = GHOST_ALPHA * (float) (1 - (now - g.born()) / GHOST_LIFE);
+            if (a <= 0.01f) continue;
+            List<LayerStack.Layer> flat = new ArrayList<>();
+            for (LayerStack.Layer l : g.stack().layers()) {
+                flat.add(l.palette() == null ? l : l.withPalette(silhouettes.computeIfAbsent(l.palette(),
+                        WorldRenderer::silhouette)));
+            }
+            draws.add(() -> {
+                batch.depthAnchor(new Vec3(g.feet().x(), 0, g.feet().z()));
+                // (a pixel-art layer in the silhouette's colour; an RGBA one - the rendered style's - in its own)
+                LayerStack.drawBillboard(batch, flat, g.stack().framing(), g.stack().view().elevation(), g.feet(),
+                        right, up, a);
+            });
+            dist.add(g.feet().sub(eye).dot(forward));
+        }
 
         for (Chest c : world.chests()) {
             Vec3 chestPivot = c.position().add(0, objects.profile(c.id()).pivotHeight(), 0);
@@ -224,6 +262,13 @@ public final class WorldRenderer implements AutoCloseable {
         for (int i : order) draws.get(i).run();
         batch.end();
         glDepthMask(true);
+    }
+
+    /** {@code palette} with every colour {@link #GHOST_RGB}, each entry's alpha kept: a layer as a flat silhouette. */
+    static int[] silhouette(int[] palette) {
+        int[] out = new int[palette.length];
+        for (int i = 0; i < palette.length; i++) out[i] = (palette[i] & 0xFF000000) | GHOST_RGB;
+        return out;
     }
 
     /**

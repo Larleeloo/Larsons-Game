@@ -12,7 +12,8 @@ package com.larsons.game.sprite;
  * <p>A state belongs to a {@link Stance}: the weapon the character holds while
  * it plays, which decides what is drawn in her hands ({@link Stance#carried}).
  * The emotes and the pick-ups are played with empty hands ({@link
- * Stance#FREE}): nothing carried is drawn. A state can name a {@link
+ * Stance#FREE}): nothing carried is drawn; the dash and the roll with whatever
+ * she holds ({@link Stance#ALL}). A state can name a {@link
  * #fallback()} - the state shown instead where a character has no sheets for
  * it (a 512-pixel rendered set made before it existed, the generated stand-in
  * body) - and every chain of fallbacks ends in one of the first six.
@@ -169,7 +170,20 @@ public enum AnimState {
     DAGGER_CROUCH_ATTACK("dagger_crouch_attack", "Dagger rising stab, crouched", false, 24, Stance.DAGGER, 0,
             "dagger_attack"),
     DAGGER_PARRY("dagger_parry", "Dagger parry", false, 18, Stance.DAGGER, 0, "parry"),
-    DAGGER_BLOCK("dagger_block", "Dagger block", true, 30, Stance.DAGGER, 0, "dagger_idle");
+    DAGGER_BLOCK("dagger_block", "Dagger block", true, 30, Stance.DAGGER, 0, "dagger_idle"),
+    // --- the dodges, played in every stance with whatever is in her hands (Stance.ALL):
+    // the dash, a low burst forward, and the combat roll, a dive into a shoulder roll
+    // and up again - its first DODGE_SHARED frames the dash's own, so a dash turns
+    // into a roll there without a jump in the picture
+    DASH("dash", "Dash", false, 12, Stance.ALL, 0, "sprint"),
+    ROLL("roll", "Combat roll", false, 22, Stance.ALL, 0, "dash");
+
+    /**
+     * The frames the roll shares with the dash (the push-off): the game
+     * decides by then which of the two it is, and turns a dash into the roll
+     * at the frame it has reached.
+     */
+    public static final int DODGE_SHARED = 5;
 
     /** The playback rate every sheet is authored at unless its profile says otherwise. */
     public static final double DEFAULT_FPS = 30.0;
@@ -204,7 +218,7 @@ public enum AnimState {
     /** Frames in the procedural fallback's sheet for this state, at 30 fps. */
     public int defaultFrames() { return defaultFrames; }
 
-    /** What she holds while it plays ({@link Stance#FREE}: nothing). */
+    /** What she holds while it plays ({@link Stance#FREE}: nothing; {@link Stance#ALL}: whatever she holds). */
     public Stance stance() { return stance; }
 
     /** Whether her hands are empty: nothing carried is drawn. */

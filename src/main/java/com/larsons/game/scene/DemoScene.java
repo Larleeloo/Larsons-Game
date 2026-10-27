@@ -115,6 +115,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private Player.Intent scripted;
     /** Scripted held controls: the attack (the bow's draw) and the block. */
     private boolean scriptDraw, scriptBlock;
+    /** A scripted roll: the dodge key held until the dash has turned into the roll. */
+    private boolean scriptRoll;
 
     public DemoScene(Game game) {
         this.game = game;
@@ -138,6 +140,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.combat().use(tuning);
         world.combat().setMana(tuning.maxMana);
         p.setHeavyCooldown(tuning.heavyCooldown);
+        p.setDodgeCooldown(tuning.dodgeCooldown);
         for (Vec3 at : DUMMIES_AT) addDummy(at);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
@@ -272,10 +275,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.toast("Heavy attack ready in " + (int) Math.ceil(p.heavyWait()) + " s", Theme.HINT);
         }
         p.update(dt, intent, durations());
+        if (scriptRoll && p.action() != AnimState.DASH) scriptRoll = false;   // rolling (or it never started)
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again
             scripted = held(scripted);
-            if (scripted.moveX() == 0 && scripted.moveZ() == 0 && !scriptDraw && !scriptBlock) scripted = null;
+            if (scripted.moveX() == 0 && scripted.moveZ() == 0 && !scriptDraw && !scriptBlock && !scriptRoll) {
+                scripted = null;
+            }
         }
         world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         camera.update(dt, pivot());
@@ -332,7 +338,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /** A scripted intent after its frame: still moving and holding, nothing pressed. */
     private Player.Intent held(Player.Intent i) {
         return new Player.Intent(i.moveX(), i.moveZ(), i.run(), i.sprint(), false, false, scriptDraw, false,
-                false, false, false, scriptBlock, false, null);
+                false, false, false, scriptBlock, false, null, false, scriptRoll);
     }
 
     /** Loop the state {@code step} after (or before) the one on screen, through all of them. */
@@ -358,9 +364,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         boolean attackHeld = in.down(GLFW_KEY_F) || in.mouseDown(GLFW_MOUSE_BUTTON_LEFT);
         AnimState emote = null;
         for (int i = 0; i < EMOTE_KEYS.length; i++) if (in.pressed(EMOTE_KEYS[i])) emote = EMOTES[i];
+        // the dodge: a tap dashes, held it turns into a roll
+        boolean dodge = in.pressed(GLFW_KEY_LEFT_ALT) || in.pressed(GLFW_KEY_Z);
+        boolean dodgeHeld = in.down(GLFW_KEY_LEFT_ALT) || in.down(GLFW_KEY_Z);
         return new Player.Intent(move.x(), move.z(), shift && !ctrl, ctrl, in.pressed(GLFW_KEY_SPACE), attack,
                 attackHeld, in.pressed(GLFW_KEY_C), in.pressed(GLFW_KEY_X), in.pressed(GLFW_KEY_R),
-                in.pressed(GLFW_KEY_Q), in.down(GLFW_KEY_B), in.pressed(GLFW_KEY_V), emote);
+                in.pressed(GLFW_KEY_Q), in.down(GLFW_KEY_B), in.pressed(GLFW_KEY_V), emote, dodge, dodgeHeld);
     }
 
     private SpriteView currentView() {
@@ -442,8 +451,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** The help bar along the bottom of the HUD. */
     private static final String[] HELP = {
-            "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Click/F attack (bow: hold to draw) · "
-                    + "X heavy · R spin · Q parry · B block · V bash",
+            "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
+                    + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
                     + "Backspace live · , . turn · T turntable",
             "Tab height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · F11 full screen · Esc menu"};
@@ -638,6 +647,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "jump" -> scripted = new Player.Intent(0, 0, false, false, true, false);
+            // the dodges, the way she is scripted to move (else the way she faces): dash, roll
+            case "dash", "roll" -> {
+                scriptRoll = command.equals("roll");
+                scripted = (scripted == null ? Player.Intent.NONE : scripted).withDodge(true, scriptRoll);
+            }
             case "attack" -> scripted = new Player.Intent(0, 0, false, false, false, true);
             case "idle" -> {
                 scripted = null;

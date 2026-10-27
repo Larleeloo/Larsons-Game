@@ -219,8 +219,8 @@ public final class World {
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
      * each of a chest's states lasts, from its sheets) and the dummies' - the
-     * player kept out of them all, and out of the trees and the rocks - and
-     * the fighting.
+     * player kept out of them all (but the dummies while she rolls), and out
+     * of the trees and the rocks - and the fighting.
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
@@ -235,7 +235,7 @@ public final class World {
         }
         for (Dummy d : dummies) {
             d.tick(dt);
-            player.keepOut(d.position(), Dummy.RADIUS);
+            if (!player.passesThrough()) player.keepOut(d.position(), Dummy.RADIUS);   // (she rolls through them)
         }
         for (Scenery.Placed s : scenery.solids()) player.keepOut(s.position(), s.radius() + FEET);
         combat.tick(dt, this);

@@ -61,6 +61,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
 | **Space** | jump - with the sword, the axe, the bow, the crossbow, the crystal staff, the wand, the mace or the dagger |
+| **Left Alt** or **Z** | dodge: a tap **dashes** (a low burst of 3.5 m); held, the dash turns into a **combat roll** (4.7 m, nothing can hurt her in it, she rolls through the dummies) - the way she is moving, or facing, with whatever is in her hands ([Dodging](#dodging)) |
 | **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
 | **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger; once every 10 s) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
@@ -71,7 +72,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** | camera height preset: side → 45° → top-down |
-| **[ / ]** | loop the previous / next of all 119 states in place |
+| **[ / ]** | loop the previous / next of all 121 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -91,8 +92,9 @@ Drop sprite sheets on the window at any time to import them.
   ray-casts the ground plane per pixel, so it has no edge and a clean horizon
   at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **119 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **121 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
+  the dash and the combat roll (played with whatever she holds);
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
   the shield held ready and bashed; the sword held alone, with no shield (11
@@ -150,7 +152,7 @@ Drop sprite sheets on the window at any time to import them.
 
   <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
   <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
-- **Sound for every animation** - both bodies' 119 states, the chest's four,
+- **Sound for every animation** - both bodies' 121 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
@@ -605,7 +607,7 @@ Every reaction is drawn four ways - struck on its **front**, **back**,
 **left** or **right** - and it plays the one for the side the blow came from,
 flashing white as it is struck. It takes **100** before it falls, lies for
 **6 s** and springs back up whole; lying down, nothing touches it. A health
-bar shows over it once it is hurt. She cannot walk through it.
+bar shows over it once it is hurt. She cannot walk through it (she can [roll](#dodging) through it).
 
 ### The damage dice
 
@@ -652,6 +654,37 @@ that number), drawn once in grey and coloured on the GPU by a palette swap.
   a Mythic one's teal). A Basic staff has no magic in it and thrusts. Each spell costs
   **10 mana**.
 
+### Dodging
+
+**Left Alt** (or **Z**) is the dodge key, and how long it is held decides the
+move (`world/Player`):
+
+- **A tap dashes** - she drops her weight and drives off the back foot, low
+  and leant into it with the arms swept back and the weapon trailing, glides
+  **3.5 m** and brakes on the back foot coming up ready (12 frames, 0.4 s).
+  Pale blue afterimages - her silhouette, fading - are left behind her while
+  she is going fast.
+- **Held, it rolls** - the dash starts the moment the key goes down, so a
+  dodge is never late; if the key is still down when the push-off is over (5
+  frames, a sixth of a second) the dash turns into the **combat roll** at that
+  very frame (the two share their first five frames, so nothing jumps): a dive
+  into a tucked shoulder roll, the weapon held across in front of the shins,
+  once over onto her feet and up ready - **4.7 m** in 22 frames (0.73 s). From
+  the dive until she lands **nothing can hurt her** (`Player.invulnerable()`,
+  for the enemies to come), and she rolls straight **through the training
+  dummies** (a dash stops at them like walking does).
+
+<img src="docs/screenshots/dodge.png" width="98%" alt="The dash with the sword and shield, pale blue afterimages trailing behind her; the combat roll's dive, tuck, landing crouch and rise; a roll with the battle axe held across; a dash with the crystal staff">
+
+Either goes the way she is moving - she turns to it at once - or, standing
+still, the way she faces, with whatever is in her hands: the sword and shield,
+the axe, the bow, the crossbow, the staff, a one-handed weapon or nothing (both
+states are drawn with every carried item). She can dodge from standing,
+walking, running, crouched or from behind the shield, not in the air or in the
+middle of a swing, a cast or a shot (an emote is cut short); the next dodge
+can start **0.35 s** after the last one ended (`cooldowns.dodgeSeconds`), so
+dodging is no quicker a way about than sprinting.
+
 ### Mana
 
 Her **mana** is the blue bar beside the hotbar: **100**, filling back up at
@@ -677,7 +710,8 @@ weapons do what they say, and each one's effect is written under the dice:
 
 The numbers are in **`assets/combat/combat.json`**, read when the demo
 starts - the dice per rarity, the heavy die, the wand's heavy dice
-(`dice.wandHeavy`), the heavy attack's cooldown (`cooldowns.heavySeconds`), mana, the shots' speeds, range
+(`dice.wandHeavy`), the heavy attack's cooldown (`cooldowns.heavySeconds`), the wait between dodges
+(`cooldowns.dodgeSeconds`), mana, the shots' speeds, range
 and aim, how long arrows stay stuck, a dummy's health and how long it lies.
 Any value left out keeps its default (`combat/CombatTuning`); the borders'
 own numbers are `world/Border`'s. The fighting's other sprites are under
@@ -707,7 +741,7 @@ assets/sounds/
   SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 119 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/feminine/        <state>.mp3 for each of her 121 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
   combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
@@ -972,7 +1006,9 @@ library's lookup and mirroring rules, palette sheets staying palette indices
 (one texture whatever the colours), palette swaps and custom colours, the
 palette rows a batch shares, cutscene scripts and their timeline, actors'
 colour fades and flashes, the close-up folders, the camera and the player's
-state machine; the inventory (slots, the hotbar, resizing, what the selected
+state machine, the dodges (a tap's dash and a hold's roll, carried on from the
+same frame, their distances, the roll's safe frames and rolling through a
+dummy, the cooldown, and the weapon in hand drawn in them); the inventory (slots, the hotbar, resizing, what the selected
 slot puts in her hands - and that nothing else is -, dropping, sorting by name and by rarity, what she wears made hers and
 taken off when it leaves), the debug code, the inventory screen's diamonds (every
 slot placed, none overlapping, for any number), the chest's states and light,
@@ -1005,7 +1041,8 @@ xvfb-run ./gradlew run -Dlarsons.script="scene demo; wait 1; pitch 12; state wal
 
 Commands: `wait`, `scene`, `shot`, `key`, `click`, `drop <path>`,
 `importsave [layer/name]`, `importclose`, `quit`, and in the demo `pitch`,
-`yaw`, `zoom`, `state`, `face`, `move`, `jump`, `attack`, `draw` / `loose` (the
+`yaw`, `zoom`, `state`, `face`, `move`, `jump`, `dash`, `roll` (the way she is
+scripted to move, else the way she faces), `attack`, `draw` / `loose` (the
 bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]

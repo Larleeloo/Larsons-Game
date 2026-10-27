@@ -18,7 +18,10 @@ package com.larsons.game.sprite;
  *       for the wand's great cast, the mace's ground smash and its haft held
  *       across); whatever the wardrobe carries is put away while she holds one;</li>
  *   <li>{@link #FREE}: nothing - the emotes and the pick-ups are played with
- *       empty hands.</li>
+ *       empty hands;</li>
+ *   <li>{@link #ALL}: whatever she holds - the dash and the combat roll are
+ *       played in every stance, with the weapon (or the sword and shield, or
+ *       nothing) she had in her hands as they started ({@link #in}).</li>
  * </ul>
  *
  * <p>A weapon stance's weapon is not a wardrobe item: its sheets are under
@@ -44,7 +47,8 @@ public enum Stance {
     WAND("wand", "Wand", Slot.CARRY_RIGHT, "wand"),
     MACE("mace", "Mace", Slot.CARRY_RIGHT, "mace"),
     DAGGER("dagger", "Dagger", Slot.CARRY_RIGHT, "dagger"),
-    FREE("free", "Empty hands", null, null);
+    FREE("free", "Empty hands", null, null),
+    ALL("all", "Whatever is in hand", null, null);
 
     /** How fast she moves: the walk, the run (Shift), the sprint (Ctrl). */
     public enum Pace { WALK, RUN, SPRINT }
@@ -84,13 +88,24 @@ public enum Stance {
      * What is drawn in carried slot {@code slot} while a state of this stance
      * plays: the wardrobe's item (the sword stance), the stance's weapon in
      * its hand and nothing in the other (a weapon stance), nothing (free).
+     * For {@link #ALL}, the wardrobe's (see {@link #in} for what she holds).
      */
     public String carried(Slot slot, Wardrobe wardrobe) {
         return switch (this) {
-            case SWORD, BLADE -> wardrobe.get(slot);
+            case SWORD, BLADE, ALL -> wardrobe.get(slot);
             case FREE -> null;
             default -> slot == hand(wardrobe.leftHanded()) ? item : null;
         };
+    }
+
+    /**
+     * The stance whose hands a state of this one is drawn with while she
+     * holds {@code holding}: this one - or, for {@link #ALL} (the dodges),
+     * {@code holding}, or the wardrobe's own where that is not known (null).
+     */
+    public Stance in(Stance holding, Wardrobe wardrobe) {
+        if (this != ALL) return this;
+        return holding != null && holding != ALL ? holding : ofWardrobe(wardrobe);
     }
 
     // --- the states it plays ---------------------------------------------------------
@@ -196,7 +211,7 @@ public enum Stance {
             case WAND -> crouched ? AnimState.WAND_CROUCH_ATTACK : AnimState.WAND_ATTACK;
             case MACE -> crouched ? AnimState.MACE_CROUCH_ATTACK : AnimState.MACE_ATTACK;
             case DAGGER -> crouched ? AnimState.DAGGER_CROUCH_ATTACK : AnimState.DAGGER_ATTACK;
-            case FREE -> null;
+            case FREE, ALL -> null;
         };
     }
 
@@ -257,7 +272,7 @@ public enum Stance {
             case WAND -> AnimState.WAND_PARRY;
             case MACE -> AnimState.MACE_PARRY;
             case DAGGER -> AnimState.DAGGER_PARRY;
-            case FREE -> null;
+            case FREE, ALL -> null;
         };
     }
 
@@ -277,7 +292,7 @@ public enum Stance {
             case WAND -> AnimState.WAND_BLOCK;
             case MACE -> AnimState.MACE_BLOCK;
             case DAGGER -> AnimState.DAGGER_BLOCK;
-            case FREE -> null;
+            case FREE, ALL -> null;
         };
     }
 
@@ -298,7 +313,7 @@ public enum Stance {
             case WAND -> AnimState.WAND_JUMP;
             case MACE -> AnimState.MACE_JUMP;
             case DAGGER -> AnimState.DAGGER_JUMP;
-            case FREE -> null;
+            case FREE, ALL -> null;
         };
     }
 

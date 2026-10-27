@@ -54,7 +54,8 @@ public final class SpriteNames {
             Map.entry("run", AnimState.RUN), Map.entry("running", AnimState.RUN),
             Map.entry("jog", AnimState.RUN), Map.entry("jogging", AnimState.RUN),
             Map.entry("sprint", AnimState.SPRINT), Map.entry("sprinting", AnimState.SPRINT),
-            Map.entry("dash", AnimState.SPRINT),
+            Map.entry("dashing", AnimState.DASH),
+            Map.entry("rolling", AnimState.ROLL),
             Map.entry("jump", AnimState.JUMP), Map.entry("jumping", AnimState.JUMP),
             Map.entry("attack", AnimState.ATTACK), Map.entry("attacking", AnimState.ATTACK),
             Map.entry("atk", AnimState.ATTACK), Map.entry("slash", AnimState.ATTACK),
@@ -209,8 +210,9 @@ public final class SpriteNames {
 
             if (a.chars().allMatch(Character::isDigit)) {
                 numbers.add(a);
-            } else if (STATES.containsKey(a) && state == null) {
-                state = STATES.get(a);
+            } else if (state == null && (AnimState.byKey(a) != null || STATES.containsKey(a))) {
+                // a one-word state's own name (dash), or another way of writing one
+                state = AnimState.byKey(a) != null ? AnimState.byKey(a) : STATES.get(a);
             } else if (ELEVATIONS.containsKey(a) && elevation == null) {
                 elevation = ELEVATIONS.get(a);
             } else if (FACINGS.containsKey(a) && facing == null) {

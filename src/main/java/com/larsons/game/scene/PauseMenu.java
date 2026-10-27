@@ -32,6 +32,7 @@ final class PauseMenu {
             {"Shift / Ctrl", "run / sprint while moving"},
             {"C", "crouch / stand (Shift: fast crouch walk)"},
             {"Space", "jump"},
+            {"Left Alt / Z", "dash (tap) / combat roll (hold)"},
             {"Left click / F", "attack (bow: hold to draw, let go)"},
             {"X / R / Q", "heavy attack / spin attack / parry"},
             {"B (held) / V", "block / shield bash"},
@@ -152,7 +153,7 @@ final class PauseMenu {
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
             case SETTINGS -> settings(ui, cx, cy);
-            case CONTROLS -> controls(ui, cx, cy);
+            case CONTROLS -> controls(ui, cx, cy, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }
         }
@@ -237,11 +238,12 @@ final class PauseMenu {
                 x + 220, y + 46, Theme.ITEM_DISABLED);
     }
 
-    private void controls(Ui ui, float x, float y) {
+    private void controls(Ui ui, float x, float y, float h) {
+        float step = Math.min(26, h / CONTROLS.length);      // (closer together where the window is short)
         for (String[] row : CONTROLS) {
             ui.text(ui.body, row[0], x, y, Theme.ITEM_SELECTED);
             ui.text(ui.body, row[1], x + 240, y, Theme.ITEM);
-            y += 26;
+            y += step;
         }
     }
 
