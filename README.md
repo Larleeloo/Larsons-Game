@@ -662,7 +662,8 @@ move (`world/Player`):
 - **A tap dashes** - she drops her weight and drives off the back foot, low
   and leant into it with the arms swept back and the weapon trailing, glides
   **3.5 m** and brakes on the back foot coming up ready (12 frames, 0.4 s).
-  Afterimages are left behind her while she is going fast.
+  Pale blue afterimages - her silhouette, fading - are left behind her while
+  she is going fast.
 - **Held, it rolls** - the dash starts the moment the key goes down, so a
   dodge is never late; if the key is still down when the push-off is over (5
   frames, a sixth of a second) the dash turns into the **combat roll** at that
@@ -672,6 +673,8 @@ move (`world/Player`):
   the dive until she lands **nothing can hurt her** (`Player.invulnerable()`,
   for the enemies to come), and she rolls straight **through the training
   dummies** (a dash stops at them like walking does).
+
+<img src="docs/screenshots/dodge.png" width="98%" alt="The dash with the sword and shield, pale blue afterimages trailing behind her; the combat roll's dive, tuck, landing crouch and rise; a roll with the battle axe held across; a dash with the crystal staff">
 
 Either goes the way she is moving - she turns to it at once - or, standing
 still, the way she faces, with whatever is in her hands: the sword and shield,

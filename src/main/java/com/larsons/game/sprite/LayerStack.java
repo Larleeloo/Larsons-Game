@@ -385,17 +385,6 @@ public final class LayerStack {
      */
     public static void drawBillboard(Batch batch, List<Layer> layers, SpriteProfile framing, Elevation elevation,
                                      Vec3 feet, Vec3 cameraRight, Vec3 cameraUp, float alpha) {
-        drawBillboard(batch, layers, framing, elevation, feet, cameraRight, cameraUp, 1, 1, 1, alpha);
-    }
-
-    /**
-     * {@link #drawBillboard(Batch, List, SpriteProfile, Elevation, Vec3, Vec3, Vec3, float)}
-     * tinted: every layer's colours times {@code (r, g, b)} - a dash's
-     * afterimages.
-     */
-    public static void drawBillboard(Batch batch, List<Layer> layers, SpriteProfile framing, Elevation elevation,
-                                     Vec3 feet, Vec3 cameraRight, Vec3 cameraUp,
-                                     float r, float g, float b, float alpha) {
         double w = framing.frameWorldSize(), h = framing.frameWorldHeight();
         double[] anchor = framing.anchor(elevation);
         Vec3 topLeft = feet.sub(cameraRight.scale(anchor[0] * w)).add(cameraUp.scale(anchor[1] * h));
@@ -410,7 +399,7 @@ public final class LayerStack {
                     uv[0], uv[1], uv[2], uv[3],
                     Math.min(uv[0], uv[2]), Math.min(uv[1], uv[3]),
                     Math.max(uv[0], uv[2]), Math.max(uv[1], uv[3]),
-                    r, g, b, alpha, batch.palette(l.sheet().indexed() ? l.palette() : null));
+                    1, 1, 1, alpha, batch.palette(l.sheet().indexed() ? l.palette() : null));
         }
     }
 
