@@ -4,8 +4,11 @@ import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.audio.WorldSounds;
 import com.larsons.game.combat.CombatHud;
+import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
+import com.larsons.game.combat.FlyingDummy;
+import com.larsons.game.combat.Target;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
@@ -27,6 +30,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.SceneryLayout;
+import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.Wearables;
 import com.larsons.game.world.World;
@@ -56,6 +60,18 @@ import static org.lwjgl.glfw.GLFW.*;
  * camera through the three elevations. The HUD says exactly which sheet of
  * which layer is on screen, and whether it came from {@code assets/sprites}
  * or the fallback.
+ *
+ * <p><b>The highlands</b>, up the north path ({@link Terrain#highlands}): a
+ * plateau with a chest on top - up the ramp the long way, or up the vine
+ * cliff on its east side (climbing spends stamina), down its west ledge the
+ * quick way (a fall that hurts, or a roll that does not); two dummies below
+ * the ledge to shoot at from the high ground, two below the cliff, a hill to
+ * climb for the view and a hollow. Two <b>flying dummies</b> fly their rounds
+ * - one just north of the spawn, one over the hollow by the cliff - and dive
+ * at her when she comes near: L locks on to them (or to anything that can be
+ * hit), the bow, the crossbow, the staff and the wand shoot up at them from
+ * the aimed-up pose. The camera rises on the peaks and drops in the hollow
+ * by itself (O).
  *
  * <p>Typing the debug code on the num-pad ({@link DebugCode}) offers every
  * cosmetic in the wardrobe and puts "Clear the ground" in the pause menu.
@@ -88,6 +104,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * for the bow and the crossbow, and three to keep alive for Bonded.
      */
     private static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
+    /**
+     * The highlands' dummies, each facing the plateau: two below its west
+     * ledge (shot at from its top, they are on the low ground), two below
+     * the vine cliff.
+     */
+    private static final Vec3[] HIGHLAND_DUMMIES_AT = {new Vec3(-3.2, 0, -31.0), new Vec3(-3.6, 0, -27.0),
+            new Vec3(16.8, 0, -37.5), new Vec3(17.2, 0, -33.5)};
+    /** Where the highlands' dummies look: the plateau's middle. */
+    private static final Vec3 PLATEAU_MIDDLE = new Vec3(6, 0, -36);
+    /** The plateau's chest: at its north-east corner, looking down the ramp. */
+    private static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
+    /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
+    private static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     private static final String CHEST = "ornate_chest";
@@ -121,6 +150,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        world.setTerrain(game.terrain());
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
@@ -142,6 +172,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         p.setHeavyCooldown(tuning.heavyCooldown);
         p.setDodgeCooldown(tuning.dodgeCooldown);
         for (Vec3 at : DUMMIES_AT) addDummy(at);
+        for (Vec3 at : HIGHLAND_DUMMIES_AT) {
+            world.addDummy(new Dummy(world.terrain().onGround(at),
+                    SpriteView.headingOf(PLATEAU_MIDDLE.x() - at.x(), PLATEAU_MIDDLE.z() - at.z()),
+                    tuning.dummyHealth, tuning.dummyDownSeconds));
+        }
+        world.addChest(new Chest(CHEST, world.terrain().onGround(PLATEAU_CHEST_AT),
+                SpriteView.headingOf(-0.6, 1)));
+        for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(game.scenery());
@@ -151,8 +189,15 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /** A training dummy at {@code at}, facing where she starts. */
     private Dummy addDummy(Vec3 at) {
         CombatTuning t = world.combat().tuning();
-        return world.addDummy(new Dummy(at, SpriteView.headingOf(-at.x(), -at.z()), t.dummyHealth,
-                t.dummyDownSeconds));
+        return world.addDummy(new Dummy(world.terrain().onGround(at), SpriteView.headingOf(-at.x(), -at.z()),
+                t.dummyHealth, t.dummyDownSeconds));
+    }
+
+    /** A flying dummy on its rounds round {@code centre}, starting {@code start} radians round them. */
+    private FlyingDummy addFlier(Vec3 centre, double start) {
+        CombatTuning t = world.combat().tuning();
+        return world.addFlier(new FlyingDummy(centre, start, t.dummyHealth * 0.6, t.dummyDownSeconds,
+                world.terrain()));
     }
 
     /**
@@ -169,6 +214,15 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             clear.add(new SceneryLayout.Clearing(at.x(), at.z(), ITEM_CLEAR));
         }
         for (Vec3 at : DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
+        for (Vec3 at : HIGHLAND_DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
+        clear.add(new SceneryLayout.Clearing(PLATEAU_CHEST_AT.x(), PLATEAU_CHEST_AT.z(), CHEST_CLEAR));
+        // room to land below the ledge, and to stand at the foot of the cliff
+        Terrain t = Terrain.highlands();
+        for (String place : new String[]{"cliff", "hollow"}) {
+            Terrain.Place p = t.place(place);
+            clear.add(new SceneryLayout.Clearing(p.x(), p.z(), 3.0));
+        }
+        clear.add(new SceneryLayout.Clearing(t.place("ledge").x() - 3, t.place("ledge").z(), 3.0));
         return clear;
     }
 
@@ -261,6 +315,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
         }
         if (in.pressed(GLFW_KEY_H)) game.settings().showHud = !game.settings().showHud;
+        if (in.pressed(GLFW_KEY_L)) toggleLock();
+        if (in.pressed(GLFW_KEY_K)) nextLock();
+        if (in.pressed(GLFW_KEY_O)) {
+            game.settings().autoCamera = !game.settings().autoCamera;
+            game.toast(game.settings().autoCamera ? "Camera height: automatic (higher on peaks, lower in hollows)"
+                    : "Camera height: fixed", Theme.HINT);
+        }
         if (in.pressed(GLFW_KEY_P)) game.settings().showProps = !game.settings().showProps;
         if (in.pressed(GLFW_KEY_F9)) setClassic(!game.settings().classicAnimations);
 
@@ -284,8 +345,98 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
         }
         world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
-        camera.update(dt, pivot());
+        lockedCamera(dt);
+        autoHeight();
+        camera.update(dt, follow());
+        camera.keepAbove(world.terrain(), 0.8);
         sounds.update(world, camera);
+    }
+
+    // --- the lock-on and the camera on the hills -----------------------------------------
+
+    /** L: lock on to what is most nearly in the middle of the view - or let go. */
+    private void toggleLock() {
+        Combat c = world.combat();
+        if (c.locked() != null) {
+            c.lock(null);
+            c.sound("combat/lock_off", world.player().ground());
+            return;
+        }
+        Target t = Combat.lockCandidate(camera.eye(), camera.forward(), world.player().feet(), world.targets(), null);
+        if (t == null) game.toast("Nothing to lock on to within " + (int) Combat.LOCK_RANGE + " m", Theme.HINT);
+        c.lock(t);
+    }
+
+    /** K: on to the next target round, left to right (or lock on, if nothing is locked). */
+    private void nextLock() {
+        Combat c = world.combat();
+        if (c.locked() == null) {
+            toggleLock();
+            return;
+        }
+        Target t = Combat.lockCandidate(camera.eye(), camera.forward(), world.player().feet(), world.targets(),
+                c.locked());
+        if (t != null) c.lock(t);
+    }
+
+    /**
+     * Locked on: the camera turns, gently, to look past her at what she is
+     * locked on to (so W walks at it), as far as keeps it in view.
+     */
+    private void lockedCamera(double dt) {
+        Target t = world.combat().locked();
+        if (t == null) return;
+        Vec3 d = t.position().sub(world.player().ground());
+        if (d.horizontalLength() < 1.5) return;
+        double want = Math.atan2(-d.x(), -d.z());
+        double diff = Math.atan2(Math.sin(want - camera.yaw()), Math.cos(want - camera.yaw()));
+        camera.setDesiredYaw(camera.yaw() + diff * (1 - Math.exp(-dt * 2.5)));
+    }
+
+    /**
+     * What the camera follows: her pivot - drawn a third of the way toward
+     * what she is locked on to (at most 2.5 m across, 0.6 m up and 1.5 m
+     * down), so both stay in view and she stays clear of the hotbar.
+     */
+    private Vec3 follow() {
+        Vec3 pivot = pivot();
+        Target t = world.combat().locked();
+        if (t == null) return pivot;
+        Vec3 d = t.position().add(0, t.height() / 2, 0).sub(pivot).scale(0.33);
+        double flat = d.horizontalLength();
+        if (flat > 2.5) d = new Vec3(d.x() * 2.5 / flat, d.y(), d.z() * 2.5 / flat);
+        // (only a little up toward a flier: she stays clear of the hotbar)
+        return pivot.add(d.x(), Math.max(-1.5, Math.min(0.6, d.y())), d.z());
+    }
+
+    /** How far the camera rises on a peak (degrees, and zoomed back) and drops in a hollow. */
+    static final double PEAK_PITCH = 14, HOLLOW_PITCH = 12, PEAK_ZOOM = 0.35;
+
+    /**
+     * The automatic camera height: how far she stands above (or below) the
+     * ground round her - a ring 9 m out - raises the camera on a peak, for
+     * the view, and lowers it in a hollow.
+     */
+    private void autoHeight() {
+        if (!game.settings().autoCamera) {
+            camera.setAutoHeight(0, 1);
+            return;
+        }
+        double k = prominence(world.terrain(), world.player().ground());
+        k = k > 0 ? Math.min(1, k / 5) : Math.max(-1, k / 2.5);
+        camera.setAutoHeight(Math.toRadians(k > 0 ? k * PEAK_PITCH : k * HOLLOW_PITCH), 1 + PEAK_ZOOM * Math.max(0, k));
+    }
+
+    /** How far the ground at {@code at} stands above the average of the ground round it, 9 m out, metres. */
+    static double prominence(Terrain t, Vec3 at) {
+        if (t.flat()) return 0;
+        double sum = 0;
+        int n = 12;
+        for (int i = 0; i < n; i++) {
+            double a = i * Math.PI * 2 / n;
+            sum += t.height(at.x() + 9 * Math.cos(a), at.z() + 9 * Math.sin(a));
+        }
+        return t.height(at.x(), at.z()) - sum / n;
     }
 
     /**
@@ -433,6 +584,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Ui ui = game.ui();
         ui.begin();
         combatHud.draw(ui, world, camera, w.scale());
+        combatHud.drawLock(ui, world, camera);
         boolean hudShown = game.settings().showHud;
         if (hudShown) hud(ui);
         if (!pause.open()) {
@@ -442,6 +594,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             if (!inventory.open()) {
                 combatHud.drawMana(ui, world.combat(), hotbar - 34);
                 combatHud.drawHeavy(ui, world.player(), hotbar - 34);
+                combatHud.drawVitals(ui, world.player(), hotbar - 34);
             }
             if (!game.importer().visible()) inventory.draw(ui);
         }
@@ -455,7 +608,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
                     + "Backspace live · , . turn · T turntable",
-            "Tab height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · F11 full screen · Esc menu"};
+            "L lock on · K next target · walk into vines: climb · Alt/Z in the air: land in a roll · "
+                    + "the hills are up the north path",
+            "Tab height · O auto height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · "
+                    + "F11 full screen · Esc menu"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
@@ -770,6 +926,62 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 p.setPosition(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
                 camera.snapTo(pivot());
             }
+            // the highlands' spots: goto spawn|hills|ramp|plateau|ledge|cliff|hill|hollow
+            case "goto" -> {
+                Terrain.Place place = world.terrain().place(argument.trim());
+                Vec3 at = argument.trim().equals("spawn") ? Vec3.ZERO
+                        : place == null ? null : new Vec3(place.x(), 0, place.z());
+                if (at == null) return false;
+                p.setPosition(at);
+                camera.snapTo(follow());
+            }
+            // the lock-on: lock [on|off|next]
+            case "lock" -> {
+                switch (argument.trim()) {
+                    case "off" -> world.combat().lock(null);
+                    case "next" -> nextLock();
+                    default -> {
+                        if (world.combat().locked() == null) toggleLock();
+                    }
+                }
+            }
+            // the flying dummies: flier swoop [n] (dive at her now), flier under [n] (stand under it),
+            // flier lock [n] (lock on to it)
+            case "flier" -> {
+                String[] a = argument.trim().split("\\s+");
+                int n = a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0;
+                if (n < 0 || n >= world.fliers().size()) return false;
+                FlyingDummy f = world.fliers().get(n);
+                if (a[0].equals("swoop")) f.swoopAt(p, world.terrain());
+                else if (a[0].equals("lock")) world.combat().lock(f);
+                else if (a[0].equals("under")) {
+                    p.setPosition(f.position().add(2.5, 0, 2.5));
+                    Vec3 to = f.position().sub(p.ground());
+                    p.snapHeading(SpriteView.headingOf(to.x(), to.z()));
+                    camera.snapTo(follow());
+                } else {
+                    return false;
+                }
+            }
+            case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
+            case "stamina" -> p.setStamina(Double.parseDouble(argument.trim()));
+            // fall <metres>: up in the air where she stands, falling (roll: fall 6 roll)
+            case "fall" -> {
+                String[] a = argument.trim().split("\\s+");
+                p.lift(Double.parseDouble(a[0]));
+                if (a.length > 1 && a[1].equals("roll")) scripted = Player.Intent.NONE.withDodge(true, false);
+            }
+            // climb: at the foot of the vine cliff, climbing it (move stop to hang on, idle to let the keys back)
+            case "climb" -> {
+                if (world.terrain().walls().isEmpty()) return false;
+                Terrain.Wall wall = world.terrain().walls().get(0);
+                p.setPosition(wall.at(wall.length() / 2, Player.CLING + 0.1));
+                p.snapHeading(wall.facing());
+                double way = argument.trim().equals("down") ? -1 : 1;
+                scripted = new Player.Intent(-wall.nx() * way, -wall.nz() * way, false, false, false, false);
+                camera.snapTo(follow());
+            }
+            case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
             case "dropitem" -> drop();
             case "pause" -> pause.open(PauseMenu.Page.valueOf(

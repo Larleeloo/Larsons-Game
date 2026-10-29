@@ -17,9 +17,12 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.ImportPanel;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.GroundTexture;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.SceneryRenderer;
+import com.larsons.game.world.Terrain;
+import com.larsons.game.world.TerrainRenderer;
 import com.larsons.game.world.VoidRenderer;
 import com.larsons.game.world.WorldRenderer;
 
@@ -60,9 +63,12 @@ public final class Game implements AutoCloseable {
     private final ItemSprites items;
     private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
+    private final GroundTexture groundTexture;
     private final ScenerySprites scenerySprites;
     private final Scenery scenery;
     private final SceneryRenderer sceneryRenderer;
+    private final Terrain terrain;
+    private final TerrainRenderer terrainRenderer;
     private final WorldRenderer worldRenderer;
     private final Wardrobe wardrobe;
     private final ImportPanel importer = new ImportPanel();
@@ -106,10 +112,14 @@ public final class Game implements AutoCloseable {
         items = new ItemSprites(settings.spritesDir());
         closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
         scenerySprites = ScenerySprites.scan(settings.sceneryDir());
-        scenery = SceneryLayout.demo(scenerySprites, DemoScene.clearings());
+        terrain = Terrain.highlands();
+        scenery = SceneryLayout.demo(scenerySprites, DemoScene.clearings(), terrain);
         sceneryRenderer = new SceneryRenderer(scenerySprites);
-        voidRenderer = new VoidRenderer(scenerySprites.ground());
-        worldRenderer = new WorldRenderer(voidRenderer, sceneryRenderer, batch, sprites, objects, items);
+        groundTexture = new GroundTexture(scenerySprites.ground(), scenery.ground());
+        voidRenderer = new VoidRenderer(groundTexture);
+        terrainRenderer = new TerrainRenderer(groundTexture, terrain);
+        worldRenderer = new WorldRenderer(voidRenderer, terrainRenderer, sceneryRenderer, batch, sprites, objects,
+                items);
         startSound();
         wardrobe = Wardrobe.load(settings.wardrobeFile());
         autopilot = new Autopilot(settings.script);
@@ -286,6 +296,9 @@ public final class Game implements AutoCloseable {
      */
     public Scenery scenery() { return settings.showProps ? scenery : Scenery.NONE; }
 
+    /** The ground the demo and the menu stand on: the highlands north of the spawn ({@link Terrain#highlands}). */
+    public Terrain terrain() { return terrain; }
+
     /** The scenery's sprites and the ground's grass, as found in {@code assets/scenery/}. */
     public ScenerySprites scenerySprites() { return scenerySprites; }
 
@@ -307,7 +320,9 @@ public final class Game implements AutoCloseable {
         worldRenderer.close();
         items.close();
         sceneryRenderer.close();
+        terrainRenderer.close();
         voidRenderer.close();
+        groundTexture.close();
         sprites.close();
         ui.close();
         batch.close();

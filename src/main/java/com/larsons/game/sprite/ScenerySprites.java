@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
@@ -21,6 +23,8 @@ import java.util.stream.Stream;
  *
  * <pre>
  *   assets/scenery/ground/grass.png        512 × 512, opaque, seamless when tiled
+ *   assets/scenery/ground/&lt;name&gt;.png       the other ground textures, the same size: dirt,
+ *                                         forest_floor, gravel, meadow (world/GroundTexture)
  *   assets/scenery/ground/profile.json     {"tileWorldSize": 9.6} - the metres one tile spans
  *   assets/scenery/&lt;sprite&gt;/sheet.png      the frames, left to right then top to bottom
  *   assets/scenery/&lt;sprite&gt;/profile.json   kind, frame size, frames, fps, size, radius, shadow
@@ -98,8 +102,25 @@ public final class ScenerySprites {
         }
     }
 
-    /** The grass the ground is drawn with, and the metres one tile of it spans. */
-    public record Ground(Path texture, double tileWorldSize) {}
+    /**
+     * The grass the ground is drawn with, the metres one tile of it spans,
+     * and the other ground textures beside it ({@code ground/<name>.png}), by
+     * name.
+     */
+    public record Ground(Path texture, double tileWorldSize, Map<String, Path> tiles) {
+
+        public Ground {
+            tiles = Map.copyOf(tiles);
+        }
+
+        /** Just grass. */
+        public Ground(Path texture, double tileWorldSize) {
+            this(texture, tileWorldSize, Map.of());
+        }
+
+        /** The ground texture called {@code name} ({@code dirt}, {@code forest_floor} ...), or null. */
+        public Path tile(String name) { return tiles.get(name); }
+    }
 
     private final Path root;
     private final List<Sprite> sprites;
@@ -214,7 +235,16 @@ public final class ScenerySprites {
                 System.err.println("[scenery] ignoring " + profile + ": " + e.getMessage());
             }
         }
-        return new Ground(texture, tile > 0 ? tile : DEFAULT_TILE);
+        Map<String, Path> tiles = new TreeMap<>();
+        try (Stream<Path> files = Files.list(dir)) {
+            for (Path f : files.filter(Files::isRegularFile).toList()) {
+                String n = f.getFileName().toString();
+                if (n.endsWith(".png") && !n.equals(GRASS)) tiles.put(n.substring(0, n.length() - 4), f);
+            }
+        } catch (IOException e) {
+            System.err.println("[scenery] cannot list " + dir + ": " + e.getMessage());
+        }
+        return new Ground(texture, tile > 0 ? tile : DEFAULT_TILE, tiles);
     }
 
     /** Width and height from an image's header, without decoding its pixels; null if it cannot be read. */

@@ -40,6 +40,7 @@ public final class MainMenuScene implements Scene {
     public MainMenuScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe());
+        world.setTerrain(game.terrain());
         world.setScenery(game.scenery());
         world.player().preview(AnimState.IDLE);
         this.stage = new CutsceneStage(game.sprites(), game.closeups());

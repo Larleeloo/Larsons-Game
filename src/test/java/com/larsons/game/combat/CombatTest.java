@@ -262,7 +262,8 @@ class CombatTest {
     void everyAttackAndShotHasAMove() {
         for (AnimState s : AnimState.values()) {
             String k = s.key();
-            boolean attack = (k.endsWith("attack") || k.endsWith("_fire") || k.equals("shield_bash"));
+            String base = k.endsWith("_up") ? k.substring(0, k.length() - 3) : k;     // the aimed-up ones too
+            boolean attack = (base.endsWith("attack") || base.endsWith("_fire") || k.equals("shield_bash"));
             Move m = Move.of(s, Item.of(ItemDef.CRYSTAL_STAFF, Tier.MAGIC));
             assertEquals(attack, m != null, k);
             if (m != null) assertTrue(m.at() >= 0 && m.at() < 1, k);

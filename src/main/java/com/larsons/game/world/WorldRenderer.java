@@ -28,13 +28,18 @@ import static org.lwjgl.opengl.GL33C.*;
  *
  * <ol>
  *   <li><b>The void</b> — sky and endless grass, one full-screen pass, no depth.</li>
+ *   <li><b>The hills</b> — the {@link Terrain}'s mesh over it, where the ground
+ *       is not flat ({@link TerrainRenderer}), depth-writing.</li>
  *   <li><b>Scenery</b> — the trees, grass tufts and rocks: cutout cards, two
  *       crossed for a tree or a tuft, one facing the camera for a rock
  *       ({@link SceneryRenderer}), depth-tested and depth-writing.</li>
  *   <li><b>Shadows</b> — soft blobs on the ground under every sprite, tree
- *       and rock, depth-tested (a trunk hides the shadow behind it) but not
- *       writing - the warm pool of light an open chest throws round itself,
- *       and the pool of its rarity's light under every item.</li>
+ *       and rock - and under every flier and every shot in flight, smaller
+ *       and fainter the higher it is, which is how its height is read -
+ *       laid over the hills' slopes, depth-tested (a trunk hides the shadow
+ *       behind it) but not writing - the warm pool of light an open chest
+ *       throws round itself, and the pool of its rarity's light under every
+ *       item.</li>
  *   <li><b>Sprites</b> — every character layer, every item and every chest
  *       (its smoke behind, the chest, its smoke in front), the training
  *       dummies and whatever is flying ({@link CombatRenderer}), as camera-facing
@@ -73,6 +78,7 @@ public final class WorldRenderer implements AutoCloseable {
     static final int GHOST_RGB = 0x9CC4FF;
 
     private final VoidRenderer voidRenderer;
+    private final TerrainRenderer terrain;
     private final SceneryRenderer scenery;
     private final Batch batch;
     private final SpriteLibrary sprites;
@@ -86,15 +92,18 @@ public final class WorldRenderer implements AutoCloseable {
 
     private LayerStack.Result playerStack;
     /** A frame of the player left behind by a dodge, fading. */
-    private record Ghost(LayerStack.Result stack, Vec3 feet, double born) { }
+    private record Ghost(LayerStack.Result stack, Vec3 feet, Vec3 ground, double born) { }
     private final java.util.ArrayDeque<Ghost> ghosts = new java.util.ArrayDeque<>();
     private double lastGhost = Double.NEGATIVE_INFINITY;
     /** Each layer palette's silhouette ({@link #silhouette}), made once. */
     private final Map<int[], int[]> silhouettes = new IdentityHashMap<>();
+    /** The ground the shadows of the frame being drawn lie on. */
+    private Terrain ground = Terrain.FLAT;
 
-    public WorldRenderer(VoidRenderer voidRenderer, SceneryRenderer scenery, Batch batch, SpriteLibrary sprites,
-                         ObjectSprites objects, ItemSprites items) {
+    public WorldRenderer(VoidRenderer voidRenderer, TerrainRenderer terrain, SceneryRenderer scenery, Batch batch,
+                         SpriteLibrary sprites, ObjectSprites objects, ItemSprites items) {
         this.voidRenderer = voidRenderer;
+        this.terrain = terrain;
         this.scenery = scenery;
         this.batch = batch;
         this.sprites = sprites;
@@ -149,6 +158,8 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 eye = camera.eye();
 
         voidRenderer.draw(camera, aspect, FOG);
+        ground = world.terrain();
+        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, FOG);
         Vec3 upright = uprightNormal(camera);
         scenery.draw(batch, world.scenery(), viewProj, fog, FOG, world.time(), camera, upright);
 
@@ -165,8 +176,8 @@ public final class WorldRenderer implements AutoCloseable {
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time())) continue;
             Vec3 c = g.centre(world.time());
-            double h = c.y();
-            groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * h),
+            double h = Math.max(0, c.y() - ground.height(c.x(), c.z()));
+            groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * Math.min(2, h)),
                     (float) Math.max(0, (0.42 - 0.12 * h) * g.flight(world.time())));
             itemRenderer.ground(g, world.time());
         }
@@ -202,7 +213,7 @@ public final class WorldRenderer implements AutoCloseable {
         // the dash's afterimages: the frames she leaves behind, fading where they were
         double now = world.time();
         if (p.afterimages() && now - lastGhost >= GHOST_EVERY && !stack.layers().isEmpty()) {
-            ghosts.addLast(new Ghost(stack, p.feet(), now));
+            ghosts.addLast(new Ghost(stack, p.feet(), p.ground(), now));
             lastGhost = now;
         }
         while (!ghosts.isEmpty() && now - ghosts.peekFirst().born() > GHOST_LIFE) ghosts.removeFirst();
@@ -218,7 +229,7 @@ public final class WorldRenderer implements AutoCloseable {
                         WorldRenderer::silhouette)));
             }
             draws.add(() -> {
-                batch.depthAnchor(new Vec3(g.feet().x(), 0, g.feet().z()));
+                batch.depthAnchor(g.ground());
                 // (a pixel-art layer in the silhouette's colour; an RGBA one - the rendered style's - in its own)
                 LayerStack.drawBillboard(batch, flat, g.stack().framing(), g.stack().view().elevation(), g.feet(),
                         right, up, a);
@@ -245,7 +256,7 @@ public final class WorldRenderer implements AutoCloseable {
             if (!g.out(t)) continue;
             draws.add(() -> {
                 Vec3 c = g.centre(t);
-                batch.depthAnchor(new Vec3(c.x(), 0, c.z()));   // (the spot it hovers or flies over)
+                batch.depthAnchor(ground.onGround(c));   // (the spot it hovers or flies over)
                 itemRenderer.draw(g, t, eye, camera.yaw(), right, up);
             });
             dist.add(g.centre(t).sub(eye).dot(forward));
@@ -316,11 +327,42 @@ public final class WorldRenderer implements AutoCloseable {
         groundQuad(shadow, at, radius, 0, 0, 0, alpha);
     }
 
+    /** Pieces a side a shadow on a slope is laid in, and how far over the ground they lie, metres. */
+    static final int SLOPE_PIECES = 4;
+    static final float SLOPE_LIFT = 0.04f;
+
+    /**
+     * A square of {@code tex} {@code radius} round {@code at} lying on the
+     * ground: flat on the flat ground; on a hill in {@value #SLOPE_PIECES} ×
+     * {@value #SLOPE_PIECES} pieces, each corner on the ground, so it follows
+     * the slope.
+     */
     private void groundQuad(Texture tex, Vec3 at, double radius, float r, float g, float b, float alpha) {
-        float y = 0.004f;
-        float x0 = (float) (at.x() - radius), x1 = (float) (at.x() + radius);
-        float z0 = (float) (at.z() - radius), z1 = (float) (at.z() + radius);
-        batch.quad(tex, x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1, 0, 0, 1, 1, r, g, b, alpha);
+        double x0 = at.x() - radius, x1 = at.x() + radius, z0 = at.z() - radius, z1 = at.z() + radius;
+        boolean flat = ground.flat() || Math.abs(ground.height(x0, z0)) + Math.abs(ground.height(x1, z0))
+                + Math.abs(ground.height(x0, z1)) + Math.abs(ground.height(x1, z1))
+                + Math.abs(ground.height(at.x(), at.z())) < 1e-4;
+        if (flat) {
+            float y = 0.004f;
+            batch.quad(tex, (float) x0, y, (float) z0, (float) x1, y, (float) z0, (float) x1, y, (float) z1,
+                    (float) x0, y, (float) z1, 0, 0, 1, 1, r, g, b, alpha);
+            return;
+        }
+        int n = SLOPE_PIECES;
+        double step = 2 * radius / n;
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                double ax = x0 + i * step, bx = ax + step, az = z0 + j * step, bz = az + step;
+                float u0 = (float) i / n, u1 = (float) (i + 1) / n, v0 = (float) j / n, v1 = (float) (j + 1) / n;
+                batch.quad(tex, (float) ax, lift(ax, az), (float) az, (float) bx, lift(bx, az), (float) az,
+                        (float) bx, lift(bx, bz), (float) bz, (float) ax, lift(ax, bz), (float) bz,
+                        u0, v0, u1, v1, r, g, b, alpha);
+            }
+        }
+    }
+
+    private float lift(double x, double z) {
+        return (float) ground.height(x, z) + SLOPE_LIFT;
     }
 
     /**

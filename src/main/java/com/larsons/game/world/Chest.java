@@ -74,7 +74,7 @@ public final class Chest {
      */
     public Chest(String id, Vec3 position, double heading) {
         this.id = id;
-        this.position = new Vec3(position.x(), 0, position.z());
+        this.position = position;
         this.heading = heading;
     }
 
@@ -133,7 +133,7 @@ public final class Chest {
 
     /** Whether a player standing at {@code at} can reach it. */
     public boolean inReach(Vec3 at) {
-        return position.horizontalDistance(at) <= REACH;
+        return position.horizontalDistance(at) <= REACH && Math.abs(at.y() - position.y()) <= 1.5;
     }
 
     public String id() { return id; }

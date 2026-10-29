@@ -32,6 +32,10 @@ import java.util.Map;
  * {@link #solids()}: {@link World} keeps the player out of them as it does
  * the chest. Grass is walked through.
  *
+ * <p><b>The ground under it.</b> Where the layout laid paths, the groves'
+ * forest floor, gravel round the rock beds and flower meadows: its {@link
+ * #ground()} map, drawn by {@link GroundTexture}.
+ *
  * <p>Pure data - which spot holds what. {@link SceneryRenderer} draws it;
  * {@link SceneryLayout} plants the demo's.
  */
@@ -48,19 +52,25 @@ public final class Scenery {
     /**
      * One piece of scenery planted in the world.
      *
+     * @param y        the height of the ground it stands on
      * @param yaw      the turn of its cross about its axis, radians
      * @param mirrored whether its frames are drawn flipped left to right
      * @param phase    seconds its loop runs ahead of the world's clock ({@link #windPhase})
      */
-    public record Placed(ScenerySprites.Sprite sprite, double x, double z, double yaw, boolean mirrored,
+    public record Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
                          double phase) {
+
+        /** One on flat ground ({@code y = 0}). */
+        public Placed(ScenerySprites.Sprite sprite, double x, double z, double yaw, boolean mirrored, double phase) {
+            this(sprite, x, 0, z, yaw, mirrored, phase);
+        }
 
         public SceneryProfile profile() { return sprite.profile(); }
 
         public SceneryProfile.Kind kind() { return sprite.kind(); }
 
         /** Where its axis meets the ground. */
-        public Vec3 position() { return new Vec3(x, 0, z); }
+        public Vec3 position() { return new Vec3(x, y, z); }
 
         /** Metres round its axis the player is kept out of; 0: she walks through it. */
         public double radius() { return sprite.profile().radius(); }
@@ -90,9 +100,17 @@ public final class Scenery {
     private final List<Placed> solids;
     private final List<Placed> shadowed;
     private final Map<ScenerySprites.Sprite, List<Placed>> bySprite;
+    private final GroundMap ground;
 
+    /** {@code placed} on plain grass. */
     public Scenery(List<Placed> placed) {
+        this(placed, GroundMap.NONE);
+    }
+
+    /** {@code placed}, on the ground {@code ground} maps. */
+    public Scenery(List<Placed> placed, GroundMap ground) {
         this.placed = List.copyOf(placed);
+        this.ground = ground == null ? GroundMap.NONE : ground;
         List<Placed> solid = new ArrayList<>(), shade = new ArrayList<>();
         Map<ScenerySprites.Sprite, List<Placed>> groups = new LinkedHashMap<>();
         for (Placed p : this.placed) {
@@ -119,6 +137,9 @@ public final class Scenery {
     public Map<ScenerySprites.Sprite, List<Placed>> bySprite() { return bySprite; }
 
     public boolean isEmpty() { return placed.isEmpty(); }
+
+    /** What the ground is made of where: the paths, the forest floor, the gravel, the meadows. */
+    public GroundMap ground() { return ground; }
 
     /**
      * How far ahead of the world's clock the loop of something standing at

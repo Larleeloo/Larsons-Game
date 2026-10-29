@@ -23,9 +23,12 @@ import com.larsons.game.world.World;
  *       the weapon's border adds under that;</li>
  *   <li><b>the damage</b> floating up off whatever was hit, in the weapon's
  *       colour, and poison's ticks in Venom's green;</li>
- *   <li>a dummy's <b>health</b> over it once it has been hit;</li>
+ *   <li>a dummy's or a flier's <b>health</b> over it once it has been hit;</li>
+ *   <li>the <b>lock-on</b>'s reticle round what she is locked on to, its name
+ *       and health under it ({@link #drawLock});</li>
  *   <li>her <b>mana</b>, beside the hotbar, and on its other side how soon
- *       she can make a <b>heavy attack</b> again.</li>
+ *       she can make a <b>heavy attack</b> again; over them her own
+ *       <b>health</b> and her <b>stamina</b> ({@link #drawVitals}).</li>
  * </ul>
  *
  * <p>The dice are pixel art, drawn at a whole number of screen pixels a
@@ -61,9 +64,9 @@ public final class CombatHud {
         Mat4 vp = camera.viewProjection(ui.width() / (double) Math.max(1, ui.height()));
         double now = combat.now();
 
-        for (Dummy d : world.dummies()) {
+        for (Target d : world.targets()) {
             if (!d.alive() || (d.sinceHurt() > 4 && d.health() >= d.maxHealth())) continue;
-            float[] at = over(vp, camera, d.position(), Dummy.HEIGHT + 0.12, ui);
+            float[] at = over(vp, camera, d.position(), d.height() + 0.12, ui);
             if (at == null) continue;
             float w = 64, h = 7, x = at[0] - w / 2, y = at[1] - h;
             float k = (float) (d.health() / d.maxHealth());
@@ -175,6 +178,68 @@ public final class CombatHud {
         String label = ready ? "Heavy (X) ready" : "Heavy (X) in " + (int) Math.ceil(wait) + " s";
         ui.textShadowed(ui.small, label, x + w - ui.small.width(label), y - ui.small.lineHeight() - 3,
                 CombatColours.rgba(ready ? HEAVY_LIGHT : 0xFFFFFF, 1f));
+    }
+
+    private static final int LOCK_RGB = 0xFFD27A, HEALTH_RGB = 0xE0503C, HEALTH_LIGHT = 0xFF8A6E;
+    private static final int STAMINA_RGB = 0x7CC24E, STAMINA_LIGHT = 0xB8EA7E;
+
+    /**
+     * The lock-on's reticle: four corner brackets closing round what she is
+     * locked on to (a beat after locking on they settle and pulse), its name
+     * and its health under it, and "High ground" when her shots at it have
+     * it.
+     */
+    public void drawLock(Ui ui, World world, OrbitCamera camera) {
+        Target t = world.combat().locked();
+        if (t == null) return;
+        Mat4 vp = camera.viewProjection(ui.width() / (double) Math.max(1, ui.height()));
+        float[] mid = screen(vp, camera, t.position().add(0, t.height() / 2, 0), ui);
+        float[] top = screen(vp, camera, t.position().add(0, t.height(), 0), ui);
+        if (mid == null || top == null) return;
+        double now = world.combat().now();
+        float r = Math.max(22, Math.min(90, Math.abs(mid[1] - top[1]) * 1.25f + 10));
+        r *= 1 + 0.06f * (float) Math.sin(now * 6);
+        float len = r * 0.42f, th = 3;
+        float[] c = CombatColours.rgba(LOCK_RGB, 0.95f), shade = Theme.withAlpha(Theme.BACKGROUND, 0.7f);
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sy = -1; sy <= 1; sy += 2) {
+                float x = mid[0] + sx * r, y = mid[1] + sy * r;
+                float hx = sx < 0 ? x : x - len, vy = sy < 0 ? y : y - len;
+                ui.rect(hx - 1, (sy < 0 ? y : y - th) - 1, len + 2, th + 2, shade);
+                ui.rect((sx < 0 ? x : x - th) - 1, vy - 1, th + 2, len + 2, shade);
+                ui.rect(hx, sy < 0 ? y : y - th, len, th, c);
+                ui.rect(sx < 0 ? x : x - th, vy, th, len, c);
+            }
+        }
+        String label = t.name() + "  " + (int) Math.ceil(t.health()) + " / " + (int) Math.round(t.maxHealth());
+        if (Combat.highGround(world.player().feet(), t)) label += "  ·  High ground";
+        ui.textShadowed(ui.small, label, mid[0] - ui.small.width(label) / 2, mid[1] + r + 6, c);
+    }
+
+    /**
+     * Her health, and her stamina while it is not full or she climbs: two
+     * bars over the hotbar's left, whose slots' middle is {@code cy}.
+     */
+    public void drawVitals(Ui ui, Player player, float cy) {
+        float w = 150, h = 10;
+        float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44;
+        bar(ui, x, y, w, h, player.health() / Player.MAX_HEALTH, HEALTH_RGB, HEALTH_LIGHT,
+                "Health " + (int) Math.ceil(player.health()), player.sinceHurt() < 0.3);
+        if (player.stamina() < Player.MAX_STAMINA - 0.5 || player.climbing() != null) {
+            float sx = ui.width() / 2f + 2 * 64 + 28 + 26;
+            bar(ui, sx, y, w, h, player.stamina() / Player.MAX_STAMINA, STAMINA_RGB, STAMINA_LIGHT,
+                    "Stamina " + (int) Math.ceil(player.stamina()), player.stamina() < Player.CLIMB_MIN);
+        }
+    }
+
+    private static void bar(Ui ui, float x, float y, float w, float h, double fill, int rgb, int light, String label,
+                            boolean warn) {
+        float k = (float) Math.max(0, Math.min(1, fill));
+        ui.rect(x - 2, y - 2, w + 4, h + 4, warn ? CombatColours.rgba(0xFFFFFF, 0.8f)
+                : Theme.withAlpha(Theme.BACKGROUND, 0.7f));
+        ui.rect(x, y, w * k, h, CombatColours.rgba(rgb, 0.95f));
+        ui.rect(x, y, w * k, 3, CombatColours.rgba(light, 0.95f));
+        ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(light, 1f));
     }
 
     /** One frame of a sheet over a {@code size}-point square at {@code (x, y)} (its cells are cropped). */

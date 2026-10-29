@@ -8,6 +8,7 @@ import com.larsons.game.world.Border;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
+import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
 
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.function.ToDoubleFunction;
 
 /**
  * The fighting: every swing she makes rolls the weapon's dice - a D20 for a
@@ -41,6 +43,21 @@ import java.util.Random;
  *       five and, while all five stand, every hit is +50%.</li>
  * </ul>
  *
+ * <p><b>Lock-on</b> ({@link #lock}): locked on to something - a dummy, a
+ * flier, anything that can be hit - every swing turns her to it if it is in
+ * reach, and every shot goes at it wherever it is (within {@link
+ * #LOCK_RANGE}), leading it as it moves; when it goes down the lock moves on
+ * to the next nearest. A shot at something well above her hands ({@link
+ * #AIM_UP} degrees and more) is loosed from the aimed-up pose ({@link
+ * #aimsUp}).
+ *
+ * <p><b>High ground</b>: a shot at something whose feet are {@link
+ * #HIGH_GROUND} m and more below hers rolls a die more and carries a quarter
+ * farther ({@link #HIGH_RANGE}). A swing reaches only what is level with her
+ * - a flier on its rounds is out of reach, one diving at her is not. The
+ * shots fly over the {@link Terrain}: an arrow sticks in a hillside, a spell
+ * bursts on it.
+ *
  * <p>Mana fills back up over time. What is heard is collected for the
  * world's sounds to play ({@link #drainSounds()}).
  */
@@ -60,9 +77,23 @@ public final class Combat {
     public static final double SHOW_HOLD = 1.5;
     /** How far round she turns at the start of a swing to face something just off to one side, degrees. */
     public static final double SOFT_LOCK = 50;
+    /** How far off the lock-on reaches, metres (a locked target farther away is let go). */
+    public static final double LOCK_RANGE = 30;
+    /** Something this many degrees and more above her hands is shot at from the aimed-up pose. */
+    public static final double AIM_UP = 20;
+    /** How much lower (metres, feet to feet) something must stand for her shots at it to have the high ground. */
+    public static final double HIGH_GROUND = 2.5;
+    /** From the high ground: a die more, and the range this much farther. */
+    public static final int HIGH_DICE = 1;
+    public static final double HIGH_RANGE = 1.25;
+    /** Where a swing reaches, below and above her feet, metres. */
+    public static final double SWING_LOW = 0.5, SWING_HIGH = 2.4;
 
     /** A number (or a word) floating up off something: {@code rise} over where it stands, {@code ground}. */
     public record Popup(String text, int rgb, Vec3 ground, double rise, double born, boolean small) {}
+
+    /** The high ground's note under the dice: a pale gold. */
+    public static final int HIGH_RGB = 0xFFE08A;
 
     /** What a hit throws off: a spark, or a spell's burst in its colour. */
     public record Effect(Kind kind, Vec3 at, double born, int colour) {
@@ -133,6 +164,7 @@ public final class Combat {
     private Swing swing;
     private Show show;
 
+    private Target locked;
     private final List<Projectile> projectiles = new ArrayList<>();
     private final List<Dot> dots = new ArrayList<>();
     private final List<Popup> popups = new ArrayList<>();
@@ -186,7 +218,14 @@ public final class Combat {
             land(swing, p, targets);
         }
 
-        for (Projectile pr : projectiles) fly(pr, dt, targets);
+        if (locked != null && (!locked.alive() || locked.position().horizontalDistance(p.ground()) > LOCK_RANGE)) {
+            // gone down, or left behind: on to the next nearest, if there is one
+            Target was = locked;
+            locked = nearestTo(p.feet(), targets, was);
+            if (locked == null) sounds.add(new Sound("combat/lock_off", p.ground()));
+        }
+        Terrain ground = world.terrain();
+        for (Projectile pr : projectiles) fly(pr, dt, targets, ground);
         projectiles.removeIf(Projectile::done);
         poison(targets);
         popups.removeIf(pp -> now - pp.born() > POPUP_SECONDS);
@@ -214,11 +253,15 @@ public final class Combat {
         }
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
+        boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
 
         int n = plain ? tuning.wandHeavyDice
                 : (weapon == null ? tuning.unarmedDice : tuning.dice(weapon.rarity())) + (move.heavy() ? tuning.heavyExtra : 0);
+        if (high) n += HIGH_DICE;
         Strike strike = new Strike(weapon, DiceRoll.roll(n, tuning.sides, random), mystic && paid, plain);
-        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes(strike, aimed));
+        List<Note> notes = notes(strike, aimed);
+        if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
+        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
         sounds.add(new Sound("combat/dice_roll", p.ground()));
         return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
     }
@@ -263,8 +306,17 @@ public final class Combat {
      * within the aim assist and range for a shot.
      */
     private Target softLock(Player p, Move move, List<Target> targets) {
-        Target t = move.shoots() ? aimAt(p.ground(), p.heading(), targets)
-                : nearest(p.ground(), p.heading(), targets, move.reach() + 0.4, SOFT_LOCK);
+        Target t;
+        if (move.shoots()) {
+            t = aimAt(p.feet(), p.heading(), targets);
+        } else if (locked != null && locked.alive() && levelWith(p.feet(), locked)
+                && locked.position().horizontalDistance(p.ground()) - locked.radius() <= move.reach() + 0.4) {
+            t = locked;
+        } else {
+            List<Target> level = new ArrayList<>();
+            for (Target x : targets) if (levelWith(p.feet(), x)) level.add(x);
+            t = nearest(p.ground(), p.heading(), level, move.reach() + 0.4, SOFT_LOCK);
+        }
         if (t == null) return null;
         Vec3 d = t.position().sub(p.ground());
         p.turnTo(SpriteView.headingOf(d.x(), d.z()));
@@ -281,7 +333,9 @@ public final class Combat {
         Vec3 from = p.ground();
         List<Target> hit = new ArrayList<>();
         for (Target t : targets) {
-            if (t.alive() && inReach(from, p.heading(), t, s.move.reach(), s.move.arc())) hit.add(t);
+            if (t.alive() && levelWith(p.feet(), t) && inReach(from, p.heading(), t, s.move.reach(), s.move.arc())) {
+                hit.add(t);
+            }
         }
         for (Target t : hit) remember(s.strike.weapon(), t);
         // every blow's damage before any of them lands, so one felled first leaves the others' Bonded count be
@@ -294,7 +348,9 @@ public final class Combat {
     /** The notes under {@code s}'s dice, again, now its targets are known. */
     private void renote(Strike s, Target also) {
         if (show != null && show.strike() == s && s.border() == Border.BONDED) {
-            show = new Show(s, show.start(), show.land(), notes(s, also));
+            List<Note> notes = notes(s, also);
+            for (Note n : show.notes()) if (n.rgb() == HIGH_RGB) notes.add(0, n);
+            show = new Show(s, show.start(), show.land(), notes);
         }
     }
 
@@ -311,8 +367,25 @@ public final class Combat {
         return angle <= arc / 2 + halfWidth;
     }
 
+    /** Whether a swing from feet at {@code feet} reaches as high or as low as {@code t}. */
+    static boolean levelWith(Vec3 feet, Target t) {
+        double bottom = t.position().y(), top = bottom + t.height();
+        return top >= feet.y() - SWING_LOW && bottom <= feet.y() + SWING_HIGH;
+    }
+
+    /** Whether shots from feet at {@code feet} at {@code t} have the high ground. */
+    public static boolean highGround(Vec3 feet, Target t) {
+        return feet.y() - t.position().y() >= HIGH_GROUND;
+    }
+
     /** The living target within {@code range} and {@code cone}° either side of {@code heading} most nearly ahead. */
     static Target nearest(Vec3 from, double heading, List<Target> targets, double range, double cone) {
+        return nearest(from, heading, targets, t -> range, cone);
+    }
+
+    /** As {@link #nearest(Vec3, double, List, double, double)}, each target's range its own. */
+    static Target nearest(Vec3 from, double heading, List<Target> targets, ToDoubleFunction<Target> range,
+                          double cone) {
         Vec3 f = SpriteView.headingVector(heading);
         Target best = null;
         double bestScore = Double.MAX_VALUE;
@@ -320,7 +393,7 @@ public final class Combat {
             if (!t.alive()) continue;
             Vec3 d = t.position().sub(from);
             double dist = d.horizontalLength();
-            if (dist < 1e-6 || dist - t.radius() > range) continue;
+            if (dist < 1e-6 || dist - t.radius() > range.applyAsDouble(t)) continue;
             double cos = (d.x() * f.x() + d.z() * f.z()) / dist;
             double angle = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
             if (angle > cone) continue;
@@ -333,9 +406,116 @@ public final class Combat {
         return best;
     }
 
-    /** What a shot from {@code from} along {@code heading} homes in on, or null. */
+    /**
+     * What a shot from feet at {@code from} along {@code heading} homes in
+     * on: what she is locked on to, else the target most nearly ahead within
+     * the aim assist and the range (a quarter farther from the high ground);
+     * null for none.
+     */
     Target aimAt(Vec3 from, double heading, List<Target> targets) {
-        return nearest(from, heading, targets, tuning.range, tuning.aimAssist);
+        if (locked != null && locked.alive()) return locked;
+        return nearest(from, heading, targets, t -> tuning.range * (highGround(from, t) ? HIGH_RANGE : 1),
+                tuning.aimAssist);
+    }
+
+    /**
+     * Whether the shot she is about to make is at something well above her
+     * hands ({@link #AIM_UP}° and more): what she is locked on to, or what
+     * her shot would home in on.
+     */
+    public boolean aimsUp(World world) {
+        Player p = world.player();
+        Target t = aimAt(p.feet(), p.heading(), world.targets());
+        if (t == null) return false;
+        Vec3 hand = p.feet().add(0, 1.35, 0);
+        Vec3 c = t.position().add(0, t.height() * 0.62, 0);
+        double flat = c.horizontalDistance(hand);
+        return Math.toDegrees(Math.atan2(c.y() - hand.y(), Math.max(1e-6, flat))) >= AIM_UP;
+    }
+
+    // --- the lock-on --------------------------------------------------------------------
+
+    /** What she is locked on to, or null. */
+    public Target locked() { return locked; }
+
+    /** Lock on to {@code t} (null: let go). */
+    public void lock(Target t) {
+        if (t == locked) return;
+        locked = t;
+        Vec3 at = t == null ? null : t.position();
+        if (at != null) sounds.add(new Sound("combat/lock_on", at));
+    }
+
+    /**
+     * What to lock on to, looking from {@code eye} along {@code look} (the
+     * camera's forward) with her feet at {@code feet}: the living target
+     * within {@link #LOCK_RANGE} most nearly in the middle of the view,
+     * nearer ones first among those about as central - or, given {@code
+     * after}, the next one round from it, left to right. Null when there is
+     * nothing to lock on to.
+     */
+    public static Target lockCandidate(Vec3 eye, Vec3 look, Vec3 feet, List<Target> targets, Target after) {
+        List<Target> in = new ArrayList<>();
+        for (Target t : targets) {
+            if (t.alive() && t.position().horizontalDistance(feet) <= LOCK_RANGE) in.add(t);
+        }
+        if (in.isEmpty()) return null;
+        Vec3 flat = new Vec3(look.x(), 0, look.z()).normalize(new Vec3(0, 0, -1));
+        if (after != null && in.contains(after) && in.size() > 1) {
+            // the next round to the right of it, by bearing from her
+            double from = bearing(feet, after, flat);
+            Target best = null, first = null;
+            double bestB = Double.MAX_VALUE, firstB = Double.MAX_VALUE;
+            for (Target t : in) {
+                if (t == after) continue;
+                double b = bearing(feet, t, flat);
+                if (b > from && b < bestB) {
+                    best = t;
+                    bestB = b;
+                }
+                if (b < firstB) {
+                    first = t;
+                    firstB = b;
+                }
+            }
+            return best != null ? best : first;
+        }
+        Target best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (Target t : in) {
+            Vec3 c = t.position().add(0, t.height() / 2, 0);
+            Vec3 d = c.sub(eye).normalize(look);
+            double angle = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, d.dot(look)))));
+            double score = angle + c.horizontalDistance(feet) * 0.8;
+            if (score < bestScore) {
+                best = t;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    /** {@code t}'s bearing from {@code feet}, degrees to the right of {@code flat} (-180 to 180). */
+    private static double bearing(Vec3 feet, Target t, Vec3 flat) {
+        Vec3 d = t.position().sub(feet);
+        double right = d.x() * -flat.z() + d.z() * flat.x();
+        double ahead = d.x() * flat.x() + d.z() * flat.z();
+        return Math.toDegrees(Math.atan2(right, ahead));
+    }
+
+    /** The living target nearest {@code feet} within {@link #LOCK_RANGE} other than {@code not}, or null. */
+    private static Target nearestTo(Vec3 feet, List<Target> targets, Target not) {
+        Target best = null;
+        double bestD = LOCK_RANGE;
+        for (Target t : targets) {
+            if (t == not || !t.alive()) continue;
+            double d = t.position().horizontalDistance(feet);
+            if (d <= bestD) {
+                best = t;
+                bestD = d;
+            }
+        }
+        return best;
     }
 
     /** Send off an arrow, a bolt or a spell from her hands, at what she aims at or on ahead. */
@@ -351,19 +531,34 @@ public final class Combat {
             case BOLT -> tuning.boltSpeed;
             default -> tuning.spellSpeed;
         };
-        Vec3 hand = p.ground().add(f.scale(0.45)).add(0, h, 0);
-        Target t = aimAt(p.ground(), p.heading(), targets);
+        Vec3 hand = p.feet().add(f.scale(0.45)).add(0, h, 0);
+        Target t = aimAt(p.feet(), p.heading(), targets);
+        double range = tuning.range * (t != null && highGround(p.feet(), t) ? HIGH_RANGE : 1);
         Vec3 to;
-        if (t != null) to = t.position().add(0, t.height() * 0.62, 0);
+        if (t != null) to = lead(hand, t, speed);
         else if (kind == Move.Kind.SPELL) to = hand.add(f.scale(tuning.range));
         else to = p.ground().add(f.scale(tuning.range * 0.7));     // on ahead, coming down in the grass
         Vec3 v = Projectile.aim(kind, hand, to, speed);
-        double life = kind == Move.Kind.SPELL ? tuning.range / Math.max(1e-6, speed) : 8;
+        double life = kind == Move.Kind.SPELL ? Math.max(range, hand.distance(to) + 2) / Math.max(1e-6, speed) : 8;
         projectiles.add(new Projectile(kind, strike, spellColour(strike.weapon()), hand, v, life));
     }
 
-    /** One shot's flight this frame: what it strikes, where it comes down. */
-    private void fly(Projectile pr, double dt, List<Target> targets) {
+    /**
+     * Where to shoot from {@code hand} at {@code speed} to meet {@code t}
+     * (its middle, a little over halfway up): where it will be by the time
+     * the shot gets there, as it is going now.
+     */
+    static Vec3 lead(Vec3 hand, Target t, double speed) {
+        Vec3 aim = t.position().add(0, t.height() * 0.62, 0);
+        Vec3 v = t.velocity();
+        if (v.length() < 1e-6) return aim;
+        Vec3 to = aim;
+        for (int i = 0; i < 3; i++) to = aim.add(v.scale(hand.distance(to) / Math.max(1e-6, speed)));
+        return to;
+    }
+
+    /** One shot's flight this frame: what it strikes, where it comes down on {@code terrain}. */
+    private void fly(Projectile pr, double dt, List<Target> targets, Terrain terrain) {
         if (pr.done()) return;
         if (pr.stuck()) {
             pr.advance(dt);
@@ -387,10 +582,12 @@ public final class Combat {
                 sounds.add(new Sound(pr.kind() == Move.Kind.SPELL ? "combat/spell_hit"
                         : pr.kind() == Move.Kind.BOLT ? "combat/bolt_hit" : "combat/arrow_hit", at));
                 pr.finish();
-            } else if (b.y() <= 0) {
-                double k = a.y() / Math.max(1e-9, a.y() - b.y());
+            } else if (b.y() <= terrain.height(b.x(), b.z())) {
+                // where it went in: between the last point over the ground and this one under it
+                double ha = a.y() - terrain.height(a.x(), a.z()), hb = b.y() - terrain.height(b.x(), b.z());
+                double k = ha / Math.max(1e-9, ha - hb);
                 Vec3 ground = a.add(b.sub(a).scale(Math.max(0, Math.min(1, k))));
-                ground = new Vec3(ground.x(), 0, ground.z());
+                ground = terrain.onGround(ground);
                 if (pr.kind() == Move.Kind.SPELL) {
                     effects.add(new Effect(Effect.Kind.BURST, ground.add(0, 0.1, 0), now, pr.colour()));
                     pr.finish();
@@ -414,7 +611,8 @@ public final class Combat {
             if (!t.alive()) continue;
             Vec3 q = closestOnSegment(a, b, t.position());
             double r = t.radius() + Projectile.THICKNESS;
-            if (q.horizontalDistance(t.position()) > r || q.y() < 0 || q.y() > t.height()) continue;
+            double bottom = t.position().y();
+            if (q.horizontalDistance(t.position()) > r || q.y() < bottom || q.y() > bottom + t.height()) continue;
             double along = q.sub(a).length();
             if (along < bestT) {
                 best = t;
@@ -580,6 +778,16 @@ public final class Combat {
 
     /** The world's time as of the last tick. */
     public double now() { return now; }
+
+    /** A word or a number floating up off {@code at} ({@code rise} metres over it) - for the world's own news. */
+    public void say(String text, int rgb, Vec3 at, double rise, boolean small) {
+        popups.add(new Popup(text, rgb, at, rise, now, small));
+    }
+
+    /** A sound to play at {@code at}: its key ({@code combat/player_hurt}). */
+    public void sound(String key, Vec3 at) {
+        sounds.add(new Sound(key, at));
+    }
 
     /** The sounds made since the last call, for the world's sounds to play. */
     public List<Sound> drainSounds() {

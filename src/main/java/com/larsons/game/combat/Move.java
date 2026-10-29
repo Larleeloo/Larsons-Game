@@ -55,6 +55,12 @@ public record Move(Kind kind, double at, double reach, double arc, boolean heavy
         TABLE.put(AnimState.STAFF_HEAVY_ATTACK, new Move(Kind.SWING, 0.55, 2.0, 120, true));
         TABLE.put(AnimState.STAFF_SPIN_ATTACK, swing(0.5, 2.0, 360));
         TABLE.put(AnimState.STAFF_CROUCH_ATTACK, swing(0.5, 2.0, 160));
+
+        // aimed up: as their level ones (the same frames, the upper body leant back)
+        TABLE.put(AnimState.BOW_FIRE_UP, shot(Kind.ARROW, 0.02));
+        TABLE.put(AnimState.CROSSBOW_FIRE_UP, shot(Kind.BOLT, 0.33));
+        TABLE.put(AnimState.STAFF_ATTACK_UP, shot(Kind.SPELL, 0.5));
+        TABLE.put(AnimState.WAND_ATTACK_UP, shot(Kind.SPELL, 0.45));
     }
 
     private static Move swing(double at, double reach, double arc) {

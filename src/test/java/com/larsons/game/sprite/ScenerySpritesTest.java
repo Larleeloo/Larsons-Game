@@ -125,6 +125,7 @@ class ScenerySpritesTest {
         ImageIO.write(new BufferedImage(100, 70, BufferedImage.TYPE_INT_ARGB), "png", bad.resolve("sheet.png").toFile());
         Path ground = Files.createDirectories(scenery.resolve("ground"));
         ImageIO.write(new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB), "png", ground.resolve("grass.png").toFile());
+        ImageIO.write(new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB), "png", ground.resolve("dirt.png").toFile());
         Files.writeString(ground.resolve("profile.json"), "{\"tileWorldSize\": 9.6}");
 
         ScenerySprites s = ScenerySprites.scan(scenery);
@@ -138,6 +139,9 @@ class ScenerySpritesTest {
         assertNotNull(s.ground());
         assertEquals(9.6, s.ground().tileWorldSize(), 1e-9);
         assertEquals(ground.resolve("grass.png"), s.ground().texture());
+        assertEquals(ground.resolve("dirt.png"), s.ground().tile("dirt"), "the other ground textures, by name");
+        assertNull(s.ground().tile("gravel"));
+        assertEquals(1, s.ground().tiles().size(), "and not the grass again");
     }
 
     @Test
@@ -194,12 +198,20 @@ class ScenerySpritesTest {
     void theGroundIsAnOpaqueTileOf512() throws IOException {
         Path grass = ASSETS.resolve("ground").resolve("grass.png");
         assumeTrue(Files.isRegularFile(grass), "no ground here");
-        BufferedImage image = ImageIO.read(grass.toFile());
-        assertEquals(512, image.getWidth());
-        assertEquals(512, image.getHeight());
-        for (int y = 0; y < 512; y++) {
-            for (int x = 0; x < 512; x++) {
-                if ((image.getRGB(x, y) >>> 24) != 255) fail("a see-through pixel at " + x + "," + y);
+        List<Path> tiles = new java.util.ArrayList<>(List.of(grass));
+        for (String n : List.of("dirt", "forest_floor", "gravel", "meadow")) {
+            Path t = ScenerySprites.scan(ASSETS).ground().tile(n);
+            assertNotNull(t, "the " + n + " beside the grass");
+            tiles.add(t);
+        }
+        for (Path tile : tiles) {
+            BufferedImage image = ImageIO.read(tile.toFile());
+            assertEquals(512, image.getWidth(), tile + "");
+            assertEquals(512, image.getHeight(), tile + "");
+            for (int y = 0; y < 512; y++) {
+                for (int x = 0; x < 512; x++) {
+                    if ((image.getRGB(x, y) >>> 24) != 255) fail(tile + ": a see-through pixel at " + x + "," + y);
+                }
             }
         }
         assertEquals(9.6, ScenerySprites.scan(ASSETS).ground().tileWorldSize(), 1e-9,
