@@ -1172,8 +1172,8 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
 `chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
 by dummy n, facing it), `dummy add <x> <z>`, `goto <place|spawn>` (the
-highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under [n]`
-(dive at her now / stand under flier n), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
+highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
+(dive at her now / stand under flier n / lock on to it), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
 that high, rolling out of it), `climb [down]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
 `debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`

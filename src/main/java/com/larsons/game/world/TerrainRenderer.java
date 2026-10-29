@@ -71,10 +71,10 @@ public final class TerrainRenderer implements AutoCloseable {
             out vec4 fragColor;
             """ + GroundTexture.GLSL + """
 
-            // the vines on a climbable wall, in blocks of two texels: strands that wander
-            // down the face, leaves along them; alpha 0 where there are none
+            // the vines on a climbable wall, in blocks of four texels (they read from afar):
+            // strands that wander down the face, leaves along them; alpha 0 where there are none
             vec4 vines(vec3 p, vec3 n) {
-                float block = 2.0 * max(uGroundTexel, 0.01);
+                float block = 4.0 * max(uGroundTexel, 0.01);
                 vec4 c = vec4(0.0);
                 for (int i = 0; i < 4; i++) {
                     if (i >= uWalls) break;
@@ -90,9 +90,9 @@ public final class TerrainRenderer implements AutoCloseable {
                     float wob = 0.18 * sin(q.y * 2.1 + strand * 1.7) + 0.08 * sin(q.y * 5.3 + strand);
                     float x = fract(s + wob) - 0.5;
                     float h = groundHash(ivec2(q / block));
-                    if (abs(x) < 0.09) c = vec4(0.20, 0.31, 0.15, 1.0);
-                    else if (abs(x) < 0.32 && h > 0.58) c = h > 0.86 ? vec4(0.45, 0.64, 0.27, 1.0)
-                                                                   : vec4(0.31, 0.50, 0.21, 1.0);
+                    if (abs(x) < 0.11) c = h > 0.7 ? vec4(0.36, 0.56, 0.22, 1.0) : vec4(0.25, 0.40, 0.17, 1.0);
+                    else if (abs(x) < 0.38 && h > 0.45) c = h > 0.8 ? vec4(0.56, 0.76, 0.31, 1.0)
+                                                                  : vec4(0.38, 0.61, 0.24, 1.0);
                 }
                 return c;
             }
@@ -122,7 +122,7 @@ public final class TerrainRenderer implements AutoCloseable {
                 // the sun, in steps; the flat as bright as the flat ground round it
                 float shade = 0.55 + 0.45 * dot(n, uSun) / uSun.y;
                 shade = clamp(floor(shade / 0.06 + 0.5) * 0.06, 0.42, 1.2);
-                c *= shade;
+                c *= mix(shade, max(shade, 0.9), v.a);          // the vines catch the light out on the face
 
                 float dist = length(vPos - uEye);
                 float fog = 1.0 - exp(-pow(dist / uFogDistance, 2.0));

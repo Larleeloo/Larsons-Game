@@ -63,7 +63,7 @@ public final class CombatRenderer {
             Vec3 at = ground.onGround(f.position());
             double h = Math.max(0, f.position().y() - at.y());
             double k = Math.min(1, h / 8);
-            out.at(at, 0.55 * (1 - 0.35 * k), (float) (0.45 * (1 - 0.55 * k)));
+            out.at(at, 0.65 * (1 - 0.35 * k), (float) (0.56 * (1 - 0.5 * k)));
         }
         for (Projectile p : world.combat().projectiles()) {
             if (p.stuck()) continue;

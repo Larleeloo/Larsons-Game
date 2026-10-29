@@ -944,13 +944,15 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     }
                 }
             }
-            // the flying dummies: flier swoop [n] (dive at her now), flier under [n] (stand under it)
+            // the flying dummies: flier swoop [n] (dive at her now), flier under [n] (stand under it),
+            // flier lock [n] (lock on to it)
             case "flier" -> {
                 String[] a = argument.trim().split("\\s+");
                 int n = a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0;
                 if (n < 0 || n >= world.fliers().size()) return false;
                 FlyingDummy f = world.fliers().get(n);
                 if (a[0].equals("swoop")) f.swoopAt(p, world.terrain());
+                else if (a[0].equals("lock")) world.combat().lock(f);
                 else if (a[0].equals("under")) {
                     p.setPosition(f.position().add(2.5, 0, 2.5));
                     Vec3 to = f.position().sub(p.ground());

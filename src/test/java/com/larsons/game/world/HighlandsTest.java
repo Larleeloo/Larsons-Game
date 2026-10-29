@@ -210,6 +210,26 @@ class HighlandsTest {
     }
 
     @Test
+    void theCameraRisesOverACliffThatWouldHideHer() {
+        Terrain t = Terrain.highlands();
+        Terrain.Wall wall = t.walls().get(0);
+        Vec3 chest = wall.at(wall.length() / 2, 1.0).add(0, 0.9, 0);    // at the cliff's foot, outside it
+        OrbitCamera cam = new OrbitCamera(Math.toRadians(270), Math.toRadians(17), 16);   // the plateau behind her
+        cam.snapTo(chest);
+        for (int i = 0; i < 120; i++) cam.keepAbove(t, 0.8);
+        assertTrue(cam.pitch() > Math.toRadians(45), "up over the plateau: " + Math.toDegrees(cam.pitch()));
+        Vec3 eye = cam.eye();
+        for (double f = 0.05; f <= 1; f += 0.05) {
+            Vec3 at = chest.add(eye.sub(chest).scale(f));
+            assertTrue(at.y() >= t.height(at.x(), at.z()), "nothing between it and her, " + f + " of the way");
+        }
+        OrbitCamera open = new OrbitCamera(Math.toRadians(90), Math.toRadians(17), 16);  // the open meadow behind
+        open.snapTo(chest);
+        for (int i = 0; i < 120; i++) open.keepAbove(t, 0.8);
+        assertEquals(Math.toRadians(17), open.pitch(), 1e-3, "nothing in the way: left where it is");
+    }
+
+    @Test
     void itemsAndChestsStandOnTheGround() {
         World w = at(0, 0);
         w.spawn(ItemDef.WAND, new Vec3(6, 0, -36));

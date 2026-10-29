@@ -78,9 +78,10 @@ public final class OrbitCamera {
     public double autoPitch() { return autoPitch; }
 
     /**
-     * Keep the eye at least {@code clearance} metres over {@code terrain}:
-     * where a hill behind her would take it into the ground, the camera
-     * swings up over it (easing, and back down once clear).
+     * Keep the eye at least {@code clearance} metres over {@code terrain},
+     * and the ground from between it and her: where a hill or a cliff behind
+     * her would take it into the ground or hide her, the camera swings up
+     * over it (easing, and back down once clear).
      */
     public void keepAbove(Terrain terrain, double clearance) {
         if (terrain.flat()) {
@@ -90,11 +91,21 @@ public final class OrbitCamera {
         double save = lift, want = 0;
         for (int i = 0; i < 30; i++) {
             lift = want;
-            Vec3 e = eye();
-            if (e.y() >= terrain.height(e.x(), e.z()) + clearance || pitch() >= MAX_PITCH) break;
+            if (clear(terrain, clearance) || pitch() >= MAX_PITCH) break;
             want += Math.toRadians(3);
         }
         lift = save + (want - save) * (want > save ? 0.35 : 0.08);
+    }
+
+    /** Whether the eye is out of the ground and nothing of it stands between the eye and her. */
+    private boolean clear(Terrain terrain, double clearance) {
+        Vec3 e = eye();
+        for (int k = 1; k <= 16; k++) {
+            double f = k / 16.0;
+            Vec3 at = target.add(e.sub(target).scale(f));
+            if (at.y() < terrain.height(at.x(), at.z()) + clearance * f) return false;
+        }
+        return true;
     }
 
     /** Jump straight to the target without easing (scene start). */
