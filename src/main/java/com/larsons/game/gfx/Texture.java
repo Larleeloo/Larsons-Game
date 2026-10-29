@@ -102,6 +102,33 @@ public final class Texture implements AutoCloseable {
     }
 
     /**
+     * Upload {@code rgba} - {@code width × height} texels, four bytes each,
+     * row by row - as data rather than colour: its channels are taken as they
+     * are (not premultiplied: alpha is a fourth number, not coverage), read
+     * with linear filtering between texels and from mipmaps far away, clamped
+     * at the edges. The ground's map of where each ground texture lies
+     * ({@code world/GroundTexture}). Must be called on the GL thread.
+     */
+    public static Texture data(byte[] rgba, int width, int height) {
+        java.nio.ByteBuffer buf = org.lwjgl.system.MemoryUtil.memAlloc(width * height * 4);
+        try {
+            buf.put(rgba, 0, width * height * 4).flip();
+            int id = glGenTextures();
+            glBindTexture(GL_TEXTURE_2D, id);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            return new Texture(id, width, height, bytesFor(width, height, false), false);
+        } finally {
+            org.lwjgl.system.MemoryUtil.memFree(buf);
+        }
+    }
+
+    /**
      * Upload and free {@code data}, a sheet of pixel-art frames {@code
      * frameWidth × frameHeight} each, as a cutout texture: nearest-neighbour
      * at every distance - the nearest texel of the nearest mipmap level, so

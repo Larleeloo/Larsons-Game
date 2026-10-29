@@ -37,6 +37,18 @@ class SceneryTest {
         return ScenerySprites.of(s, null);
     }
 
+    /** All the art: four trees, three tufts and six rocks, as their profiles have them. */
+    private static ScenerySprites everything() {
+        List<ScenerySprites.Sprite> s = new ArrayList<>(sprites(true).sprites());
+        s.add(sprite("pine_tree", new SceneryProfile(Kind.TREE, 128, 160, 48, 12, 4.8, 0.25, 1.3, false), 1024, 960));
+        s.add(sprite("birch_tree", new SceneryProfile(Kind.TREE, 128, 160, 48, 12, 4.8, 0.2, 1.2, false), 1024, 960));
+        s.add(sprite("autumn_tree", new SceneryProfile(Kind.TREE, 128, 128, 48, 12, 4.8, 0.3, 1.5, false), 1024, 768));
+        s.add(sprite("standing_stone", new SceneryProfile(Kind.ROCK, 128, 128, 1, 1, 2.4, 0.4, 0.7, true), 128, 128));
+        s.add(sprite("sandstone_rock", new SceneryProfile(Kind.ROCK, 128, 128, 1, 1, 2.4, 0.6, 0.95, true), 128, 128));
+        s.add(sprite("flat_rock", new SceneryProfile(Kind.ROCK, 128, 128, 1, 1, 2.4, 0.65, 1.0, true), 128, 128));
+        return ScenerySprites.of(s, null);
+    }
+
     private static ScenerySprites.Sprite sprite(String name, SceneryProfile p, int w, int h) {
         return ScenerySprites.describe(name, p, Path.of(name, "sheet.png"), w, h);
     }
@@ -140,6 +152,67 @@ class SceneryTest {
             assertEquals(a.get(i).z(), b.get(i).z(), 0);
         }
         assertTrue(SceneryLayout.demo(ScenerySprites.NONE, CLEAR).isEmpty(), "no sprites, no scenery");
+    }
+
+    @Test
+    void pathsOfEarthWindOutFromTheSpawnAndNothingSolidStandsOnThem() {
+        Scenery s = SceneryLayout.demo(everything(), DemoScene.clearings());
+        GroundMap g = s.ground();
+        for (double[] path : SceneryLayout.PATHS) {
+            double h = Math.toRadians(path[0]);
+            assertEquals(GroundMap.DIRT, g.material(1.8 * Math.cos(h), 1.8 * Math.sin(h)),
+                    "a path sets out at " + path[0] + " degrees");
+        }
+        int dirt = 0;
+        for (double x = -45; x <= 45; x += 1) for (double z = -45; z <= 45; z += 1) if (g.material(x, z) == GroundMap.DIRT) dirt++;
+        assertTrue(dirt > 4 * 30 * SceneryLayout.PATH_WIDTH * 0.7, dirt + " m² of path: four of them, a long way out");
+        for (Scenery.Placed p : s.solids()) {
+            assertTrue(g.weight(GroundMap.DIRT, p.x(), p.z()) < 0.05, p.sprite().name() + " on a path at " + p.x()
+                    + ", " + p.z());
+        }
+    }
+
+    @Test
+    void grovesEachOfOneSpeciesStandOnForestFloor() {
+        Scenery s = SceneryLayout.demo(everything(), DemoScene.clearings());
+        GroundMap g = s.ground();
+        java.util.Map<String, Integer> onFloor = new java.util.TreeMap<>();
+        for (Scenery.Placed t : of(s, Kind.TREE)) {
+            if (g.material(t.x(), t.z()) == GroundMap.FOREST) onFloor.merge(t.sprite().name(), 1, Integer::sum);
+        }
+        assertEquals(java.util.Set.of("oak_tree", "pine_tree", "birch_tree", "autumn_tree"), onFloor.keySet(),
+                "every species has its groves: " + onFloor);
+        int total = onFloor.values().stream().mapToInt(Integer::intValue).sum();
+        assertTrue(total >= 40, total + " trees in the groves");
+        for (int n : onFloor.values()) assertTrue(n >= 6, "a grove is mostly its own species: " + onFloor);
+        assertTrue(of(s, Kind.TREE).stream().allMatch(t -> t.position().horizontalLength() <= SceneryLayout.TREES_OUT_TO + 1e-9));
+    }
+
+    @Test
+    void rockBedsLieOnGravelAndMeadowsBloomInTheOpen() {
+        Scenery s = SceneryLayout.demo(everything(), DemoScene.clearings());
+        GroundMap g = s.ground();
+        long bedded = of(s, Kind.ROCK).stream().filter(r -> g.material(r.x(), r.z()) == GroundMap.GRAVEL).count();
+        assertTrue(bedded >= 2 * SceneryLayout.ROCK_BEDS, bedded + " rocks in beds");
+        int meadow = 0;
+        for (double x = -45; x <= 45; x += 1) for (double z = -45; z <= 45; z += 1) if (g.material(x, z) == GroundMap.MEADOW) meadow++;
+        assertTrue(meadow > SceneryLayout.MEADOWS * 20, meadow + " m² of flowers");
+    }
+
+    @Test
+    void theHillsAreLeftAsTheyWere() {
+        Scenery s = SceneryLayout.demo(everything(), DemoScene.clearings());
+        double[] h = SceneryLayout.HILLS;
+        for (double x = h[0]; x <= h[1]; x += 0.5) {
+            for (double z = h[2]; z <= h[3]; z += 0.5) {
+                assertEquals(-1, s.ground().material(x, z), "grass in the hills at " + x + ", " + z);
+            }
+        }
+        // what stands there is only what stood there before: the scattered trees and rocks
+        Scenery before = SceneryLayout.demo(sprites(true), DemoScene.clearings());
+        long then = before.solids().stream().filter(p -> SceneryLayout.inHills(p.x(), p.z(), 0)).count();
+        long now = s.solids().stream().filter(p -> SceneryLayout.inHills(p.x(), p.z(), 0)).count();
+        assertTrue(now <= then + 2, now + " things in the hills, " + then + " before");
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.ImportPanel;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.GroundTexture;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.SceneryRenderer;
@@ -60,6 +61,7 @@ public final class Game implements AutoCloseable {
     private final ItemSprites items;
     private final CloseupLibrary closeups;
     private final VoidRenderer voidRenderer;
+    private final GroundTexture groundTexture;
     private final ScenerySprites scenerySprites;
     private final Scenery scenery;
     private final SceneryRenderer sceneryRenderer;
@@ -108,7 +110,8 @@ public final class Game implements AutoCloseable {
         scenerySprites = ScenerySprites.scan(settings.sceneryDir());
         scenery = SceneryLayout.demo(scenerySprites, DemoScene.clearings());
         sceneryRenderer = new SceneryRenderer(scenerySprites);
-        voidRenderer = new VoidRenderer(scenerySprites.ground());
+        groundTexture = new GroundTexture(scenerySprites.ground(), scenery.ground());
+        voidRenderer = new VoidRenderer(groundTexture);
         worldRenderer = new WorldRenderer(voidRenderer, sceneryRenderer, batch, sprites, objects, items);
         startSound();
         wardrobe = Wardrobe.load(settings.wardrobeFile());
@@ -308,6 +311,7 @@ public final class Game implements AutoCloseable {
         items.close();
         sceneryRenderer.close();
         voidRenderer.close();
+        groundTexture.close();
         sprites.close();
         ui.close();
         batch.close();

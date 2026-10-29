@@ -32,6 +32,10 @@ import java.util.Map;
  * {@link #solids()}: {@link World} keeps the player out of them as it does
  * the chest. Grass is walked through.
  *
+ * <p><b>The ground under it.</b> Where the layout laid paths, the groves'
+ * forest floor, gravel round the rock beds and flower meadows: its {@link
+ * #ground()} map, drawn by {@link GroundTexture}.
+ *
  * <p>Pure data - which spot holds what. {@link SceneryRenderer} draws it;
  * {@link SceneryLayout} plants the demo's.
  */
@@ -90,9 +94,17 @@ public final class Scenery {
     private final List<Placed> solids;
     private final List<Placed> shadowed;
     private final Map<ScenerySprites.Sprite, List<Placed>> bySprite;
+    private final GroundMap ground;
 
+    /** {@code placed} on plain grass. */
     public Scenery(List<Placed> placed) {
+        this(placed, GroundMap.NONE);
+    }
+
+    /** {@code placed}, on the ground {@code ground} maps. */
+    public Scenery(List<Placed> placed, GroundMap ground) {
         this.placed = List.copyOf(placed);
+        this.ground = ground == null ? GroundMap.NONE : ground;
         List<Placed> solid = new ArrayList<>(), shade = new ArrayList<>();
         Map<ScenerySprites.Sprite, List<Placed>> groups = new LinkedHashMap<>();
         for (Placed p : this.placed) {
@@ -119,6 +131,9 @@ public final class Scenery {
     public Map<ScenerySprites.Sprite, List<Placed>> bySprite() { return bySprite; }
 
     public boolean isEmpty() { return placed.isEmpty(); }
+
+    /** What the ground is made of where: the paths, the forest floor, the gravel, the meadows. */
+    public GroundMap ground() { return ground; }
 
     /**
      * How far ahead of the world's clock the loop of something standing at
