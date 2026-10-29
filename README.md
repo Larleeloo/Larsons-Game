@@ -752,6 +752,8 @@ the hill       7 m high, round and walkable all the way up, west of the plateau
 the hollow     2.5 m deep, east of the ramp: a flier circles over it
 ```
 
+<img src="docs/screenshots/highlands.png" width="98%" alt="The highlands: the dirt path climbing a ramp to the grassy plateau with its rock sides, the chest on top, the round hill behind, the hollow to the right and a flying dummy beyond">
+
 Ground steeper than 1 m up a metre is too steep to walk up (she stops at
 its foot, or slides along it); off an edge she **falls** (the stance's jump,
 held), and ground too steep to stand on she slides down.
@@ -773,6 +775,9 @@ Climbing costs **stamina** - the yellow bar on the right, shown when it
 is not full - 9 a second climbing and 3 hanging still; it
 fills again 0.8 s after she stops, 25 a second. She needs 15 to take hold,
 and at 0 she lets go and falls. **Space**, the dodge key or **C** let go.
+
+<img src="docs/screenshots/climb.png" width="49%" alt="She climbs the vine-covered cliff, her stamina bar showing 69 beside the mana">
+<img src="docs/screenshots/aim-up-flier.png" width="49%" alt="Locked on to a flying dummy overhead, she draws the bow aimed up at it">
 
 ### The flying strike dummy
 

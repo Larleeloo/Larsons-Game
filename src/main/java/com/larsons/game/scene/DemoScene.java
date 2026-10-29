@@ -395,8 +395,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /**
      * What the camera follows: her pivot - drawn a third of the way toward
-     * what she is locked on to (at most 3 m across, 2 m up), so both stay in
-     * view, a flier overhead too.
+     * what she is locked on to (at most 2.5 m across, 0.6 m up and 1.5 m
+     * down), so both stay in view and she stays clear of the hotbar.
      */
     private Vec3 follow() {
         Vec3 pivot = pivot();
@@ -404,8 +404,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (t == null) return pivot;
         Vec3 d = t.position().add(0, t.height() / 2, 0).sub(pivot).scale(0.33);
         double flat = d.horizontalLength();
-        if (flat > 3) d = new Vec3(d.x() * 3 / flat, d.y(), d.z() * 3 / flat);
-        return pivot.add(d.x(), Math.max(-2, Math.min(2, d.y())), d.z());
+        if (flat > 2.5) d = new Vec3(d.x() * 2.5 / flat, d.y(), d.z() * 2.5 / flat);
+        // (only a little up toward a flier: she stays clear of the hotbar)
+        return pivot.add(d.x(), Math.max(-1.5, Math.min(0.6, d.y())), d.z());
     }
 
     /** How far the camera rises on a peak (degrees, and zoomed back) and drops in a hollow. */
