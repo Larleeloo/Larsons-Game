@@ -388,7 +388,11 @@ objects/ornate_chest/chest/open_middle_se.png
   stay palette indices on the GPU, as everywhere else.
 
 The chest is drawn by 3D-Modeling's
-`items/ornate_treasure_chest/ornate_chest_sprites.py`.
+`items/ornate_treasure_chest/ornate_chest_sprites.py`, the training dummy
+(`objects/attack_dummy/`) by `items/attack_dummy/attack_dummy_sprites.py` and
+the flying strike dummy (`objects/flying_dummy/`: `fly`, `swoop` and its
+reactions, 2.4 m frames aimed 0.5 m up, 24 fps) by
+`items/flying_dummy/flying_dummy_sprites.py`.
 
 ## The sheets in this folder
 
@@ -490,6 +494,8 @@ layers stay in step (the game plays one frame index on all of them):
 | staff_idle, staff_walk, staff_run, staff_sprint, staff_crouch_idle, staff_crouch_walk | 48, 28, 20, 16, 48, 32 | | loops at the first six's speeds; the walk plants the staff like a walking stick as the left heel strikes, the crouch leans on it |
 | staff_attack, staff_heavy_attack, staff_spin_attack, staff_crouch_attack, staff_parry, staff_block | 24, 32, 30, 24, 18, 30 | | the cast (a thrust of the crystal), the slam into the ground, the spin, the low sweep; `staff_block` loops |
 | staff_jump | 27 | 0.9 | one-shot: the jump with the staff in the right hand |
+| bow_draw_up, bow_fire_up, crossbow_fire_up, staff_attack_up, wand_attack_up | 24, 18, 30, 24, 24 | | aimed up, at what flies or stands well above her (`combat/Combat.AIM_UP`, 20° and more); the draw ends held at full draw; a set without them shows the level ones |
+| climb | 32 | 1.07 | loops while she climbs the vines, her hands empty; the frame held while she hangs still |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
 body for every layer; for the garments the body and, where one tucks into or

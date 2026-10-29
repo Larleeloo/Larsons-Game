@@ -10,6 +10,7 @@ import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteProfile;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Terrain;
 import com.larsons.game.world.World;
 
 import java.util.ArrayList;
@@ -19,8 +20,8 @@ import java.util.Map;
 
 /**
  * Draws the fighting into the world, for {@code WorldRenderer}: the dummies
- * (2D sprites from 24 views, like the chest, flashing white as they are
- * struck), the arrows, bolts and spells in flight - each turned along its
+ * and the flying dummies (2D sprites from 24 views, like the chest, flashing
+ * white as they are struck), the arrows, bolts and spells in flight - each turned along its
  * path as it crosses the screen - the arrows stuck in the ground, and the
  * sparks and bursts where things hit. The numbers and the dice are the
  * HUD's ({@link CombatHud}).
@@ -40,7 +41,7 @@ public final class CombatRenderer {
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
     private final CombatSprites fx;
-    private final Map<Dummy, ObjectStack.Memory> memory = new IdentityHashMap<>();
+    private final Map<Object, ObjectStack.Memory> memory = new IdentityHashMap<>();
 
     public CombatRenderer(SpriteLibrary sprites, ObjectSprites objects) {
         this.sprites = sprites;
@@ -50,13 +51,25 @@ public final class CombatRenderer {
 
     public CombatSprites fx() { return fx; }
 
-    /** The dummies' shadows and the shots' in flight. */
+    /**
+     * The dummies' shadows, and on the ground under each flier and each shot
+     * in flight its own - smaller and fainter the higher it is, which is how
+     * its height is read.
+     */
     public void shadows(World world, Shadows out) {
+        Terrain ground = world.terrain();
         for (Dummy d : world.dummies()) out.at(d.position(), 0.5, 0.42f);
+        for (FlyingDummy f : world.fliers()) {
+            Vec3 at = ground.onGround(f.position());
+            double h = Math.max(0, f.position().y() - at.y());
+            double k = Math.min(1, h / 8);
+            out.at(at, 0.55 * (1 - 0.35 * k), (float) (0.45 * (1 - 0.55 * k)));
+        }
         for (Projectile p : world.combat().projectiles()) {
             if (p.stuck()) continue;
-            double h = Math.max(0, p.position().y());
-            out.at(new Vec3(p.position().x(), 0, p.position().z()), 0.14, (float) (0.28 * Math.max(0, 1 - h / 5)));
+            Vec3 at = ground.onGround(p.position());
+            double h = Math.max(0, p.position().y() - at.y());
+            out.at(at, 0.14, (float) (0.28 * Math.max(0.25, 1 - h / 6)));
         }
     }
 
@@ -88,7 +101,29 @@ public final class CombatRenderer {
             });
         }
 
+        SpriteProfile flying = objects.profile(FlyingDummy.SPRITES);
+        for (FlyingDummy f : world.fliers()) {
+            Vec3 pivot = f.position().add(0, flying.pivotHeight(), 0);
+            SpriteView view = SpriteView.of(eye, pivot, f.heading(), camera.yaw());
+            ObjectStack.Result r = ObjectStack.resolve(sprites, objects, FlyingDummy.SPRITES, f.sheet(), f.loops(),
+                    f.sheetTime(), world.time(), view, 0, memory.computeIfAbsent(f, k -> new ObjectStack.Memory()));
+            List<LayerStack.Layer> layers = r.layers();
+            double flash = f.flash();
+            if (flash > 0) {
+                List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) lit.add(l.withPalette(CombatColours.flashed(l.palette(), flash)));
+                layers = lit;
+            }
+            List<LayerStack.Layer> draw = layers;
+            Vec3 at = f.position();
+            out.add(at.sub(eye).dot(forward), () -> {
+                batch.depthAnchor(at);
+                LayerStack.drawBillboard(batch, draw, r.framing(), r.view().elevation(), at, right, up, 1f);
+            });
+        }
+
         Combat combat = world.combat();
+        Terrain ground = world.terrain();
         for (Projectile p : combat.projectiles()) {
             String folder = switch (p.kind()) {
                 case ARROW -> "arrow";
@@ -112,7 +147,7 @@ public final class CombatRenderer {
             Vec3 centre = at;
             float a = alpha;
             out.add(centre.sub(eye).dot(forward), () -> {
-                batch.depthAnchor(new Vec3(centre.x(), 0, centre.z()));   // (the spot it flies over)
+                batch.depthAnchor(ground.onGround(centre));   // (the spot it flies over)
                 along(batch, sheet, frame, palette, centre, dir, prof.frameWorldSize(), forward, right, a);
             });
         }
@@ -130,7 +165,7 @@ public final class CombatRenderer {
             Vec3 tl = e.at().sub(right.scale(s / 2)).add(up.scale(s / 2));
             // just in front of what it struck
             out.add(e.at().sub(eye).dot(forward) - 0.5, () -> {
-                batch.depthAnchor(new Vec3(e.at().x(), 0, e.at().z()));
+                batch.depthAnchor(ground.onGround(e.at()));
                 region(batch, sheet, frame, palette, tl, right.scale(s), up.scale(-s), 1f);
             });
         }

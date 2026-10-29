@@ -73,13 +73,13 @@ public final class Dummy implements Target {
     private double time, sinceHurt = Double.MAX_VALUE;
 
     /**
-     * @param position    where it stands
+     * @param position    where it stands (on the ground: its height the ground's there)
      * @param heading     which way its face looks, as a character's heading
      * @param maxHealth   how much it takes to knock it over
      * @param downSeconds how long it lies before it springs back up
      */
     public Dummy(Vec3 position, double heading, double maxHealth, double downSeconds) {
-        this.position = new Vec3(position.x(), 0, position.z());
+        this.position = position;
         this.heading = heading;
         this.maxHealth = Math.max(1, maxHealth);
         this.downSeconds = Math.max(0, downSeconds);
@@ -153,7 +153,11 @@ public final class Dummy implements Target {
     }
 
     /** Seconds since it last took damage (a lot: never). */
+    @Override
     public double sinceHurt() { return sinceHurt; }
+
+    @Override
+    public String name() { return "Training dummy"; }
 
     @Override
     public boolean alive() {

@@ -3,6 +3,7 @@ package com.larsons.game.world;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
+import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.combat.Target;
 import com.larsons.game.sprite.Slot;
 
@@ -40,8 +41,16 @@ import java.util.Random;
  * its front, each in the beam of light of its rarity ({@link
  * GroundItem#beam}) until it is picked up.
  *
- * <p>The training dummies stand about to be hit, and {@link Combat} plays
- * out every swing and shot: the dice, the damage, the arrows in flight.
+ * <p>The training dummies stand about to be hit, the flying dummies fly
+ * their rounds and dive at her, and {@link Combat} plays out every swing
+ * and shot: the dice, the damage, the arrows in flight.
+ *
+ * <p>It all stands on the world's {@link Terrain} - flat until it is given
+ * hills ({@link #setTerrain}): she walks and climbs on it, the items lie and
+ * the chests stand on it, the shots stick in it. What happens to her - a
+ * hard landing, a roll out of a fall, a dive that strikes her - floats up
+ * over her as the fighting's numbers do; when her health is gone she is put
+ * back where she started ({@link #spawnPoint}).
  */
 public final class World {
 
@@ -71,7 +80,7 @@ public final class World {
     public static final class GroundItem {
         public final Item item;
         public final ItemDef def;
-        /** Where it lies (once it has landed). */
+        /** Where it lies (once it has landed), on the ground. */
         public final Vec3 position;
         private final double phase;
         private final Chest source;
@@ -85,7 +94,7 @@ public final class World {
         GroundItem(Item item, Vec3 position, double phase, Chest source, Vec3 from, double thrownAt) {
             this.item = item;
             this.def = item.def();
-            this.position = new Vec3(position.x(), 0, position.z());
+            this.position = position;
             this.phase = phase;
             this.source = source;
             this.from = from;
@@ -161,7 +170,10 @@ public final class World {
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Wearables.addTo(new Loot());
     private final List<Dummy> dummies = new ArrayList<>();
+    private final List<FlyingDummy> fliers = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
+    private Terrain terrain = Terrain.FLAT;
+    private Vec3 spawnPoint = Vec3.ZERO;
     private Random random = new Random();
     private Scenery scenery = Scenery.NONE;
     private double time;
@@ -173,7 +185,24 @@ public final class World {
     /** A world whose player carries an inventory of {@code slots} slots. */
     public World(Wardrobe wardrobe, int slots) {
         player = new Player(wardrobe, slots);
+        player.setAimUp(() -> combat.aimsUp(this));
         equipSelected();                // nothing carried yet: her hands are empty
+    }
+
+    /** The ground everything stands on. */
+    public Terrain terrain() { return terrain; }
+
+    /** Stand everything on {@code t} (null: flat ground) from now on - the player put on it where she is. */
+    public void setTerrain(Terrain t) {
+        terrain = t == null ? Terrain.FLAT : t;
+        player.setTerrain(terrain);
+    }
+
+    /** Where she is put back on her feet when her health is gone. */
+    public Vec3 spawnPoint() { return spawnPoint; }
+
+    public void setSpawnPoint(Vec3 at) {
+        spawnPoint = at == null ? Vec3.ZERO : at;
     }
 
     public Player player() { return player; }
@@ -203,9 +232,18 @@ public final class World {
         return dummy;
     }
 
-    /** Everything that can be hit. */
+    public List<FlyingDummy> fliers() { return fliers; }
+
+    public FlyingDummy addFlier(FlyingDummy flier) {
+        fliers.add(flier);
+        return flier;
+    }
+
+    /** Everything that can be hit: the dummies, the fliers. */
     public List<Target> targets() {
-        return new ArrayList<>(dummies);
+        List<Target> out = new ArrayList<>(dummies);
+        out.addAll(fliers);
+        return out;
     }
 
     /** The trees, grass and rocks standing in the world ({@link Scenery#NONE} until it is given some). */
@@ -237,8 +275,62 @@ public final class World {
             d.tick(dt);
             if (!player.passesThrough()) player.keepOut(d.position(), Dummy.RADIUS);   // (she rolls through them)
         }
-        for (Scenery.Placed s : scenery.solids()) player.keepOut(s.position(), s.radius() + FEET);
+        for (Scenery.Placed s : scenery.solids()) {
+            if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + FEET);
+        }
+        for (FlyingDummy f : fliers) swooped(f, f.tick(dt, terrain, player));
         combat.tick(dt, this);
+        happened();
+    }
+
+    /** What a flier's dive did to her, said over her. */
+    private void swooped(FlyingDummy f, FlyingDummy.Outcome o) {
+        Vec3 at = player.ground();
+        switch (o) {
+            case WARNED -> combat.say("!", 0xFFD27A, f.position(), FlyingDummy.HEIGHT + 0.3, false);
+            case STRUCK -> {
+                combat.say("Swooped! -" + Combat.format(FlyingDummy.SWOOP_DAMAGE), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+            case DODGED -> combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/blow", f.position());
+            }
+            case NONE -> { }
+        }
+        if (o == FlyingDummy.Outcome.STRUCK || o == FlyingDummy.Outcome.BLOCKED) combat.sound("combat/blow", at);
+    }
+
+    /** The red of her own hurts floating up over her. */
+    public static final int HURT_RGB = 0xFF6A5A;
+
+    /** What happened to her this frame, said over her; back at the start when her health is gone. */
+    private void happened() {
+        Vec3 at = player.ground();
+        for (Player.Event e : player.drainEvents()) {
+            switch (e.kind()) {
+                case FALL -> {
+                    combat.say("Hard landing -" + Combat.format(e.amount()), HURT_RGB, at, 2.1, false);
+                    combat.sound("combat/hard_landing", at);
+                }
+                case ROLLED -> {
+                    combat.say(e.amount() > 0 ? "Rolled out of the fall" : "Roll", 0x9CC4FF, at, 2.1, true);
+                    combat.sound("combat/landing_roll", at);
+                }
+                case CLIMBED -> combat.sound("combat/climb_top", at);
+                case LET_GO -> {
+                    if (e.amount() > 0) combat.say("Out of stamina", 0xFFD27A, at, 2.1, true);
+                }
+                case KNOCKED_OUT -> {
+                    combat.say("Knocked out", HURT_RGB, at, 2.1, false);
+                    player.respawn(spawnPoint);
+                    combat.lock(null);
+                }
+                case HURT -> { }
+            }
+        }
     }
 
     /**
@@ -257,7 +349,7 @@ public final class World {
             double a = c.heading() + (n == 1 ? 0 : -spread / 2 + spread * i / (n - 1))
                     + (random.nextDouble() - 0.5) * 0.15;
             double r = 1.35 + (i % 2) * 0.55 + random.nextDouble() * 0.2;
-            Vec3 land = c.position().add(SpriteView.headingVector(a).scale(r));
+            Vec3 land = terrain.onGround(c.position().add(SpriteView.headingVector(a).scale(r)));
             items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
                     time + FIRST_THROW + NEXT_THROW * i));
         }
@@ -292,7 +384,7 @@ public final class World {
     }
 
     public void spawn(Item item, Vec3 at) {
-        items.add(new GroundItem(item, at, items.size() * 1.7));
+        items.add(new GroundItem(item, terrain.onGround(at), items.size() * 1.7));
     }
 
     /** The nearest item within reach of the player that has landed, or {@code null}. */
@@ -300,7 +392,7 @@ public final class World {
         GroundItem best = null;
         double bestD = PICKUP_RANGE;
         for (GroundItem g : items) {
-            if (!g.landed(time)) continue;
+            if (!g.landed(time) || Math.abs(g.position.y() - player.ground().y()) > 1.5) continue;
             double d = g.position.horizontalDistance(player.ground());
             if (d <= bestD) {
                 best = g;

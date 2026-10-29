@@ -67,6 +67,11 @@ public final class Settings {
      */
     public boolean showProps = true;
     /**
+     * Let the camera's height follow the ground (O): higher and farther back
+     * on a peak, lower in a hollow.
+     */
+    public boolean autoCamera = true;
+    /**
      * Draw the first version of the states animated again (the weapon stances'
      * moves, kept in assets/animations_v1/) instead of the new one - to compare.
      */
@@ -108,6 +113,7 @@ public final class Settings {
                 s.savedFps = Math.max(0, (int) Json.num(j, "fps", FramePacer.DEFAULT_FPS));
                 s.showHud = Json.bool(j, "showHud", true);
                 s.showProps = Json.bool(j, "showProps", true);
+                s.autoCamera = Json.bool(j, "autoCamera", true);
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
                 s.savedVsync = Json.bool(j, "vsync", true);
             } catch (IOException | RuntimeException e) {
@@ -129,6 +135,7 @@ public final class Settings {
         j.put("fps", savedFps);
         j.put("showHud", showHud);
         j.put("showProps", showProps);
+        j.put("autoCamera", autoCamera);
         j.put("classicAnimations", classicAnimations);
         j.put("vsync", savedVsync);
         try {

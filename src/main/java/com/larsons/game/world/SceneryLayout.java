@@ -48,6 +48,12 @@ import java.util.Random;
  * the player can walk between them. The groves, rock beds, meadows and paths
  * keep out of the {@link #HILLS}.
  *
+ * <p>Everything stands on the {@link Terrain}'s ground ({@link
+ * Scenery.Placed#y()}): in the hills, the trees and rocks only where it is
+ * gentle enough to stand ({@value #STEEPEST} rise over run), the grass a
+ * little steeper, none on the rock faces; and the north path goes on up the
+ * ramp onto the plateau ({@link Terrain#trail()}).
+ *
  * <p>A kind with no sprites is left out (no rocks folder: no rocks), and a
  * spot a sprite does not fit in is skipped; nothing else moves.
  */
@@ -76,6 +82,8 @@ public final class SceneryLayout {
      * meadows and paths keep out of: {x from, x to, z from, z to}.
      */
     public static final double[] HILLS = {-20, 22, -55, -18};
+    /** The steepest ground a tree or a rock is planted on (rise over run); grass half as steep again. */
+    public static final double STEEPEST = 0.6;
     /** How many groves, rock beds and flower meadows. */
     public static final int GROVES = 8, ROCK_BEDS = 5, MEADOWS = 6;
 
@@ -102,15 +110,26 @@ public final class SceneryLayout {
 
     private SceneryLayout() {}
 
-    /** The demo's scenery from {@code sprites}, clear of {@code clearings}. */
+    /** The demo's scenery from {@code sprites}, clear of {@code clearings}, on flat ground. */
     public static Scenery demo(ScenerySprites sprites, List<Clearing> clearings) {
-        return layout(sprites, clearings, SEED);
+        return layout(sprites, clearings, SEED, Terrain.FLAT);
+    }
+
+    /** The demo's scenery from {@code sprites}, clear of {@code clearings}, standing on {@code terrain}. */
+    public static Scenery demo(ScenerySprites sprites, List<Clearing> clearings, Terrain terrain) {
+        return layout(sprites, clearings, SEED, terrain);
     }
 
     /** The demo's layout with another seed (the same seed always gives the same scenery). */
     public static Scenery layout(ScenerySprites sprites, List<Clearing> clearings, long seed) {
-        Planter p = new Planter(sprites, clearings, seed);
+        return layout(sprites, clearings, seed, Terrain.FLAT);
+    }
+
+    /** The demo's layout with another seed, on {@code terrain}. */
+    public static Scenery layout(ScenerySprites sprites, List<Clearing> clearings, long seed, Terrain terrain) {
+        Planter p = new Planter(sprites, clearings, seed, terrain);
         p.paths();
+        p.trail();
         p.trees();
         p.groves();
         p.rocks();
@@ -133,6 +152,7 @@ public final class SceneryLayout {
         final List<ScenerySprites.Sprite> trees, rocks, tufts;
         final List<Clearing> clearings;
         final long seed;
+        final Terrain terrain;
         final List<Scenery.Placed> placed = new ArrayList<>();
         final GroundMap ground = new GroundMap();
         /** Each path's points, {x, z}, a step apart. */
@@ -142,12 +162,13 @@ public final class SceneryLayout {
         Random rng;
         int tuftCount;
 
-        Planter(ScenerySprites sprites, List<Clearing> clearings, long seed) {
+        Planter(ScenerySprites sprites, List<Clearing> clearings, long seed, Terrain terrain) {
             trees = sprites.ofKind(Kind.TREE);
             rocks = sprites.ofKind(Kind.ROCK);
             tufts = sprites.ofKind(Kind.TUFT);
             this.clearings = List.copyOf(clearings);
             this.seed = seed;
+            this.terrain = terrain;
         }
 
         /** New dice for planting {@code kind}. */
@@ -185,6 +206,24 @@ public final class SceneryLayout {
                 }
                 paths.add(pts);
             }
+        }
+
+        /**
+         * The north path on up the terrain's trail - from where it stopped,
+         * short of the hills, to the ramp's foot and up it onto the plateau.
+         */
+        void trail() {
+            List<double[]> trail = terrain.trail();
+            if (trail.isEmpty() || paths.isEmpty()) return;
+            List<double[]> north = paths.get(0);
+            List<double[]> pts = new ArrayList<>();
+            pts.add(north.get(north.size() - 1));
+            pts.addAll(trail);
+            for (int i = 1; i < pts.size(); i++) {
+                double[] a = pts.get(i - 1), b = pts.get(i);
+                ground.stroke(GroundMap.DIRT, a[0], a[1], b[0], b[1], PATH_WIDTH / 2);
+            }
+            paths.add(pts);
         }
 
         /** Metres from {@code (x, z)} to the middle of the nearest path. */
@@ -369,8 +408,10 @@ public final class SceneryLayout {
             double yaw = rng.nextDouble() * Math.PI * 2;
             boolean mirrored = rng.nextBoolean();
             double jitter = rng.nextDouble() * (sprite.kind() == Kind.TREE ? 0.4 : 0.25);
-            Scenery.Placed p = new Scenery.Placed(sprite, x, z, yaw, mirrored,
+            Scenery.Placed p = new Scenery.Placed(sprite, x, terrain.height(x, z), z, yaw, mirrored,
                     sprite.frames() > 1 ? Scenery.windPhase(x, z, jitter) : 0);
+            double steepest = sprite.kind() == Kind.TUFT ? STEEPEST * 1.5 : STEEPEST;
+            if (!terrain.flat() && terrain.slope(x, z) > steepest) return false;
             if (!fits(p, treeSpacing)) return false;
             placed.add(p);
             if (p.kind() == Kind.TUFT) tuftCount++;

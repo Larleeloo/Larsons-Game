@@ -32,17 +32,19 @@ final class PauseMenu {
             {"Shift / Ctrl", "run / sprint while moving"},
             {"C", "crouch / stand (Shift: fast crouch walk)"},
             {"Space", "jump"},
-            {"Left Alt / Z", "dash (tap) / combat roll (hold)"},
+            {"Left Alt / Z", "dash (tap) / combat roll (hold); in the air: land in a roll"},
             {"Left click / F", "attack (bow: hold to draw, let go)"},
             {"X / R / Q", "heavy attack / spin attack / parry"},
             {"B (held) / V", "block / shield bash"},
+            {"L / K", "lock on to a target (L again: let go) / the next one"},
+            {"Walk into vines", "climb: W up, S down, A D along; Space lets go (uses stamina)"},
             {"1 – 5 / mouse wheel", "choose a hotbar slot: what is in it is in hand"},
             {"I", "the inventory (click to move items, right-click: hotbar)"},
             {"F1 – F4", "laugh, cry, surprise, anger"},
             {"E / G", "pick up, or open / close the chest / drop what you hold"},
             {"Right drag / arrows", "orbit the camera (wheel while dragging: zoom)"},
             {"+ -", "zoom"},
-            {"Tab", "camera height: side → 45° → top-down"},
+            {"Tab / O", "camera height: side → 45° → top-down / automatic on hills, or fixed"},
             {"[ / ]", "preview the previous / next state"},
             {"Backspace", "stop previewing"},
             {", / .", "turn the character 45°"},
@@ -181,6 +183,10 @@ final class PauseMenu {
         ui.text(ui.body, "Scenery", x, y + 8, Theme.ITEM);
         if (ui.button(s.showProps ? "On" : "Off", x + 220, y, 140, 34, s.showProps, true)) {
             s.showProps = !s.showProps;
+        }
+        ui.text(ui.body, "Camera height", x + 400, y + 8, Theme.ITEM);
+        if (ui.button(s.autoCamera ? "Automatic" : "Fixed", x + 570, y, 140, 34, s.autoCamera, true)) {
+            s.autoCamera = !s.autoCamera;
         }
         y += 50;
         ui.text(ui.body, "Animations", x, y + 8, Theme.ITEM);

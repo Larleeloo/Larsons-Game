@@ -52,19 +52,25 @@ public final class Scenery {
     /**
      * One piece of scenery planted in the world.
      *
+     * @param y        the height of the ground it stands on
      * @param yaw      the turn of its cross about its axis, radians
      * @param mirrored whether its frames are drawn flipped left to right
      * @param phase    seconds its loop runs ahead of the world's clock ({@link #windPhase})
      */
-    public record Placed(ScenerySprites.Sprite sprite, double x, double z, double yaw, boolean mirrored,
+    public record Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
                          double phase) {
+
+        /** One on flat ground ({@code y = 0}). */
+        public Placed(ScenerySprites.Sprite sprite, double x, double z, double yaw, boolean mirrored, double phase) {
+            this(sprite, x, 0, z, yaw, mirrored, phase);
+        }
 
         public SceneryProfile profile() { return sprite.profile(); }
 
         public SceneryProfile.Kind kind() { return sprite.kind(); }
 
         /** Where its axis meets the ground. */
-        public Vec3 position() { return new Vec3(x, 0, z); }
+        public Vec3 position() { return new Vec3(x, y, z); }
 
         /** Metres round its axis the player is kept out of; 0: she walks through it. */
         public double radius() { return sprite.profile().radius(); }

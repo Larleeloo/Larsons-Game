@@ -176,7 +176,19 @@ public enum AnimState {
     // and up again - its first DODGE_SHARED frames the dash's own, so a dash turns
     // into a roll there without a jump in the picture
     DASH("dash", "Dash", false, 12, Stance.ALL, 0, "sprint"),
-    ROLL("roll", "Combat roll", false, 22, Stance.ALL, 0, "dash");
+    ROLL("roll", "Combat roll", false, 22, Stance.ALL, 0, "dash"),
+    // --- aimed up: the ranged attacks with her upper body leant back 40° from the waist
+    // (feminine_model_aim_up.py), the bow, the bolt and the spells sent up at what flies
+    // or stands well above her - each played in place of its level one ({@link #up()})
+    BOW_DRAW_UP("bow_draw_up", "Bow draw, aimed up", false, 24, Stance.BOW, 0, "bow_draw"),
+    BOW_FIRE_UP("bow_fire_up", "Bow fire, aimed up", false, 18, Stance.BOW, 0, "bow_fire"),
+    CROSSBOW_FIRE_UP("crossbow_fire_up", "Crossbow fire, aimed up", false, 30, Stance.CROSSBOW, 0,
+            "crossbow_fire"),
+    STAFF_ATTACK_UP("staff_attack_up", "Staff cast, aimed up", false, 24, Stance.STAFF, 0, "staff_attack"),
+    WAND_ATTACK_UP("wand_attack_up", "Wand cast, aimed up", false, 24, Stance.WAND, 0, "wand_attack"),
+    // --- climbing a rock face, hand over hand, with empty hands: a loop the game plays
+    // forwards as she climbs, backwards as she climbs down, and holds while she hangs
+    CLIMB("climb", "Climb", true, 32, Stance.FREE, 0, "idle");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game
@@ -226,6 +238,26 @@ public enum AnimState {
 
     /** Metres per second the state's feet travel at (the game moves her that fast), else 0. */
     public double speed() { return speed; }
+
+    /**
+     * Its aimed-up variant - the bow's draw and loose, the crossbow's shot,
+     * the staff's and the wand's casts - or itself when it has none.
+     */
+    public AnimState up() {
+        return switch (this) {
+            case BOW_DRAW -> BOW_DRAW_UP;
+            case BOW_FIRE -> BOW_FIRE_UP;
+            case CROSSBOW_FIRE -> CROSSBOW_FIRE_UP;
+            case STAFF_ATTACK -> STAFF_ATTACK_UP;
+            case WAND_ATTACK -> WAND_ATTACK_UP;
+            default -> this;
+        };
+    }
+
+    /** Whether it is an aimed-up variant. */
+    public boolean aimedUp() {
+        return key.endsWith("_up");
+    }
 
     /** The state shown where a character has no sheets for this one; null for the first six. */
     public AnimState fallback() { return fallbackKey == null ? null : byKey(fallbackKey); }

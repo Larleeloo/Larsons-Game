@@ -61,7 +61,9 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Shift** / **Ctrl** (while moving) | run / sprint (crouched: Shift is the fast crouch walk) |
 | **C** | crouch / stand up |
 | **Space** | jump - with the sword, the axe, the bow, the crossbow, the crystal staff, the wand, the mace or the dagger |
-| **Left Alt** or **Z** | dodge: a tap **dashes** (a low burst of 3.5 m); held, the dash turns into a **combat roll** (4.7 m, nothing can hurt her in it, she rolls through the dummies) - the way she is moving, or facing, with whatever is in her hands ([Dodging](#dodging)) |
+| **Left Alt** or **Z** | dodge: a tap **dashes** (a low burst of 3.5 m); held, the dash turns into a **combat roll** (4.7 m, nothing can hurt her in it, she rolls through the dummies) - the way she is moving, or facing, with whatever is in her hands ([Dodging](#dodging)); pressed **in the air**, she lands in a roll, unhurt by the fall ([Heights](#heights)) |
+| **L** / **K** | **lock on** to the enemy nearest the middle of the view - a dummy or a flier - (L again: let go) / on to the next one, left to right ([The lock-on](#the-lock-on)) |
+| walk into the **vines** | **climb** the vine-covered cliff: W up, S down, A / D along it; Space (or the dodge key, or C) lets go - it costs **stamina** ([Climbing](#climbing-and-stamina)) |
 | **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
 | **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger; once every 10 s) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
@@ -71,8 +73,8 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
-| **Tab** | camera height preset: side → 45° → top-down |
-| **[ / ]** | loop the previous / next of all 121 states in place |
+| **Tab** / **O** | camera height preset: side → 45° → top-down / the [automatic camera height](#the-automatic-camera-height) on the hills, or fixed |
+| **[ / ]** | loop the previous / next of all 127 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -92,9 +94,10 @@ Drop sprite sheets on the window at any time to import them.
   ray-casts the ground plane per pixel, so it has no edge and a clean horizon
   at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **121 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **127 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
-  the dash and the combat roll (played with whatever she holds);
+  the dash and the combat roll (played with whatever she holds); the bow,
+  crossbow, staff and wand **aimed up** at what flies; climbing;
   reaching down to pick something up, standing or crouched; four emotes -
   laughing, crying, surprise and anger; the sword's spin attack and parry and
   the shield held ready and bashed; the sword held alone, with no shield (11
@@ -144,6 +147,16 @@ Drop sprite sheets on the window at any time to import them.
   colour of its rarity - see [Items, rarity and loot](#items-rarity-and-loot).
 
   <img src="docs/screenshots/chest-open.png" width="98%" alt="The treasure chest shut, purple smoke swirling round it, and open, lit gold from inside with light rising out of it, the smoke glowing, beside the character">
+- **The highlands** north of the meadow - a ramp up to a plateau 6 m high
+  with a sheer **ledge** to jump off and a **vine-covered cliff** to climb, a
+  hill and a hollow - with **fall damage**, a **roll out of a fall**,
+  **stamina** and **health**, four more dummies at the feet of the ledge and
+  the cliff to shoot down at from the **high ground**, and the camera rising on the peaks and
+  sinking in the hollows - see [Heights](#heights).
+- **Two flying strike dummies** circling over the meadow and the hollow,
+  diving at her when she comes near - roll through them, block, parry or
+  shoot them down, aimed up - and a **lock-on** (**L**) for every enemy; see
+  [Heights](#heights).
 - **Three training dummies** to fight - straw-stuffed burlap on a stake, a
   target painted on the chest. Every swing rolls **D20s over her head** in
   the colour of the weapon's rarity, and their total is the damage; the bow
@@ -152,7 +165,7 @@ Drop sprite sheets on the window at any time to import them.
 
   <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
   <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
-- **Sound for every animation** - both bodies' 121 states, the chest's four,
+- **Sound for every animation** - both bodies' 127 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
@@ -719,6 +732,105 @@ own numbers are `world/Border`'s. The fighting's other sprites are under
 right), `magic_bolt/` (`fly.png`, 8 frames), `magic_burst/` and `hit_spark/`
 (`burst.png`), each with a `profile.json` saying how big it is in the world.
 
+## Heights
+
+North of the meadow the ground rises into **the highlands**
+(`world/Terrain`): a heightmap on a half-metre grid, drawn as one mesh of
+triangles (`world/TerrainRenderer`) in the meadow's own grass, with **rock**
+where it is too steep to walk (gravel and strata, mapped on all three axes so
+a cliff is not stretched) and **vines** painted on the cliff she can climb.
+Everything stands on it - her, the dummies, the chest and its loot, the
+items, the trees, the shadows (bent over the slopes) - and outside the
+highlands the ground is the flat meadow as before.
+
+```
+the ramp       3 m wide, from the end of the north path up to the plateau (her pace slows uphill, quickens down)
+the plateau    6 m high, 12 x 12 m; the chest on top
+the ledge      its west side, sheer: 6 m down, two dummies below it
+the cliff      its east side, sheer and hung with vines: climb it (two dummies at its foot)
+the hill       7 m high, round and walkable all the way up, west of the plateau
+the hollow     2.5 m deep, east of the ramp: a flier circles over it
+```
+
+Ground steeper than 1 m up a metre is too steep to walk up (she stops at
+its foot, or slides along it); off an edge she **falls** (the stance's jump,
+held), and ground too steep to stand on she slides down.
+
+### Falls, health and the roll
+
+A fall of more than **3 m** hurts, **9** for every metre more - the ledge,
+about 27. Press the **dodge key in the air** and she lands in a **combat
+roll** instead, unhurt (from 1.2 m up). Her **health** (100) is the red bar
+on the left, over the heavy attack's; it fills again 5 s after she was last hurt, 4 a
+second. At 0 she is **knocked out** and back on her feet at the start.
+
+### Climbing and stamina
+
+Walk into the vines and she takes hold (the `climb` animation, her hands
+empty): **W** climbs (0.82 m a second), **S** climbs down, **A** / **D** go
+along the wall, and at the top she pulls herself over onto the plateau.
+Climbing costs **stamina** - the yellow bar on the right, shown when it
+is not full - 9 a second climbing and 3 hanging still; it
+fills again 0.8 s after she stops, 25 a second. She needs 15 to take hold,
+and at 0 she lets go and falls. **Space**, the dodge key or **C** let go.
+
+### The flying strike dummy
+
+**Two flying strike dummies** (`combat/FlyingDummy`) - the training dummy's
+body on burlap wings - circle 4 m up, out of a sword's reach, one over the
+meadow's north side and one over the hollow. When she comes within 11 m it
+hangs, screeching, and **dives** through where her chest is and climbs away
+the other side: **8** if it strikes her, half behind a block, nothing if she
+**parries** it (it is knocked back) or **rolls** through it. Low in its dive
+a sword reaches it; otherwise shoot it - **aimed up** (below). Its health
+gone, it tumbles out of the air, lies a while and beats back up whole. Its
+shadow on the ground under it, and every arrow's, bolt's and spell's, shows
+where it is.
+
+```
+assets/sprites/objects/flying_dummy/dummy/fly_<elev>_<dir>.png            16 frames, loops: flapping, bobbing
+assets/sprites/objects/flying_dummy/dummy/swoop_<elev>_<dir>.png           8 frames, loops: diving, the wings swept back
+assets/sprites/objects/flying_dummy/dummy/hit_<side>_<elev>_<dir>.png     12 frames: knocked away, the wings flung up
+assets/sprites/objects/flying_dummy/dummy/fall_<side>_<elev>_<dir>.png    12 frames: tumbling over, the wings folding
+assets/sprites/objects/flying_dummy/dummy/down_<side>_<elev>_<dir>.png     1 frame: lying on the ground
+assets/sprites/objects/flying_dummy/dummy/rise_<side>_<elev>_<dir>.png    18 frames: righting itself, beating back up
+```
+
+drawn by [3D-Modeling](https://github.com/Larleeloo/3D-Modeling)'s
+`items/flying_dummy/flying_dummy_sprites.py`.
+
+### The lock-on
+
+**L** locks on to whatever enemy is nearest the middle of the view within
+**30 m** - a training dummy or a flier - with brackets round it, its name and
+its health; **K** moves the lock on to the next one, left to right, and **L**
+again lets go. Locked on, her shots and spells go for it wherever it is
+(leading it as it flies), her swings turn to it, and the camera keeps it in
+view. When it goes down the lock moves on to the next nearest, if there is
+one.
+
+### Aiming up
+
+A shot at something well over her hands - **20°** up and more: a flier, or a
+dummy on the plateau above her - is made from the **aimed-up** animations,
+the bow drawn and loosed at the sky (`bow_draw_up`, `bow_fire_up`), the
+crossbow raised (`crossbow_fire_up`), the staff and the wand cast upward
+(`staff_attack_up`, `wand_attack_up`). Crouched, she shoots as before.
+
+### The high ground
+
+A shot or a spell at something **2.5 m** or more below her rolls **a die
+more** ("High ground +1 die" over her head) and carries a quarter farther. A
+swing reaches only what is about level with her - from half a metre below
+her feet to 2.4 m above them.
+
+### The automatic camera height
+
+On the hills the camera **rises on the peaks** - looking down over the land
+round her, drawn back a little - and **sinks in the hollows**, by how far she
+stands above or below the ground about her (Pause → Settings → Camera height,
+or **O**: automatic or fixed). It never dips into a hillside.
+
 ## Sound
 
 The sound system is Larsons-Game-Engine's (`audio/`): its own **MP3 decoder**
@@ -741,12 +853,14 @@ assets/sounds/
   SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 121 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/feminine/        <state>.mp3 for each of her 127 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
   combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
+  combat/flying_dummy/    fly.mp3, warn.mp3, swoop.mp3, hit.mp3, fall.mp3, rise.mp3
   combat/                 dice_roll.mp3, blow.mp3, arrow_hit.mp3, bolt_hit.mp3, arrow_stick.mp3,
-                          spell_cast.mp3, spell_hit.mp3, fizzle.mp3, venom_tick.mp3
+                          spell_cast.mp3, spell_hit.mp3, fizzle.mp3, venom_tick.mp3, player_hurt.mp3,
+                          hard_landing.mp3, landing_roll.mp3, climb_top.mp3, lock_on.mp3, lock_off.mp3
   items/<item>/           pickup.mp3, drop.mp3, equip.mp3
   ui/                     inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
 ```
@@ -943,16 +1057,17 @@ src/main/java/com/larsons/game/
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
                             Chest, Scenery, SceneryLayout, SceneryRenderer, VoidRenderer (the ground and sky),
-                            WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items)
+                            WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items),
+                            Terrain and TerrainRenderer (the highlands' heightmap, its rock and vines)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
-                            DiceRoll, Strike, Target, Dummy, Projectile; drawing: CombatRenderer, CombatHud,
+                            DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
   tools/                    SampleSprites
   util/                     Json
-assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest
-                            and the attack dummy; items/<id>/spin_px128/: the turning items; combat/: the
+assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
+                            the attack dummy and the flying dummy; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
 assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
@@ -1025,7 +1140,15 @@ MP3 decoder tests; the fighting (`combat/CombatTest`): the dice per
 rarity, swings' reach and arc, heavy and unarmed rolls, the wand's one-die heavy blow, the heavy attack's cooldown, every attack state
 having a move, arrows arcing onto a dummy, bolts sticking, spells' colours
 and mana, fizzling, Venom's 150 %, Mystic's damage and mana, Bonded's count,
-and a dummy's hits, fall and rise; and the scenery (its profiles, where each
+and a dummy's hits, fall and rise; the heights (`world/TerrainTest`,
+`world/HighlandsTest`, `combat/FlyingDummyTest`, `combat/LockOnAndHighGroundTest`):
+the highlands meeting the meadow without a seam, the heights being the
+triangles drawn, the ramp walkable and the rock not, the ramp slower, falls
+and their hurt, the roll out of one, climbing to the top and letting go out
+of stamina, being knocked out, items and the chest on the slopes, the flier's
+rounds, its dive and what a roll, a block and a parry do to it, its fall and
+rising, shots led to where it will be, the lock-on and its next, the
+aimed-up bow and crossbow, and the high ground's die; and the scenery (its profiles, where each
 frame is in its sheet, the sheets and the ground tile in `assets/scenery/`
 keeping to their format, the meadow's layout - the same every run, nothing in
 a clearing or on top of anything solid -, the wind, and the player kept out
@@ -1048,7 +1171,10 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
 `chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
-by dummy n, facing it), `dummy add <x> <z>`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
+by dummy n, facing it), `dummy add <x> <z>`, `goto <place|spawn>` (the
+highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under [n]`
+(dive at her now / stand under flier n), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
+that high, rolling out of it), `climb [down]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
 `debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:

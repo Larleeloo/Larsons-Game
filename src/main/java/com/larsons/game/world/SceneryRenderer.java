@@ -123,15 +123,16 @@ public final class SceneryRenderer implements AutoCloseable {
         double half = profile.frameWorldSize() / 2;
         float h = (float) profile.frameWorldHeight();
         double c = Math.cos(p.yaw()) * half, s = Math.sin(p.yaw()) * half;
-        card(batch, sheet, p.x(), p.z(), c, s, h, u0, uv[1], u1, uv[3]);
-        card(batch, sheet, p.x(), p.z(), -s, c, h, u0, uv[1], u1, uv[3]);
+        card(batch, sheet, p.x(), p.y(), p.z(), c, s, h, u0, uv[1], u1, uv[3]);
+        card(batch, sheet, p.x(), p.y(), p.z(), -s, c, h, u0, uv[1], u1, uv[3]);
     }
 
-    /** A card standing on the ground at {@code (x, z)}, reaching {@code (dx, dz)} either side of it. */
-    private static void card(Batch batch, Texture sheet, double x, double z, double dx, double dz, float h,
+    /** A card standing on the ground at {@code (x, y, z)}, reaching {@code (dx, dz)} either side of it. */
+    private static void card(Batch batch, Texture sheet, double x, double y, double z, double dx, double dz, float h,
                              float u0, float v0, float u1, float v1) {
         float lx = (float) (x - dx), lz = (float) (z - dz), rx = (float) (x + dx), rz = (float) (z + dz);
-        batch.quad(sheet, lx, h, lz, rx, h, rz, rx, 0, rz, lx, 0, lz, u0, v0, u1, v1, 1, 1, 1, 1);
+        float bottom = (float) y, top = bottom + h;
+        batch.quad(sheet, lx, top, lz, rx, top, rz, rx, bottom, rz, lx, bottom, lz, u0, v0, u1, v1, 1, 1, 1, 1);
     }
 
     @Override

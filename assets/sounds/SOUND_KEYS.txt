@@ -132,6 +132,12 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/dagger_block.mp3             Dagger block (held)            player/feminine/dagger_block
   player/feminine/dash.mp3                     Dash                           player/feminine/dash
   player/feminine/roll.mp3                     Combat roll                    player/feminine/roll
+  player/feminine/bow_draw_up.mp3              Bow draw, aimed up             player/feminine/bow_draw_up
+  player/feminine/bow_fire_up.mp3              Bow fire, aimed up             player/feminine/bow_fire_up
+  player/feminine/crossbow_fire_up.mp3         Crossbow fire, aimed up        player/feminine/crossbow_fire_up
+  player/feminine/staff_attack_up.mp3          Staff cast, aimed up           player/feminine/staff_attack_up
+  player/feminine/wand_attack_up.mp3           Wand cast, aimed up            player/feminine/wand_attack_up
+  player/feminine/climb.mp3                    Climb (held)                   player/feminine/climb
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -257,6 +263,12 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/dagger_block.mp3            Dagger block (held)            player/masculine/dagger_block
   player/masculine/dash.mp3                    Dash                           player/masculine/dash
   player/masculine/roll.mp3                    Combat roll                    player/masculine/roll
+  player/masculine/bow_draw_up.mp3             Bow draw, aimed up             player/masculine/bow_draw_up
+  player/masculine/bow_fire_up.mp3             Bow fire, aimed up             player/masculine/bow_fire_up
+  player/masculine/crossbow_fire_up.mp3        Crossbow fire, aimed up        player/masculine/crossbow_fire_up
+  player/masculine/staff_attack_up.mp3         Staff cast, aimed up           player/masculine/staff_attack_up
+  player/masculine/wand_attack_up.mp3          Wand cast, aimed up            player/masculine/wand_attack_up
+  player/masculine/climb.mp3                   Climb (held)                   player/masculine/climb
 
 
 CHESTS  ->  chests/ornate_chest/
@@ -307,6 +319,12 @@ TRAINING DUMMIES  ->  combat/attack_dummy/
   combat/attack_dummy/hit.mp3                  Attack dummy                   combat/attack_dummy/hit
   combat/attack_dummy/fall.mp3                 Attack dummy                   combat/attack_dummy/fall
   combat/attack_dummy/rise.mp3                 Attack dummy                   combat/attack_dummy/rise
+  combat/flying_dummy/fly.mp3                  Flying dummy                   combat/flying_dummy/fly
+  combat/flying_dummy/warn.mp3                 Flying dummy                   combat/flying_dummy/warn
+  combat/flying_dummy/swoop.mp3                Flying dummy                   combat/flying_dummy/swoop
+  combat/flying_dummy/hit.mp3                  Flying dummy                   combat/flying_dummy/hit
+  combat/flying_dummy/fall.mp3                 Flying dummy                   combat/flying_dummy/fall
+  combat/flying_dummy/rise.mp3                 Flying dummy                   combat/flying_dummy/rise
 
 
 COMBAT  ->  combat/
@@ -320,3 +338,9 @@ COMBAT  ->  combat/
   combat/spell_hit.mp3                         Combat                         combat/spell_hit
   combat/fizzle.mp3                            Combat                         combat/fizzle
   combat/venom_tick.mp3                        Combat                         combat/venom_tick
+  combat/player_hurt.mp3                       Combat                         combat/player_hurt
+  combat/hard_landing.mp3                      Combat                         combat/hard_landing
+  combat/landing_roll.mp3                      Combat                         combat/landing_roll
+  combat/climb_top.mp3                         Combat                         combat/climb_top
+  combat/lock_on.mp3                           Combat                         combat/lock_on
+  combat/lock_off.mp3                          Combat                         combat/lock_off

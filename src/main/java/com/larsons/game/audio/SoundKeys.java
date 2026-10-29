@@ -76,13 +76,25 @@ public final class SoundKeys {
     /** A dummy's reactions: struck and rocking, knocked over, springing back up. */
     public static final List<String> DUMMY_STATES = List.of("hit", "fall", "rise");
 
+    /** The flying dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
+    public static final List<String> FLIERS_IN_GAME = List.of("flying_dummy");
+
+    /**
+     * A flying dummy's: flapping on its rounds (held), the screech before it
+     * dives, the dive, struck, knocked out of the air, beating back up.
+     */
+    public static final List<String> FLIER_STATES = List.of("fly", "warn", "swoop", "hit", "fall", "rise");
+
     /**
      * The fighting: the dice tumbling, a swing's blow landing, a shot
      * striking or sticking in the ground, a spell cast, a swing with no mana
-     * for it, poison's tick.
+     * for it, poison's tick; her being hurt (a swoop, a fall), landing hard,
+     * rolling out of a fall, pulling herself up over the top of a climb, and
+     * locking on to something and letting it go.
      */
     public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
-            "arrow_stick", "spell_cast", "spell_hit", "fizzle", "venom_tick");
+            "arrow_stick", "spell_cast", "spell_hit", "fizzle", "venom_tick", "player_hurt", "hard_landing",
+            "landing_roll", "climb_top", "lock_on", "lock_off");
 
     /**
      * One catalogue row: the object, the pack folder its sounds belong in,
@@ -103,6 +115,7 @@ public final class SoundKeys {
         for (ItemDef d : ItemDef.ALL) out.add(ITEMS + "/" + d.id());
         out.add(UI);
         for (String dummy : DUMMIES_IN_GAME) out.add(COMBAT + "/" + dummy);
+        for (String flier : FLIERS_IN_GAME) out.add(COMBAT + "/" + flier);
         out.add(COMBAT);
         return out;
     }
@@ -169,6 +182,13 @@ public final class SoundKeys {
                 String key = dummy(dummy, state);
                 out.add(new Entry("Training dummies", COMBAT + "/" + dummy, key, paths(key).get(0),
                         "Attack dummy", state));
+            }
+        }
+        for (String flier : FLIERS_IN_GAME) {
+            for (String state : FLIER_STATES) {
+                String key = dummy(flier, state);
+                out.add(new Entry("Training dummies", COMBAT + "/" + flier, key, paths(key).get(0),
+                        "Flying dummy", state));
             }
         }
         for (String s : COMBAT_SOUNDS) {

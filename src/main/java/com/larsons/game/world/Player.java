@@ -8,6 +8,9 @@ import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -48,6 +51,26 @@ import java.util.function.ToDoubleFunction;
  * or behind the shield, not in the air or in the middle of another action
  * (an emote is cut short); the next one can start {@link #DODGE_COOLDOWN}
  * seconds after the last one ended.
+ *
+ * <p><b>Hills.</b> She walks on the world's {@link Terrain}: uphill slower,
+ * downhill a little faster, and not at all up ground steeper than {@link
+ * Terrain#STEEP}. Off the edge of a ledge she falls (the stance's jump,
+ * held in the air); landing from more than {@link #SAFE_FALL} m hurts, {@link
+ * #FALL_DAMAGE} a metre beyond it - unless the dodge key went down in the air,
+ * when she lands in the combat roll and nothing hurts. Walking into a
+ * {@link Terrain.Wall} she <b>climbs</b> it ({@link AnimState#CLIMB}, her
+ * hands empty): into the wall is up, away from it down, along it sideways, at
+ * {@link #CLIMB_SPEED}; at the top she pulls herself over. Climbing spends
+ * her <b>stamina</b> ({@link #stamina()}), which fills back up on the ground;
+ * when it runs out - or the jump, crouch or dodge key lets go - she drops.
+ *
+ * <p>She has <b>health</b> ({@link #health()}): a fall, or a flier's swoop,
+ * takes some; it fills back up a while after the last hurt ({@link World}
+ * puts her back at the start when it is gone).
+ *
+ * <p>The ranged attacks have <b>aimed-up</b> variants (the bow's draw and loose,
+ * the crossbow's shot, the staff's and the wand's casts, standing): she
+ * plays one when what she aims at is well above her ({@link #setAimUp}).
  *
  * <p>For looking at the art rather than playing, a state can be
  * <em>previewed</em>: it loops in place (the one-shots included) until the
@@ -96,6 +119,53 @@ public final class Player {
     private static final double[] ROLL_SAFE = {AnimState.DODGE_SHARED, 16};
     /** Faster than this (m/s), a dodge leaves afterimages behind her. */
     public static final double AFTERIMAGE_SPEED = 6;
+
+    /** Her health and stamina when full. */
+    public static final double MAX_HEALTH = 100, MAX_STAMINA = 100;
+    /** A fall from higher than this (metres, feet to feet) hurts: {@link #FALL_DAMAGE} for each metre beyond. */
+    public static final double SAFE_FALL = 3.0, FALL_DAMAGE = 9.0;
+    /** From higher than this, a primed landing roll plays (lower, she just lands). */
+    public static final double ROLL_FALL = 1.2;
+    /** How long after the last hurt her health starts filling back up, and how fast (a second). */
+    public static final double HEALTH_DELAY = 5, HEALTH_REGEN = 4;
+    /**
+     * How fast she climbs, m/s: what the climb sheets' holds slide down past
+     * her at ({@code feminine_model_climb.CLIMB_SPEED}); sideways along a wall
+     * a little slower.
+     */
+    public static final double CLIMB_SPEED = 0.82, CLIMB_SIDEWAYS = 0.6;
+    /** Stamina a second spent climbing, and hanging still on a wall. */
+    public static final double CLIMB_COST = 9, HANG_COST = 3;
+    /** The least stamina she starts a climb with. */
+    public static final double CLIMB_MIN = 15;
+    /** How long after she last spent stamina it starts filling back up, and how fast (a second). */
+    public static final double STAMINA_DELAY = 0.8, STAMINA_REGEN = 25;
+    /** How far out from a wall's foot she hangs (her middle), and how near it she has to walk to take hold. */
+    public static final double CLING = 0.3, GRAB_REACH = 0.6;
+    /** How far through the stance's jump the pose she falls in is. */
+    public static final double FALL_POSE = 0.5;
+    /** The highest step down she walks down (metres) rather than falling off it. */
+    public static final double STEP_DOWN = 0.45;
+    /** Ground steeper than this (rise a metre) she cannot stand on: she slides down it, this fast (a second). */
+    public static final double SLIDE = Terrain.STEEP * 1.6, SLIDE_SPEED = 4;
+
+    /** Something that happened to her this frame, for the world to show: a fall's hurt, a roll out of one... */
+    public record Event(Kind kind, double amount) {
+        public enum Kind {
+            /** Landed hard: {@code amount} damage. */
+            FALL,
+            /** Landed in a roll from a fall that would have hurt ({@code amount}: what it would have). */
+            ROLLED,
+            /** Pulled herself up over the top of a wall. */
+            CLIMBED,
+            /** Let go of a wall, or fell off it with no stamina left ({@code amount} 1). */
+            LET_GO,
+            /** Hurt by something ({@code amount}). */
+            HURT,
+            /** Her health ran out. */
+            KNOCKED_OUT
+        }
+    }
 
     /**
      * What the controls ask for this frame. The one-frame requests ({@code
@@ -176,6 +246,20 @@ public final class Player {
     /** Whether the dodge key was let go since the dash started (it stays a dash). */
     private boolean dodgeLetGo;
 
+    /** The ground she walks on. */
+    private Terrain terrain = Terrain.FLAT;
+    /** The wall she is climbing, or null. */
+    private Terrain.Wall wall;
+    /** Whether she is off the ground (a jump, a ledge), and the highest her feet were since she left it. */
+    private boolean airborne;
+    private double fallFrom;
+    /** The dodge key went down in the air: she lands in a roll. */
+    private boolean rollPrimed;
+    private double health = MAX_HEALTH, stamina = MAX_STAMINA;
+    private double sinceHurt = Double.MAX_VALUE, sinceTired = Double.MAX_VALUE;
+    private BooleanSupplier aimUp = () -> false;
+    private final List<Event> events = new ArrayList<>();
+
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private final Inventory inventory;
@@ -198,6 +282,10 @@ public final class Player {
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
+        if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
+        if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
+        if (sinceHurt >= HEALTH_DELAY && health > 0) health = Math.min(MAX_HEALTH, health + HEALTH_REGEN * dt);
+        if (wall == null && sinceTired >= STAMINA_DELAY) stamina = Math.min(MAX_STAMINA, stamina + STAMINA_REGEN * dt);
         if (preview != null && (in.moving() || in.acts())) preview = null;
         if (preview != null) {
             velocity = Vec3.ZERO;
@@ -206,6 +294,10 @@ public final class Player {
             // One-shots loop too while previewed, with a beat's pause between.
             if (!preview.loops() && stateTime > durations.applyAsDouble(preview) + 0.35) stateTime = 0;
             turnToward(dt);
+            return;
+        }
+        if (wall != null) {
+            climb(dt, in);
             return;
         }
 
@@ -223,8 +315,9 @@ public final class Player {
             // the bow: let go - loosed if drawn far enough, else the string let down
             drawing = false;
             boolean ready = stateTime >= DRAW_READY * actionDuration;
+            AnimState drawn = action;
             action = null;
-            if (ready) start(st.release(crouched), durations);
+            if (ready) start(drawn == AnimState.BOW_DRAW_UP ? AnimState.BOW_FIRE_UP : st.release(crouched), durations);
         }
         if (action != null && grab != null && stateTime >= GRAB_AT * actionDuration) {
             Runnable g = grab;
@@ -240,6 +333,7 @@ public final class Player {
 
         // --- starting something ----------------------------------------------------------
         boolean blocking = false;
+        if (!grounded && in.dodge()) rollPrimed = true;                     // she will land in a roll
         if (!busy && grounded) {
             AnimState next = null;
             if (in.dodge() && dodgeWait <= 0) {
@@ -267,6 +361,8 @@ public final class Player {
             } else if (in.attack() && st.attack(crouched) != null) {
                 if (st == Stance.SWORD || st == Stance.BLADE) crouched = false;   // she stands to swing
                 next = st.attack(crouched);
+                // aimed up at what is above her (standing: the crouched shots have no such variant)
+                if (!crouched && next.up() != next && aimUp.getAsBoolean()) next = next.up();
                 drawing = st.drawn() && in.attackHeld();
             } else if (in.jump() && st.canJump()) {
                 crouched = false;
@@ -291,38 +387,45 @@ public final class Player {
         if (wish.length() > 1) wish = wish.normalize();
         boolean rooted = (busy && !jumping) || blocking;
         if (rooted) wish = Vec3.ZERO;
-        Vec3 target = wish.scale(moving.speed());
+        // walking into a wall she can climb, she takes hold of it
+        if (!busy && grounded && !blocking && wish.length() > 0.5 && grabWall(wish)) {
+            climb(0, in);
+            return;
+        }
+        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish));
         if (dodging()) {
             velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
         } else {
             velocity = velocity.lerp(target, 1 - Math.exp(-dt * (grounded ? 14 : 3)));
         }
-        position = position.add(velocity.scale(dt));
+        move(velocity.scale(dt), grounded);
         if (in.moving() && !rooted) wantHeading = SpriteView.headingOf(wish.x(), wish.z());
 
         // The jump: crouch, then launch with just enough speed to come down
-        // as the animation reaches its landing.
+        // as the animation reaches its landing (on level ground; off a ledge
+        // she falls on once it is over).
         if (jumping) {
             if (!launched && stateTime >= JUMP_LAUNCH * actionDuration) {
                 launched = true;
                 vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2;
             }
-            if (launched && height <= 0 && vy <= 0 && stateTime >= actionDuration) jumping = false;
+            if (launched && stateTime >= actionDuration) jumping = false;
         }
-        vy -= GRAVITY * dt;
-        height = Math.max(0, height + vy * dt);
-        if (height <= 0 && vy < 0) vy = 0;
+        fall(dt, durations);
 
         turnToward(dt);
 
         AnimState next;
+        boolean falling = falling();
         if (jumping) next = jumpState;
         else if (action != null) next = action;
+        else if (falling) next = st.jump() != null ? st.jump() : AnimState.JUMP;
         else if (blocking) next = st.block();
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
         else next = st.idle(crouched);
         setState(next);
-        stateTime += dt;
+        if (falling) stateTime = FALL_POSE * durations.applyAsDouble(next);    // held in the air
+        else stateTime += dt;
 
         // The dash: held through its push-off, it turns into the roll - at
         // the frame it has reached, the two being the same until then.
@@ -334,6 +437,211 @@ public final class Player {
                 dodgeScale = scale(AnimState.ROLL);
                 stateTime = t;
             }
+        }
+    }
+
+    // --- the ground under her ----------------------------------------------------------
+
+    /**
+     * How much faster or slower than on the level she goes along {@code
+     * wish} on the slope she stands on: uphill slower (two thirds the speed
+     * up a 1-in-2), downhill up to a fifth faster.
+     */
+    private double slopeFactor(Vec3 wish) {
+        double len = wish.horizontalLength();
+        if (len < 1e-6 || terrain.flat()) return 1;
+        double rise = terrain.rise(position.x(), position.z(), wish.x() / len, wish.z() / len);
+        return rise > 0 ? 1 / (1 + 1.1 * rise) : 1 + 0.2 * Math.min(1, -rise);
+    }
+
+    /**
+     * Move her {@code step} along the ground: stopped where it rises
+     * steeper than {@link Terrain#STEEP} or higher than her feet (a step at a
+     * time along each way, so she slides along a rock face rather than
+     * sticking to it), down a slope she can walk, and off a ledge into the
+     * air.
+     */
+    private void move(Vec3 step, boolean grounded) {
+        if (step.horizontalLength() < 1e-12) return;
+        double feetY = position.y() + height;
+        Vec3 to = null;
+        for (Vec3 s : new Vec3[]{step, new Vec3(step.x(), 0, 0), new Vec3(0, 0, step.z())}) {
+            if (s.horizontalLength() < 1e-12) continue;
+            if (canStep(position.x() + s.x(), position.z() + s.z(), s, feetY, grounded)) {
+                to = s;
+                break;
+            }
+        }
+        if (to == null) {
+            velocity = Vec3.ZERO;
+            return;
+        }
+        double x = position.x() + to.x(), z = position.z() + to.z();
+        double ground = terrain.height(x, z);
+        if (grounded && !airborne && feetY - ground <= STEP_DOWN && terrain.slopeUnder(x, z) <= SLIDE) {
+            height = 0;                                          // down a slope she walks
+        } else {
+            height = Math.max(0, feetY - ground);
+        }
+        position = new Vec3(x, ground, z);
+    }
+
+    /** Whether she can go to {@code (x, z)} from where her feet are, by {@code step}. */
+    private boolean canStep(double x, double z, Vec3 step, double feetY, boolean grounded) {
+        double rise = terrain.height(x, z) - feetY;
+        if (rise <= 0.02) return true;                           // level, or down
+        if (!grounded) return rise <= 0.02;                      // in the air: nothing higher than her feet
+        double len = step.horizontalLength();
+        double steep = terrain.rise(x, z, step.x() / len, step.z() / len);
+        return rise <= 0.4 && steep <= Terrain.STEEP;
+    }
+
+    /** Gravity, and the landing: hurt by a long fall, or rolling out of it. */
+    private void fall(double dt, ToDoubleFunction<AnimState> durations) {
+        if (height <= 1e-6 && vy <= 0 && terrain.slopeUnder(position.x(), position.z()) > SLIDE) slide(dt);
+        double feetY = position.y() + height;
+        if (height > 0 || vy > 0) {
+            if (!airborne) {
+                airborne = true;
+                fallFrom = feetY;
+            }
+            fallFrom = Math.max(fallFrom, feetY);
+            vy -= GRAVITY * dt;
+            height = Math.max(0, height + vy * dt);
+            if (height > 0) return;
+        }
+        if (!airborne) {
+            vy = 0;
+            return;
+        }
+        if (terrain.slopeUnder(position.x(), position.z()) > SLIDE) {
+            vy = Math.min(vy, 0);                                // on a face too steep to stand: on down it
+            return;
+        }
+        // landed
+        airborne = false;
+        double drop = fallFrom - position.y();
+        vy = 0;
+        double hurt = drop > SAFE_FALL ? FALL_DAMAGE * (drop - SAFE_FALL) : 0;
+        if (rollPrimed && drop >= ROLL_FALL) {
+            jumping = false;
+            drawing = false;
+            crouched = false;
+            dodgeHeading = speed() > 0.5 ? SpriteView.headingOf(velocity.x(), velocity.z()) : heading;
+            heading = wantHeading = dodgeHeading;
+            dodgeLetGo = true;
+            start(AnimState.ROLL, durations);
+            dodgeScale = scale(AnimState.ROLL);
+            events.add(new Event(Event.Kind.ROLLED, hurt));
+        } else if (hurt > 0) {
+            hurt(Math.round(hurt));
+            events.add(new Event(Event.Kind.FALL, Math.round(hurt)));
+        }
+        rollPrimed = false;
+    }
+
+    /** Down a face too steep to stand on, her feet where they were: off it, she falls. */
+    private void slide(double dt) {
+        Vec3 n = terrain.normal(position.x(), position.z());
+        double len = Math.hypot(n.x(), n.z());
+        if (len < 1e-9) return;
+        double feetY = position.y() + height;
+        double x = position.x() + n.x() / len * SLIDE_SPEED * dt, z = position.z() + n.z() / len * SLIDE_SPEED * dt;
+        double ground = terrain.height(x, z);
+        if (ground > feetY) return;
+        position = new Vec3(x, ground, z);
+        height = feetY - ground;
+        if (!airborne) {
+            airborne = true;
+            fallFrom = feetY;
+        }
+    }
+
+    /** Whether she is in the air off a ledge (not a jump, not a dodge): she shows the falling pose. */
+    private boolean falling() {
+        return airborne && !jumping && action == null && height > 0.3;
+    }
+
+    // --- climbing ----------------------------------------------------------------------
+
+    /** Take hold of the wall she is walking into, if there is one in reach: true if she does. */
+    private boolean grabWall(Vec3 wish) {
+        if (stamina < CLIMB_MIN || terrain.walls().isEmpty()) return false;
+        Terrain.Wall w = terrain.wallAt(position.x(), position.z(), GRAB_REACH);
+        if (w == null) return false;
+        double len = wish.horizontalLength();
+        double into = -(wish.x() * w.nx() + wish.z() * w.nz()) / len;
+        double feetY = position.y() + height;
+        if (into < 0.7 || feetY > w.top() - 0.6 || feetY < w.bottom() - 0.3) return false;
+        wall = w;
+        crouched = false;
+        drawing = false;
+        action = null;
+        jumping = false;
+        airborne = false;
+        rollPrimed = false;
+        vy = 0;
+        velocity = Vec3.ZERO;
+        setState(AnimState.CLIMB);
+        stateTime = 1000;                 // (well past 0, so climbing down can play it backwards)
+        return true;
+    }
+
+    /**
+     * A frame on the wall: up, down and along it as the keys say, stamina
+     * spent; over the top at the top, off at the bottom, and dropped when
+     * the stamina is gone or a key lets go.
+     */
+    private void climb(double dt, Intent in) {
+        Terrain.Wall w = wall;
+        velocity = Vec3.ZERO;
+        double len = Math.max(1e-6, w.length());
+        double ux = (w.x1() - w.x0()) / len, uz = (w.z1() - w.z0()) / len;
+        double mx = in.moveX(), mz = in.moveZ(), m = Math.hypot(mx, mz);
+        if (m > 1) {
+            mx /= m;
+            mz /= m;
+        }
+        double up = -(mx * w.nx() + mz * w.nz()), side = mx * ux + mz * uz;
+        double feetY = position.y() + height;
+        double climbY = Math.max(w.bottom(), feetY + up * CLIMB_SPEED * dt);
+        double along = Math.max(0.3, Math.min(len - 0.3, w.along(position.x(), position.z())
+                + side * CLIMB_SIDEWAYS * dt));
+        Vec3 at = w.at(along, CLING);
+        double ground = terrain.height(at.x(), at.z());
+        position = new Vec3(at.x(), ground, at.z());
+        heading = wantHeading = w.facing();
+        boolean moving = Math.abs(up) > 0.1 || Math.abs(side) > 0.1;
+        stamina = Math.max(0, stamina - (moving ? CLIMB_COST : HANG_COST) * dt);
+        sinceTired = 0;
+        setState(AnimState.CLIMB);
+        stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
+
+        if (climbY >= w.top() - 0.02) {
+            // over the top: onto the rock behind the wall's lip
+            Vec3 top = w.at(along, -0.6);
+            wall = null;
+            height = 0;
+            position = new Vec3(top.x(), terrain.height(top.x(), top.z()), top.z());
+            events.add(new Event(Event.Kind.CLIMBED, 0));
+            return;
+        }
+        if (climbY <= ground + 0.01 && up < 0) {
+            wall = null;                       // down at the foot: standing
+            height = 0;
+            return;
+        }
+        height = Math.max(0, climbY - ground);
+        boolean letGo = in.jump() || in.dodge() || in.crouch();
+        if (letGo || stamina <= 0) {
+            wall = null;
+            Vec3 off = w.at(along, CLING + 0.25);
+            position = new Vec3(off.x(), terrain.height(off.x(), off.z()), off.z());
+            height = Math.max(0, climbY - position.y());
+            airborne = height > 0;
+            fallFrom = climbY;
+            vy = 0;
+            events.add(new Event(Event.Kind.LET_GO, letGo ? 0 : 1));
         }
     }
 
@@ -439,7 +747,7 @@ public final class Player {
      * does nothing) while she is busy - mid-air or mid-action.
      */
     public boolean pickUp(Runnable grab, ToDoubleFunction<AnimState> durations) {
-        if (action != null || jumping || height > 0) return false;
+        if (action != null || jumping || height > 0 || wall != null) return false;
         preview = null;
         this.grab = grab;
         start(crouched ? AnimState.CROUCH_PICKUP : AnimState.PICKUP, durations);
@@ -508,6 +816,7 @@ public final class Player {
     public void preview(AnimState s) {
         preview = s;
         if (s != null) {
+            wall = null;
             jumping = false;
             action = null;
             drawing = false;
@@ -546,13 +855,30 @@ public final class Player {
         return position.add(0, height, 0);
     }
 
-    /** Position on the ground (where the shadow goes). */
+    /** Position on the ground (where the shadow goes): its height the ground's under her. */
     public Vec3 ground() { return position; }
 
     public double height() { return height; }
 
+    /** Put her standing at {@code p} (on the ground there, off any wall, not falling). */
     public void setPosition(Vec3 p) {
-        position = new Vec3(p.x(), 0, p.z());
+        position = terrain.onGround(p);
+        height = 0;
+        vy = 0;
+        wall = null;
+        airborne = false;
+        rollPrimed = false;
+    }
+
+    /** The ground she walks on. */
+    public Terrain terrain() { return terrain; }
+
+    /** Walk on {@code t} from now on (null: flat ground); she is put on it where she stands. */
+    public void setTerrain(Terrain t) {
+        terrain = t == null ? Terrain.FLAT : t;
+        double feetY = position.y() + height;
+        position = terrain.onGround(position);
+        height = Math.max(0, feetY - position.y());
     }
 
     public double heading() { return heading; }
@@ -568,6 +894,90 @@ public final class Player {
     /** What she carries; the selected hotbar slot is what is in her hands ({@link World#equipSelected}). */
     public Inventory inventory() { return inventory; }
 
+    // --- health, stamina, climbing ------------------------------------------------------
+
+    public double health() { return health; }
+
+    public double stamina() { return stamina; }
+
+    /** Seconds since she was last hurt (a lot: never). */
+    public double sinceHurt() { return sinceHurt; }
+
+    /** Set her health (scripts and tests; 0 knocks her out). */
+    public void setHealth(double h) {
+        health = Math.max(0, Math.min(MAX_HEALTH, h));
+    }
+
+    /** Set her stamina (scripts and tests). */
+    public void setStamina(double s) {
+        stamina = Math.max(0, Math.min(MAX_STAMINA, s));
+    }
+
+    /**
+     * Take {@code damage} (a fall, a flier's swoop): her health goes down,
+     * and when it is gone she is knocked out ({@link Event.Kind#KNOCKED_OUT}).
+     * Returns what was taken. Whether something can hurt her at all (the
+     * roll) is for it to ask first ({@link #invulnerable}).
+     */
+    public double hurt(double damage) {
+        if (damage <= 0 || health <= 0) return 0;
+        double took = Math.min(health, damage);
+        health -= took;
+        sinceHurt = 0;
+        events.add(new Event(Event.Kind.HURT, took));
+        if (health <= 0) events.add(new Event(Event.Kind.KNOCKED_OUT, 0));
+        return took;
+    }
+
+    /** Back on her feet at {@code at}, health and stamina full, doing nothing. */
+    public void respawn(Vec3 at) {
+        setPosition(at);
+        health = MAX_HEALTH;
+        stamina = MAX_STAMINA;
+        sinceHurt = sinceTired = Double.MAX_VALUE;
+        action = null;
+        drawing = false;
+        jumping = false;
+        grab = null;
+        crouched = false;
+        velocity = Vec3.ZERO;
+    }
+
+    /** The wall she is climbing, or null. */
+    public Terrain.Wall climbing() { return wall; }
+
+    /** Put her {@code metres} up in the air where she stands, falling from there (scripts and tests). */
+    public void lift(double metres) {
+        wall = null;
+        action = null;
+        jumping = false;
+        height = Math.max(0, metres);
+        vy = 0;
+        airborne = height > 0;
+        fallFrom = position.y() + height;
+    }
+
+    /** Whether she is in the air: a jump, or off a ledge. */
+    public boolean airborne() { return airborne || height > 0; }
+
+    /** Whether the dodge key went down in the air: she will land in a roll. */
+    public boolean rollPrimed() { return rollPrimed; }
+
+    /**
+     * Ask {@code wanted} as each ranged attack starts whether to play its
+     * aimed-up variant (what she aims at is well above her).
+     */
+    public void setAimUp(BooleanSupplier wanted) {
+        aimUp = wanted == null ? () -> false : wanted;
+    }
+
+    /** What happened to her since the last call (a fall's hurt, a climb's top...). */
+    public List<Event> drainEvents() {
+        List<Event> out = new ArrayList<>(events);
+        events.clear();
+        return out;
+    }
+
     /**
      * Keep out of a round obstacle {@code radius} metres across its middle
      * {@code centre} on the ground (a chest): pushed back out to its edge.
@@ -581,7 +991,9 @@ public final class Player {
             dz = 1;
             d = 1;
         }
-        position = new Vec3(centre.x() + dx / d * radius, 0, centre.z() + dz / d * radius);
+        double feetY = position.y() + height;
+        position = terrain.onGround(new Vec3(centre.x() + dx / d * radius, 0, centre.z() + dz / d * radius));
+        height = Math.max(0, feetY - position.y());
     }
 
     public double speed() { return velocity.horizontalLength(); }
