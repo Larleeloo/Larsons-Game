@@ -13,6 +13,8 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.level.Level;
+import com.larsons.game.level.LevelWorld;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Elevation;
@@ -29,6 +31,7 @@ import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
@@ -90,8 +93,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * hand): each in its basic tier, the crystal staff as it is drawn - the
      * Magic Staff.
      */
-    private static final Vec3 SWORD_AT = new Vec3(1.4, 0, -2.2);
-    private static final Object[][] WEAPONS_AT = {
+    static final Vec3 SWORD_AT = new Vec3(1.4, 0, -2.2);
+    static final Object[][] WEAPONS_AT = {
             {Item.of(ItemDef.BATTLE_AXE), new Vec3(-1.9, 0, -1.7)},
             {Item.of(ItemDef.LONGBOW), new Vec3(2.5, 0, 1.0)},
             {Item.of(ItemDef.CROSSBOW), new Vec3(-2.3, 0, 1.6)},
@@ -104,23 +107,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * her right, one farther off behind it, one off to her left - targets
      * for the bow and the crossbow, and three to keep alive for Bonded.
      */
-    private static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
+    static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
     /**
      * The highlands' dummies, each facing the plateau: two below its west
      * ledge (shot at from its top, they are on the low ground), two below
      * the vine cliff.
      */
-    private static final Vec3[] HIGHLAND_DUMMIES_AT = {new Vec3(-3.2, 0, -31.0), new Vec3(-3.6, 0, -27.0),
+    static final Vec3[] HIGHLAND_DUMMIES_AT = {new Vec3(-3.2, 0, -31.0), new Vec3(-3.6, 0, -27.0),
             new Vec3(16.8, 0, -37.5), new Vec3(17.2, 0, -33.5)};
     /** Where the highlands' dummies look: the plateau's middle. */
-    private static final Vec3 PLATEAU_MIDDLE = new Vec3(6, 0, -36);
+    static final Vec3 PLATEAU_MIDDLE = new Vec3(6, 0, -36);
     /** The plateau's chest: at its north-east corner, looking down the ramp. */
-    private static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
+    static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
     /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
-    private static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
+    static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
-    private static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
-    private static final String CHEST = "ornate_chest";
+    static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
+    static final String CHEST = "ornate_chest";
     /**
      * How much ground round the spawn, the chest, each weapon's spot and each
      * dummy the scenery leaves bare, in metres - round the chest, enough for
@@ -137,6 +140,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final WorldSounds sounds = new WorldSounds();
     private final CombatHud combatHud;
     private final DebugCode debugCode = new DebugCode();
+    /** The level being played, or null: the demo. */
+    private final Level level;
+    /** Back to the editor, or null: the level is not being play-tested. */
+    private final Runnable back;
+    /** The demo's scenery or the level's, as it is when shown. */
+    private final Scenery scenery;
     /** When the heavy attack's "ready in" was last said (so held-down presses are not a pile of toasts). */
     private double heavyToast = Double.NEGATIVE_INFINITY;
     private boolean turntable;
@@ -151,7 +160,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        this.level = null;
+        this.back = null;
+        this.scenery = game.demoScenery();
         world.setTerrain(game.terrain());
+        world.setGround(game.demoScenery().ground());
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
@@ -167,11 +180,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.ownWhatIsWorn();
         for (Object[] w : WEAPONS_AT) world.spawn((Item) w[0], (Vec3) w[1]);
         world.addChest(new Chest(CHEST, CHEST_AT, SpriteView.headingShowing(Facing.SOUTH_WEST, camera.yaw())));
-        CombatTuning tuning = CombatTuning.load(game.settings().assets);
-        world.combat().use(tuning);
-        world.combat().setMana(tuning.maxMana);
-        p.setHeavyCooldown(tuning.heavyCooldown);
-        p.setDodgeCooldown(tuning.dodgeCooldown);
+        CombatTuning tuning = tune(game, world);
         for (Vec3 at : DUMMIES_AT) addDummy(at);
         for (Vec3 at : HIGHLAND_DUMMIES_AT) {
             world.addDummy(new Dummy(world.terrain().onGround(at),
@@ -183,8 +192,53 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
-        world.setScenery(game.scenery());
+        world.setScenery(shownScenery());
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
+    }
+
+    /**
+     * Play {@code level} (Creative Mode's play-test, or a saved level from
+     * the dev tab): everything in it as {@link LevelWorld} builds it, and
+     * she starts at its spawn - or, given {@code at}, there, facing {@code
+     * heading}. {@code back} (null: the main menu) is where Esc → "Back to
+     * the editor" and F5 go.
+     */
+    public DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back) {
+        this.game = game;
+        this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        this.level = level;
+        this.back = back;
+        this.pause = new PauseMenu(game, world);
+        this.inventory = new InventoryPanel(game, world);
+        if (back != null) pause.setBack("Back to the editor", back);
+        CombatTuning tuning = tune(game, world);
+        LevelWorld.populate(world, level, game.scenerySprites(), tuning);
+        this.scenery = world.scenery();
+        world.ownWhatIsWorn();
+        Player p = world.player();
+        if (at != null) {
+            p.setPosition(at);
+            p.snapHeading(heading);
+        }
+        combatHud = new CombatHud(game.worldRenderer().combat().fx());
+        world.equipSelected();
+        camera.setDesiredYaw(p.heading());
+        camera.snapTo(pivot());
+    }
+
+    /** The fighting tuned as {@code assets/combat/combat.json} has it: her mana full, her cooldowns. */
+    private static CombatTuning tune(Game game, World world) {
+        CombatTuning tuning = CombatTuning.load(game.settings().assets);
+        world.combat().use(tuning);
+        world.combat().setMana(tuning.maxMana);
+        world.player().setHeavyCooldown(tuning.heavyCooldown);
+        world.player().setDodgeCooldown(tuning.dodgeCooldown);
+        return tuning;
+    }
+
+    /** The scenery as shown: the demo's or the level's - none while it is hidden (P). */
+    private Scenery shownScenery() {
+        return game.settings().showProps ? scenery : Scenery.NONE;
     }
 
     /** A training dummy at {@code at}, facing where she starts. */
@@ -228,7 +282,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     @Override
-    public String name() { return "Demo"; }
+    public String name() { return level == null ? "Demo" : back != null ? "Play-test: " + level.name() : level.name(); }
 
     @Override
     public void enter() {
@@ -249,7 +303,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void update(double dt) {
         frameDt = dt;
         Input in = game.window().input();
-        world.setScenery(game.scenery());           // (P, or Pause → Settings, may have hidden it)
+        world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
             sounds.update(world, camera, durations());
             return;
@@ -262,6 +316,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 pause.open(PauseMenu.Page.MAIN);
                 Sounds.play(SoundKeys.ui("pause"));
             }
+            return;
+        }
+        if (back != null && in.pressed(GLFW_KEY_F5)) {
+            back.run();
             return;
         }
         if (in.pressed(GLFW_KEY_I)) inventory.toggle();
@@ -958,7 +1016,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             // the highlands' spots: goto spawn|hills|ramp|plateau|ledge|cliff|hill|hollow
             case "goto" -> {
                 Terrain.Place place = world.terrain().place(argument.trim());
-                Vec3 at = argument.trim().equals("spawn") ? Vec3.ZERO
+                Vec3 at = argument.trim().equals("spawn") ? world.spawnPoint()
                         : place == null ? null : new Vec3(place.x(), 0, place.z());
                 if (at == null) return false;
                 p.setPosition(at);
@@ -1028,7 +1086,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "animations" -> setClassic(argument.trim().equals("classic") || argument.trim().equals("v1"));
             case "props", "scenery" -> {
                 game.settings().showProps = !argument.equals("off");
-                world.setScenery(game.scenery());
+                world.setScenery(shownScenery());
             }
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));

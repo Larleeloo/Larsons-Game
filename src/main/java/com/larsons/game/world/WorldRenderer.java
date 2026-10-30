@@ -156,14 +156,19 @@ public final class WorldRenderer implements AutoCloseable {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
-        float[] fog = VoidRenderer.HORIZON;
+        Sky sky = world.sky();
+        float[] fog = sky == Sky.DEFAULT ? VoidRenderer.HORIZON : sky.horizonColour();
+        float fogFar = (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
-        voidRenderer.draw(camera, aspect, FOG, viewProj, ground);
-        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, FOG);
+        voidRenderer.useGround(world.ground());
+        // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
+        float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+        voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, world.time(), pixel);
+        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar);
         Vec3 upright = uprightNormal(camera);
-        scenery.draw(batch, world.scenery(), viewProj, fog, FOG, world.time(), camera, upright);
+        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -171,7 +176,7 @@ public final class WorldRenderer implements AutoCloseable {
         glDepthMask(false);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        batch.begin(viewProj, fog, 0, FOG);
+        batch.begin(viewProj, fog, 0, fogFar);
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
@@ -195,7 +200,7 @@ public final class WorldRenderer implements AutoCloseable {
         batch.end();
 
         // --- sprites, far to near (tested against the scenery, not written) --------
-        batch.begin(viewProj, fog, 0, FOG);
+        batch.begin(viewProj, fog, 0, fogFar);
         batch.setDepthPlane(eye, upright);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();

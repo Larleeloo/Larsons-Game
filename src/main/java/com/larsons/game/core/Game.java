@@ -116,6 +116,7 @@ public final class Game implements AutoCloseable {
         items = new ItemSprites(settings.spritesDir());
         closeups = new CloseupLibrary(settings.assets.resolve("closeups"));
         scenerySprites = ScenerySprites.scan(settings.sceneryDir());
+        com.larsons.game.level.ObjectTypes.useScenery(scenerySprites);
         terrain = Terrain.highlands();
         scenery = SceneryLayout.demo(scenerySprites, DemoScene.clearings(), terrain);
         sceneryRenderer = new SceneryRenderer(scenerySprites);
@@ -235,13 +236,41 @@ public final class Game implements AutoCloseable {
 
     // --- scenes ----------------------------------------------------------------------
 
-    /** Switch to "menu" or "demo". */
+    /**
+     * Switch to "menu", "demo", "cutscene", "creative" (Creative Mode on a
+     * new level), "edit:&lt;level&gt;" or "play:&lt;level&gt;" (a level's folder
+     * in {@code assets/levels}).
+     */
     public void switchTo(String name) {
-        Scene next = switch (name.trim().toLowerCase()) {
-            case "demo" -> new DemoScene(this);
-            case "cutscene" -> new com.larsons.game.scene.CutsceneScene(this);
-            default -> new MainMenuScene(this);
-        };
+        String n = name.trim();
+        String lower = n.toLowerCase();
+        Scene next;
+        if (lower.startsWith("edit:") || lower.startsWith("play:")) {
+            Path folder = settings.levelsDir().resolve(n.substring(5).trim());
+            try {
+                com.larsons.game.level.Level level = com.larsons.game.level.LevelIO.load(folder);
+                next = lower.startsWith("edit:") ? new com.larsons.game.editor.CreativeScene(this, level, folder)
+                        : new DemoScene(this, level, null, 0, null);
+            } catch (java.io.IOException | RuntimeException e) {
+                System.err.println("[levels] cannot open " + folder + ": " + e.getMessage());
+                toast("Cannot open " + relative(folder) + ": " + e.getMessage(), Theme.WARNING);
+                next = new MainMenuScene(this);
+            }
+        } else {
+            next = switch (lower) {
+                case "demo" -> new DemoScene(this);
+                case "cutscene" -> new com.larsons.game.scene.CutsceneScene(this);
+                case "creative" -> new com.larsons.game.editor.CreativeScene(this,
+                        com.larsons.game.level.Level.blank("New level", com.larsons.game.level.Level.DEFAULT_SIZE),
+                        null);
+                default -> new MainMenuScene(this);
+            };
+        }
+        switchTo(next);
+    }
+
+    /** Switch to {@code next}, as it is (the level editor coming back from its play-test keeps its state). */
+    public void switchTo(Scene next) {
         if (scene != null) scene.exit();
         scene = next;
         scene.enter();
@@ -322,6 +351,9 @@ public final class Game implements AutoCloseable {
      * in her way either.
      */
     public Scenery scenery() { return settings.showProps ? scenery : Scenery.NONE; }
+
+    /** The demo's scenery and the ground it lays out, shown or not. */
+    public Scenery demoScenery() { return scenery; }
 
     /** The ground the demo and the menu stand on: the highlands north of the spawn ({@link Terrain#highlands}). */
     public Terrain terrain() { return terrain; }

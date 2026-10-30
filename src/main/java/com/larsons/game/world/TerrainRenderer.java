@@ -4,7 +4,6 @@ import com.larsons.game.gfx.Shader;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.lwjgl.opengl.GL33C.*;
@@ -40,7 +39,7 @@ public final class TerrainRenderer implements AutoCloseable {
     /** How far behind itself (metres along the view) the terrain's depth is written. */
     public static final float DEPTH_BACK = 0.35f;
     /** The most climbable walls the shader paints vines on. */
-    public static final int MAX_WALLS = 4;
+    public static final int MAX_WALLS = 16;
 
     private static final String VERTEX = """
             #version 330 core
@@ -66,8 +65,8 @@ public final class TerrainRenderer implements AutoCloseable {
             uniform float uFogDistance;
             uniform float uDepthBack;
             uniform vec3 uSun;
-            uniform vec4 uWall[4];      // a climbable wall's foot: from (x, z), to (x, z)
-            uniform vec4 uWallOut[4];   // its outward normal (x, z), its bottom and top
+            uniform vec4 uWall[16];     // a climbable wall's foot: from (x, z), to (x, z)
+            uniform vec4 uWallOut[16];  // its outward normal (x, z), its bottom and top
             uniform int uWalls;
             out vec4 fragColor;
             """ + GroundTexture.GLSL + """
@@ -77,7 +76,7 @@ public final class TerrainRenderer implements AutoCloseable {
             vec4 vines(vec3 p, vec3 n) {
                 float block = 4.0 * max(uGroundTexel, 0.01);
                 vec4 c = vec4(0.0);
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 16; i++) {
                     if (i >= uWalls) break;
                     vec2 a = uWall[i].xy, b = uWall[i].zw, o = uWallOut[i].xy;
                     float len = max(length(b - a), 1e-4);
@@ -140,22 +139,23 @@ public final class TerrainRenderer implements AutoCloseable {
 
     private final Shader shader;
     private final GroundTexture ground;
-    private final Terrain terrain;
-    private final int vao, vbo, ebo, count;
+    private final int vao, vbo, ebo;
+    /** The terrain whose mesh is on the GPU, and how many indices it has. */
+    private Terrain terrain;
+    private int count;
 
-    /** The mesh of {@code terrain}, drawn with {@code ground}'s textures. Must be made on the GL thread. */
+    /**
+     * Drawing {@code terrain}'s mesh, with {@code ground}'s textures - or,
+     * from the first time it is handed another ({@link #draw}), that one's.
+     * Must be made on the GL thread.
+     */
     public TerrainRenderer(GroundTexture ground, Terrain terrain) {
         this.ground = ground;
-        this.terrain = terrain;
         shader = new Shader("terrain", VERTEX, FRAGMENT);
-        float[] verts = vertices(terrain);
-        int[] indices = indices(terrain);
-        count = indices.length;
         vao = glGenVertexArrays();
         glBindVertexArray(vao);
         vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, verts, GL_STATIC_DRAW);
         int stride = 6 * Float.BYTES;
         glVertexAttribPointer(0, 3, GL_FLOAT, false, stride, 0);
         glEnableVertexAttribArray(0);
@@ -163,9 +163,23 @@ public final class TerrainRenderer implements AutoCloseable {
         glEnableVertexAttribArray(1);
         ebo = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
         glBindVertexArray(0);
+        upload(terrain);
         if (count > 0) System.out.println("[terrain] " + count / 3 + " triangles");
+    }
+
+    /** Put {@code t}'s mesh on the GPU in place of the last one's (a level's, or its ground just sculpted). */
+    private void upload(Terrain t) {
+        terrain = t;
+        float[] verts = vertices(t);
+        int[] indices = indices(t);
+        count = indices.length;
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, verts, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_DYNAMIC_DRAW);
+        glBindVertexArray(0);
     }
 
     /** The grid's points, each its position and its normal (x, y, z, nx, ny, nz). */
@@ -199,31 +213,31 @@ public final class TerrainRenderer implements AutoCloseable {
      */
     static int[] indices(Terrain t) {
         int nx = t.columns(), nz = t.rows();
-        List<Integer> out = new ArrayList<>();
+        int[] out = new int[Math.max(0, nx - 1) * Math.max(0, nz - 1) * 6];
+        int k = 0;
         for (int j = 0; j + 1 < nz; j++) {
             for (int i = 0; i + 1 < nx; i++) {
                 if (t.flatCell(i, j)) continue;
                 int a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
-                out.add(a);
-                out.add(c);
-                out.add(b);
-                out.add(d);
-                out.add(b);
-                out.add(c);
+                out[k++] = a;
+                out[k++] = c;
+                out[k++] = b;
+                out[k++] = d;
+                out[k++] = b;
+                out[k++] = c;
             }
         }
-        int[] arr = new int[out.size()];
-        for (int k = 0; k < arr.length; k++) arr[k] = out.get(k);
-        return arr;
+        return java.util.Arrays.copyOf(out, k);
     }
 
     /**
-     * Draw {@code t} - if it is the terrain this was made for (flat ground
-     * has nothing to draw) - from {@code camera}, fading into the fog as the
-     * flat ground does. Leaves depth testing on.
+     * Draw {@code t} from {@code camera} - its mesh put on the GPU first if
+     * it is not the one there (flat ground has nothing to draw) - fading into
+     * the fog as the flat ground does. Leaves depth testing on.
      */
     public void draw(Terrain t, OrbitCamera camera, Mat4 viewProj, float[] fog, float fogDistance) {
-        if (t != terrain || count == 0) return;
+        if (t != terrain) upload(t);
+        if (count == 0) return;
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         glDepthMask(true);

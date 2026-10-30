@@ -101,7 +101,11 @@ public final class GroundTexture implements AutoCloseable {
 
     private final Texture grass;
     private final Texture[] tiles = new Texture[4];
-    private final Texture map;
+    /** The map last uploaded ({@link #use}), its version then, and its texture (null: all grass). */
+    private GroundMap mapOf;
+    private int mapVersion;
+    private Texture map;
+    private float mapWest = (float) GroundMap.origin(), mapSize = (float) GroundMap.SIZE;
     private final float tile, texel;
 
     /**
@@ -124,8 +128,26 @@ public final class GroundTexture implements AutoCloseable {
             System.out.println("[scenery] ground: " + g.width() + "x" + g.height() + " grass" + found
                     + ", a tile every " + tile + " m");
         }
-        this.map = g == null || map == null || map.isEmpty() ? null
-                : Texture.data(map.rgba(), GroundMap.CELLS, GroundMap.CELLS);
+        use(map);
+    }
+
+    /**
+     * Draw the ground as {@code ground} maps it from now on (null: all
+     * grass): uploaded again only when it is another map, or has been
+     * painted on since ({@link GroundMap#version}). Must be called on the GL
+     * thread.
+     */
+    public void use(GroundMap ground) {
+        if (ground == mapOf && (ground == null || ground.version() == mapVersion)) return;
+        mapOf = ground;
+        mapVersion = ground == null ? 0 : ground.version();
+        if (map != null) map.close();
+        map = grass == null || ground == null || ground.isEmpty() ? null
+                : Texture.data(ground.rgba(), ground.cells(), ground.cells());
+        if (ground != null) {
+            mapWest = (float) ground.west();
+            mapSize = (float) ground.size();
+        }
     }
 
     private static Texture load(Path file) {
@@ -167,8 +189,7 @@ public final class GroundTexture implements AutoCloseable {
         }
         (map != null ? map : grass).bind(firstUnit + 5);
         shader.set("uGroundHas", has[0], has[1], has[2], has[3]);
-        float o = (float) GroundMap.origin(), s = (float) GroundMap.SIZE;
-        shader.set("uGroundRect", o, o, s, s);
+        shader.set("uGroundRect", mapWest, mapWest, mapSize, mapSize);
     }
 
     @Override
