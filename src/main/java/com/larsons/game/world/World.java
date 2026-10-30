@@ -143,11 +143,12 @@ public final class World {
         /**
          * Where its middle is at time {@code t}: hovering over where it lies,
          * or on its arc out of the chest - up out of the lid, over and down,
-         * settling into the hover as it lands.
+         * settling into the hover over the ground where it lands (up on a
+         * hill as on the flat).
          */
         public Vec3 centre(double t) {
-            double rest = hover(t);
-            if (landed(t)) return position.add(0, rest, 0);
+            double rest = position.y() + hover(t);
+            if (landed(t)) return new Vec3(position.x(), rest, position.z());
             double p = flight(t);
             double x = from.x() + (position.x() - from.x()) * p;
             double z = from.z() + (position.z() - from.z()) * p;

@@ -76,16 +76,23 @@ final class ItemRenderer implements AutoCloseable {
 
     // --- the passes --------------------------------------------------------------------
 
-    /** The shadows pass: the pool of its rarity's light on the ground under it - bright and pulsing in a beam. */
-    void ground(World.GroundItem g, double t) {
+    /** Somewhere to lay a square of light on the ground, over its hills as on the flat. */
+    interface Pools {
+        void glow(Texture tex, Vec3 at, double radius, float r, float g, float b, float intensity);
+    }
+
+    /**
+     * The shadows pass: the pool of its rarity's light on the ground under it
+     * - bright and pulsing in a beam - laid on the ground by {@code out}.
+     */
+    void ground(World.GroundItem g, double t, Pools out) {
         if (!g.out(t)) return;
         Vec3 c = g.centre(t);
         float[] rc = rgb(g.item.rarity().rgb());
         double b = beamStrength(g, t), p = pulse(t, g.phase());
         double r = 0.55 + 0.35 * b * p;
         float k = (float) ((0.16 + 0.34 * b * p) * g.flight(t));
-        batch.glow(dot, new Vec3(c.x() - r, 0.006, c.z() - r), new Vec3(2 * r, 0, 0), new Vec3(0, 0, 2 * r),
-                rc[0], rc[1], rc[2], k);
+        out.glow(dot, c, r, rc[0], rc[1], rc[2], k);
     }
 
     /**
@@ -100,9 +107,9 @@ final class ItemRenderer implements AutoCloseable {
         String id = pickup == null ? g.def.id() : pickup.spin();
         float[] rc = rgb(g.item.rarity().rgb());
         double b = beamStrength(g, t);
-        // the beam stands upright and turns to face the camera only about the vertical
+        // the beam stands upright, turning to face the camera only about the vertical
         Vec3 level = new Vec3(right.x(), 0, right.z()).normalize(new Vec3(1, 0, 0));
-        Vec3 foot = new Vec3(g.position.x(), 0, g.position.z());
+        Vec3 foot = beamFoot(g);
         if (b > 0) beam(foot, level, rc, b, t, g.phase());
 
         ItemSprites.Spin spin = items.spin(id);
@@ -235,6 +242,15 @@ final class ItemRenderer implements AutoCloseable {
     /** 0.5 – 1: the beam's and the halo's pulse at time {@code t}. */
     static double pulse(double t, double phase) {
         return 0.75 + 0.25 * Math.sin(2 * Math.PI * BEAM_HZ * t + phase);
+    }
+
+    /**
+     * Where an item's beam stands - the middle of its foot: on the ground
+     * where it lies, up on a hill as on the flat, so that it rises past the
+     * item hovering there.
+     */
+    static Vec3 beamFoot(World.GroundItem g) {
+        return g.position;
     }
 
     /** 0 – 1: how much of its beam an item has - none unless it came out of a chest, rising once it has landed. */
