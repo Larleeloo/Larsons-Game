@@ -179,7 +179,7 @@ public final class WorldRenderer implements AutoCloseable {
             double h = Math.max(0, c.y() - ground.height(c.x(), c.z()));
             groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * Math.min(2, h)),
                     (float) Math.max(0, (0.42 - 0.12 * h) * g.flight(world.time())));
-            itemRenderer.ground(g, world.time());
+            itemRenderer.ground(g, world.time(), this::groundGlow);
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
@@ -338,14 +338,27 @@ public final class WorldRenderer implements AutoCloseable {
      * the slope.
      */
     private void groundQuad(Texture tex, Vec3 at, double radius, float r, float g, float b, float alpha) {
+        groundQuad(tex, at, radius, r, g, b, alpha, false);
+    }
+
+    /**
+     * {@link #groundQuad} as light ({@link Batch#glow}), added to the ground
+     * rather than laid over it: an item's pool of its rarity's light.
+     */
+    private void groundGlow(Texture tex, Vec3 at, double radius, float r, float g, float b, float intensity) {
+        groundQuad(tex, at, radius, r, g, b, intensity, true);
+    }
+
+    private void groundQuad(Texture tex, Vec3 at, double radius, float r, float g, float b, float alpha,
+                            boolean light) {
         double x0 = at.x() - radius, x1 = at.x() + radius, z0 = at.z() - radius, z1 = at.z() + radius;
         boolean flat = ground.flat() || Math.abs(ground.height(x0, z0)) + Math.abs(ground.height(x1, z0))
                 + Math.abs(ground.height(x0, z1)) + Math.abs(ground.height(x1, z1))
                 + Math.abs(ground.height(at.x(), at.z())) < 1e-4;
         if (flat) {
             float y = 0.004f;
-            batch.quad(tex, (float) x0, y, (float) z0, (float) x1, y, (float) z0, (float) x1, y, (float) z1,
-                    (float) x0, y, (float) z1, 0, 0, 1, 1, r, g, b, alpha);
+            piece(tex, (float) x0, y, (float) z0, (float) x1, y, (float) z0, (float) x1, y, (float) z1,
+                    (float) x0, y, (float) z1, 0, 0, 1, 1, r, g, b, alpha, light);
             return;
         }
         int n = SLOPE_PIECES;
@@ -354,10 +367,22 @@ public final class WorldRenderer implements AutoCloseable {
             for (int i = 0; i < n; i++) {
                 double ax = x0 + i * step, bx = ax + step, az = z0 + j * step, bz = az + step;
                 float u0 = (float) i / n, u1 = (float) (i + 1) / n, v0 = (float) j / n, v1 = (float) (j + 1) / n;
-                batch.quad(tex, (float) ax, lift(ax, az), (float) az, (float) bx, lift(bx, az), (float) az,
+                piece(tex, (float) ax, lift(ax, az), (float) az, (float) bx, lift(bx, az), (float) az,
                         (float) bx, lift(bx, bz), (float) bz, (float) ax, lift(ax, bz), (float) bz,
-                        u0, v0, u1, v1, r, g, b, alpha);
+                        u0, v0, u1, v1, r, g, b, alpha, light);
             }
+        }
+    }
+
+    /** One piece of a {@link #groundQuad}: laid over the ground, or as light. */
+    private void piece(Texture tex, float x0, float y0, float z0, float x1, float y1, float z1,
+                       float x2, float y2, float z2, float x3, float y3, float z3,
+                       float u0, float v0, float u1, float v1, float r, float g, float b, float alpha,
+                       boolean light) {
+        if (light) {
+            batch.glow(tex, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, u0, v0, u1, v1, r, g, b, alpha);
+        } else {
+            batch.quad(tex, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, u0, v0, u1, v1, r, g, b, alpha);
         }
     }
 

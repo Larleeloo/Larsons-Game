@@ -3,9 +3,11 @@ package com.larsons.game.world;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Slot;
+import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Wardrobe;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.function.ToDoubleFunction;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -333,5 +335,36 @@ class HighlandsTest {
         w.items().clear();
         w.spawn(ItemDef.WAND, new Vec3(0.6, 0, -36));
         assertNull(w.reachable(), "out of reach up on the plateau");
+    }
+
+    @Test
+    void lootFromTheChestOnThePlateauLandsUpOnItInItsBeam() {
+        Terrain t = Terrain.highlands();
+        for (long seed = 1; seed <= 12; seed++) {
+            World w = at(9.5, -37.5);
+            w.seed(seed);
+            Chest c = w.addChest(new Chest("ornate_chest", t.onGround(new Vec3(9.5, 0, -39)),
+                    SpriteView.headingOf(-0.6, 1)));
+            c.toggle(null);
+            w.tick(DT);
+            List<World.GroundItem> lot = List.copyOf(w.items());
+            assertTrue(lot.size() >= Loot.MIN);
+            for (World.GroundItem g : lot) {
+                assertEquals(Terrain.PLATEAU_HEIGHT, g.position.y(), 1e-6, "lands up on the plateau");
+                double landed = g.landedAt();
+                for (double s = landed - World.FLIGHT; s < landed; s += 0.01) {
+                    Vec3 at = g.centre(s);
+                    assertTrue(at.y() > t.height(at.x(), at.z()) + 0.3,
+                            "over the plateau all the way, not down in it: " + at.y() + " at " + s);
+                }
+                Vec3 before = g.centre(landed - 1e-6), after = g.centre(landed + 1e-6);
+                assertEquals(after.y(), before.y(), 0.01, "it settles into its hover rather than jumping up to it");
+                double later = landed + 2;
+                assertEquals(Terrain.PLATEAU_HEIGHT + g.hover(later), g.centre(later).y(), 1e-9);
+                Vec3 foot = ItemRenderer.beamFoot(g);
+                assertEquals(t.height(foot.x(), foot.z()), foot.y(), 1e-6, "its beam stands on the plateau");
+                assertTrue(foot.y() + ItemRenderer.BEAM_HEIGHT > g.centre(later).y() + 1, "and rises up past it");
+            }
+        }
     }
 }

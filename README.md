@@ -1162,7 +1162,7 @@ the highlands meeting the meadow without a seam, the heights being the
 triangles drawn, the ramp walkable and the rock not, the ramp slower, falls
 and their hurt, the roll out of one, climbing to the top and stepping up
 over the lip, stepping down over it from the top and climbing down, stopping
-at the lip too tired to climb, letting go out of stamina, being knocked out, items and the chest on the slopes, the flier's
+at the lip too tired to climb, letting go out of stamina, being knocked out, items and the chest on the slopes, the plateau chest's loot flying up onto it and its beams standing there, the flier's
 rounds, its dive and what a roll, a block and a parry do to it, its fall and
 rising, shots led to where it will be, the lock-on and its next, the
 aimed-up bow and crossbow, and the high ground's die; and the scenery (its profiles, where each

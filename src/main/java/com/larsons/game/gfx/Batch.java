@@ -413,6 +413,20 @@ public final class Batch implements AutoCloseable {
                 NO_PALETTE);
     }
 
+    /**
+     * {@link #glow} from its four corners - top-left, top-right,
+     * bottom-right, bottom-left - of a whole texture, no palette: light that
+     * need not be flat (a piece of it laid on a slope).
+     */
+    public void glow(Texture tex,
+                     float x0, float y0, float z0, float x1, float y1, float z1,
+                     float x2, float y2, float z2, float x3, float y3, float z3,
+                     float u0, float v0, float u1, float v1,
+                     float r, float g, float b, float intensity) {
+        emit(tex, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, u0, v0, u1, v1,
+                -NO_CLIP, -NO_CLIP, NO_CLIP, NO_CLIP, r * intensity, g * intensity, b * intensity, 0, NO_PALETTE);
+    }
+
     /** {@link #glow} on the UI plane (y down): an axis-aligned rectangle of light. */
     public void glowRect(Texture tex, float x, float y, float w, float h,
                          float u0, float v0, float u1, float v1,
