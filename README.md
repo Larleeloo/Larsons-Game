@@ -84,7 +84,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **F11** | full screen, with the display switched to its fastest refresh rate - or back to the window ([frame rate](#120-frames-a-second)) |
 | **F12** | screenshot (to `screenshots/`) |
 | **Num-pad 1 0 2 5** | the debug code: every cosmetic offered in the wardrobe, and **Clear the ground** in the pause menu (every item lying about, the starting weapons and the chests' loot, taken away); typed again, off |
-| **Esc** | pause menu — Wardrobe, Settings, Controls, Import help, Main menu, Quit (or closes the inventory) |
+| **Esc** | pause menu — Wardrobe, Settings, Sounds, Controls, Import help, Main menu, Quit (or closes the inventory) |
 
 Drop sprite sheets on the window at any time to import them.
 
@@ -166,10 +166,15 @@ Drop sprite sheets on the window at any time to import them.
 
   <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
   <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
-- **Sound for every animation** - both bodies' 129 states, the chest's four,
-  picking up and dropping each item, the inventory - from MP3 (or WAV)
-  files dropped into `assets/sounds/`, with the engine's MP3 decoder and
-  mixer. Every slot is silent until it has a file - see [Sound](#sound).
+- **Sound for everything that happens** - her footsteps on grass, dirt,
+  gravel and the forest floor, every jump, landing, dash, roll and climb,
+  each weapon's swing, shot and spell, the dice, the blows, the dummies and
+  the flying dummies, the chests and the loot ringing out by rarity, the
+  menus, and the breeze over it all: 125 original placeholder sounds, made
+  in code, played through the engine's MP3 decoder and mixer. **Pause →
+  Sounds** has a tab for each of 8 categories with its own volume, and every
+  sound in it can be played, swapped for any MP3 on your computer, muted or
+  reset - see [Sound](#sound).
 
   <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
 - **Scenery** — oak trees swaying and tufts of grass blowing in the breeze,
@@ -856,37 +861,95 @@ needed - WAV, AIFF and AU load through the JDK), a software **mixer** that
 plays any number of sounds at once, each at its own pitch, volume and stereo
 position, with every one-shot at a slightly different pitch each time, and
 the **sound pack**: sound keys resolved to files by name. A machine with no
-audio device is silent rather than broken.
+audio device is silent rather than broken. The decoder is **gapless**: it
+reads the encoder's delay and padding from the MP3's LAME header and trims
+them, so a sound starts on its first sample and a loop (the wind, a chest
+standing open) goes round without a hiccup.
 
-**Every animation is a sound hook** (`audio/AnimationSound`, updated each
-frame by `audio/WorldSounds`): the animation's sound starts with it - looping
-for as long as a held animation holds (a walk, an idle, the chest standing
-open), once for a one-shot (a swing, the lid thrown open), again when it starts
-over. Picking up, dropping and taking an item in hand, and the inventory,
-play where they happen. Every sound is **silent until it has a file**:
+### What makes a sound
+
+Everything that happens in the game is a **sound hook**, and every sound
+belongs to one of eight **categories** (`audio/SoundCategory`), each with its
+own volume:
+
+| Category | What is in it |
+|---|---|
+| **Footsteps & movement** | a footstep each time a foot comes down - on the ground under it (grass, a dirt path, gravel or the forest floor), quieter the softer she goes - jumping, landing (louder the farther she fell), a hard landing, rolling out of a fall, crouching and standing, the dash and the combat roll, stepping over a ledge, each hand taking hold of the vines, letting go |
+| **Voices** | each body's laugh, cry, surprise and anger, being hurt, knocked out, and out of breath |
+| **Weapons** | every swing, chop, smash, thrust, shot and cast of all eight weapons, the parry, taking each weapon in hand, the heavy attack ready again |
+| **Hits & magic** | the dice, a blow landing, arrows and bolts striking or sticking, spells cast, hitting, bursting on the ground or fizzling, venom, being struck, blocking, parrying, dodging |
+| **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up |
+| **World & loot** | the chests (shut and humming, thrown open, standing open, closing), the loot thrown out and landing, and its rarity ringing out from Uncommon to Mythic, picking things up and dropping them |
+| **Ambient** | the breeze over everything (and a stream and crickets, ready for the places that need them) |
+| **Interface** | menus, the inventory, the wardrobe, the lock-on, screenshots, cutscene lines, and the level editor's tools |
+
+The animations are hooks themselves (`audio/AnimationSound`, updated each
+frame by `audio/WorldSounds`): an animation's sound starts with it, looping
+for as long as a held animation holds and once for a one-shot. A footstep
+falls on the gait itself - each walk, run and sprint cycle starts with the
+right heel down and has the left down halfway, as the Blender gaits are
+authored. Sounds in the world are placed: quieter the farther off, panned to
+the side of the screen they are on. Combat, the player's falls and climbs,
+the menus and the inventory play where they happen.
+
+### Choosing your own sounds
+
+**Pause → Sounds** lists every sound, a tab per category. Each row has a play
+button, where its sound comes from now (the game's file, a file it shares
+with sounds like it, yours, muted, or silent), and:
+
+- **Choose…** - your computer's open-file dialog, for any MP3 or WAV (on
+  Linux it needs `zenity` or `kdialog`); or **drop the file on the row**;
+- **Mute** / **Unmute**;
+- **Reset** - back to the game's own.
+
+<img src="docs/screenshots/sounds-menu.png" width="98%" alt="Pause → Sounds on the Weapons tab: eight category tabs down the left with their counts, a master and a Weapons volume slider, and rows of sounds each with a play button, where its sound comes from (the sword swing is the player's own my_sword_swing.mp3, the battle axe's spin attack muted, the rest the game's files), and Choose…, Mute and Reset">
+
+A master volume, a volume per category, and **Rescan sound files** (after
+changing `assets/sounds/` with the game running) sit above the list. Your
+choices and volumes are yours alone, saved as you make them
+(`config/sounds.json`, `config/settings.json`).
+
+### The sound pack
 
 ```
 assets/sounds/
-  SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
+  SOUND_KEYS.txt          every sound in the game, by category, and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 129 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
-  player/masculine/       ... and each of his
-  chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
+  player/                 footstep_grass.mp3 ... jump.mp3, land.mp3, dash.mp3, roll.mp3, climb_grip.mp3,
+                          attack.mp3, axe_attack.mp3, bow_fire.mp3, wand_attack.mp3 ... (both bodies)
+  player/feminine/        her voice: emote_laugh.mp3, hurt.mp3 ... and any of her 129 animations of her own
+  player/masculine/       ... and his
+  chests/                 idle.mp3, open.mp3, opened.mp3, close.mp3 (every chest; chests/<chest>/ for one's own)
+  items/                  pickup.mp3, drop.mp3, equip.mp3, and items/<item>/equip.mp3 for each weapon
+  combat/                 dice_roll.mp3, blow.mp3, arrow_hit.mp3, spell_cast.mp3, block.mp3, parry.mp3 ...
   combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
-  combat/flying_dummy/    fly.mp3, warn.mp3, swoop.mp3, hit.mp3, fall.mp3, rise.mp3
-  combat/                 dice_roll.mp3, blow.mp3, arrow_hit.mp3, bolt_hit.mp3, arrow_stick.mp3,
-                          spell_cast.mp3, spell_hit.mp3, fizzle.mp3, venom_tick.mp3, player_hurt.mp3,
-                          hard_landing.mp3, landing_roll.mp3, climb_top.mp3, lock_on.mp3, lock_off.mp3
-  items/<item>/           pickup.mp3, drop.mp3, equip.mp3
-  ui/                     inventory_open.mp3, inventory_close.mp3, hotbar_select.mp3
+  combat/flying_dummy/    fly.mp3, warn.mp3, swoop.mp3, hit.mp3, fall.mp3, down.mp3, rise.mp3
+  world/                  loot_throw.mp3, loot_land.mp3, loot_uncommon.mp3 ... loot_mythic.mp3
+  ambient/                wind.mp3, stream.mp3, crickets.mp3
+  ui/                     click.mp3, hover.mp3, pause.mp3, inventory_open.mp3, wear.mp3, error.mp3 ...
 ```
 
-A body's sounds are the body the wardrobe wears (any style of it), and a file
-one folder up covers both bodies until one has its own: `player/walk.mp3` is
-both walks, `player/masculine/walk.mp3` his alone. The same for every chest
-(`chests/open.mp3`) and every item (`items/pickup.mp3`). New files are heard
-the next time the game starts.
+**Fallbacks** keep the pack small: a sound one folder up covers everything
+like it until one has its own - `player/attack.mp3` is both bodies' sword
+swing, `player/masculine/attack.mp3` his alone; a move falls back to the
+move it is a version of (the axe's heavy attack to its chop, a crouched shot
+to the standing one); a footstep on one ground to `player/footstep.mp3`;
+`chests/open.mp3` is every chest's. A body's sounds are the body the
+wardrobe wears, in any style.
+
+The files there now are **placeholders**, every one made in code by
+[`tools/sounds/make_placeholders.py`](tools/sounds/make_placeholders.py)
+(Python with numpy and scipy, and ffmpeg) - filtered noise, struck and
+plucked strings, formant voices - so they are the game's own, with no
+licence to worry about. Replace any of them with a real recording of the same
+name; `python3 tools/sounds/make_placeholders.py --list` lists them, and
+naming some (`... player/jump ui/click`) makes just those again.
+
+Other code can add sounds of its own (`SoundKeys.register`, the level
+editor's objects): each gets a row in its category's tab, a line in the key
+list, and the same fallbacks and volume.
 
 ## Cutscenes
 
@@ -1058,8 +1121,8 @@ src/main/java/com/larsons/game/
   Main.java                 entry point (headless AWT, macOS first-thread relaunch)
   core/                     Game (window, loop, overlays), FramePacer, Settings, Scene, Autopilot, Screenshot
   audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
-                            Sounds, SoundPack, SoundKeys, SoundDef, SoundStore; the hooks: AnimationSound,
-                            WorldSounds
+                            Sounds, SoundPack, SoundKeys, SoundCategory, SoundDef, SoundStore; the hooks:
+                            AnimationSound, SoundEmitter, WorldSounds
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
                             GpuInfo
   math/                     Vec3, Mat4
@@ -1079,15 +1142,17 @@ src/main/java/com/larsons/game/
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
-  scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel
-  ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel
+  scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel,
+                            SoundsPanel
+  ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
   tools/                    SampleSprites
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
                             the attack dummy and the flying dummy; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
-assets/sounds/              the sound pack: a folder per body, chest and item, SOUND_KEYS.txt
+assets/sounds/              the sound pack: the placeholder sounds by category and object, SOUND_KEYS.txt
+tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
@@ -1118,10 +1183,10 @@ window:
 | `sprite/fallback/*` | `graphics/DirectionalSprites` | adapted — generated per-facing fallback art (here from a 3D figure, for all three heights) |
 | `input/Input` | `input/InputManager` | adapted — press latching, repeats, typed text |
 | `ui/MenuList` | `ui/Menu` | adapted — keyboard and mouse menu navigation |
-| `audio/Mp3Decoder`, `Mp3Tables`, `PcmClip`, `SoundLoader` | `audio/` same | copied — the pure-Java MP3 decoder (minimp3, public domain), WAV/AIFF/AU through the JDK, the decoded-clip cache |
-| `audio/SoundMixer` | `audio/SoundMixer` | copied — the software mixer (pitch, overlap, loops, headless-safe), plus moving a playing sound's pan |
+| `audio/Mp3Decoder`, `Mp3Tables`, `PcmClip`, `SoundLoader` | `audio/` same | copied — the pure-Java MP3 decoder (minimp3, public domain), WAV/AIFF/AU through the JDK, the decoded-clip cache; gapless here (the LAME header's delay and padding trimmed) |
+| `audio/SoundMixer` | `audio/SoundMixer` | copied — the software mixer (pitch, overlap, loops, headless-safe), plus moving a playing sound's pan and a volume per category |
 | `audio/Sounds`, `SoundDef`, `SoundStore`, `SoundPack` | same | adapted — play by key, fresh pitch, per-sound overrides, `soundpack.json`, `SOUND_KEYS.txt`; the pack in `assets/sounds/`, no synthesized voices or music |
-| `audio/SoundKeys` | `audio/SoundKeys` | adapted — the game's catalogue: a folder per body, chest and item, every animation a key |
+| `audio/SoundKeys` | `audio/SoundKeys` | adapted — the game's catalogue: categories, a folder per body, chest and item, every animation a key, fallbacks from a move to the move it is a version of |
 | `audio/WorldSounds` | `audio/SceneSounds` | adapted — the frame-by-frame hooks: here every animation, through `AnimationSound` |
 
 The engine's Java2D backend, level system, creative mode and mini-games were
@@ -1151,8 +1216,12 @@ gold, a bow's string never recoloured, all in the palette), the turning
 items' sheets and icons, the loot beam, halo and border motes, and the
 weapon in her hands drawn in its tier,
 the object sheets (names, layer order, all 24 views of every state of the
-chest), the sound catalogue (a sound for every animation of both bodies), the
-pack's lookup and fallbacks, its key list being up to date, and the engine's
+chest), the sound catalogue (a sound for every animation of both bodies, every
+sound in the category whose tab lists it, registered sounds), the pack's lookup
+and fallbacks (a move to the move it is a version of, a footstep to any
+footstep), your own sounds beating the game's and muting, the footstep's
+ground, every listed sound having a placeholder that decodes gaplessly, its
+key list being up to date, and the engine's
 MP3 decoder tests; the fighting (`combat/CombatTest`): the dice per
 rarity, swings' reach and arc, heavy and unarmed rolls, the wand's one-die heavy blow, the heavy attack's cooldown, every attack state
 having a move, arrows arcing onto a dummy, bolts sticking, spells' colours
