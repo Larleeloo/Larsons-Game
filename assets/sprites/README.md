@@ -496,6 +496,7 @@ layers stay in step (the game plays one frame index on all of them):
 | staff_jump | 27 | 0.9 | one-shot: the jump with the staff in the right hand |
 | bow_draw_up, bow_fire_up, crossbow_fire_up, staff_attack_up, wand_attack_up | 24, 18, 30, 24, 24 | | aimed up, at what flies or stands well above her (`combat/Combat.AIM_UP`, 20° and more); the draw ends held at full draw; a set without them shows the level ones |
 | climb | 32 | 1.07 | loops while she climbs the vines, her hands empty; the frame held while she hangs still |
+| ledge_up, ledge_down | 36 | 1.2 | one-shots at the top of the vines, her hands empty: stepping up over the lip from hanging by her hands, and stepping down over it to hang by them (the same move the other way round); played in place while the game carries her along `Player.LEDGE_PATH`, 1.6 m up and 0.65 m in; a set without them shows the climb |
 
 **Holdouts.** Each layer was rendered with what can hide it set to holdout: the
 body for every layer; for the garments the body and, where one tucks into or

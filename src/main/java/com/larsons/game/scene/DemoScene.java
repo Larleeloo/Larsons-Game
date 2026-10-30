@@ -63,8 +63,9 @@ import static org.lwjgl.glfw.GLFW.*;
  *
  * <p><b>The highlands</b>, up the north path ({@link Terrain#highlands}): a
  * plateau with a chest on top - up the ramp the long way, or up the vine
- * cliff on its east side (climbing spends stamina), down its west ledge the
- * quick way (a fall that hurts, or a roll that does not); two dummies below
+ * cliff on its east side (climbing spends stamina; she steps up over its lip,
+ * and walking off its top she steps down over it and climbs down), down its
+ * west ledge the quick way (a fall that hurts, or a roll that does not); two dummies below
  * the ledge to shoot at from the high ground, two below the cliff, a hill to
  * climb for the view and a hollow. Two <b>flying dummies</b> fly their rounds
  * - one just north of the spawn, one over the hollow by the cliff - and dive
@@ -608,7 +609,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
                     + "Backspace live · , . turn · T turntable",
-            "L lock on · K next target · walk into vines: climb · Alt/Z in the air: land in a roll · "
+            "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
+                    + "Alt/Z in the air: land in a roll · "
                     + "the hills are up the north path",
             "Tab height · O auto height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · "
                     + "F11 full screen · Esc menu"};
@@ -971,14 +973,22 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 p.lift(Double.parseDouble(a[0]));
                 if (a.length > 1 && a[1].equals("roll")) scripted = Player.Intent.NONE.withDodge(true, false);
             }
-            // climb: at the foot of the vine cliff, climbing it (move stop to hang on, idle to let the keys back)
+            // climb: at the foot of the vine cliff, climbing it (move stop to hang on, idle to let the keys back);
+            // climb top: on top of it a step from its lip, walking off it - down over the lip and on down the vines
             case "climb" -> {
                 if (world.terrain().walls().isEmpty()) return false;
                 Terrain.Wall wall = world.terrain().walls().get(0);
-                p.setPosition(wall.at(wall.length() / 2, Player.CLING + 0.1));
-                p.snapHeading(wall.facing());
-                double way = argument.trim().equals("down") ? -1 : 1;
-                scripted = new Player.Intent(-wall.nx() * way, -wall.nz() * way, false, false, false, false);
+                if (argument.trim().equals("top")) {
+                    double along = wall.length() / 2;
+                    p.setPosition(wall.at(along, world.terrain().lipOut(wall, along) - Player.LEDGE_BEHIND - 1));
+                    p.snapHeading(SpriteView.headingOf(wall.nx(), wall.nz()));
+                    scripted = new Player.Intent(wall.nx(), wall.nz(), false, false, false, false);
+                } else {
+                    p.setPosition(wall.at(wall.length() / 2, Player.CLING + 0.1));
+                    p.snapHeading(wall.facing());
+                    double way = argument.trim().equals("down") ? -1 : 1;
+                    scripted = new Player.Intent(-wall.nx() * way, -wall.nz() * way, false, false, false, false);
+                }
                 camera.snapTo(follow());
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");

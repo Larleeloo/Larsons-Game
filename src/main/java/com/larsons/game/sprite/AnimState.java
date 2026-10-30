@@ -188,7 +188,13 @@ public enum AnimState {
     WAND_ATTACK_UP("wand_attack_up", "Wand cast, aimed up", false, 24, Stance.WAND, 0, "wand_attack"),
     // --- climbing a rock face, hand over hand, with empty hands: a loop the game plays
     // forwards as she climbs, backwards as she climbs down, and holds while she hangs
-    CLIMB("climb", "Climb", true, 32, Stance.FREE, 0, "idle");
+    CLIMB("climb", "Climb", true, 32, Stance.FREE, 0, "idle"),
+    // --- the top of a climb (feminine_model_ledge.py), empty hands, in place along a path
+    // the game carries her on ({@code Player.LEDGE_PATH}): stepping up over the lip from
+    // hanging by her hands, and stepping down over it to hang by them (the same move the
+    // other way round)
+    LEDGE_UP("ledge_up", "Ledge, step up", false, 36, Stance.FREE, 0, "climb"),
+    LEDGE_DOWN("ledge_down", "Ledge, step down", false, 36, Stance.FREE, 0, "climb");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

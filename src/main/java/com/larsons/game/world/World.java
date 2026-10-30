@@ -319,7 +319,7 @@ public final class World {
                     combat.say(e.amount() > 0 ? "Rolled out of the fall" : "Roll", 0x9CC4FF, at, 2.1, true);
                     combat.sound("combat/landing_roll", at);
                 }
-                case CLIMBED -> combat.sound("combat/climb_top", at);
+                case CLIMBED, STEPPED_DOWN -> combat.sound("combat/climb_top", at);
                 case LET_GO -> {
                     if (e.amount() > 0) combat.say("Out of stamina", 0xFFD27A, at, 2.1, true);
                 }

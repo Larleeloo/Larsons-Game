@@ -276,6 +276,30 @@ public final class Terrain {
         return null;
     }
 
+    /**
+     * Where wall {@code w}'s rock face is at height {@code y}, {@code along}
+     * metres along it: metres out from its foot (negative: in from it, as the
+     * face leans back). At its top, its lip.
+     */
+    public double faceOut(Wall w, double along, double y) {
+        double in = -4, out = 1;
+        Vec3 a = w.at(along, in), b = w.at(along, out);
+        if (height(a.x(), a.z()) < y) return in;
+        if (height(b.x(), b.z()) >= y) return out;
+        for (int i = 0; i < 24; i++) {
+            double mid = (in + out) / 2;
+            Vec3 p = w.at(along, mid);
+            if (height(p.x(), p.z()) >= y) in = mid;
+            else out = mid;
+        }
+        return (in + out) / 2;
+    }
+
+    /** Wall {@code w}'s lip {@code along} metres along it: metres out from its foot. */
+    public double lipOut(Wall w, double along) {
+        return faceOut(w, along, w.top() - 0.01);
+    }
+
     // --- the grid, for drawing ---------------------------------------------------------
 
     /** The box's west (x) and north (z) edges; the grid's columns and rows. */

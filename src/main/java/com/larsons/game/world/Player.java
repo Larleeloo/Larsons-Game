@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.math.Pchip;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Facing;
@@ -60,9 +61,14 @@ import java.util.function.ToDoubleFunction;
  * when she lands in the combat roll and nothing hurts. Walking into a
  * {@link Terrain.Wall} she <b>climbs</b> it ({@link AnimState#CLIMB}, her
  * hands empty): into the wall is up, away from it down, along it sideways, at
- * {@link #CLIMB_SPEED}; at the top she pulls herself over. Climbing spends
- * her <b>stamina</b> ({@link #stamina()}), which fills back up on the ground;
- * when it runs out - or the jump, crouch or dodge key lets go - she drops.
+ * {@link #CLIMB_SPEED}; with her hands at its lip she <b>steps up</b> over it
+ * ({@link AnimState#LEDGE_UP}). Walking off the top of a wall she can climb,
+ * she <b>steps down</b> over its lip onto it instead ({@link
+ * AnimState#LEDGE_DOWN}, turned to face it) and climbs on down. Both carry her
+ * along {@link #LEDGE_PATH}. Climbing spends her <b>stamina</b> ({@link
+ * #stamina()}), which fills back up on the ground; when it runs out - or the
+ * jump, crouch or dodge key lets go - she drops; too tired to climb down, she
+ * stops at the lip.
  *
  * <p>She has <b>health</b> ({@link #health()}): a fall, or a flier's swoop,
  * takes some; it fills back up a while after the last hurt ({@link World}
@@ -140,8 +146,24 @@ public final class Player {
     public static final double CLIMB_MIN = 15;
     /** How long after she last spent stamina it starts filling back up, and how fast (a second). */
     public static final double STAMINA_DELAY = 0.8, STAMINA_REGEN = 25;
-    /** How far out from a wall's foot she hangs (her middle), and how near it she has to walk to take hold. */
+    /**
+     * How far out from a wall's face she hangs (her middle: from the rock where
+     * her hands are), and how near its foot she has to walk to take hold.
+     */
     public static final double CLING = 0.3, GRAB_REACH = 0.6;
+    /**
+     * Stepping up over a wall's lip ({@link AnimState#LEDGE_UP}) and down over
+     * it ({@link AnimState#LEDGE_DOWN}, the same played the other way round):
+     * where the ground under her middle is at each key frame of the step up -
+     * {frame, metres out from the lip, metres up from the top} - from hanging
+     * by her hands on the lip to standing behind it; a monotone cubic between
+     * the keys ({@link Pchip}). The same as {@code feminine_model_ledge.PATH},
+     * which the sheets are posed along.
+     */
+    public static final double[][] LEDGE_PATH = {{0, 0.30, -1.60}, {4, 0.30, -1.63}, {13, 0.22, -1.08},
+            {18, 0.14, -0.93}, {23, 0.06, -0.80}, {27, -0.08, -0.45}, {31, -0.30, -0.06}, {35, -0.35, 0}};
+    /** How far below a wall's top her feet are as she hangs from its lip, and how far behind it she stands. */
+    public static final double LEDGE_RISE = -LEDGE_PATH[0][2], LEDGE_BEHIND = -LEDGE_PATH[LEDGE_PATH.length - 1][1];
     /** How far through the stance's jump the pose she falls in is. */
     public static final double FALL_POSE = 0.5;
     /** The highest step down she walks down (metres) rather than falling off it. */
@@ -156,8 +178,10 @@ public final class Player {
             FALL,
             /** Landed in a roll from a fall that would have hurt ({@code amount}: what it would have). */
             ROLLED,
-            /** Pulled herself up over the top of a wall. */
+            /** Stepped up over the top of a wall. */
             CLIMBED,
+            /** Stepped down over the top of a wall, onto it. */
+            STEPPED_DOWN,
             /** Let go of a wall, or fell off it with no stamina left ({@code amount} 1). */
             LET_GO,
             /** Hurt by something ({@code amount}). */
@@ -250,6 +274,9 @@ public final class Player {
     private Terrain terrain = Terrain.FLAT;
     /** The wall she is climbing, or null. */
     private Terrain.Wall wall;
+    /** Stepping up or down over its lip: which, how far along it, its lip (out from its foot), how long since it began. */
+    private AnimState ledge;
+    private double ledgeAlong, ledgeLip, ledgeTime;
     /** Whether she is off the ground (a jump, a ledge), and the highest her feet were since she left it. */
     private boolean airborne;
     private double fallFrom;
@@ -294,6 +321,10 @@ public final class Player {
             // One-shots loop too while previewed, with a beat's pause between.
             if (!preview.loops() && stateTime > durations.applyAsDouble(preview) + 0.35) stateTime = 0;
             turnToward(dt);
+            return;
+        }
+        if (ledge != null) {
+            overLip(dt, durations);
             return;
         }
         if (wall != null) {
@@ -387,10 +418,17 @@ public final class Player {
         if (wish.length() > 1) wish = wish.normalize();
         boolean rooted = (busy && !jumping) || blocking;
         if (rooted) wish = Vec3.ZERO;
-        // walking into a wall she can climb, she takes hold of it
+        // walking into a wall she can climb, she takes hold of it; off the top of one, she steps down onto it
         if (!busy && grounded && !blocking && wish.length() > 0.5 && grabWall(wish)) {
             climb(0, in);
             return;
+        }
+        if (!busy && grounded && !blocking && wish.length() > 0.5) {
+            wish = stepDown(wish);
+            if (ledge != null) {
+                overLip(0, durations);
+                return;
+            }
         }
         Vec3 target = wish.scale(moving.speed() * slopeFactor(wish));
         if (dodging()) {
@@ -572,7 +610,15 @@ public final class Player {
         double len = wish.horizontalLength();
         double into = -(wish.x() * w.nx() + wish.z() * w.nz()) / len;
         double feetY = position.y() + height;
-        if (into < 0.7 || feetY > w.top() - 0.6 || feetY < w.bottom() - 0.3) return false;
+        if (into < 0.7 || feetY > w.top() - LEDGE_RISE - 0.1 || feetY < w.bottom() - 0.3) return false;
+        takeHold(w);
+        setState(AnimState.CLIMB);
+        stateTime = 1000;                 // (well past 0, so climbing down can play it backwards)
+        return true;
+    }
+
+    /** On wall {@code w}, whatever she was doing. */
+    private void takeHold(Terrain.Wall w) {
         wall = w;
         crouched = false;
         drawing = false;
@@ -582,15 +628,17 @@ public final class Player {
         rollPrimed = false;
         vy = 0;
         velocity = Vec3.ZERO;
-        setState(AnimState.CLIMB);
-        stateTime = 1000;                 // (well past 0, so climbing down can play it backwards)
-        return true;
+    }
+
+    /** How far out from wall {@code w}'s foot she hangs with her feet at {@code feetY}: {@link #CLING} from the rock her hands are on. */
+    private double cling(Terrain.Wall w, double along, double feetY) {
+        return terrain.faceOut(w, along, Math.min(w.top() - 0.01, feetY + LEDGE_RISE)) + CLING;
     }
 
     /**
      * A frame on the wall: up, down and along it as the keys say, stamina
-     * spent; over the top at the top, off at the bottom, and dropped when
-     * the stamina is gone or a key lets go.
+     * spent; over the lip with her hands at it, off at the bottom, and
+     * dropped when the stamina is gone or a key lets go.
      */
     private void climb(double dt, Intent in) {
         Terrain.Wall w = wall;
@@ -604,10 +652,10 @@ public final class Player {
         }
         double up = -(mx * w.nx() + mz * w.nz()), side = mx * ux + mz * uz;
         double feetY = position.y() + height;
-        double climbY = Math.max(w.bottom(), feetY + up * CLIMB_SPEED * dt);
+        double climbY = Math.min(w.top() - LEDGE_RISE, Math.max(w.bottom(), feetY + up * CLIMB_SPEED * dt));
         double along = Math.max(0.3, Math.min(len - 0.3, w.along(position.x(), position.z())
                 + side * CLIMB_SIDEWAYS * dt));
-        Vec3 at = w.at(along, CLING);
+        Vec3 at = w.at(along, cling(w, along, climbY));
         double ground = terrain.height(at.x(), at.z());
         position = new Vec3(at.x(), ground, at.z());
         heading = wantHeading = w.facing();
@@ -617,13 +665,9 @@ public final class Player {
         setState(AnimState.CLIMB);
         stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
 
-        if (climbY >= w.top() - 0.02) {
-            // over the top: onto the rock behind the wall's lip
-            Vec3 top = w.at(along, -0.6);
-            wall = null;
-            height = 0;
-            position = new Vec3(top.x(), terrain.height(top.x(), top.z()), top.z());
-            events.add(new Event(Event.Kind.CLIMBED, 0));
+        if (climbY >= w.top() - LEDGE_RISE - 1e-6 && up > 0.1) {
+            // her hands at the lip: up over it
+            startLedge(AnimState.LEDGE_UP, w, along);
             return;
         }
         if (climbY <= ground + 0.01 && up < 0) {
@@ -635,13 +679,94 @@ public final class Player {
         boolean letGo = in.jump() || in.dodge() || in.crouch();
         if (letGo || stamina <= 0) {
             wall = null;
-            Vec3 off = w.at(along, CLING + 0.25);
+            Vec3 off = w.at(along, cling(w, along, climbY) + 0.25);
             position = new Vec3(off.x(), terrain.height(off.x(), off.z()), off.z());
             height = Math.max(0, climbY - position.y());
             airborne = height > 0;
             fallFrom = climbY;
             vy = 0;
             events.add(new Event(Event.Kind.LET_GO, letGo ? 0 : 1));
+        }
+    }
+
+    /**
+     * Walking towards the lip of a wall she stands on top of: she steps down
+     * over it onto the wall ({@link #ledge} starts) once she is near enough,
+     * or - too tired to climb - stops short of it. Returns how she goes on
+     * walking.
+     */
+    private Vec3 stepDown(Vec3 wish) {
+        double feetY = position.y() + height;
+        for (Terrain.Wall w : terrain.walls()) {
+            double along = w.along(position.x(), position.z());
+            if (along < 0.3 || along > w.length() - 0.3 || Math.abs(feetY - w.top()) > 0.3) continue;
+            double lip = terrain.lipOut(w, along), out = w.out(position.x(), position.z()) - lip;
+            if (out < -LEDGE_BEHIND - 0.8 || out > 0.1) continue;
+            double toward = (wish.x() * w.nx() + wish.z() * w.nz()) / wish.horizontalLength();
+            if (toward < 0.5) continue;
+            if (stamina < CLIMB_MIN) {
+                // too tired to climb down: no further out than where she would step down from
+                if (out < -LEDGE_BEHIND - 0.15) continue;
+                double o = wish.x() * w.nx() + wish.z() * w.nz(), v = velocity.x() * w.nx() + velocity.z() * w.nz();
+                if (v > 0) velocity = velocity.sub(new Vec3(w.nx() * v, 0, w.nz() * v));
+                return wish.sub(new Vec3(w.nx() * o, 0, w.nz() * o));
+            }
+            if (out < -LEDGE_BEHIND - 0.15 || toward < 0.7) continue;
+            takeHold(w);
+            startLedge(AnimState.LEDGE_DOWN, w, along);
+            events.add(new Event(Event.Kind.STEPPED_DOWN, 0));
+            return Vec3.ZERO;
+        }
+        return wish;
+    }
+
+    /** Begin stepping up over wall {@code w}'s lip ({@link AnimState#LEDGE_UP}) or down over it, {@code along} it. */
+    private void startLedge(AnimState s, Terrain.Wall w, double along) {
+        ledge = s;
+        ledgeAlong = along;
+        ledgeLip = terrain.lipOut(w, along);
+        ledgeTime = 0;
+        heading = wantHeading = w.facing();
+        setState(s);
+    }
+
+    /**
+     * A frame of stepping up over the lip or down over it: carried along
+     * {@link #LEDGE_PATH} (backwards, stepping down) as its sheets play;
+     * standing on the top at the end of the step up, hanging on the wall by
+     * her hands at the end of the step down.
+     */
+    private void overLip(double dt, ToDoubleFunction<AnimState> durations) {
+        Terrain.Wall w = wall;
+        ledgeTime += dt;
+        stamina = Math.max(0, stamina - CLIMB_COST * dt);
+        sinceTired = 0;
+        velocity = Vec3.ZERO;
+        double last = LEDGE_PATH[LEDGE_PATH.length - 1][0];
+        double duration = durations.applyAsDouble(ledge);
+        double f = Math.min(last, ledgeTime / Math.max(1e-6, duration) * (last + 1));
+        if (ledge == AnimState.LEDGE_DOWN) f = last - f;
+        Vec3 at = w.at(ledgeAlong, ledgeLip + Pchip.at(LEDGE_PATH, 1, f));
+        double feetY = w.top() + Pchip.at(LEDGE_PATH, 2, f);
+        // (in under the lip, the ground under her middle is in the rock: she is on it, not under it)
+        position = new Vec3(at.x(), Math.min(feetY, terrain.height(at.x(), at.z())), at.z());
+        height = feetY - position.y();
+        heading = wantHeading = w.facing();
+        setState(ledge);
+        stateTime = ledgeTime;
+        if (ledgeTime < duration) return;
+        if (ledge == AnimState.LEDGE_UP) {
+            // up: standing on the top behind the lip
+            ledge = null;
+            wall = null;
+            position = terrain.onGround(at);
+            height = 0;
+            events.add(new Event(Event.Kind.CLIMBED, 0));
+        } else {
+            // down: hanging by her hands, climbing
+            ledge = null;
+            setState(AnimState.CLIMB);
+            stateTime = 1000;
         }
     }
 
@@ -817,6 +942,7 @@ public final class Player {
         preview = s;
         if (s != null) {
             wall = null;
+            ledge = null;
             jumping = false;
             action = null;
             drawing = false;
@@ -866,6 +992,7 @@ public final class Player {
         height = 0;
         vy = 0;
         wall = null;
+        ledge = null;
         airborne = false;
         rollPrimed = false;
     }
@@ -949,6 +1076,7 @@ public final class Player {
     /** Put her {@code metres} up in the air where she stands, falling from there (scripts and tests). */
     public void lift(double metres) {
         wall = null;
+        ledge = null;
         action = null;
         jumping = false;
         height = Math.max(0, metres);
