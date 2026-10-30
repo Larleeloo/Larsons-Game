@@ -265,7 +265,7 @@ public final class LevelIO {
         head.put("name", level.name());
         head.put("size", round(level.size()));
         head.put("sky", sky(level.sky()));
-        for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), e.getValue());
+        for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         String text = Json.stringify(head);
         StringBuilder sb = new StringBuilder(text.substring(0, text.lastIndexOf('}')).stripTrailing());
         sb.append(",\n  \"objects\": [");
@@ -322,11 +322,25 @@ public final class LevelIO {
         j.put("z", round(o.z()));
         if (o.lift() != 0) j.put("lift", round(o.lift()));
         j.put("yaw", round(Math.toDegrees(o.yaw()), 100));
-        for (Map.Entry<String, Object> e : o.props().entrySet()) {
-            Object v = e.getValue();
-            j.put(e.getKey(), v instanceof Double d ? round(d) : v);
-        }
+        for (Map.Entry<String, Object> e : o.props().entrySet()) j.put(e.getKey(), tidy(e.getValue()));
         return j;
+    }
+
+    /** {@code v} as written: its numbers - in lists and objects too - to the millimetre, whole ones without ".0". */
+    static Object tidy(Object v) {
+        if (v instanceof Double d) return round(d);
+        if (v instanceof Float f) return round(f);
+        if (v instanceof List<?> list) {
+            List<Object> out = new ArrayList<>();
+            for (Object x : list) out.add(tidy(x));
+            return out;
+        }
+        if (v instanceof Map<?, ?> m) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) out.put(String.valueOf(e.getKey()), tidy(e.getValue()));
+            return out;
+        }
+        return v;
     }
 
     /** {@code v} to the millimetre - a whole number when it is one. */
