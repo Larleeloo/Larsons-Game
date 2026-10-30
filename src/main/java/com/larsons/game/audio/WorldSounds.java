@@ -64,6 +64,7 @@ public final class WorldSounds {
     /** How far each item out of a chest has got: 1 thrown, 2 landed. */
     private Map<World.GroundItem, Integer> loot = new IdentityHashMap<>();
     private final SoundEmitter wind = new SoundEmitter();
+    private Map<World.SoundSpot, SoundEmitter> spots = new IdentityHashMap<>();
 
     /** The state the last footstep was counted in, and which half of its cycle that was. */
     private AnimState stepState;
@@ -104,6 +105,20 @@ public final class WorldSounds {
             Sounds.play(s.key(), at[0] * s.volume(), at[1]);
         }
         wind.update(SoundKeys.ambient("wind"), WIND);
+        spots(world, listener, right);
+    }
+
+    /** The sounds placed in a level, each where it stands; one taken away falls silent. */
+    private void spots(World world, Vec3 listener, Vec3 right) {
+        Map<World.SoundSpot, SoundEmitter> now = new IdentityHashMap<>();
+        for (World.SoundSpot s : world.soundSpots()) {
+            SoundEmitter e = spots.remove(s);
+            if (e == null) e = new SoundEmitter();
+            e.update(s.key(), s.at(), listener, right);
+            now.put(s, e);
+        }
+        for (SoundEmitter gone : spots.values()) gone.stop();
+        spots = now;
     }
 
     /** {@link #update(World, OrbitCamera, ToDoubleFunction)} with the stand-in's animation lengths. */
@@ -210,5 +225,6 @@ public final class WorldSounds {
         for (AnimationSound s : dummies.values()) s.stop();
         for (SoundEmitter e : wings.values()) e.stop();
         wind.stop();
+        for (SoundEmitter e : spots.values()) e.stop();
     }
 }

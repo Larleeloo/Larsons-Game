@@ -1,5 +1,6 @@
 package com.larsons.game.level;
 
+import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.level.ObjectType.Category;
@@ -13,6 +14,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.Wearables;
+import com.larsons.game.world.World;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,7 +26,8 @@ import java.util.Map;
  * Every kind of thing a level can hold, by key - and the editor's palette of
  * them ({@link #palette}): each tree, rock and tuft of {@code assets/scenery},
  * every weapon and every wearable, the chest, the training dummy and the
- * flying dummy, the vines she climbs, the player's spawn and named spots.
+ * flying dummy, the vines she climbs, sounds that keep playing where they
+ * are put, the player's spawn and named spots.
  *
  * <p>A new kind is one more {@link #register} call: its props are edited in
  * the editor and kept in the level's file with no more work, and its
@@ -33,7 +36,7 @@ import java.util.Map;
 public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
-            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines";
+            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound";
 
     /** The chest's sprites (assets/sprites/objects/). */
     public static final String CHEST_SPRITE = "ornate_chest";
@@ -70,6 +73,11 @@ public final class ObjectTypes {
                         o.num("health", 60), b.tuning().dummyDownSeconds, b.terrain()))));
         register(new ObjectType(VINES, "Climbing vines", Category.TERRAIN,
                 List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5)), 0.6, 3, 0x5F9E3A, false, null));
+        register(new ObjectType(SOUND, "Sound", Category.SOUNDS,
+                List.of(Prop.choice("sound", "Sound", SoundKeys.ambient("stream"), o -> soundKeys())), 0.5, 1.2,
+                0xB48CFF, false,
+                (o, b) -> b.world().soundSpots().add(new World.SoundSpot(o.str("sound", SoundKeys.ambient("stream")),
+                        b.onGround(o).add(0, 1, 0)))));
     }
 
     private static ScenerySprites scenerySprites = ScenerySprites.NONE;
@@ -162,13 +170,23 @@ public final class ObjectTypes {
         for (ItemDef d : Wearables.ALL) {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
+        for (String key : soundKeys()) {
+            out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
+        }
         for (ObjectType t : TYPES.values()) {
-            if (t.key().equals(SCENERY) || t.key().equals(ITEM)) continue;
+            if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
         }
         return Collections.unmodifiableList(out);
+    }
+
+    /** The sounds a sound spot can play: the held ambient ones (a stream, crickets, the breeze). */
+    static List<String> soundKeys() {
+        List<String> out = new ArrayList<>();
+        for (String s : SoundKeys.AMBIENT_SOUNDS) out.add(SoundKeys.ambient(s));
+        return out;
     }
 
     /** What the editor calls {@code o}: its sprite's or item's name, a spot's own name, or its kind's. */
@@ -182,14 +200,16 @@ public final class ObjectTypes {
                 yield item == null ? "Item " + o.str("item", "?") + " (unknown)" : item.name();
             }
             case MARKER -> "Spot \"" + o.str("name", "spot") + "\"";
+            case SOUND -> "Sound: " + readable(o.str("sound", "?"));
             default -> t.label();
         };
     }
 
-    /** "oak_tree" → "Oak tree". */
+    /** "oak_tree" → "Oak tree", "ambient/stream" → "Stream". */
     public static String readable(String key) {
-        if (key == null || key.isEmpty()) return "";
-        String s = key.replace('_', ' ');
+        if (key == null) return "";
+        String s = key.substring(key.lastIndexOf('/') + 1).replace('_', ' ');
+        if (s.isEmpty()) return "";
         return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 

@@ -105,6 +105,7 @@ public final class LevelWorld {
         world.chests().clear();
         world.dummies().clear();
         world.fliers().clear();
+        world.soundSpots().clear();
         Build b = new Build(world, terrain, sprites, tuning);
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));
         world.player().setPosition(Vec3.ZERO);

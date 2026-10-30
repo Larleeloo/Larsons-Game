@@ -1,8 +1,12 @@
 package com.larsons.game.level;
 
+import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.sprite.ScenerySprites;
+import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.Sky;
 import com.larsons.game.world.Terrain;
+import com.larsons.game.world.World;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -207,5 +211,22 @@ class LevelTest {
         Files.writeString(folder.resolve(LevelIO.FILE), "{\"name\": ");
         assertThrows(RuntimeException.class, () -> LevelIO.load(folder));
         assertTrue(LevelIO.list(root).isEmpty(), "and left off the Dev tab's list");
+    }
+
+    @Test
+    void aSoundSpotKeepsPlayingWhereItIsPut() {
+        Level l = Level.blank("brook", 64);
+        l.heights().raise(6, 2, 4, 2);
+        l.add(ObjectTypes.SOUND, 6, 2, 0, Map.of("sound", "ambient/stream"));
+        assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.type().equals(ObjectTypes.SOUND)
+                && "ambient/crickets".equals(e.props().get("sound"))), "each held sound is in the palette");
+        World w = new World(new Wardrobe());
+        LevelWorld.populate(w, l, ScenerySprites.NONE, CombatTuning.defaults());
+        assertEquals(1, w.soundSpots().size());
+        World.SoundSpot s = w.soundSpots().get(0);
+        assertEquals("ambient/stream", s.key());
+        assertEquals(3, s.at().y(), 0.05, "a metre over the ground there");
+        LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
+        assertTrue(w.soundSpots().isEmpty(), "taken away with the rest");
     }
 }

@@ -173,6 +173,7 @@ public final class World {
     private final Loot loot = Wearables.addTo(new Loot());
     private final List<Dummy> dummies = new ArrayList<>();
     private final List<FlyingDummy> fliers = new ArrayList<>();
+    private final List<SoundSpot> soundSpots = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
     private Terrain terrain = Terrain.FLAT;
     private Vec3 spawnPoint = Vec3.ZERO;
@@ -239,6 +240,12 @@ public final class World {
     }
 
     public List<FlyingDummy> fliers() { return fliers; }
+
+    /** A sound that keeps playing at a spot of a level - a stream, crickets - heard nearer it. */
+    public record SoundSpot(String key, Vec3 at) {}
+
+    /** The sounds placed in the level, played by its {@code WorldSounds}. */
+    public List<SoundSpot> soundSpots() { return soundSpots; }
 
     public FlyingDummy addFlier(FlyingDummy flier) {
         fliers.add(flier);

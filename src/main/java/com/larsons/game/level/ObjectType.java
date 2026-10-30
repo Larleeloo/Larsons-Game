@@ -42,6 +42,7 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         LOOT("Chests"),
         COMBAT("Training"),
         TERRAIN("Terrain"),
+        SOUNDS("Sounds"),
         MARKERS("Markers");
 
         private final String label;

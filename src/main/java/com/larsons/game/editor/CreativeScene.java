@@ -794,6 +794,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.line(wall.x0(), wall.z0(), wall.x1(), wall.z1(), 0.18, c, 0.9f);
                     arrow(o, c, 1.2);
                 }
+                case ObjectTypes.SOUND -> {
+                    gizmos.post(foot, 1.0, c, 0.9f, camera);
+                    gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
+                    gizmos.ring(o.x(), o.z(), 1.0, c, 0.4f);
+                }
                 case ObjectTypes.FLIER -> {
                     gizmos.ring(o.x(), o.z(), FlyingDummy.RADIUS_OF_ROUNDS, c, 0.35f);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -839,6 +844,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case ObjectTypes.SPAWN -> "Spawn";
                 case ObjectTypes.MARKER -> o.str("name", "spot");
                 case ObjectTypes.VINES -> "Vines";
+                case ObjectTypes.SOUND -> "Sound: " + ObjectTypes.readable(o.str("sound", "?"));
                 default -> ObjectTypes.get(o.type()) == null ? o.type() + "?" : null;
             };
             if (text == null) continue;

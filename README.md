@@ -25,6 +25,7 @@ ticked off as it lands.
 - [Fighting](#fighting)
 - [Sound](#sound)
 - [The scenery](#the-scenery)
+- [Creative Mode](#creative-mode)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
 - [What came from the engine](#what-came-from-the-engine)
@@ -51,7 +52,10 @@ last decade). Gradle comes with the repository.
 ./gradlew gameJar       # build/libs/larsons-game.jar, LWJGL included (put assets/ beside it)
 ```
 
-The main menu has one entry, **Demo**, which loads a meadow.
+The main menu has three tabs: **Play** (the demo, a meadow below the
+highlands), **Cutscene** (the menu's cutscene, played on its own) and **Dev**,
+which shows only once **1025** has been typed on the menu (either row of
+digits) and holds [Creative Mode](#creative-mode), the level editor.
 
 ## Controls
 
@@ -1019,6 +1023,98 @@ every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
 Settings → Scenery) hides it all. The folder's format is in
 [assets/scenery/README.md](assets/scenery/README.md).
 
+## Creative Mode
+
+Creative Mode is the game's level editor - the platform the game's real areas
+are built on. Type **1025** on the main menu to show its **Dev** tab (typed
+again, the tab hides; it stays shown between runs). There: **New level**, **Copy
+the demo** (the meadow and the highlands as a level, everything in them
+editable), and every saved level with **Edit**, **Play**, **Copy** and
+**Delete**.
+
+<p align="center">
+  <img src="docs/screenshots/creative-editor.png" width="49%" alt="The level editor placing an oak by a sculpted hill, the palette on the left and the oak's properties on the right">
+  <img src="docs/screenshots/creative-backdrops.png" width="49%" alt="A level's own sky: snow-capped mountains, rolling hills and a tree line round the horizon">
+</p>
+<p align="center">
+  <img src="docs/screenshots/creative-demo-copy.png" width="49%" alt="The demo copied into the editor: its paths, trees, dummies, chests, weapons and named spots">
+  <img src="docs/screenshots/creative-menu.png" width="49%" alt="The main menu's Dev tab with a saved level">
+</p>
+
+The editor shows the level as it will be played - the ground, the scenery, the
+items turning, the dummies, the chests - with what you are about to place
+standing under the pointer. Seven tools, on the number keys:
+
+| Tool | What it does |
+|---|---|
+| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
+| **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind) |
+| **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it |
+| **4 Paint** | dirt, forest floor, gravel or flower meadow over the grass; Shift paints back to grass |
+| **5 Scatter** | grass, trees or rocks - one sprite or a kind mixed - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep. Shift pulls up what you are sowing |
+| **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range |
+| **7 Level** | its name, its size (64, 128, 192 or 256 m a side), save, play, back to the menu |
+
+`[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
+Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
+right-drag or the arrow keys turn the view, the wheel zooms, **Tab** steps
+through the camera heights, **H** hides the panels, **Ctrl+Z** / **Ctrl+Y**
+undo and redo (sixty steps), **Ctrl+S** saves, **Esc** goes back to the menu
+(asking first when there is something unsaved).
+
+**F5 play-tests** the level from the pointer (**Shift+F5**: from the spawn) -
+the whole game, fighting, chests, climbing and all. **F5** again, or the pause
+menu's **Back to the editor**, returns to the editor as you left it.
+
+### Levels on disk
+
+A level is a folder of `assets/levels/`, meant to be read and to sit in git:
+
+```
+assets/levels/<level>/
+  level.json    its name, size, sky and backdrops, and every object - one a line
+  height.png    the sculpted ground, 16-bit grey: a height every 0.5 m (value / 256 - 128 m)
+  ground.png    the paint, a pixel every 0.25 m: red dirt, green forest floor, blue gravel, alpha meadow
+```
+
+```json
+{
+  "format": 1,
+  "name": "Lakeside",
+  "size": 128,
+  "sky": {"zenith": "#4A6FA5", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
+  "objects": [
+    {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
+    {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
+    {"id": 3, "type": "item", "x": 1.4, "z": -2.2, "yaw": 0, "item": "sword", "tier": "iron"},
+    {"id": 4, "type": "dummy", "x": 3, "z": -2, "yaw": 200, "health": 100},
+    {"id": 5, "type": "sound", "x": -12, "z": 8, "yaw": 0, "sound": "ambient/stream"}
+  ]
+}
+```
+
+The images are left out while the ground is flat and all grass. Keys and kinds
+of object this game does not know are read and written back as they were, so
+a level made by a newer game loses nothing in an older editor.
+
+### Adding a kind of thing
+
+Every kind of object - and every kind still to come: NPCs with their dialogue,
+quests, enemies and their summon stations, biomes' critters - is one
+registration in `level/ObjectTypes`:
+
+```java
+// for example, once there are NPCs:
+ObjectTypes.register(new ObjectType("npc", "Villager", Category.MARKERS,
+        List.of(Prop.text("name", "Name", "Villager"), Prop.text("dialogue", "Dialogue", "village_elder")),
+        0.4, 1.7, 0xF0C080, false,
+        (o, b) -> b.world().addNpc(new Npc(o.str("name", "Villager"), b.onGround(o), o.yaw()))));
+```
+
+Its props are edited in the editor's right panel and saved in `level.json`
+with no more work; its spawner says what it is when the level is played. The
+palette, the picking, undo, copy and paste, and saving take it as it is.
+
 ## GPU acceleration
 
 **The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the ground,
@@ -1136,14 +1232,19 @@ src/main/java/com/larsons/game/
   sprite/fallback/          the 32×32 fallback: Puppet (rigged box figure), PuppetRaster, FallbackSprites
   importer/                 SpriteImport — plan and save a drag-and-drop
   world/                    OrbitCamera, Player, World, ItemDef, Item, Tier, Rarity, Border, Loot, Inventory,
-                            Chest, Scenery, SceneryLayout, SceneryRenderer, VoidRenderer (the ground and sky),
+                            Chest, Scenery, SceneryLayout, SceneryRenderer, VoidRenderer (the ground, the sky
+                            and its distant backgrounds), Sky, GroundMap and GroundTexture (what the ground is),
                             WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items),
                             Terrain and TerrainRenderer (the highlands' heightmap, its rock and vines)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel,
-                            SoundsPanel
+                            SoundsPanel, DebugCode, DemoLevel (the demo as a level)
+  level/                    Creative Mode's levels: Level, LevelObject, ObjectType and ObjectTypes (every kind
+                            of thing, by key), HeightField (the sculpted ground), LevelWorld (a level played),
+                            LevelIO (its folder)
+  editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
   tools/                    SampleSprites
   util/                     Json
@@ -1151,6 +1252,7 @@ assets/sprites/             the sprite sheets (one folder per layer) and their c
                             the attack dummy and the flying dummy; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
+assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
 assets/sounds/              the sound pack: the placeholder sounds by category and object, SOUND_KEYS.txt
 tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
@@ -1239,7 +1341,13 @@ aimed-up bow and crossbow, and the high ground's die; and the scenery (its profi
 frame is in its sheet, the sheets and the ground tile in `assets/scenery/`
 keeping to their format, the meadow's layout - the same every run, nothing in
 a clearing or on top of anything solid -, the wind, and the player kept out
-of the trunks and rocks but not the grass).
+of the trunks and rocks but not the grass); and Creative Mode (`level/LevelTest`,
+`scene/DemoLevelTest`, `editor/EditorTest`): levels' objects and their numbers,
+the sculpting brushes and the level's edge, resizing, a level's folder written
+and read back the same - unknown kinds and keys kept -, the demo copied into a
+level with everything in it and that level played as the demo, sound spots,
+undo and redo of every kind of change, the scatter brush keeping trees apart
+and off cliffs, and pointing at the ground and at things through the camera.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -1268,6 +1376,18 @@ that high, rolling out of it), `climb [down|top]`, `autocamera on|off`, `mana <n
 the item's own colours) and
 `hand` (`auto`, `right`, `left`). Opening the wardrobe saves the outfit to
 `config/wardrobe.json` when it closes, a scripted run included.
+
+`scene` also takes `creative` (a new level), `edit:<folder>` and
+`play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
+<place|select|sculpt|paint|scatter|sky|level>`, `entry <sprite|item|kind|label>`
+(the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
+[distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
+`turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
+<strength> [seconds] [height]`, `paint <0 grass … 4 meadow> <x> <z> <radius>`,
+`scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
+`sky fog <m>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
+height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
+on|off`, `fog game|thin`, `playtest [x z]` and `leave`.
 
 ---
 
