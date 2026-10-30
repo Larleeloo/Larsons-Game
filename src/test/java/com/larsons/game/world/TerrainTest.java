@@ -60,6 +60,26 @@ class TerrainTest {
     }
 
     @Test
+    void theFlatGroundLeavesTheHillsCellsToThem() {
+        // the flat ground writes its depth - the earth in front of the hollow hides its inside - but
+        // not in the cells the hills draw, so the hollow's own floor is not hidden
+        byte[] cells = VoidRenderer.hillCells(HIGH);
+        int w = HIGH.columns() - 1;
+        assertEquals(w * (HIGH.rows() - 1), cells.length);
+        int hills = 0;
+        for (byte c : cells) if (c != 0) hills++;
+        assertEquals(TerrainRenderer.indices(HIGH).length, hills * 6, "the cells the hills draw, two triangles each");
+        assertNotEquals(0, cells[cell(Terrain.HOLLOW[0], Terrain.HOLLOW[1], w)], "the hollow's floor");
+        assertEquals(0, cells[cell(Terrain.HOLLOW[0], -18.5, w)], "the meadow just south of the hollow");
+        assertEquals(0, cells[0], "the box's north-west corner");
+        assertEquals(0, VoidRenderer.hillCells(Terrain.FLAT).length);
+    }
+
+    private static int cell(double x, double z, int w) {
+        return (int) ((z - HIGH.originZ()) / Terrain.STEP) * w + (int) ((x - HIGH.originX()) / Terrain.STEP);
+    }
+
+    @Test
     void theRampAndTheHillCanBeWalkedTheRockCannot() {
         for (double z = -20; z > -29.5; z -= 0.5) {
             assertTrue(HIGH.rise(3, z, 0, -1) <= Terrain.STEEP, "up the ramp at z " + z);

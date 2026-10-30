@@ -213,6 +213,17 @@ public final class Terrain {
     }
 
     /**
+     * Whether the grid's cell from column {@code i} to {@code i + 1} and row
+     * {@code j} to {@code j + 1} is flat at {@code y = 0}: the flat ground's
+     * own, which {@link TerrainRenderer} leaves to it.
+     */
+    boolean flatCell(int i, int j) {
+        float m = Math.max(Math.max(Math.abs(at(i, j)), Math.abs(at(i + 1, j))),
+                Math.max(Math.abs(at(i, j + 1)), Math.abs(at(i + 1, j + 1))));
+        return m < 1e-4f;
+    }
+
+    /**
      * How steeply the ground rises at {@code (x, z)} going along {@code (dx,
      * dz)} (a unit vector), rise over run across half a metre: negative
      * downhill.

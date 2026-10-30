@@ -742,7 +742,8 @@ where it is too steep to walk (gravel and strata, mapped on all three axes so
 a cliff is not stretched) and **vines** painted on the cliff she can climb.
 Everything stands on it - her, the dummies, the chest and its loot, the
 items, the trees, the shadows (bent over the slopes) - and outside the
-highlands the ground is the flat meadow as before.
+highlands the ground is the flat meadow as before. The meadow is solid
+earth: from beside the hollow, its near rim hides its inside.
 
 ```
 the ramp       3 m wide, from the end of the north path up to the plateau (her pace slows uphill, quickens down)

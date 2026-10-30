@@ -32,7 +32,8 @@ import static org.lwjgl.opengl.GL33C.*;
  * character standing on it is never cut off at the toes (her card stands
  * upright on her spot, and the ground just in front of her feet would
  * otherwise be in front of them). Cells that are flat at {@code y = 0} are
- * left to the flat ground.
+ * left to the flat ground, which writes its depth the same way: so the earth
+ * in front of the hollow hides its inside, below the ground, from the side.
  */
 public final class TerrainRenderer implements AutoCloseable {
 
@@ -201,10 +202,8 @@ public final class TerrainRenderer implements AutoCloseable {
         List<Integer> out = new ArrayList<>();
         for (int j = 0; j + 1 < nz; j++) {
             for (int i = 0; i + 1 < nx; i++) {
+                if (t.flatCell(i, j)) continue;
                 int a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
-                float m = Math.max(Math.max(Math.abs(t.at(i, j)), Math.abs(t.at(i + 1, j))),
-                        Math.max(Math.abs(t.at(i, j + 1)), Math.abs(t.at(i + 1, j + 1))));
-                if (m < 1e-4f) continue;
                 out.add(a);
                 out.add(c);
                 out.add(b);

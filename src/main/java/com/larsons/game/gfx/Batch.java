@@ -49,11 +49,15 @@ import static org.lwjgl.opengl.GL33C.*;
  * point where each pixel's view ray meets a plane through the anchor that
  * stands up from the ground and faces the camera - so whatever stands
  * behind her feet is behind all of her, and whatever stands in front of
- * them in front.
+ * them in front. Never deeper than the ground the anchor is on, though:
+ * where a pixel's ray meets the plane below that ground - the foot of a
+ * halo, and from high above, as the plane leans back, more - it is tested
+ * where the ray meets the ground instead, so the earth, which writes its
+ * depth, does not cut it off.
  */
 public final class Batch implements AutoCloseable {
 
-    private static final int FLOATS_PER_VERTEX = 15;      // xyz uv rgba clip palette plane
+    private static final int FLOATS_PER_VERTEX = 16;      // xyz uv rgba clip palette plane floor
     private static final int QUAD_BYTES = 4 * FLOATS_PER_VERTEX * Float.BYTES;
     /** Quads one upload holds (the CPU buffer, and the shared index buffer). */
     private static final int MAX_QUADS = 8192;
@@ -75,6 +79,7 @@ public final class Batch implements AutoCloseable {
             layout(location = 3) in vec4 aClip;
             layout(location = 4) in float aPalette;
             layout(location = 5) in float aPlane;     // the depth plane's distance from uEye along uPlaneNormal; 0: none
+            layout(location = 6) in float aFloor;     // the height of the ground its anchor stands on
             uniform mat4 uProj;
             uniform vec3 uEye;
             uniform vec3 uPlaneNormal;
@@ -87,8 +92,12 @@ public final class Batch implements AutoCloseable {
                 vec4 clip = uProj * vec4(aPos, 1.0);
                 float along = dot(aPos - uEye, uPlaneNormal);
                 if (aPlane > 0.0 && along > 1e-4) {
-                    // The same pixel, at the depth of the point along its view ray on the plane.
+                    // The same pixel, at the depth of the point along its view ray on the plane -
+                    // or where the ray meets the ground the anchor stands on, if that is nearer.
                     float s = clamp(aPlane / along, 0.02, 50.0);
+                    if (aPos.y < uEye.y && uEye.y > aFloor && uEye.y + (aPos.y - uEye.y) * s < aFloor) {
+                        s = max(0.02, (uEye.y - aFloor) / (uEye.y - aPos.y));
+                    }
                     vec4 upright = uProj * vec4(uEye + (aPos - uEye) * s, 1.0);
                     clip.z = clamp(upright.z / upright.w, -1.0, 1.0) * clip.w;
                 }
@@ -158,6 +167,8 @@ public final class Batch implements AutoCloseable {
     private Vec3 planeEye, planeNormal;
     /** The plane the quads queued now are tested at ({@link #depthAnchor}); 0: their own depth. */
     private float plane;
+    /** The height of the ground their anchor stands on: the plane is never tested below it. */
+    private float floor;
 
     public Batch() {
         shader = new Shader("batch", VERTEX, FRAGMENT);
@@ -181,6 +192,8 @@ public final class Batch implements AutoCloseable {
         glEnableVertexAttribArray(4);
         glVertexAttribPointer(5, 1, GL_FLOAT, false, stride, 14L * Float.BYTES);
         glEnableVertexAttribArray(5);
+        glVertexAttribPointer(6, 1, GL_FLOAT, false, stride, 15L * Float.BYTES);
+        glEnableVertexAttribArray(6);
 
         ebo = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -278,6 +291,7 @@ public final class Batch implements AutoCloseable {
         }
         double d = anchor.sub(planeEye).dot(planeNormal);
         plane = d > 1e-3 ? (float) d : 0;            // (a plane through the eye or behind it: no plane at all)
+        floor = (float) anchor.y();
     }
 
     /** No palette: the texture is drawn as it is (RGBA). */
@@ -455,7 +469,7 @@ public final class Batch implements AutoCloseable {
                      float r, float g, float b, float a,
                      float cu0, float cv0, float cu1, float cv1, float palette) {
         data.put(x).put(y).put(z).put(u).put(v).put(r).put(g).put(b).put(a)
-                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette).put(plane);
+                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette).put(plane).put(floor);
     }
 
     /** Upload what is queued and draw it: one upload, one draw call per run of the same texture. */

@@ -27,7 +27,9 @@ import static org.lwjgl.opengl.GL33C.*;
  * Draws a frame of the world, in the order the 2D/3D mix needs:
  *
  * <ol>
- *   <li><b>The void</b> — sky and endless grass, one full-screen pass, no depth.</li>
+ *   <li><b>The void</b> — sky and endless grass, one full-screen pass, writing
+ *       the ground's depth so the earth hides what lies below it (not in the
+ *       hills' cells, which are theirs).</li>
  *   <li><b>The hills</b> — the {@link Terrain}'s mesh over it, where the ground
  *       is not flat ({@link TerrainRenderer}), depth-writing.</li>
  *   <li><b>Scenery</b> — the trees, grass tufts and rocks: cutout cards, two
@@ -157,8 +159,8 @@ public final class WorldRenderer implements AutoCloseable {
         float[] fog = VoidRenderer.HORIZON;
         Vec3 eye = camera.eye();
 
-        voidRenderer.draw(camera, aspect, FOG);
         ground = world.terrain();
+        voidRenderer.draw(camera, aspect, FOG, viewProj, ground);
         if (terrain != null) terrain.draw(ground, camera, viewProj, fog, FOG);
         Vec3 upright = uprightNormal(camera);
         scenery.draw(batch, world.scenery(), viewProj, fog, FOG, world.time(), camera, upright);
