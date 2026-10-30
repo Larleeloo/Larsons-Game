@@ -780,6 +780,8 @@ turns her back to the drop and **steps down** over it (`ledge_down`, the
 step up the other way round) until she hangs by her hands, and keeps
 climbing down while you keep walking out. Too tired to climb, she stops at
 the lip instead of stepping off it; a jump still takes her off the top.
+
+<img src="docs/screenshots/ledge.png" width="98%" alt="Top row: she pulls herself up over the lip of the vine cliff, swings a foot up onto the top and stands. Bottom row: she stands at the lip with her back to the drop, lowers herself over it and hangs by her hands on the vines">
 Climbing costs **stamina** - the yellow bar on the right, shown when it
 is not full - 9 a second climbing and 3 hanging still; it
 fills again 0.8 s after she stops, 25 a second. She needs 15 to take hold
