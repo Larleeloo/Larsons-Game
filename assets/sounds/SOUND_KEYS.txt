@@ -138,6 +138,8 @@ PLAYER (FEMININE)  ->  player/feminine/
   player/feminine/staff_attack_up.mp3          Staff cast, aimed up           player/feminine/staff_attack_up
   player/feminine/wand_attack_up.mp3           Wand cast, aimed up            player/feminine/wand_attack_up
   player/feminine/climb.mp3                    Climb (held)                   player/feminine/climb
+  player/feminine/ledge_up.mp3                 Ledge, step up                 player/feminine/ledge_up
+  player/feminine/ledge_down.mp3               Ledge, step down               player/feminine/ledge_down
 
 
 PLAYER (MASCULINE)  ->  player/masculine/
@@ -269,6 +271,8 @@ PLAYER (MASCULINE)  ->  player/masculine/
   player/masculine/staff_attack_up.mp3         Staff cast, aimed up           player/masculine/staff_attack_up
   player/masculine/wand_attack_up.mp3          Wand cast, aimed up            player/masculine/wand_attack_up
   player/masculine/climb.mp3                   Climb (held)                   player/masculine/climb
+  player/masculine/ledge_up.mp3                Ledge, step up                 player/masculine/ledge_up
+  player/masculine/ledge_down.mp3              Ledge, step down               player/masculine/ledge_down
 
 
 CHESTS  ->  chests/ornate_chest/

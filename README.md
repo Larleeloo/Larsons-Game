@@ -64,6 +64,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Left Alt** or **Z** | dodge: a tap **dashes** (a low burst of 3.5 m); held, the dash turns into a **combat roll** (4.7 m, nothing can hurt her in it, she rolls through the dummies) - the way she is moving, or facing, with whatever is in her hands ([Dodging](#dodging)); pressed **in the air**, she lands in a roll, unhurt by the fall ([Heights](#heights)) |
 | **L** / **K** | **lock on** to the enemy nearest the middle of the view - a dummy or a flier - (L again: let go) / on to the next one, left to right ([The lock-on](#the-lock-on)) |
 | walk into the **vines** | **climb** the vine-covered cliff: W up, S down, A / D along it; Space (or the dodge key, or C) lets go - it costs **stamina** ([Climbing](#climbing-and-stamina)) |
+| walk off the **top of the vines** | **climb down**: she turns, steps down over the lip onto the vines and climbs on down while you keep walking out |
 | **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
 | **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger; once every 10 s) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
@@ -74,7 +75,7 @@ The main menu has one entry, **Demo**, which loads a meadow.
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** / **O** | camera height preset: side → 45° → top-down / the [automatic camera height](#the-automatic-camera-height) on the hills, or fixed |
-| **[ / ]** | loop the previous / next of all 127 states in place |
+| **[ / ]** | loop the previous / next of all 129 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -94,7 +95,7 @@ Drop sprite sheets on the window at any time to import them.
   ray-casts the ground plane per pixel, so it has no edge and a clean horizon
   at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **127 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **129 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   the dash and the combat roll (played with whatever she holds); the bow,
   crossbow, staff and wand **aimed up** at what flies; climbing;
@@ -165,7 +166,7 @@ Drop sprite sheets on the window at any time to import them.
 
   <img src="docs/screenshots/combat-dice.png" width="49%" alt="Four purple Epic dice over her head after an axe blow, their total 33 and 4d20 over them and Venom's note above, the dummy she struck showing 33 and its health bar">
   <img src="docs/screenshots/combat-spell.png" width="49%" alt="A Magic Staff's blue spell bursting on a training dummy, three blue Rare dice over her head totalling 25">
-- **Sound for every animation** - both bodies' 127 states, the chest's four,
+- **Sound for every animation** - both bodies' 129 states, the chest's four,
   picking up and dropping each item, the inventory - from MP3 (or WAV)
   files dropped into `assets/sounds/`, with the engine's MP3 decoder and
   mixer. Every slot is silent until it has a file - see [Sound](#sound).
@@ -770,11 +771,19 @@ second. At 0 she is **knocked out** and back on her feet at the start.
 
 Walk into the vines and she takes hold (the `climb` animation, her hands
 empty): **W** climbs (0.82 m a second), **S** climbs down, **A** / **D** go
-along the wall, and at the top she pulls herself over onto the plateau.
+along the wall. With her hands at the lip she **steps up** over it
+(`ledge_up`): she pulls herself up, presses up on her arms, puts her right
+foot on the top and stands up on it.
+
+To **climb down**, walk off the top of the vines: a step from the lip she
+turns her back to the drop and **steps down** over it (`ledge_down`, the
+step up the other way round) until she hangs by her hands, and keeps
+climbing down while you keep walking out. Too tired to climb, she stops at
+the lip instead of stepping off it; a jump still takes her off the top.
 Climbing costs **stamina** - the yellow bar on the right, shown when it
 is not full - 9 a second climbing and 3 hanging still; it
-fills again 0.8 s after she stops, 25 a second. She needs 15 to take hold,
-and at 0 she lets go and falls. **Space**, the dodge key or **C** let go.
+fills again 0.8 s after she stops, 25 a second. She needs 15 to take hold
+(or to step down onto the vines), and at 0 she lets go and falls. **Space**, the dodge key or **C** let go.
 
 <img src="docs/screenshots/climb.png" width="49%" alt="She climbs the vine-covered cliff, her stamina bar showing 69 beside the mana">
 <img src="docs/screenshots/aim-up-flier.png" width="49%" alt="Locked on to a flying dummy overhead, she draws the bow aimed up at it">
@@ -858,7 +867,7 @@ assets/sounds/
   SOUND_KEYS.txt          every sound in the game and the file to name it (kept up to date by the game)
   README.md               how to name and add sounds
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
-  player/feminine/        <state>.mp3 for each of her 127 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
+  player/feminine/        <state>.mp3 for each of her 129 animations: idle.mp3, walk.mp3, axe_attack.mp3 ...
   player/masculine/       ... and each of his
   chests/ornate_chest/    idle.mp3, open.mp3, opened.mp3, close.mp3
   combat/attack_dummy/    hit.mp3, fall.mp3, rise.mp3
@@ -1149,8 +1158,9 @@ and a dummy's hits, fall and rise; the heights (`world/TerrainTest`,
 `world/HighlandsTest`, `combat/FlyingDummyTest`, `combat/LockOnAndHighGroundTest`):
 the highlands meeting the meadow without a seam, the heights being the
 triangles drawn, the ramp walkable and the rock not, the ramp slower, falls
-and their hurt, the roll out of one, climbing to the top and letting go out
-of stamina, being knocked out, items and the chest on the slopes, the flier's
+and their hurt, the roll out of one, climbing to the top and stepping up
+over the lip, stepping down over it from the top and climbing down, stopping
+at the lip too tired to climb, letting go out of stamina, being knocked out, items and the chest on the slopes, the flier's
 rounds, its dive and what a roll, a block and a parry do to it, its fall and
 rising, shots led to where it will be, the lock-on and its next, the
 aimed-up bow and crossbow, and the high ground's die; and the scenery (its profiles, where each
@@ -1179,7 +1189,7 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 by dummy n, facing it), `dummy add <x> <z>`, `goto <place|spawn>` (the
 highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
 (dive at her now / stand under flier n / lock on to it), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
-that high, rolling out of it), `climb [down]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
+that high, rolling out of it), `climb [down|top]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
 `debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
 (an option or any `#rrggbb`; the body's colour is the skin tone; no option:

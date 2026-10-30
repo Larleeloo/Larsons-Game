@@ -10,7 +10,10 @@ import java.util.function.ToDoubleFunction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Her on the hills: slopes, the rock she cannot walk up, falls and the roll out of them, climbing, stamina. */
+/**
+ * Her on the hills: slopes, the rock she cannot walk up, falls and the roll out of them, climbing - up
+ * over the lip and down over it - and stamina.
+ */
 class HighlandsTest {
 
     private static final double DT = 1 / 60.0;
@@ -124,8 +127,9 @@ class HighlandsTest {
     }
 
     @Test
-    void sheClimbsTheVinesToTheTopAndPullsHerselfOver() {
-        Terrain.Wall wall = Terrain.highlands().walls().get(0);
+    void sheClimbsTheVinesToTheTopAndStepsUpOverTheLip() {
+        Terrain t = Terrain.highlands();
+        Terrain.Wall wall = t.walls().get(0);
         World w = at(wall.x0() + 1.5, -36);
         Player p = w.player();
         for (int f = 0; f < 120 && p.climbing() == null; f++) {      // into the wall: she takes hold
@@ -146,10 +150,98 @@ class HighlandsTest {
         assertEquals(hang, p.stateTime(), 1e-9, "hanging still, the frame holds");
         assertEquals(y, p.feet().y(), 1e-9);
 
-        play(w, walk(-1, 0), 9);
+        double lip = t.lipOut(wall, wall.along(p.ground().x(), p.ground().z()));
+        assertEquals(wall.x0() - 0.5, wall.x0() + lip, 0.02, "the lip: the plateau's edge, the face leaning back");
+        boolean stepped = false;
+        Vec3 last = p.feet();
+        for (int f = 0; f < 60 * 8 && p.climbing() != null; f++) {
+            p.update(DT, walk(-1, 0), DUR);
+            w.tick(DT);
+            if (p.state() == AnimState.LEDGE_UP) {
+                if (!stepped) {
+                    assertEquals(Terrain.PLATEAU_HEIGHT - Player.LEDGE_RISE, p.feet().y(), 0.02, "her hands at the lip");
+                    assertEquals(lip + Player.CLING, wall.out(p.ground().x(), p.ground().z()), 0.02);
+                }
+                stepped = true;
+                assertTrue(p.climbing() != null || p.height() < 1e-9, "on the wall until she stands on the top");
+                assertEquals(wall.facing(), p.heading(), 1e-9, "facing the rock");
+            }
+            assertTrue(p.feet().distance(last) < 0.1, "carried along, not jumped: " + p.feet().distance(last));
+            last = p.feet();
+        }
+        assertTrue(stepped, "she steps up over the lip");
         assertNull(p.climbing(), "over the top");
         assertEquals(Terrain.PLATEAU_HEIGHT, p.ground().y(), 1e-3);
-        assertTrue(p.ground().x() < wall.x0(), "standing on the plateau");
+        assertEquals(0, p.height(), 1e-9);
+        assertEquals(lip - Player.LEDGE_BEHIND, wall.out(p.ground().x(), p.ground().z()), 0.02, "standing behind the lip");
+    }
+
+    @Test
+    void walkingOffTheTopOfTheVinesSheStepsDownOntoThemAndClimbsDown() {
+        Terrain.Wall wall = Terrain.highlands().walls().get(0);
+        World w = at(wall.x0() - 2.5, -36);                          // on the plateau, 2 m in from its edge
+        Player p = w.player();
+        assertEquals(Terrain.PLATEAU_HEIGHT, p.ground().y(), 1e-6);
+        boolean stepped = false;
+        Vec3 last = p.feet();
+        for (int f = 0; f < 60 * 4 && !(stepped && p.state() == AnimState.CLIMB); f++) {
+            p.update(DT, walk(1, 0), DUR);                            // out towards the drop
+            w.tick(DT);
+            if (p.state() == AnimState.LEDGE_DOWN) {
+                stepped = true;
+                assertEquals(wall.facing(), p.heading(), 1e-9, "turned to face the rock, her back to the drop");
+                assertTrue(p.feet().distance(last) < 0.2, "carried along, not jumped: " + p.feet().distance(last));
+            }
+            last = p.feet();
+        }
+        assertTrue(stepped, "she steps down over the lip");
+        assertNotNull(p.climbing(), "and hangs on the vines");
+        assertEquals(Terrain.PLATEAU_HEIGHT - Player.LEDGE_RISE, p.feet().y(), 0.02, "by her hands from the lip");
+        assertEquals(0, w.combat().popups().stream().filter(pp -> pp.text().startsWith("Hard landing")).count());
+
+        // still walking out: down the face to its foot, unhurt
+        play(w, walk(1, 0), 8);
+        assertNull(p.climbing(), "down at the foot");
+        assertTrue(p.ground().y() < 0.5 && p.height() < 1e-6, "standing at the foot: " + p.ground());
+        assertEquals(Player.MAX_HEALTH, p.health(), 1e-9, "no fall");
+    }
+
+    @Test
+    void tooTiredToClimbDownSheStopsAtTheLipButCanStillJumpOff() {
+        Terrain.Wall wall = Terrain.highlands().walls().get(0);
+        World w = at(wall.x0() - 2.5, -36);
+        Player p = w.player();
+        for (int f = 0; f < 60 * 3; f++) {
+            p.setStamina(0);
+            p.update(DT, run(1, 0), DUR);
+            w.tick(DT);
+        }
+        assertNull(p.climbing());
+        assertEquals(Terrain.PLATEAU_HEIGHT, p.ground().y(), 1e-6, "still on top");
+        assertTrue(p.ground().x() < wall.x0() - 0.5, "short of the lip: x " + p.ground().x());
+
+        play(w, Player.Intent.NONE, 3);                                // rested, then a running jump off
+        for (int f = 0; f < 60 * 3 && p.ground().y() > 1; f++) {
+            p.update(DT, new Player.Intent(1, 0, true, false, f < 3, false), DUR);
+            w.tick(DT);
+        }
+        assertNull(p.climbing(), "a jump goes over the edge, not onto the vines");
+        assertTrue(p.ground().y() < 1, "down off the plateau");
+    }
+
+    @Test
+    void theStepOverTheLipFollowsTheSheetsPath() {
+        // the values of feminine_model_ledge's PATH between its keys (feminine_model_armed.pchip)
+        double[][] at = {{2, 0.3, -1.615}, {10.5, 0.250409029, -1.234563675}, {20, 0.111008660, -0.883819221},
+                {29.25, -0.217661133, -0.193304384}};
+        for (double[] a : at) {
+            assertEquals(a[1], com.larsons.game.math.Pchip.at(Player.LEDGE_PATH, 1, a[0]), 1e-8);
+            assertEquals(a[2], com.larsons.game.math.Pchip.at(Player.LEDGE_PATH, 2, a[0]), 1e-8);
+        }
+        assertEquals(1.60, Player.LEDGE_RISE, 1e-9);
+        assertEquals(0.35, Player.LEDGE_BEHIND, 1e-9);
+        assertEquals(Player.LEDGE_PATH[Player.LEDGE_PATH.length - 1][0] + 1, AnimState.LEDGE_UP.defaultFrames());
+        assertEquals(AnimState.LEDGE_UP.defaultFrames(), AnimState.LEDGE_DOWN.defaultFrames());
     }
 
     @Test
