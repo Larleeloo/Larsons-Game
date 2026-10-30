@@ -1,5 +1,7 @@
 package com.larsons.game.core;
 
+import com.larsons.game.audio.SoundCategory;
+import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.SoundPack;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
@@ -78,6 +80,8 @@ public final class Game implements AutoCloseable {
     private Scene scene;
     private boolean quit;
     private Path pendingShot;
+    /** Where dropped files go before the importer ({@link #setDropTarget}), or null. */
+    private java.util.function.Predicate<List<Path>> dropTarget;
 
     private record Toast(String text, float[] color, double[] life) {}
 
@@ -132,7 +136,8 @@ public final class Game implements AutoCloseable {
     /**
      * The sound pack in {@code assets/sounds}: its folders and key list kept
      * up to date (a read-only assets folder is fine - there is just nothing
-     * to scaffold), and the creator's per-sound assignments loaded. Nothing
+     * to scaffold), decoded ahead in the background; the player's own sounds
+     * ({@code config/sounds.json}) loaded, and their volumes set. Nothing
      * here needs an audio device; without one every sound is a no-op.
      */
     private void startSound() {
@@ -142,7 +147,13 @@ public final class Game implements AutoCloseable {
         } catch (java.io.IOException | RuntimeException e) {
             System.err.println("[sound] cannot set up " + settings.soundsDir() + ": " + e.getMessage());
         }
+        Sounds.useStore(settings.config);
         Sounds.load();
+        Sounds.setMasterVolume(settings.masterVolume);
+        for (SoundCategory c : SoundCategory.values()) {
+            Sounds.setCategoryVolume(c, settings.soundVolumes.getOrDefault(c.key(), 1.0));
+        }
+        Sounds.preload();
     }
 
     /** The loop. Returns when the window closes or a scene quits. */
@@ -152,10 +163,11 @@ public final class Game implements AutoCloseable {
             double dt = pacer.beginFrame();
 
             Input in = window.input();
-            for (List<String> drop : in.takeDrops()) {
-                importer.open(drop.stream().map(Path::of).toList());
+            for (List<String> drop : in.takeDrops()) drop(drop.stream().map(Path::of).toList());
+            if (in.pressed(GLFW_KEY_F12)) {
+                pendingShot = Screenshot.defaultPath();
+                Sounds.play(SoundKeys.ui("screenshot"));
             }
-            if (in.pressed(GLFW_KEY_F12)) pendingShot = Screenshot.defaultPath();
             if (in.pressed(GLFW_KEY_F11)) toggleFullscreen();
             autopilot.step(dt, this);
 
@@ -247,6 +259,21 @@ public final class Game implements AutoCloseable {
     public void toast(String text, float[] color) {
         toasts.add(new Toast(text, color, new double[]{3.2}));
         if (toasts.size() > 4) toasts.remove(0);
+    }
+
+    /**
+     * Files dropped on the window go to {@code target} first while it is set
+     * (the Sounds menu takes an MP3 dropped on a row): it says whether it
+     * took them; what it does not take goes to the sprite importer. Null:
+     * everything goes to the importer.
+     */
+    public void setDropTarget(java.util.function.Predicate<List<Path>> target) {
+        dropTarget = target;
+    }
+
+    /** Files dropped on the window (or by a script): the drop target's if it takes them, else the importer's. */
+    public void drop(List<Path> files) {
+        if (dropTarget == null || !dropTarget.test(files)) importer.open(files);
     }
 
     public void requestScreenshot(Path file) {

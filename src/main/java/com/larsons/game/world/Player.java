@@ -176,6 +176,8 @@ public final class Player {
         public enum Kind {
             /** Landed hard: {@code amount} damage. */
             FALL,
+            /** Landed unhurt, from a jump or a drop of {@code amount} metres. */
+            LANDED,
             /** Landed in a roll from a fall that would have hurt ({@code amount}: what it would have). */
             ROLLED,
             /** Stepped up over the top of a wall. */
@@ -574,6 +576,8 @@ public final class Player {
         } else if (hurt > 0) {
             hurt(Math.round(hurt));
             events.add(new Event(Event.Kind.FALL, Math.round(hurt)));
+        } else {
+            events.add(new Event(Event.Kind.LANDED, drop));
         }
         rollPrimed = false;
     }

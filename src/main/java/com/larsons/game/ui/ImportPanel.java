@@ -1,5 +1,7 @@
 package com.larsons.game.ui;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
 import com.larsons.game.importer.SpriteImport;
 import com.larsons.game.sprite.AnimState;
@@ -277,6 +279,7 @@ public final class ImportPanel {
                 game.saveWardrobe();
             }
             if (result != null) {
+                Sounds.play(SoundKeys.ui("save"));
                 game.toast("Imported " + result.written() + " file" + (result.written() == 1 ? "" : "s")
                         + " into " + game.relative(result.folder()), Theme.OK);
             }

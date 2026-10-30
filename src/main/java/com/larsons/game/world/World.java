@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
@@ -284,7 +285,7 @@ public final class World {
         happened();
     }
 
-    /** What a flier's dive did to her, said over her. */
+    /** What a flier's dive did to her, said over her - and heard. */
     private void swooped(FlyingDummy f, FlyingDummy.Outcome o) {
         Vec3 at = player.ground();
         switch (o) {
@@ -293,43 +294,62 @@ public final class World {
                 combat.say("Swooped! -" + Combat.format(FlyingDummy.SWOOP_DAMAGE), HURT_RGB, at, 2.1, false);
                 combat.sound("combat/player_hurt", at);
             }
-            case BLOCKED -> combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-            case DODGED -> combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", f.position());
+            }
             case PARRIED -> {
                 combat.say("Parried!", 0xFFE08A, at, 2.1, true);
-                combat.sound("combat/blow", f.position());
+                combat.sound("combat/parry", f.position());
             }
             case NONE -> { }
         }
-        if (o == FlyingDummy.Outcome.STRUCK || o == FlyingDummy.Outcome.BLOCKED) combat.sound("combat/blow", at);
     }
 
     /** The red of her own hurts floating up over her. */
     public static final int HURT_RGB = 0xFF6A5A;
 
-    /** What happened to her this frame, said over her; back at the start when her health is gone. */
+    /** A landing from less high than this (metres: a step down a slope) makes no sound. */
+    public static final double LAND_SOUND = 0.25;
+
+    /** What happened to her this frame, said over her and heard; back at the start when her health is gone. */
     private void happened() {
         Vec3 at = player.ground();
+        String body = player.wardrobe().get(Slot.BODY);
         for (Player.Event e : player.drainEvents()) {
             switch (e.kind()) {
                 case FALL -> {
                     combat.say("Hard landing -" + Combat.format(e.amount()), HURT_RGB, at, 2.1, false);
-                    combat.sound("combat/hard_landing", at);
+                    combat.sound(SoundKeys.player(body, "hard_landing"), at);
+                }
+                case LANDED -> {
+                    if (e.amount() >= LAND_SOUND) {
+                        combat.sound(SoundKeys.player(body, "land"), at, Math.min(1, 0.45 + e.amount() * 0.35));
+                    }
                 }
                 case ROLLED -> {
                     combat.say(e.amount() > 0 ? "Rolled out of the fall" : "Roll", 0x9CC4FF, at, 2.1, true);
-                    combat.sound("combat/landing_roll", at);
+                    combat.sound(SoundKeys.player(body, "landing_roll"), at);
                 }
-                case CLIMBED, STEPPED_DOWN -> combat.sound("combat/climb_top", at);
+                case CLIMBED, STEPPED_DOWN -> combat.sound(SoundKeys.player(body, "climb_top"), at);
                 case LET_GO -> {
-                    if (e.amount() > 0) combat.say("Out of stamina", 0xFFD27A, at, 2.1, true);
+                    combat.sound(SoundKeys.player(body, "let_go"), at);
+                    if (e.amount() > 0) {
+                        combat.say("Out of stamina", 0xFFD27A, at, 2.1, true);
+                        combat.sound(SoundKeys.player(body, "out_of_breath"), at);
+                    }
                 }
                 case KNOCKED_OUT -> {
                     combat.say("Knocked out", HURT_RGB, at, 2.1, false);
+                    combat.sound(SoundKeys.player(body, "knocked_out"), at);
                     player.respawn(spawnPoint);
                     combat.lock(null);
                 }
-                case HURT -> { }
+                case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
             }
         }
     }

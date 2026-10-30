@@ -149,6 +149,7 @@ final class InventoryPanel {
     void swapWithHotbar(int slot, int hotbar) {
         if (slot < 0 || slot == hotbar) return;
         inventory().swap(slot, hotbar);
+        Sounds.play(SoundKeys.ui("item_place"));
         world.equipSelected();
     }
 
@@ -282,10 +283,12 @@ final class InventoryPanel {
                     if (inv.get(hovered) != null) {
                         cursor = inv.take(hovered);
                         cursorFrom = hovered;
+                        Sounds.play(SoundKeys.ui("item_pick"));
                     }
                 } else {
                     cursor = inv.set(hovered, cursor);
                     cursorFrom = cursor == null ? -1 : hovered;
+                    Sounds.play(SoundKeys.ui("item_place"));
                 }
                 world.equipSelected();
             } else if (!inside && cursor != null) {
@@ -331,7 +334,7 @@ final class InventoryPanel {
         if (ui.button("Rarity", px + pw - (b[0] - px) - b[2], b[1], b[2], b[3])) order = Inventory.Order.RARITY;
         if (order == null) return;
         inv.sort(order);
-        Sounds.play(SoundKeys.ui("hotbar_select"));
+        Sounds.play(SoundKeys.ui("sort"));
     }
 
     /** Right-click: the hotbar's item into the rest of the inventory, or the other way. */
@@ -343,6 +346,7 @@ final class InventoryPanel {
         for (int i = lo; i < hi; i++) {
             if (inv.get(i) == null) {
                 inv.swap(from, i);
+                Sounds.play(SoundKeys.ui("item_place"));
                 world.equipSelected();
                 return;
             }

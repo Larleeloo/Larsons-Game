@@ -114,8 +114,12 @@ public final class Combat {
         }
     }
 
-    /** A sound to play: its key, and where it happens. */
-    public record Sound(String key, Vec3 at) {}
+    /** A sound to play: its key, where it happens, and how loud (1: as it is). */
+    public record Sound(String key, Vec3 at, double volume) {
+        public Sound(String key, Vec3 at) {
+            this(key, at, 1);
+        }
+    }
 
     /** The swing under way: what it does, and when; what it was paid for and showed, to undo if it is cut short. */
     private static final class Swing {
@@ -590,6 +594,7 @@ public final class Combat {
                 ground = terrain.onGround(ground);
                 if (pr.kind() == Move.Kind.SPELL) {
                     effects.add(new Effect(Effect.Kind.BURST, ground.add(0, 0.1, 0), now, pr.colour()));
+                    sounds.add(new Sound("combat/spell_burst", ground));
                     pr.finish();
                 } else {
                     pr.stick(ground);
@@ -598,7 +603,10 @@ public final class Combat {
             }
         }
         if (!pr.done() && !pr.stuck() && pr.age() >= pr.life()) {
-            if (pr.kind() == Move.Kind.SPELL) effects.add(new Effect(Effect.Kind.BURST, pr.position(), now, pr.colour()));
+            if (pr.kind() == Move.Kind.SPELL) {
+                effects.add(new Effect(Effect.Kind.BURST, pr.position(), now, pr.colour()));
+                sounds.add(new Sound("combat/spell_burst", pr.position(), 0.6));
+            }
             pr.finish();
         }
     }
@@ -787,6 +795,11 @@ public final class Combat {
     /** A sound to play at {@code at}: its key ({@code combat/player_hurt}). */
     public void sound(String key, Vec3 at) {
         sounds.add(new Sound(key, at));
+    }
+
+    /** A sound to play at {@code at}, {@code volume} as loud as it is. */
+    public void sound(String key, Vec3 at, double volume) {
+        sounds.add(new Sound(key, at, volume));
     }
 
     /** The sounds made since the last call, for the world's sounds to play. */
