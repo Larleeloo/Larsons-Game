@@ -72,6 +72,8 @@ public final class MainMenuScene implements Scene {
     private final DebugCode devCode = new DebugCode();
     private Cutscene cutscene;
     private double turn, time;
+    /** The tab last shown: the menu opens on it again (coming back from the editor, on the Dev tab). */
+    private static Tab lastTab = Tab.PLAY;
     private Tab tab = Tab.PLAY;
     private List<LevelIO.Saved> levels = List.of();
     private int scroll;
@@ -86,6 +88,7 @@ public final class MainMenuScene implements Scene {
         world.setGround(game.demoScenery().ground());
         world.setScenery(game.scenery());
         world.player().preview(AnimState.IDLE);
+        if (lastTab != Tab.DEV || game.settings().devUnlocked) tab = lastTab;
         this.stage = new CutsceneStage(game.sprites(), game.closeups());
         if (!game.closeups().isEmpty()) {
             try {
@@ -94,6 +97,11 @@ public final class MainMenuScene implements Scene {
                 System.err.println("[cutscene] " + e.getMessage());
             }
         }
+    }
+
+    /** Open the menu on its Dev tab next time (leaving the level editor). */
+    public static void openOnDevTab() {
+        lastTab = Tab.DEV;
     }
 
     @Override
@@ -162,6 +170,7 @@ public final class MainMenuScene implements Scene {
     private void show(Tab t) {
         if (t == tab) return;
         tab = t;
+        lastTab = t;
         menu.setFocus(0);
         if (t == Tab.DEV) refreshLevels();
     }
@@ -260,7 +269,7 @@ public final class MainMenuScene implements Scene {
         ui.text(ui.large, "Creative Mode", x, y, Theme.TITLE);
         ui.text(ui.small, "Levels are saved in " + game.relative(game.settings().levelsDir()), x, y + 38, Theme.HINT);
         float by = y + 70;
-        String[] items = {"New level", "New level from the demo"};
+        String[] items = {"New level", "Copy the demo"};
         int chosen = menu.show(ui, items, x, by, 300, 46, 10);
         if (chosen == 0) newLevel(false);
         if (chosen == 1) newLevel(true);

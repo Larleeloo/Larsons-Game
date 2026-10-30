@@ -3,6 +3,7 @@ package com.larsons.game.editor;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
@@ -17,11 +18,11 @@ import com.larsons.game.level.ObjectTypes;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
+import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.sprite.PixelPalette;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
-import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Sky;
@@ -380,6 +381,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return new Vec3(Math.round(p.x() / GRID) * GRID, p.y(), Math.round(p.z() / GRID) * GRID);
     }
 
+    private void resize(double size) {
+        undo.before(level, Undo.Part.ALL, "Resize");
+        level.resize(size);
+        selection.clear();
+        changed();
+        game.toast("The level is now " + (int) size + " m a side (Ctrl+Z puts it back)", Theme.HINT);
+    }
+
     private void changed() {
         dirty = true;
         view.objectsChanged();
@@ -715,7 +724,17 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             game.toast("Unsaved changes: Ctrl+S saves - Esc again leaves without saving", Theme.WARNING);
             return;
         }
+        toMenu();
+    }
+
+    /** The main menu, on its Dev tab - where the level is listed. */
+    private void toMenu() {
+        MainMenuScene.openOnDevTab();
         game.switchTo("menu");
+    }
+
+    private static String things(int n) {
+        return n == 1 ? "1 thing" : n + " things";
     }
 
     // --- drawing ------------------------------------------------------------------------------
@@ -897,14 +916,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case PAINT -> "Hold the left button: paint · Shift: back to grass · [ ]: brush size (or Shift+wheel) · "
                     + "Shift+[ ]: strength";
             case SCATTER -> "Hold the left button: scatter · Shift: pull up · [ ]: brush size (or Shift+wheel)";
-            case SKY, LEVEL -> "Pick a colour, then click a swatch · the fog and the backdrops show as you change them";
+            case SKY -> "Pick what to colour, then click a swatch · the fog and the backdrops show as you change them";
+            case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
         float y = ui.height() - HELP_H;
         ui.rect(0, y, ui.width(), HELP_H, Theme.withAlpha(Theme.PANEL, 0.92f));
+        // whole hints dropped from the end until it fits
         String text = h + all;
-        while (text.length() > 10 && ui.small.width(text) > ui.width() - 20) text = text.substring(0, text.length() - 2);
+        while (ui.small.width(text) > ui.width() - 20 && text.lastIndexOf(" · ") > 0) {
+            text = text.substring(0, text.lastIndexOf(" · ")).stripTrailing();
+        }
         ui.text(ui.small, text, 10, y + (HELP_H - ui.small.lineHeight()) / 2, Theme.HINT);
     }
 
@@ -996,7 +1019,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 46;
         snap = widgets.toggle(ui, "Snap (G)", snap, x, y, w);
         y += 40;
-        ui.text(ui.small, level.objects().size() + " things in the level", x, y, Theme.ITEM_DISABLED);
+        ui.text(ui.small, things(level.objects().size()) + " in the level", x, y, Theme.ITEM_DISABLED);
     }
 
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
@@ -1020,7 +1043,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 x, y, w);
         y += 44;
         ui.paragraph(ui.small, "Flatten brings the ground to that height; Ctrl+click takes it from the ground. "
-                + "Steeper than 45° is rock she cannot walk up - put vines on it (Place, Terrain features) to climb it. "
+                + "Steeper than 45° is rock she cannot walk up - put vines on it (Place, Terrain) to climb it. "
                 + "The edge of the level stays at 0, where it meets the ground beyond.", x, y, w, Theme.HINT);
     }
 
@@ -1180,16 +1203,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (Level.SIZES[i] == (int) level.size()) at = i;
         }
         int pick = widgets.choice(ui, "Size", sizes, at, x, y, w);
-        if (pick != at) {
-            undo.before(level, Undo.Part.ALL, "Resize");
-            level.resize(Level.SIZES[pick]);
-            selection.clear();
-            changed();
-            game.toast("The level is now " + Level.SIZES[pick] + " m a side (Ctrl+Z puts it back)", Theme.HINT);
-        }
+        if (pick != at) resize(Level.SIZES[pick]);
         y += 40;
         ui.paragraph(ui.small, (folder == null ? "Not saved yet" : "Saved in " + game.relative(folder))
-                + "\n" + level.objects().size() + " things placed", x, y, w, Theme.HINT);
+                + "\n" + things(level.objects().size()) + " placed", x, y, w, Theme.HINT);
         y += 60;
         if (ui.button("Save (Ctrl+S)", x, y, w, 32)) save();
         y += 40;
@@ -1472,7 +1489,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 dirty = true;
             }
             case "name" -> level.setName(argument);
-            case "size" -> level.resize(Double.parseDouble(argument.trim()));
+            case "size" -> resize(Double.parseDouble(argument.trim()));
             case "save" -> save();
             case "undo" -> undo();
             case "redo" -> redo();
@@ -1480,7 +1497,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "fog" -> thinFog = !argument.trim().equals("game");
             case "playtest" -> playTest(a.length >= 2 ? new Vec3(Double.parseDouble(a[0]), 0,
                     Double.parseDouble(a[1])) : null);
-            case "leave" -> game.switchTo("menu");
+            case "leave" -> toMenu();
             default -> {
                 return false;
             }

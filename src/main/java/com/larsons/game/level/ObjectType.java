@@ -38,10 +38,10 @@ public record ObjectType(String key, String label, Category category, List<Prop>
     public enum Category {
         SCENERY("Scenery"),
         ITEMS("Weapons"),
-        WEARABLES("Clothing and armour"),
+        WEARABLES("Wearables"),
         LOOT("Chests"),
         COMBAT("Training"),
-        TERRAIN("Terrain features"),
+        TERRAIN("Terrain"),
         MARKERS("Markers");
 
         private final String label;

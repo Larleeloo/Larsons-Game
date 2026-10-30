@@ -106,33 +106,62 @@ public final class VoidRenderer implements AutoCloseable {
                 return smoothstep(0.0, 8.0, at) * smoothstep(0.0, 8.0, len - at);
             }
 
-            // a backdrop's profile at azimuth az: how high its top stands, 0 to 1 of its height
-            float bdProfile(int kind, float az, float seed) {
-                if (kind == 0) {            // mountains: ridged, sharp peaks
-                    float h = 0.0, amp = 0.55;
-                    float cells = 7.0;
-                    for (int o = 0; o < 5; o++) {
-                        float n = bdNoise(az, cells, seed + float(o) * 7.0);
-                        h += amp * (1.0 - abs(2.0 * n - 1.0));
-                        amp *= 0.5;
-                        cells = cells * 2.0 + 1.0;
+            // a range of peaks round the horizon - mountains (straight-sided, craggy) or hills (rounded) -
+            // h degrees high at most: at azimuth az and elevation el, whether el is on one (x), on its
+            // shadowed side (y), in its snow (z). Peaks nearer the horizon stand in front of taller ones.
+            vec3 bdPeaks(bool round, float az, float el, float h, float seed, bool snowy) {
+                float cells = max(6.0, floor(360.0 / (round ? max(10.0, h * 3.0) : max(8.0, h * 1.4))));
+                float cw = 360.0 / cells, i0 = floor(az / cw);
+                float crag = round ? 0.0
+                        : h * (0.07 * (1.0 - abs(2.0 * bdNoise(az, 97.0, seed + 11.0) - 1.0))
+                        + 0.035 * (1.0 - abs(2.0 * bdNoise(az, 211.0, seed + 13.0) - 1.0)));
+                float ownP = 1e9, ownD = 0.0, ownW = 1.0;
+                for (int j = -2; j <= 2; j++) {
+                    float i = mod(i0 + float(j), cells);
+                    float p, w, d, top;
+                    if (round) {
+                        p = h * (0.35 + 0.65 * bdHash(i + seed * 29.0));
+                        w = cw * (0.9 + 0.9 * bdHash(i + seed * 37.0));
+                        d = mod(az - (i + 0.25 + 0.5 * bdHash(i + seed * 17.0)) * cw + 180.0, 360.0) - 180.0;
+                        top = p * 0.5 * (1.0 + cos(3.14159265 * min(1.0, abs(d) / w)));
+                    } else {
+                        p = h * (0.3 + 0.7 * pow(bdHash(i + seed * 29.0), 1.5));
+                        w = p / (0.45 + 0.4 * bdHash(i + seed * 37.0));
+                        d = mod(az - (i + 0.2 + 0.6 * bdHash(i + seed * 17.0)) * cw + 180.0, 360.0) - 180.0;
+                        top = p - p / w * abs(d);
+                        top += crag * clamp(top / p, 0.0, 1.0);
                     }
-                    return clamp(h * 1.05 - 0.15, 0.05, 1.0);
+                    if (el <= top && p < ownP) {
+                        ownP = p;
+                        ownD = d;
+                        ownW = w;
+                    }
                 }
-                if (kind == 1) {            // rolling hills: smooth and low
-                    float h = 0.6 * bdNoise(az, 9.0, seed) + 0.3 * bdNoise(az, 23.0, seed + 3.0)
-                            + 0.1 * bdNoise(az, 61.0, seed + 5.0);
-                    return clamp(h, 0.1, 1.0);
-                }
-                if (kind == 2) {            // a tree line: a crown every cell, pointed or round
-                    float cells = 900.0;
-                    float x = az / 360.0 * cells;
-                    float i = floor(x), f = fract(x) - 0.5;
-                    float tall = 0.55 + 0.45 * bdHash(mod(i, cells) + seed * 31.0);
-                    float roll = 0.7 + 0.3 * bdNoise(az, 17.0, seed + 9.0);
-                    float pine = bdHash(mod(i, cells) + seed * 57.0) > 0.5 ? 1.0 : 0.0;
-                    float crown = pine > 0.5 ? 1.0 - abs(f) * 2.0 : sqrt(max(0.0, 1.0 - f * f * 4.0));
-                    return tall * roll * (0.55 + 0.45 * crown);
+                if (ownP > 1e8) return vec3(el <= h * 0.12 + crag * 0.5 ? 1.0 : 0.0, 0.0, 0.0);
+                bool shadow = round ? ownD > ownW * 0.25 + (ownP - el) * 0.6
+                        : ownD > (ownP - el) * 0.35 + h * 0.08 * (bdNoise(az + el * 7.0, 60.0, seed + 3.0) - 0.5);
+                bool snow = snowy && !round && ownP > 0.55 * h
+                        && el > ownP * (0.78 - 0.12 * bdNoise(az, 53.0, seed + 21.0));
+                return vec3(1.0, shadow ? 1.0 : 0.0, snow ? 1.0 : 0.0);
+            }
+
+            // a tree line's or a town's top at azimuth az, 0 to 1 of its height
+            float bdProfile(int kind, float az, float seed) {
+                if (kind == 2) {            // crowns about a degree apart, pointed or round, over a rolling top
+                    float cells = floor(360.0 / 1.2), cw = 360.0 / cells, i0 = floor(az / cw);
+                    float roll = 0.65 + 0.35 * bdNoise(az, 23.0, seed + 9.0);
+                    float top = 0.4 * roll;
+                    for (int j = -1; j <= 1; j++) {
+                        float i = mod(i0 + float(j), cells);
+                        float a = (i + 0.5 + 0.4 * (bdHash(i + seed * 41.0) - 0.5)) * cw;
+                        float t = abs(mod(az - a + 180.0, 360.0) - 180.0) / (cw * (0.55 + 0.3 * bdHash(i + seed * 43.0)));
+                        if (t >= 1.0) continue;
+                        float tall = roll * (0.6 + 0.4 * bdHash(i + seed * 31.0));
+                        bool pine = bdHash(i + seed * 57.0) > 0.5;
+                        float crown = pine ? 1.0 - t : sqrt(max(0.0, 1.0 - t * t));
+                        top = max(top, tall * (pine ? 0.3 + 0.7 * crown : 0.55 + 0.45 * crown));
+                    }
+                    return top;
                 }
                 if (kind == 3) {            // towers and spires over a low town
                     float cells = 140.0;
@@ -160,22 +189,30 @@ public final class VoidRenderer implements AutoCloseable {
                 float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
                 float px = max(uBdPixel, 0.02);
                 float qaz = (floor(az / px) + 0.5) * px, qel = (floor(el / px) + 0.5) * px;
+                if (qel < -1.5) return c;
                 for (int i = 0; i < 8; i++) {
                     if (i >= uBackdrops) break;
                     int kind = int(uBdA[i].x + 0.5);
                     if (kind == 4) continue;                 // the sea is drawn on the ground
                     float arc = bdArc(qaz, uBdC[i].x, uBdC[i].y);
                     if (arc <= 0.0) continue;
-                    float top = uBdA[i].y * bdProfile(kind, qaz, uBdA[i].w) * arc;
-                    if (qel > top || qel < -1.5) continue;
-                    // the lit side faces the sun (west), the other in shadow; in steps, as the art is shaded
-                    float left = uBdA[i].y * bdProfile(kind, qaz - px * 2.0, uBdA[i].w);
-                    float right = uBdA[i].y * bdProfile(kind, qaz + px * 2.0, uBdA[i].w);
+                    // where the arc tapers off at its ends, everything is lower by as much
+                    float h = uBdA[i].y, del = qel / arc;
                     vec3 col = uBdB[i].rgb;
-                    if (kind != 2 && right > left + px * 0.4) col *= 0.74;
-                    if (kind == 2 && bdHash(floor(qaz / px) + floor(qel / px) * 57.0) > 0.7) col *= 0.82;
-                    if (kind == 0 && uBdB[i].w > 0.5 && qel > top - uBdA[i].y * 0.22 && top > uBdA[i].y * 0.55) {
-                        col = mix(col, vec3(0.93, 0.95, 0.98), 0.85);
+                    if (kind <= 1) {
+                        // the lit side faces the sun (west), the other in shadow, as the art is shaded
+                        vec3 on = bdPeaks(kind == 1, qaz, del, h, uBdA[i].w, uBdB[i].w > 0.5);
+                        if (on.x < 0.5) continue;
+                        if (on.z > 0.5) col = on.y > 0.5 ? vec3(0.74, 0.79, 0.88) : vec3(0.93, 0.95, 0.98);
+                        else if (on.y > 0.5) col *= kind == 1 ? 0.84 : 0.74;
+                    } else {
+                        if (del > h * bdProfile(kind, qaz, uBdA[i].w)) continue;
+                        if (kind == 3) {
+                            float left = h * bdProfile(kind, qaz - px * 2.0, uBdA[i].w);
+                            float right = h * bdProfile(kind, qaz + px * 2.0, uBdA[i].w);
+                            if (right > left + px * 0.4) col *= 0.74;
+                        }
+                        if (kind == 2 && bdHash(floor(qaz / px) + floor(qel / px) * 57.0) > 0.7) col *= 0.82;
                     }
                     // hazier towards its foot, where it meets the horizon
                     float foot = clamp(1.0 - qel / max(uBdA[i].y, 0.5), 0.0, 1.0);

@@ -1,6 +1,7 @@
 package com.larsons.game.editor;
 
 import com.larsons.game.combat.CombatTuning;
+import com.larsons.game.level.HeightField;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelObject;
 import com.larsons.game.level.LevelWorld;
@@ -31,7 +32,8 @@ final class LevelView {
     private final CombatTuning tuning;
     private final World world;
     private Terrain terrain;
-    /** What the ground was built from: the heights' version and the vines and spots as they stood. */
+    /** What the ground was built from: the heights (and their version) and the vines and spots as they stood. */
+    private HeightField heightsBuilt;
     private int heightsVersion = -1;
     private String featuresKey = "";
     private boolean objectsDirty = true;
@@ -70,10 +72,11 @@ final class LevelView {
     /** Bring the world up to date with the level: its ground if that changed, its objects if they did. */
     void refresh() {
         String features = features();
-        boolean ground = terrain == null || level.heights().version() != heightsVersion
-                || !features.equals(featuresKey);
+        boolean ground = terrain == null || level.heights() != heightsBuilt
+                || level.heights().version() != heightsVersion || !features.equals(featuresKey);
         if (ground) {
             terrain = LevelWorld.terrain(level);
+            heightsBuilt = level.heights();
             heightsVersion = level.heights().version();
             featuresKey = features;
             objectsDirty = true;
