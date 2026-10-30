@@ -1,5 +1,7 @@
 package com.larsons.game.ui;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.Font;
 import com.larsons.game.gfx.Texture;
@@ -30,6 +32,8 @@ public final class Ui implements AutoCloseable {
     public final Font title;
 
     private boolean clickTaken;
+    /** The slider being dragged (by where it is drawn), or {@code Long.MIN_VALUE}. */
+    private long dragging = Long.MIN_VALUE;
 
     public Ui(Window window, Batch batch) {
         this.window = window;
@@ -192,14 +196,51 @@ public final class Ui implements AutoCloseable {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
-    /** Whether the left button was clicked inside the box this frame (and takes the click). */
+    /**
+     * Whether the left button was clicked inside the box this frame (and
+     * takes the click). Every click anything in the interface takes sounds
+     * here ({@code ui/click}) - a button, a knob, a wardrobe gem.
+     */
     public boolean clicked(float x, float y, float w, float h) {
         if (clickTaken || !input().mousePressed(GLFW_MOUSE_BUTTON_LEFT) || !hover(x, y, w, h)) {
             return false;
         }
         clickTaken = true;
         input().consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
+        Sounds.play(SoundKeys.ui("click"));
         return true;
+    }
+
+    /**
+     * A horizontal slider showing {@code value} (0..1): press on it and drag
+     * to change it. Returns the value now - {@code value} unless it is being
+     * dragged.
+     */
+    public double slider(float x, float y, float w, float h, double value) {
+        long id = ((long) Float.floatToIntBits(x) << 32) ^ Float.floatToIntBits(y);
+        Input in = input();
+        if (!clickTaken && in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && hover(x - 6, y - 4, w + 12, h + 8)) {
+            clickTaken = true;
+            in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
+            dragging = id;
+        }
+        if (dragging == id) {
+            if (in.mouseDown(GLFW_MOUSE_BUTTON_LEFT)) {
+                value = Math.max(0, Math.min(1, (in.mouseX() - x) / w));
+            } else {
+                dragging = Long.MIN_VALUE;
+            }
+        }
+        float v = (float) Math.max(0, Math.min(1, value));
+        float track = Math.max(4, h * 0.3f), ty = y + (h - track) / 2;
+        rect(x, ty, w, track, Theme.BUTTON);
+        rect(x, ty, w * v, track, Theme.ACCENT);
+        outline(x, ty, w, track, 1, Theme.PANEL_EDGE);
+        float knob = h * 0.5f;
+        boolean hot = dragging == id || hover(x - 6, y - 4, w + 12, h + 8);
+        rect(x + w * v - knob / 2, y, knob, h, hot ? Theme.ITEM_SELECTED : Theme.ITEM);
+        outline(x + w * v - knob / 2, y, knob, h, 1, Theme.PANEL_EDGE);
+        return value;
     }
 
     /**

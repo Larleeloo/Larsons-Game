@@ -251,13 +251,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Input in = game.window().input();
         world.setScenery(game.scenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
-            sounds.update(world, camera);
+            sounds.update(world, camera, durations());
             return;
         }
         if (in.pressed(GLFW_KEY_ESCAPE)) {
             in.consumeKey(GLFW_KEY_ESCAPE);
-            if (inventory.open()) inventory.close();
-            else pause.open(PauseMenu.Page.MAIN);
+            if (inventory.open()) {
+                inventory.close();
+            } else {
+                pause.open(PauseMenu.Page.MAIN);
+                Sounds.play(SoundKeys.ui("pause"));
+            }
             return;
         }
         if (in.pressed(GLFW_KEY_I)) inventory.toggle();
@@ -293,6 +297,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.repeated(GLFW_KEY_EQUAL) || in.repeated(GLFW_KEY_KP_ADD)) camera.zoom(1);
         if (in.repeated(GLFW_KEY_MINUS) || in.repeated(GLFW_KEY_KP_SUBTRACT)) camera.zoom(-1);
         if (in.pressed(GLFW_KEY_TAB)) {
+            toggled();
             int preset = camera.cyclePreset();
             game.toast("Camera: " + Elevation.values()[preset].label() + " sprites ("
                     + (int) Elevation.values()[preset].renderAngle() + "°)", Theme.HINT);
@@ -305,6 +310,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.repeated(GLFW_KEY_COMMA)) p.turnSteps(1);
         if (in.repeated(GLFW_KEY_PERIOD)) p.turnSteps(-1);
         if (in.pressed(GLFW_KEY_T)) {
+            toggled();
             turntable = !turntable;
             game.toast(turntable ? "Turntable on" : "Turntable off", Theme.HINT);
         }
@@ -315,16 +321,26 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 p.turnSteps(1);
             }
         }
-        if (in.pressed(GLFW_KEY_H)) game.settings().showHud = !game.settings().showHud;
+        if (in.pressed(GLFW_KEY_H)) {
+            toggled();
+            game.settings().showHud = !game.settings().showHud;
+        }
         if (in.pressed(GLFW_KEY_L)) toggleLock();
         if (in.pressed(GLFW_KEY_K)) nextLock();
         if (in.pressed(GLFW_KEY_O)) {
+            toggled();
             game.settings().autoCamera = !game.settings().autoCamera;
             game.toast(game.settings().autoCamera ? "Camera height: automatic (higher on peaks, lower in hollows)"
                     : "Camera height: fixed", Theme.HINT);
         }
-        if (in.pressed(GLFW_KEY_P)) game.settings().showProps = !game.settings().showProps;
-        if (in.pressed(GLFW_KEY_F9)) setClassic(!game.settings().classicAnimations);
+        if (in.pressed(GLFW_KEY_P)) {
+            toggled();
+            game.settings().showProps = !game.settings().showProps;
+        }
+        if (in.pressed(GLFW_KEY_F9)) {
+            toggled();
+            setClassic(!game.settings().classicAnimations);
+        }
 
         // --- items, the chest -----------------------------------------------------------
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
@@ -334,6 +350,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
+            Sounds.play(SoundKeys.ui("error"), 0.6);
             game.toast("Heavy attack ready in " + (int) Math.ceil(p.heavyWait()) + " s", Theme.HINT);
         }
         p.update(dt, intent, durations());
@@ -350,7 +367,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         autoHeight();
         camera.update(dt, follow());
         camera.keepAbove(world.terrain(), 0.8);
-        sounds.update(world, camera);
+        sounds.update(world, camera, durations());
+    }
+
+    /** A viewer key's switch thrown (the camera height, the HUD, the scenery ...). */
+    private static void toggled() {
+        Sounds.play(SoundKeys.ui("click"), 0.6);
     }
 
     // --- the lock-on and the camera on the hills -----------------------------------------
@@ -364,7 +386,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             return;
         }
         Target t = Combat.lockCandidate(camera.eye(), camera.forward(), world.player().feet(), world.targets(), null);
-        if (t == null) game.toast("Nothing to lock on to within " + (int) Combat.LOCK_RANGE + " m", Theme.HINT);
+        if (t == null) {
+            Sounds.play(SoundKeys.ui("error"), 0.6);
+            game.toast("Nothing to lock on to within " + (int) Combat.LOCK_RANGE + " m", Theme.HINT);
+        }
         c.lock(t);
     }
 
@@ -448,6 +473,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         var s = game.settings();
         s.debugTools = !s.debugTools;
         Wearables.setEverything(s.debugTools);
+        Sounds.play(SoundKeys.ui("secret"));
         game.toast(s.debugTools ? "Debug on: every cosmetic unlocked · Pause menu → Clear the ground"
                 : "Debug off", Theme.ACCENT);
     }
@@ -537,6 +563,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         World.GroundItem g = world.reachable();
         if (g == null) return;
         if (world.player().inventory().isFull()) {
+            Sounds.play(SoundKeys.ui("error"));
             game.toast("Your inventory is full — drop something first (G, or from the inventory: I)",
                     Theme.WARNING);
             return;

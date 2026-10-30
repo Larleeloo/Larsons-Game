@@ -23,6 +23,12 @@ package com.larsons.game.audio;
  * decoding resynchronises across damaged frames instead of giving up, so a
  * file with a junk byte in the middle still plays.
  *
+ * <p><b>Gapless.</b> An encoder pads the audio at both ends (LAME's ~50 ms of
+ * silence in front, the rest of the last frame behind) and says by how much in
+ * the Xing / Info frame it writes first, as minimp3's {@code mp3dec_ex} reads
+ * it: that frame is skipped, and the padding is cut off both ends - so a
+ * footstep starts the moment it is played and a loop loops without a gap.
+ *
  * <p>Decoding is a pure function of the byte array: no files, no threads, no
  * audio device. {@link #decode} hands back a {@link PcmClip} the mixer can
  * play at any pitch.
@@ -112,6 +118,8 @@ public final class Mp3Decoder {
         }
         int pos = skipId3v2(mp3);
         int end = trimId3v1(mp3);
+        int[] gapless = vbrTag(mp3, pos, end);      // {delay, padding}, or null
+        if (gapless != null) pos = gapless[2];
 
         // 1152 samples per frame at 8 kHz mono is the sparsest a stream can
         // be; growing geometrically from a frame-count estimate keeps a long
@@ -150,9 +158,61 @@ public final class Mp3Decoder {
         if (frames == 0 || written == 0) {
             throw new Mp3FormatException("no MP3 (MPEG Layer III) frames found");
         }
-        short[] exact = new short[written];
-        System.arraycopy(out, 0, exact, 0, written);
+        int from = 0, to = written;
+        if (gapless != null) {
+            int total = written / channels;
+            int start = Math.min(total, Math.max(0, gapless[0]));
+            int stop = Math.max(start, total - Math.max(0, gapless[1]));
+            if (stop > start) {
+                from = start * channels;
+                to = stop * channels;
+            }
+        }
+        short[] exact = new short[to - from];
+        System.arraycopy(out, from, exact, 0, to - from);
         return new PcmClip(exact, channels, sampleRate);
+    }
+
+    /** The decoder's own delay, in samples, that an encoder's figures leave out (minimp3's). */
+    private static final int DECODER_DELAY = 528 + 1;
+
+    /**
+     * The encoder's Xing / Info frame, if the stream starts with one: {@code
+     * {samples to cut from the front, from the back, where the audio's frames
+     * start}} - or null. Read as minimp3's {@code mp3dec_check_vbrtag} does:
+     * the tag sits after the first frame's side info; the LAME extension
+     * after its fields says the encoder's delay and padding.
+     */
+    private static int[] vbrTag(byte[] mp3, int pos, int end) {
+        int o = -1;
+        for (int i = pos; i < Math.min(end - HDR_SIZE, pos + 4096); i++) {
+            if (headerValid(mp3, i) && layerOf(mp3, i) == 1) {     // layer bits 01: Layer III
+                o = i;
+                break;
+            }
+        }
+        if (o < 0) return null;
+        int size = frameBytes(mp3, o, 0) + padding(mp3, o);
+        if (size <= HDR_SIZE || o + size > end) return null;
+        int side = isMpeg1(mp3, o) ? (isMono(mp3, o) ? 17 : 32) : (isMono(mp3, o) ? 9 : 17);
+        int t = o + HDR_SIZE + (hasCrc(mp3, o) ? 2 : 0) + side;
+        if (t + 8 > o + size) return null;
+        boolean xing = mp3[t] == 'X' && mp3[t + 1] == 'i' && mp3[t + 2] == 'n' && mp3[t + 3] == 'g';
+        boolean info = mp3[t] == 'I' && mp3[t + 1] == 'n' && mp3[t + 2] == 'f' && mp3[t + 3] == 'o';
+        if (!xing && !info) return null;
+        int flags = u(mp3, t + 7);
+        t += 8;
+        if ((flags & 1) != 0) t += 4;       // frame count
+        if ((flags & 2) != 0) t += 4;       // byte count
+        if ((flags & 4) != 0) t += 100;     // seek table
+        if ((flags & 8) != 0) t += 4;       // quality
+        int delay = 0, pad = 0;
+        if (t < o + size && mp3[t] != 0 && t + 21 + 3 <= o + size) {   // an encoder's extension (LAME, Lavc)
+            int d = t + 21;
+            delay = ((u(mp3, d) << 4) | (u(mp3, d + 1) >> 4)) + DECODER_DELAY;
+            pad = (((u(mp3, d + 1) & 0xF) << 8) | u(mp3, d + 2)) - DECODER_DELAY;
+        }
+        return new int[]{delay, pad, o + size};
     }
 
     /** Byte offset of the audio, past any ID3v2 tag at the front. */

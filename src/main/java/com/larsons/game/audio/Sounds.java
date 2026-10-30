@@ -1,33 +1,43 @@
 package com.larsons.game.audio;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
 
 /**
  * The sound system's front door: play a sound by <em>key</em> and this
- * resolves what should actually be heard, applies the creator's settings and
- * the subtle per-playback pitch drift, and hands it to the mixer.
+ * resolves what should actually be heard, applies the settings and the
+ * subtle per-playback pitch drift, and hands it to the mixer.
  *
  * <p>Copied from Larsons-Game-Engine's {@code Sounds}, which resolves a key
- * the same way:
+ * the same way. For each key of the sound's {@linkplain SoundKeys#chain
+ * fallbacks}, most specific first:
  *
  * <ol>
- *   <li>the creator's explicit file for this key, when the pack is switched
- *       off for it ({@link SoundDef#usePack});</li>
- *   <li>the {@link SoundPack} folder's file for the key — the normal case,
- *       and what a creator gets by dropping an MP3 or WAV in with the right
- *       name;</li>
- *   <li>the creator's explicit file as the pack's fallback;</li>
- *   <li><b>silence</b> — the default for every sound in the game.</li>
+ *   <li>the player's own file for that key - chosen in the Sounds menu and
+ *       saved in {@code config/sounds.json} ({@link SoundDef}) - or silence,
+ *       if they muted it;</li>
+ *   <li>the {@link SoundPack} folder's file for that key - the game's own
+ *       sound (a placeholder until a real one replaces it), and what a
+ *       creator gets by dropping an MP3 or WAV in with the right name;</li>
  * </ol>
  *
- * <p>(The engine has one more step, its synthesized voices for a few old
- * effects, and music; the game has neither yet.)
+ * <p>and when none of them has anything, <b>silence</b>. So a choice made for
+ * a shared sound ({@code player/attack}, every sword swing) is heard for both
+ * bodies, and one made for a single body's ({@code player/masculine/attack})
+ * for that body alone.
+ *
+ * <p><b>Volume.</b> A sound plays at its own volume, times its {@link
+ * SoundCategory}'s, times the effects' and the master volume - the category
+ * applied in the mixer, so moving its slider moves what is already playing.
  *
  * <p><b>Fresh pitch.</b> Every playback is at a slightly different pitch,
  * drawn from ±{@link SoundPack#pitchVariation()} — the trick Minecraft uses
@@ -35,16 +45,28 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>Everything here is safe to call from the game loop and safe on a machine
  * with no audio device at all: the mixer goes quiet and every call is a no-op.
- * What plays when is decided by the hooks ({@link AnimationSound}).
+ * What plays when is decided by the hooks ({@link AnimationSound}, {@link
+ * WorldSounds}, and calls where things happen).
  */
 public final class Sounds {
 
     private static final Map<String, SoundDef> DEFS = new LinkedHashMap<>();
     private static final SoundMixer MIXER = new SoundMixer();
+    /** What each key played as, until a choice or the pack changes ({@link #forget}). */
+    private static final Map<String, Resolution> RESOLVED = new HashMap<>();
+    private static final double[] CATEGORY = new double[SoundCategory.values().length];
+
+    static {
+        Arrays.fill(CATEGORY, 1.0);
+    }
 
     private static boolean enabled = true;
     private static boolean pitchVariation = true;
     private static double sfxVolume = 1.0;
+    /** Where the player's own choices are kept (null: the pack folder, as the engine keeps them). */
+    private static Path storeDir;
+    private static int packGeneration = -1;
+    private static SoundMixer.Voice preview;
 
     private Sounds() {}
 
@@ -87,6 +109,21 @@ public final class Sounds {
         return MIXER.masterVolume();
     }
 
+    /** How loud {@code c}'s sounds play, 0..1 - those playing now too. */
+    public static synchronized void setCategoryVolume(SoundCategory c, double v) {
+        CATEGORY[c.ordinal()] = clamp(v);
+        MIXER.setGroupVolume(group(c), CATEGORY[c.ordinal()]);
+    }
+
+    public static synchronized double categoryVolume(SoundCategory c) {
+        return CATEGORY[c.ordinal()];
+    }
+
+    /** The mixer's volume group of a category's voices. */
+    private static int group(SoundCategory c) {
+        return c.ordinal() + 1;
+    }
+
     /** The mixer, for diagnostics. */
     public static SoundMixer mixer() {
         return MIXER;
@@ -115,9 +152,9 @@ public final class Sounds {
      * @return the voice, or null when the key is silent
      */
     public static SoundMixer.Voice play(String key, double volumeScale, double pan) {
-        if (!isEnabled()) return null;
-        SoundDef def = definition(key);
-        return start(def, resolve(key, def), volumeScale, pan, def.loop());
+        if (!isEnabled() || key == null) return null;
+        Resolution r = resolved(key);
+        return start(key, r, volumeScale, pan, r.def().loop());
     }
 
     /**
@@ -127,9 +164,8 @@ public final class Sounds {
      * when the key is silent.
      */
     public static SoundMixer.Voice playLoop(String key, double volumeScale, double pan) {
-        if (!isEnabled()) return null;
-        SoundDef def = definition(key);
-        return start(def, resolve(key, def), volumeScale, pan, true);
+        if (!isEnabled() || key == null) return null;
+        return start(key, resolved(key), volumeScale, pan, true);
     }
 
     /**
@@ -140,21 +176,45 @@ public final class Sounds {
         if (!isEnabled() || keys == null) return null;
         for (String key : keys) {
             if (key == null || key.isEmpty()) continue;
-            SoundDef def = definition(key);
-            PcmClip clip = resolve(key, def);
-            if (clip.isEmpty()) continue;
-            return start(def, clip, volumeScale, 0, def.loop());
+            Resolution r = resolved(key);
+            if (r.clip().isEmpty()) continue;
+            return start(key, r, volumeScale, 0, r.def().loop());
         }
         return null;
     }
 
+    /**
+     * Play {@code key} once in the middle, as the Sounds menu's play button
+     * does - stopping the last one it played, a loop included, so a row can
+     * be listened to over and over. Returns null when it is silent.
+     */
+    public static SoundMixer.Voice preview(String key) {
+        stopPreview();
+        if (!isEnabled() || key == null) return null;
+        SoundMixer.Voice v = start(key, resolved(key), 1, 0, false);
+        synchronized (Sounds.class) {
+            preview = v;
+        }
+        return v;
+    }
+
+    /** Stop what {@link #preview} last played. */
+    public static void stopPreview() {
+        SoundMixer.Voice v;
+        synchronized (Sounds.class) {
+            v = preview;
+            preview = null;
+        }
+        if (v != null) v.stop();
+    }
+
     /** Hand an already-resolved sound to the mixer. */
-    private static SoundMixer.Voice start(SoundDef def, PcmClip clip,
-                                          double volumeScale, double pan, boolean loop) {
-        if (clip.isEmpty()) return null;
+    private static SoundMixer.Voice start(String key, Resolution r, double volumeScale, double pan, boolean loop) {
+        if (r.clip().isEmpty()) return null;
+        SoundDef def = r.def();
         double volume = def.volume() * volumeScale * sfxVolume();
         if (volume <= 0) return null;
-        return MIXER.play(clip, pitchFor(def), volume, pan, loop);
+        return MIXER.play(r.clip(), pitchFor(def), volume, pan, loop, group(SoundKeys.categoryOf(key)));
     }
 
     /**
@@ -198,54 +258,96 @@ public final class Sounds {
 
     // --- resolution --------------------------------------------------------------
 
-    /** What {@code key} actually sounds like right now: the creator's file, the pack's file, or silence. */
-    public static PcmClip resolve(String key) {
-        return resolve(key, definition(key));
-    }
-
-    private static PcmClip resolve(String key, SoundDef def) {
-        if (!def.usePack() && !def.file().isEmpty()) {
-            PcmClip explicit = SoundLoader.load(resolvePath(def.file()));
-            if (!explicit.isEmpty()) return explicit;
-        }
-        if (def.usePack()) {
-            Path packFile = SoundPack.fileFor(key);
-            if (packFile != null) {
-                PcmClip fromPack = SoundLoader.load(packFile);
-                if (!fromPack.isEmpty()) return fromPack;
-            }
-            if (!def.file().isEmpty()) {
-                PcmClip explicit = SoundLoader.load(resolvePath(def.file()));
-                if (!explicit.isEmpty()) return explicit;
-            }
-        }
-        return PcmClip.SILENCE;
-    }
-
     /** Where a key's audio comes from right now. */
     public enum Source {
-        /** A file the creator picked, outside the pack's naming. */
+        /** A file the player chose for it. */
         FILE,
-        /** The sound pack folder. */
+        /** The sound pack folder: the game's own sound. */
         PACK,
-        /** Nothing — the default. */
+        /** The player muted it. */
+        MUTED,
+        /** Nothing — the default for anything without a file. */
         SILENT
     }
 
     /**
-     * Which resolution step {@code key} currently lands on, answered from
-     * what files <em>exist</em>, not by decoding them.
+     * What a key is heard as: the audio (null when only asked which file),
+     * where it came from, the key of its {@linkplain SoundKeys#chain
+     * fallbacks} that supplied it (null when silent), that file, and the
+     * settings it plays at.
      */
-    public static Source sourceOf(String key) {
-        SoundDef def = definition(key);
-        boolean hasFile = !def.file().isEmpty()
-                && Files.isRegularFile(resolvePath(def.file()));
-        if (!def.usePack() && hasFile) return Source.FILE;
-        if (def.usePack()) {
-            if (SoundPack.fileFor(key) != null) return Source.PACK;
-            if (hasFile) return Source.FILE;
+    public record Resolution(PcmClip clip, Source source, String level, Path file, SoundDef def) {
+
+        /** Whether it came from a key other than the one asked for - a sound it shares. */
+        public boolean shared(String key) {
+            return level != null && !level.equals(key);
         }
-        return Source.SILENT;
+    }
+
+    /** What {@code key} actually sounds like right now: the player's file, the pack's file, or silence. */
+    public static PcmClip resolve(String key) {
+        return resolved(key).clip();
+    }
+
+    private static synchronized Resolution resolved(String key) {
+        if (packGeneration != SoundPack.generation()) {
+            packGeneration = SoundPack.generation();
+            RESOLVED.clear();
+        }
+        Resolution r = RESOLVED.get(key);
+        if (r == null) {
+            r = find(key, true);
+            RESOLVED.put(key, r);
+        }
+        return r;
+    }
+
+    /**
+     * Where {@code key}'s sound comes from, answered from what files
+     * <em>exist</em> without decoding them - what the Sounds menu shows.
+     */
+    public static synchronized Resolution describe(String key) {
+        return find(key, false);
+    }
+
+    /** Which resolution step {@code key} currently lands on ({@link #describe}). */
+    public static Source sourceOf(String key) {
+        return describe(key).source();
+    }
+
+    private static Resolution find(String key, boolean decode) {
+        for (String k : SoundKeys.chain(key)) {
+            SoundDef own = DEFS.get(k);
+            if (own != null) {
+                if (!own.file().isEmpty()) {
+                    Path f = resolvePath(own.file());
+                    if (Files.isRegularFile(f)) {
+                        PcmClip clip = decode ? SoundLoader.load(f) : null;
+                        if (!decode || !clip.isEmpty()) return new Resolution(clip, Source.FILE, k, f, own);
+                    }
+                }
+                if (!own.usePack()) return new Resolution(PcmClip.SILENCE, Source.MUTED, k, null, own);
+            }
+            Path p = SoundPack.fileAt(k);
+            if (p != null) {
+                PcmClip clip = decode ? SoundLoader.load(p) : null;
+                if (!decode || !clip.isEmpty()) return new Resolution(clip, Source.PACK, k, p, packDef(key, k));
+            }
+        }
+        return new Resolution(PcmClip.SILENCE, Source.SILENT, null, null, SoundDef.packDefault(key));
+    }
+
+    /**
+     * The pack's settings for {@code key} heard through {@code level}: its own
+     * override, else the shared sound's, else the pack's defaults - looping
+     * as {@code key} does.
+     */
+    private static SoundDef packDef(String key, String level) {
+        if (!SoundPack.hasOverride(key) && SoundPack.hasOverride(level)) {
+            SoundPack.Playback p = SoundPack.playbackFor(level);
+            return new SoundDef(key, "", p.volume(), p.pitch(), SoundKeys.isLooping(key), p.varyPitch(), true);
+        }
+        return SoundDef.packDefault(key);
     }
 
     /**
@@ -260,15 +362,59 @@ public final class Sounds {
         return Files.isRegularFile(inPack) ? inPack : direct;
     }
 
-    // --- assignments -------------------------------------------------------------
+    /**
+     * Decode every file in the pack now, on a background thread, so the first
+     * footstep or swing does not wait for its MP3 to be read.
+     */
+    public static void preload() {
+        Path root = SoundPack.root();
+        Thread t = new Thread(() -> {
+            if (!Files.isDirectory(root)) return;
+            try (Stream<Path> files = Files.walk(root)) {
+                files.filter(f -> {
+                    String n = f.getFileName().toString().toLowerCase();
+                    return n.endsWith(".mp3") || n.endsWith(".wav");
+                }).forEach(SoundLoader::load);
+            } catch (IOException | RuntimeException e) {
+                System.err.println("[sound] preloading " + root + ": " + e.getMessage());
+            }
+        }, "sound-preload");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+    }
 
-    /** The creator's assignment for {@code key}, or {@code null} if none. */
+    // --- the player's own choices ------------------------------------------------
+
+    /**
+     * Play {@code file} for {@code key} from now on - the Sounds menu's
+     * "Choose…" - and save the choice. A shared key ({@code player/attack})
+     * takes it for everything that falls back to it.
+     */
+    public static void choose(String key, Path file) {
+        put(new SoundDef(key, file.toAbsolutePath().toString(), 1, 1, SoundKeys.isLooping(key), true, false));
+        save();
+    }
+
+    /** Silence {@code key} (and what falls back to it), and save that. */
+    public static void mute(String key) {
+        put(new SoundDef(key, "", 1, 1, SoundKeys.isLooping(key), true, false));
+        save();
+    }
+
+    /** Back to the game's own sound for {@code key}, and save that. */
+    public static void reset(String key) {
+        remove(key);
+        save();
+    }
+
+    /** The player's assignment for {@code key}, or {@code null} if none. */
     public static synchronized SoundDef get(String key) {
         return DEFS.get(key);
     }
 
     /**
-     * The settings {@code key} plays at: the creator's assignment when there
+     * The settings {@code key} plays at: the player's assignment when there
      * is one, else the pack's settings for it. Never {@code null}.
      */
     public static synchronized SoundDef definition(String key) {
@@ -279,10 +425,12 @@ public final class Sounds {
     public static synchronized void put(SoundDef def) {
         if (def == null || def.key().isEmpty()) return;
         DEFS.put(def.key(), def);
+        RESOLVED.clear();
     }
 
     public static synchronized void remove(String key) {
         DEFS.remove(key);
+        RESOLVED.clear();
     }
 
     /** Every assignment, for saving. */
@@ -292,24 +440,41 @@ public final class Sounds {
 
     public static synchronized void clear() {
         DEFS.clear();
+        RESOLVED.clear();
     }
 
     /** Replace the whole assignment set (loading {@code sounds.json}). */
     public static synchronized void setAll(List<SoundDef> defs) {
         DEFS.clear();
+        RESOLVED.clear();
         if (defs == null) return;
         for (SoundDef d : defs) {
             if (d != null && !d.key().isEmpty()) DEFS.put(d.key(), d);
         }
     }
 
-    /** Load assignments from the pack's {@code sounds.json} — called once at startup. */
-    public static void load() {
-        setAll(new SoundStore().load());
+    /** Keep the player's choices in {@code dir} ({@code config/}) rather than the pack folder. */
+    public static synchronized void useStore(Path dir) {
+        storeDir = dir;
     }
 
-    /** Save assignments to the pack's {@code sounds.json}. */
-    public static Path save() {
-        return new SoundStore().save(all());
+    private static synchronized SoundStore store() {
+        return storeDir != null ? new SoundStore(storeDir) : new SoundStore();
+    }
+
+    /** Load the player's choices from {@code sounds.json} — called once at startup. */
+    public static void load() {
+        setAll(store().load());
+    }
+
+    /** Save the player's choices to {@code sounds.json}; false (and a line on the console) if it cannot be written. */
+    public static boolean save() {
+        try {
+            store().save(all());
+            return true;
+        } catch (RuntimeException e) {
+            System.err.println("[sound] cannot save your sounds: " + e.getMessage());
+            return false;
+        }
     }
 }

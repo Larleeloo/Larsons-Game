@@ -1,5 +1,7 @@
 package com.larsons.game.scene;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
 import com.larsons.game.gfx.Font;
 import com.larsons.game.sprite.AnimState;
@@ -304,6 +306,7 @@ final class WardrobePanel {
             float ry = sy + 15;
             if (m.knob("<", sx, ry, knob, any)) {
                 choose(wardrobe, slot, opts.get(Math.floorMod(idx - 1, opts.size())));
+                Sounds.play(SoundKeys.ui("wear"));
                 focusOn(slot);
             }
             List<Wearables.Colour> colours = colours(lib, slot, player);
@@ -317,6 +320,7 @@ final class WardrobePanel {
             ui.text(m.body, fit(m.body, text, stripW - 10), stripX + 5, ry + (knob - m.body.lineHeight()) / 2, c);
             if (m.knob(">", sx + colW - knob - gemW, ry, knob, any)) {
                 choose(wardrobe, slot, opts.get((idx + 1) % opts.size()));
+                Sounds.play(SoundKeys.ui("wear"));
                 focusOn(slot);
             }
             if (!colours.isEmpty()) {
@@ -368,7 +372,10 @@ final class WardrobePanel {
                         m.padlock(gx + r - 5, gy + r - 6);
                     }
                 }
-                if (ui.clicked(gx - r, gy - r, 2 * r, 2 * r)) offered = pick(wardrobe, player, focus, o);
+                if (ui.clicked(gx - r, gy - r, 2 * r, 2 * r)) {
+                    offered = pick(wardrobe, player, focus, o);
+                    if (o.unlocked()) Sounds.play(SoundKeys.ui("wear"));
+                }
             }
         }
         float ny = gy + r + 10;
@@ -379,6 +386,7 @@ final class WardrobePanel {
             ui.text(m.small, fit(m.small, ask, w - 214), x, ny + 6, Medieval.CREAM);
             if (m.button("Use dye", x + w - 204, ny - 2, 100, 30, false, true)) {
                 if (Wearables.useDye(wardrobe, player.inventory(), focus, offered)) {
+                    Sounds.play(SoundKeys.ui("secret"));
                     game.toast(dye + " unlocked for " + on, com.larsons.game.world.Rarity.RARE.colour(1f));
                     game.saveWardrobe();
                 }

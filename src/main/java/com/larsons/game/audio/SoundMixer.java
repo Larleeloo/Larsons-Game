@@ -40,6 +40,12 @@ public final class SoundMixer {
     private static final int BLOCK_FRAMES = 512;
     /** Voices past this are dropped rather than stealing the CPU. */
     private static final int MAX_VOICES = 48;
+    /**
+     * Volume groups a voice can belong to (the sound categories, and 0 for
+     * none): each has a level of its own, applied while the voice plays, so a
+     * category's slider moves the loops already sounding too.
+     */
+    public static final int GROUPS = 16;
 
     private static final AudioFormat FORMAT =
             new AudioFormat(SAMPLE_RATE, 16, 2, true, false);
@@ -52,14 +58,16 @@ public final class SoundMixer {
         private volatile double volume;
         private volatile double panLeft, panRight;
         private final boolean loop;
+        private final int group;
         private volatile boolean stopping;
         private double fade = 1.0;    // multiplier ramped to 0 when stopping
 
-        Voice(PcmClip clip, double rate, double volume, double pan, boolean loop) {
+        Voice(PcmClip clip, double rate, double volume, double pan, boolean loop, int group) {
             this.clip = clip;
             this.rate = rate;
             this.volume = volume;
             this.loop = loop;
+            this.group = Math.max(0, Math.min(GROUPS - 1, group));
             setPan(pan);
         }
 
@@ -96,7 +104,7 @@ public final class SoundMixer {
     }
 
     /** A handle for a sound that never actually started (headless, or silent). */
-    private static final Voice NONE = new Voice(PcmClip.SILENCE, 1, 0, 0, false);
+    private static final Voice NONE = new Voice(PcmClip.SILENCE, 1, 0, 0, false, 0);
 
     private final List<Voice> voices = new ArrayList<>();
     private SourceDataLine line;
@@ -105,6 +113,11 @@ public final class SoundMixer {
     private boolean available;
     private volatile boolean running;
     private volatile double masterVolume = 1.0;
+    private final float[] groupGain = new float[GROUPS];
+
+    {
+        java.util.Arrays.fill(groupGain, 1f);
+    }
 
     /** Master level applied to every voice, 0..1. */
     public void setMasterVolume(double v) {
@@ -113,6 +126,16 @@ public final class SoundMixer {
 
     public double masterVolume() {
         return masterVolume;
+    }
+
+    /** The level of every voice in {@code group} (1..{@link #GROUPS}-1), 0..1 - now, and for those to come. */
+    public void setGroupVolume(int group, double v) {
+        if (group <= 0 || group >= GROUPS) return;
+        groupGain[group] = (float) Math.max(0, Math.min(1, v));
+    }
+
+    public double groupVolume(int group) {
+        return group <= 0 || group >= GROUPS ? 1 : groupGain[group];
     }
 
     /** Whether an audio device was found (false on a headless machine). */
@@ -130,10 +153,15 @@ public final class SoundMixer {
      * @return a handle to stop it, never {@code null}
      */
     public Voice play(PcmClip clip, double pitch, double volume, double pan, boolean loop) {
+        return play(clip, pitch, volume, pan, loop, 0);
+    }
+
+    /** {@link #play(PcmClip, double, double, double, boolean)} as one of a volume {@code group}'s voices. */
+    public Voice play(PcmClip clip, double pitch, double volume, double pan, boolean loop, int group) {
         if (clip == null || clip.isEmpty() || volume <= 0) return NONE;
         if (!ensureStarted()) return NONE;
         double rate = clip.sampleRate() / (double) SAMPLE_RATE * Math.max(0.01, pitch);
-        Voice v = new Voice(clip, rate, volume, pan, loop);
+        Voice v = new Voice(clip, rate, volume, pan, loop, group);
         synchronized (voices) {
             if (voices.size() >= MAX_VOICES) {
                 // Drop the oldest one-shot rather than refuse the new sound:
@@ -261,7 +289,7 @@ public final class SoundMixer {
         // A stopping voice ramps down across one block rather than cutting,
         // which would click.
         double fadeStep = v.stopping ? 1.0 / BLOCK_FRAMES : 0;
-        float vol = (float) v.volume;
+        float vol = (float) v.volume * groupGain[v.group];
         for (int i = 0; i < BLOCK_FRAMES; i++) {
             if (fade <= 0) break;
             int i0 = (int) pos;

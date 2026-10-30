@@ -88,6 +88,8 @@ public final class SoundPack {
     private static Path configRoot;
     /** Resolved audio file per sound key ({@code null} = none in the pack). */
     private static final Map<String, Path> FILES = new HashMap<>();
+    /** Counts the times the pack was moved or rescanned, so what was resolved from it can be forgotten. */
+    private static volatile int generation;
 
     private SoundPack() {}
 
@@ -132,25 +134,42 @@ public final class SoundPack {
         config = null;
         configRoot = null;
         FILES.clear();
+        generation++;
+    }
+
+    /** Changes each time the pack is moved or rescanned ({@link #reload}). */
+    public static int generation() {
+        return generation;
     }
 
     // --- lookup ---------------------------------------------------------------------
 
-    /** The pack file backing {@code key}, or {@code null} when there is none. */
-    public static synchronized Path fileFor(String key) {
+    /**
+     * The pack file backing {@code key} - its own, or the first of what it
+     * falls back to ({@link SoundKeys#chain}) - or {@code null} when there is
+     * none.
+     */
+    public static Path fileFor(String key) {
+        for (String k : SoundKeys.chain(key)) {
+            Path p = fileAt(k);
+            if (p != null) return p;
+        }
+        return null;
+    }
+
+    /** The pack file that is {@code key}'s own ({@link SoundKeys#file}), fallbacks aside, or {@code null}. */
+    public static synchronized Path fileAt(String key) {
         settings();          // a moved pack drops both caches together
         Path root = configRoot;
         if (FILES.containsKey(key)) return FILES.get(key);
         Path found = null;
         if (Files.isDirectory(root)) {
-            search:
-            for (String rel : SoundKeys.paths(key)) {
-                for (String ext : EXTENSIONS) {
-                    Path candidate = root.resolve(rel + ext);
-                    if (Files.isRegularFile(candidate)) {
-                        found = candidate;
-                        break search;
-                    }
+            String rel = SoundKeys.file(key);
+            for (String ext : EXTENSIONS) {
+                Path candidate = root.resolve(rel + ext);
+                if (Files.isRegularFile(candidate)) {
+                    found = candidate;
+                    break;
                 }
             }
         }
@@ -334,42 +353,55 @@ public final class SoundPack {
         return """
                 # Sounds
 
-                Drop audio files in this folder and the game plays them. Every
-                animation in the game is a sound slot - both bodies' 56 states,
-                the treasure chest's four, what is done with an item, the
-                inventory, the training dummy's reactions and the fighting's
-                dice, blows and shots - and **every one is silent until a file
-                with its name is here**. MP3 or WAV (also AIFF and AU); MP3 is read by the
-                game's own decoder, so no codec is needed.
+                Every sound the game makes is a file in this folder, named after
+                what it is the sound of. MP3 or WAV (also AIFF and AU); MP3 is
+                read by the game's own decoder, so no codec is needed.
+
+                The files here now are **placeholders**, made in code by
+                `tools/sounds/make_placeholders.py` - replace any of them with a
+                real recording of the same name. You can also pick your own file
+                for any sound in the game without touching this folder: Pause →
+                Sounds, one tab per category (footsteps and movement, voices,
+                weapons, hits and magic, creatures, world and loot, ambient,
+                interface), each sound with a play button, Choose…, Mute and
+                Reset. Those choices are yours alone (`config/sounds.json`).
 
                 ## Naming
 
                 Each folder is an object, and each file is named after the
                 action it plays on:
 
-                    player/feminine/walk.mp3          her walk (held: repeats while she walks)
-                    player/feminine/attack.mp3        her sword swing (once, as it starts)
-                    player/masculine/axe_attack.mp3   his battle-axe chop
-                    chests/ornate_chest/idle.mp3      the chest shut, its smoke swirling (held)
-                    chests/ornate_chest/open.mp3      the lid thrown open (once)
-                    chests/ornate_chest/opened.mp3    the chest standing open and lit (held)
-                    chests/ornate_chest/close.mp3     the lid slammed (once)
-                    items/battle_axe/pickup.mp3       picking the battle axe up
-                    ui/inventory_open.mp3             the inventory opening (I)
+                    player/footstep_grass.mp3         a footstep on grass (each foot, as it comes down)
+                    player/attack.mp3                 a sword swing (once, as it starts)
+                    player/axe_attack.mp3             the battle-axe chop
+                    player/feminine/emote_laugh.mp3   her laugh
+                    player/masculine/hurt.mp3         his grunt when he is hurt
+                    chests/open.mp3                   a chest's lid thrown open
+                    chests/opened.mp3                 a chest standing open and lit (held)
+                    items/sword/equip.mp3             taking the sword in hand
                     combat/attack_dummy/hit.mp3       a training dummy struck
                     combat/dice_roll.mp3              the damage dice tumbling over her head
+                    world/loot_legendary.mp3          a Legendary item landing out of a chest
+                    ambient/wind.mp3                  the breeze over the meadow (held)
+                    ui/click.mp3                      any button clicked
 
-                A file one folder up covers every object of its kind until an
-                object has its own: `player/walk.mp3` is both bodies' walk,
-                `chests/open.mp3` every chest's opening, `items/pickup.mp3`
-                picking anything up.
+                A file in a body's or an object's own folder is that one's alone
+                and comes first; one folder up covers every one of its kind:
+                `player/masculine/attack.mp3` is his sword swing,
+                `player/attack.mp3` both bodies'; `chests/ornate_chest/open.mp3`
+                that chest's, `chests/open.mp3` every chest's.
 
-                A held animation's sound (a walk, an idle, the chest standing
-                open) loops for as long as the animation holds; anything else
-                plays once as its animation starts - so record a walk as one
+                A move without a file of its own sounds like the move it is a
+                version of: the axe's heavy attack like the axe's attack, a bow
+                shot from the crouch like the standing one.
+
+                A held sound (a chest standing open, the breeze, a flier
+                flapping) loops for as long as what it is the sound of lasts;
+                anything else plays once as it starts - so record a loop as one
                 seamless loop, and an attack from its first frame.
 
-                `%s` lists the exact name of every sound in the game.
+                `%s` lists the exact name of every sound in the game, by
+                category.
 
                 ## Fresh pitch
 
@@ -389,36 +421,48 @@ public final class SoundPack {
                       "player/feminine/run":     { "pitch": 1.1, "varyPitch": false }
                     }
 
-                The game picks up new files the next time it starts.
+                Each category's volume, and the master volume, are in Pause →
+                Sounds. The game picks up new files here the next time it starts
+                (or at once, with Rescan in the Sounds menu).
                 """.formatted(KEYS_FILE, CONFIG_FILE, DEFAULT_PITCH_VARIATION,
                 DEFAULT_PITCH_VARIATION * 100, CONFIG_FILE);
     }
 
-    /** The generated key list: every sound, its file name, and its sound key. */
+    /** The generated key list: every sound by category, its file name, and its sound key. */
     static String keysText() {
         StringBuilder sb = new StringBuilder();
         sb.append("LARSON'S GAME — SOUND KEYS\n");
         sb.append("==========================\n\n");
         sb.append("Every sound the game can make, the file to name your audio, and the\n");
-        sb.append("sound key behind it. Drop an MP3 (or WAV) at the listed path in this\n");
-        sb.append("folder and the game plays it from its next launch. Anything you do\n");
-        sb.append("not supply is SILENT. (held) sounds loop for as long as their\n");
-        sb.append("animation holds; the rest play once as it starts.\n");
+        sb.append("sound key behind it, by category (the tabs of Pause → Sounds). Drop an\n");
+        sb.append("MP3 (or WAV) at the listed path in this folder and the game plays it from\n");
+        sb.append("its next launch. The shared sounds come with placeholders; a body's or an\n");
+        sb.append("object's own file, when there is one, plays instead of the shared one.\n");
+        sb.append("(held) sounds loop for as long as what they are the sound of lasts; the\n");
+        sb.append("rest play once as it starts.\n");
         sb.append("Generated by the game from its catalogue (audio/SoundKeys.java).\n");
 
-        Map<String, List<SoundKeys.Entry>> byCategory = new LinkedHashMap<>();
-        for (SoundKeys.Entry e : SoundKeys.all()) {
-            byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e);
+        Map<SoundCategory, List<SoundKeys.Entry>> shared = new LinkedHashMap<>(), own = new LinkedHashMap<>();
+        for (SoundCategory c : SoundCategory.values()) {
+            shared.put(c, new ArrayList<>());
+            own.put(c, new ArrayList<>());
         }
-        for (Map.Entry<String, List<SoundKeys.Entry>> group : byCategory.entrySet()) {
-            List<SoundKeys.Entry> entries = group.getValue();
-            sb.append("\n\n").append(group.getKey().toUpperCase())
-                    .append("  ->  ").append(entries.get(0).folder()).append("/\n\n");
-            for (SoundKeys.Entry e : entries) {
-                String name = e.name() + (SoundKeys.isLooping(e.key()) ? " (held)" : "");
-                sb.append(String.format("  %-44s %-30s %s%n", e.file() + ".mp3", name, e.key()));
+        for (SoundKeys.Entry e : SoundKeys.all()) (e.listed() ? shared : own).get(e.category()).add(e);
+        for (SoundCategory c : SoundCategory.values()) {
+            sb.append("\n\n").append(c.label().toUpperCase()).append("\n");
+            sb.append("-".repeat(c.label().length())).append("\n");
+            sb.append(c.blurb()).append("\n\n");
+            for (SoundKeys.Entry e : shared.get(c)) line(sb, e);
+            if (!own.get(c).isEmpty()) {
+                sb.append("\n  One body's or one object's own (silent until given a file):\n\n");
+                for (SoundKeys.Entry e : own.get(c)) line(sb, e);
             }
         }
         return sb.toString();
+    }
+
+    private static void line(StringBuilder sb, SoundKeys.Entry e) {
+        String name = e.name() + (e.looping() ? " (held)" : "");
+        sb.append(String.format("  %-46s %-48s %s", e.file() + ".mp3", name, e.key())).append('\n');
     }
 }

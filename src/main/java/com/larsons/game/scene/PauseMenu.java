@@ -1,5 +1,7 @@
 package com.larsons.game.scene;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
 import com.larsons.game.ui.MenuList;
 import com.larsons.game.ui.Theme;
@@ -13,17 +15,19 @@ import java.util.List;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 
 /**
- * The pause menu: resume, the wardrobe (cosmetics), settings, the controls,
+ * The pause menu: resume, the wardrobe (cosmetics), settings, the sounds
+ * ({@link SoundsPanel}: a tab for each category, a volume for each, and the
+ * player's own file for any sound), the controls,
  * how to import sprite sheets, back to the main menu, quit - and, once the
  * debug code has been typed ({@link DebugCode}), a button that clears every
  * item off the ground ({@link World#clearGround}).
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, SETTINGS, CONTROLS, IMPORT }
+    enum Page { MAIN, WARDROBE, SETTINGS, SOUNDS, CONTROLS, IMPORT }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Settings", "Controls", "Import sprite sheets", "Main menu", "Quit"};
+            "Resume", "Wardrobe", "Settings", "Sounds", "Controls", "Import sprite sheets", "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
 
@@ -60,6 +64,7 @@ final class PauseMenu {
     private final World world;
     private final MenuList menu = new MenuList();
     private final WardrobePanel wardrobe;
+    private final SoundsPanel sounds;
     private Page page = Page.MAIN;
     private boolean open;
 
@@ -67,6 +72,7 @@ final class PauseMenu {
         this.game = game;
         this.world = world;
         this.wardrobe = new WardrobePanel(game);
+        this.sounds = new SoundsPanel(game);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -85,9 +91,27 @@ final class PauseMenu {
 
     void close() {
         open = false;
+        leave();
         page = Page.MAIN;
         game.saveWardrobe();
         game.settings().save();
+        Sounds.play(SoundKeys.ui("resume"));
+    }
+
+    /** Back to the main page from another (Esc, or Back). */
+    private void back(boolean escape) {
+        leave();
+        page = Page.MAIN;
+        game.saveWardrobe();
+        if (escape) Sounds.play(SoundKeys.ui("back"));
+    }
+
+    /** Leaving whatever page is up: the Sounds page stops its sound and stops taking dropped files. */
+    private void leave() {
+        if (page == Page.SOUNDS) {
+            sounds.leave();
+            game.setDropTarget(null);
+        }
     }
 
     /** Draw and handle the menu. Returns false once it has closed itself. */
@@ -112,6 +136,10 @@ final class PauseMenu {
                 case "Resume" -> close();
                 case "Wardrobe" -> page = Page.WARDROBE;
                 case "Settings" -> page = Page.SETTINGS;
+                case "Sounds" -> {
+                    page = Page.SOUNDS;
+                    game.setDropTarget(sounds::drop);
+                }
                 case "Controls" -> page = Page.CONTROLS;
                 case "Import sprite sheets" -> page = Page.IMPORT;
                 case CLEAR_GROUND -> {
@@ -132,29 +160,28 @@ final class PauseMenu {
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         if (page == Page.WARDROBE) {
             // the wardrobe draws its own armoire, title and Back button and all
-            if (wardrobe.draw(ui, dt, x, y, w, h, player) || escape) {
-                page = Page.MAIN;
-                game.saveWardrobe();
-            }
+            boolean done = wardrobe.draw(ui, dt, x, y, w, h, player);
+            if (done || escape) back(escape);
             return;
         }
         ui.panel(x, y, w, h);
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
             case SETTINGS -> "Settings";
+            case SOUNDS -> "Sounds";
             case CONTROLS -> "Controls";
             case IMPORT -> "Import sprite sheets";
             default -> "";
         };
         ui.text(ui.large, title, x + 24, y + 18, Theme.TITLE);
         if (ui.button("Back", x + w - 124, y + 14, 100, 34) || escape) {
-            page = Page.MAIN;
-            game.saveWardrobe();
+            back(escape);
             return;
         }
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
             case SETTINGS -> settings(ui, cx, cy);
+            case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
             case CONTROLS -> controls(ui, cx, cy, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }

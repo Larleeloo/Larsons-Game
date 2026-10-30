@@ -1,5 +1,7 @@
 package com.larsons.game.cutscene;
 
+import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.sprite.Elevation;
 import com.larsons.game.sprite.Facing;
@@ -43,6 +45,8 @@ public final class CutsceneStage {
     private final SpriteLibrary sprites;
     private final CloseupLibrary closeups;
     private final Map<String, Stack> held = new HashMap<>();
+    /** The line drawn last, so a new one is heard as it comes up ({@code ui/dialogue}). */
+    private Cutscene.Line lastLine;
 
     public CutsceneStage(SpriteLibrary sprites, CloseupLibrary closeups) {
         this.sprites = sprites;
@@ -82,6 +86,8 @@ public final class CutsceneStage {
     /** The line being spoken (if any), in a box along the bottom of {@code (x, y, w, h)}. */
     public void dialogue(Ui ui, Cutscene cs, float x, float y, float w, float h) {
         Cutscene.Line line = cs.line();
+        if (line != null && line != lastLine) Sounds.play(SoundKeys.ui("dialogue"), 0.7);
+        lastLine = line;
         if (line != null) dialogue(ui, line, cs.now(), x, y, w, h);
     }
 

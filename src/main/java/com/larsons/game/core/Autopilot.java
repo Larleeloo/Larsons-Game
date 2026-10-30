@@ -101,7 +101,7 @@ public final class Autopilot {
                     return;
                 }
                 // The drag-and-drop importer, as if files had been dropped and Save clicked.
-                case "drop" -> game.importer().open(java.util.List.of(Path.of(arg)));
+                case "drop" -> game.drop(java.util.List.of(Path.of(arg)));
                 case "importsave" -> game.importer().scriptSave(game, arg);
                 case "importclose" -> game.importer().close();
                 default -> {

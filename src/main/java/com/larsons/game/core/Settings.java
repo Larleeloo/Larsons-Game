@@ -76,6 +76,14 @@ public final class Settings {
      * moves, kept in assets/animations_v1/) instead of the new one - to compare.
      */
     public boolean classicAnimations;
+    /** How loud everything is, 0..1 (Pause → Sounds). */
+    public double masterVolume = 1.0;
+    /**
+     * How loud each category of sounds is, 0..1, by the category's key
+     * ({@code audio/SoundCategory}: movement, voices, weapons ...); one not
+     * here plays at 1.
+     */
+    public final Map<String, Double> soundVolumes = new LinkedHashMap<>();
     /**
      * The debugging tools are on - every cosmetic offered, the pause menu's
      * "Clear the ground" - after the num-pad code ({@code scene/DebugCode}).
@@ -116,6 +124,14 @@ public final class Settings {
                 s.autoCamera = Json.bool(j, "autoCamera", true);
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
                 s.savedVsync = Json.bool(j, "vsync", true);
+                s.masterVolume = Math.max(0, Math.min(1, Json.num(j, "masterVolume", 1.0)));
+                if (j.get("soundVolumes") instanceof Map<?, ?> volumes) {
+                    for (Map.Entry<?, ?> e : volumes.entrySet()) {
+                        if (e.getValue() instanceof Number n) {
+                            s.soundVolumes.put(String.valueOf(e.getKey()), Math.max(0, Math.min(1, n.doubleValue())));
+                        }
+                    }
+                }
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
@@ -138,6 +154,8 @@ public final class Settings {
         j.put("autoCamera", autoCamera);
         j.put("classicAnimations", classicAnimations);
         j.put("vsync", savedVsync);
+        j.put("masterVolume", masterVolume);
+        j.put("soundVolumes", new LinkedHashMap<>(soundVolumes));
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);

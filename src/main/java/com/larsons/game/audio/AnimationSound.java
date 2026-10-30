@@ -38,7 +38,8 @@ public final class AnimationSound {
      * @param pan         where, -1 left … +1 right
      */
     public void update(String key, double time, double volumeScale, double pan) {
-        boolean restarted = key.equals(this.key) && time + 1e-6 < lastTime;
+        // (a held one never starts over: the climb runs backwards as she climbs down)
+        boolean restarted = key.equals(this.key) && time + 1e-6 < lastTime && !SoundKeys.isLooping(key);
         lastTime = time;
         if (!key.equals(this.key) || restarted) {
             if (voice != null && SoundKeys.isLooping(this.key)) voice.stop();
