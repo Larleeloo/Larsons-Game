@@ -44,6 +44,7 @@ public final class OrbitCamera {
     private double lift;
     private Vec3 target = new Vec3(0, 0.9, 0);
     private final double fovY = Math.toRadians(50);
+    private double maxDistance = MAX_DISTANCE;
 
     public OrbitCamera(double yaw, double pitch, double distance) {
         this.yaw = wantYaw = yaw;
@@ -221,8 +222,14 @@ public final class OrbitCamera {
         return Math.max(MIN_PITCH, Math.min(MAX_PITCH, p));
     }
 
-    private static double clampDistance(double d) {
-        return Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, d));
+    private double clampDistance(double d) {
+        return Math.max(MIN_DISTANCE, Math.min(maxDistance, d));
+    }
+
+    /** Let it zoom out as far as {@code metres} (the level editor's view; {@link #MAX_DISTANCE} otherwise). */
+    public void setMaxDistance(double metres) {
+        maxDistance = Math.max(MIN_DISTANCE, metres);
+        wantDistance = clampDistance(wantDistance);
     }
 
     private static double shortestAngle(double a) {

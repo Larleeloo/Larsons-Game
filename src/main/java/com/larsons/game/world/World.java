@@ -173,11 +173,16 @@ public final class World {
     private final Loot loot = Wearables.addTo(new Loot());
     private final List<Dummy> dummies = new ArrayList<>();
     private final List<FlyingDummy> fliers = new ArrayList<>();
+    private final List<SoundSpot> soundSpots = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
     private Terrain terrain = Terrain.FLAT;
     private Vec3 spawnPoint = Vec3.ZERO;
     private Random random = new Random();
     private Scenery scenery = Scenery.NONE;
+    private GroundMap ground = GroundMap.NONE;
+    private Sky sky = Sky.DEFAULT;
+    /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
+    private double[] bounds;
     private double time;
 
     public World(Wardrobe wardrobe) {
@@ -236,6 +241,12 @@ public final class World {
 
     public List<FlyingDummy> fliers() { return fliers; }
 
+    /** A sound that keeps playing at a spot of a level - a stream, crickets - heard nearer it. */
+    public record SoundSpot(String key, Vec3 at) {}
+
+    /** The sounds placed in the level, played by its {@code WorldSounds}. */
+    public List<SoundSpot> soundSpots() { return soundSpots; }
+
     public FlyingDummy addFlier(FlyingDummy flier) {
         fliers.add(flier);
         return flier;
@@ -255,6 +266,32 @@ public final class World {
     public void setScenery(Scenery scenery) {
         this.scenery = scenery == null ? Scenery.NONE : scenery;
     }
+
+    /**
+     * What the ground is made of where - the paths, the forest floor, the
+     * gravel, the meadows - as drawn ({@link GroundTexture}); all grass until
+     * it is given a map. It stays when the scenery is hidden.
+     */
+    public GroundMap ground() { return ground; }
+
+    public void setGround(GroundMap g) {
+        ground = g == null ? GroundMap.NONE : g;
+    }
+
+    /** The sky over it and what stands far off round the horizon. */
+    public Sky sky() { return sky; }
+
+    public void setSky(Sky s) {
+        sky = s == null ? Sky.DEFAULT : s;
+    }
+
+    /** Keep her within {@code x0 .. x1}, {@code z0 .. z1} from the next tick: a level's edges (null: none). */
+    public void setBounds(double x0, double x1, double z0, double z1) {
+        bounds = new double[]{x0, x1, z0, z1};
+    }
+
+    /** The edges she is kept within, x from, x to, z from, z to - or null. */
+    public double[] bounds() { return bounds == null ? null : bounds.clone(); }
 
     /**
      * Advance the world: the chests' animations ({@code durations}: how long
@@ -281,6 +318,7 @@ public final class World {
             if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + FEET);
         }
         for (FlyingDummy f : fliers) swooped(f, f.tick(dt, terrain, player));
+        if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
         combat.tick(dt, this);
         happened();
     }
@@ -378,6 +416,17 @@ public final class World {
 
     public void tick(double dt) {
         tick(dt, null);
+    }
+
+    /**
+     * Advance the world's clock - the wind in the scenery, the chests' and
+     * the dummies' idle loops - and nothing else: no fighting, nothing in
+     * her way, the fliers still. The level editor's view of a level.
+     */
+    public void idle(double dt) {
+        time += dt;
+        for (Chest c : chests) c.tick(dt, s -> 0);
+        for (Dummy d : dummies) d.tick(dt);
     }
 
     public Chest addChest(Chest chest) {

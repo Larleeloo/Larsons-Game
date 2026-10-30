@@ -49,6 +49,22 @@ public final class Terrain {
     public static final Terrain FLAT = new Terrain(0, 0, 0, 0, new float[0], List.of(), List.of(), List.of());
 
     /**
+     * Ground whose heights are {@code heights} - {@code columns} by {@code
+     * rows} of them, row by row from the north-west corner {@code (x0, z0)},
+     * {@link #STEP} apart - flat at {@code y = 0} outside them, with the walls
+     * she can climb and the spots worth a name: a level's ground ({@code
+     * level/HeightField}). The heights are copied.
+     */
+    public static Terrain of(double x0, double z0, int columns, int rows, float[] heights, List<Wall> walls,
+                             List<Place> places) {
+        if (columns < 2 || rows < 2 || heights.length != columns * rows) {
+            throw new IllegalArgumentException("a grid of " + columns + " x " + rows + " needs as many heights, not "
+                    + heights.length);
+        }
+        return new Terrain(x0, z0, columns, rows, heights.clone(), walls, List.of(), places);
+    }
+
+    /**
      * A rock face she can climb: its foot runs from {@code (x0, z0)} to
      * {@code (x1, z1)} on the ground, it faces out along {@code (nx, nz)} (a
      * unit vector, away from the rock), and it rises from {@code bottom} to

@@ -2,6 +2,8 @@ package com.larsons.game.scene;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_0;
@@ -53,5 +55,19 @@ class DebugCodeTest {
         var items = PauseMenu.mainItems(true);
         assertEquals(items.indexOf("Main menu") - 1, items.indexOf(PauseMenu.CLEAR_GROUND));
         assertEquals("Resume", items.get(0));
+    }
+
+    @Test
+    void theMainMenusCodeTakesEitherRowOfDigits() {
+        assertEquals(1, DebugCode.anyDigit(GLFW_KEY_1), "the number row");
+        assertEquals(5, DebugCode.anyDigit(GLFW_KEY_KP_5), "or the num-pad");
+        assertEquals(-1, DebugCode.anyDigit(GLFW_KEY_KP_ADD));
+    }
+
+    @Test
+    void aPlayTestsPauseMenuGoesBackToTheEditor() {
+        List<String> items = PauseMenu.mainItems(false, "Back to the editor");
+        assertEquals(items.indexOf("Back to the editor") + 1, items.indexOf("Main menu"), "just before the main menu");
+        assertFalse(PauseMenu.mainItems(false).contains("Back to the editor"));
     }
 }

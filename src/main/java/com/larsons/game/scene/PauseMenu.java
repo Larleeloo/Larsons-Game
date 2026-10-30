@@ -67,6 +67,8 @@ final class PauseMenu {
     private final SoundsPanel sounds;
     private Page page = Page.MAIN;
     private boolean open;
+    private String backLabel;
+    private Runnable back;
 
     PauseMenu(Game game, World world) {
         this.game = game;
@@ -77,9 +79,24 @@ final class PauseMenu {
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
     static List<String> mainItems(boolean debug) {
+        return mainItems(debug, null);
+    }
+
+    /** {@link #mainItems(boolean)}, with {@code back} before "Main menu" when there is one. */
+    static List<String> mainItems(boolean debug, String back) {
         List<String> items = new ArrayList<>(List.of(MAIN_ITEMS));
         if (debug) items.add(items.indexOf("Main menu"), CLEAR_GROUND);
+        if (back != null) items.add(items.indexOf("Main menu"), back);
         return items;
+    }
+
+    /**
+     * Offer {@code label} before "Main menu", which runs {@code action}:
+     * the play-test's way back to the level editor.
+     */
+    void setBack(String label, Runnable action) {
+        backLabel = label;
+        back = action;
     }
 
     boolean open() { return open; }
@@ -126,13 +143,19 @@ final class PauseMenu {
                 close();
                 return;
             }
-            List<String> items = mainItems(game.settings().debugTools);
+            List<String> items = mainItems(game.settings().debugTools, backLabel);
             float w = 360, h = 70 + items.size() * 58;
             float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
             ui.panel(x, y, w, h);
             ui.textCentered(ui.large, "Paused", x + w / 2, y + 18, Theme.TITLE);
             int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, 46, 12);
-            switch (chosen < 0 ? "" : items.get(chosen)) {
+            String pick = chosen < 0 ? "" : items.get(chosen);
+            if (back != null && pick.equals(backLabel)) {
+                close();
+                back.run();
+                return;
+            }
+            switch (pick) {
                 case "Resume" -> close();
                 case "Wardrobe" -> page = Page.WARDROBE;
                 case "Settings" -> page = Page.SETTINGS;

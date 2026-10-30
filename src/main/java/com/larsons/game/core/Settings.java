@@ -23,7 +23,8 @@ import java.util.Map;
  *   -Dlarsons.sprites.scale=1     shrink sprite frames on load (0.5 = half size)
  *   -Dlarsons.sprites.vramMB=1536 video memory the sprite cache may use
  *   -Dlarsons.assets=assets       where the assets are (sprites/, scenery/, sounds/ ...)
- *   -Dlarsons.start=menu          start in "menu" or straight in "demo"
+ *   -Dlarsons.start=menu          start in "menu", straight in "demo", or "creative" (a new level),
+ *                                 "edit:&lt;level&gt;" or "play:&lt;level&gt;" (a folder of assets/levels)
  *   -Dlarsons.inventory.slots=25  the player's inventory slots, the 5 of the hotbar included
  *   -Dlarsons.animations=classic  start with the first version of the weapon animations (or "new")
  *   -Dlarsons.script=...          scripted run for automated screenshots (see Autopilot)
@@ -90,6 +91,12 @@ public final class Settings {
      * Not saved.
      */
     public boolean debugTools;
+    /**
+     * The main menu's Dev tab - Creative Mode, the levels - is shown: typed
+     * open with the dev code on the main menu (1 0 2 5), and kept open
+     * between runs until it is typed again.
+     */
+    public boolean devUnlocked;
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
@@ -132,6 +139,7 @@ public final class Settings {
                         }
                     }
                 }
+                s.devUnlocked = Json.bool(j, "devUnlocked", false);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
@@ -156,6 +164,7 @@ public final class Settings {
         j.put("vsync", savedVsync);
         j.put("masterVolume", masterVolume);
         j.put("soundVolumes", new LinkedHashMap<>(soundVolumes));
+        j.put("devUnlocked", devUnlocked);
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);
@@ -182,6 +191,11 @@ public final class Settings {
     /** {@code assets/sounds}: the sound pack ({@code audio/SoundPack}). */
     public Path soundsDir() {
         return assets.resolve("sounds");
+    }
+
+    /** {@code assets/levels}: the levels Creative Mode makes, a folder each ({@code level/LevelIO}). */
+    public Path levelsDir() {
+        return assets.resolve("levels");
     }
 
     /** {@code assets/sprites}. */

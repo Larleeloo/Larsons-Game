@@ -2,6 +2,8 @@ package com.larsons.game.scene;
 
 import java.util.Arrays;
 
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_0;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_9;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_0;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_9;
 
@@ -11,8 +13,10 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_9;
  * debugging on - every cosmetic offered in the wardrobe, and the pause menu's
  * button that clears the ground - and typed again turns it off.
  *
- * <p>Only the num-pad's digits count (the number row is the hotbar's), and
- * any other num-pad digit starts the code over.
+ * <p>In the game only the num-pad's digits count (the number row is the
+ * hotbar's), and any other num-pad digit starts the code over. On the main
+ * menu the number row counts too, and the same code opens the Dev tab
+ * ({@code MainMenuScene}).
  */
 final class DebugCode {
 
@@ -28,6 +32,15 @@ final class DebugCode {
     /** The num-pad digit of GLFW key {@code key}, or -1 when it is not one. */
     static int digit(int key) {
         return key >= GLFW_KEY_KP_0 && key <= GLFW_KEY_KP_9 ? key - GLFW_KEY_KP_0 : -1;
+    }
+
+    /**
+     * The digit of GLFW key {@code key} on the num-pad or the number row, or
+     * -1 - on the main menu, where the number row is no hotbar's.
+     */
+    static int anyDigit(int key) {
+        if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) return key - GLFW_KEY_0;
+        return digit(key);
     }
 
     /** Num-pad digit {@code d} typed at {@code time} (seconds): whether it completes the code. */

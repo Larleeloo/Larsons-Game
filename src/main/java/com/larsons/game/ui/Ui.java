@@ -253,7 +253,10 @@ public final class Ui implements AutoCloseable {
         rect(x, y, w, h, hot || focused ? Theme.BUTTON_HOVER : Theme.BUTTON);
         outline(x, y, w, h, focused ? 2 : 1, focused ? Theme.ACCENT : Theme.PANEL_EDGE);
         float[] c = !enabled ? Theme.ITEM_DISABLED : (hot || focused) ? Theme.ITEM_SELECTED : Theme.ITEM;
+        // the largest font the label fits in
         Font f = h >= 44 ? large : body;
+        if (f == large && f.width(label) > w - 12) f = body;
+        if (f.width(label) > w - 8) f = small;
         text(f, label, x + (w - f.width(label)) / 2, y + (h - f.lineHeight()) / 2, c);
         return enabled && clicked(x, y, w, h);
     }
