@@ -65,7 +65,11 @@ public final class Songs {
             new Song("crazy", "Crazy", "Gnarls Barkley"),
             new Song("like_a_prayer", "Like a Prayer", "Madonna"),
             new Song("misery_business", "Misery Business", "Paramore"),
-            new Song("rocket_man", "Rocket Man", "Elton John"));
+            new Song("rocket_man", "Rocket Man", "Elton John"),
+            new Song("apt", "APT.", "ROSÉ and Bruno Mars"),
+            new Song("we_are_the_champions", "We Are The Champions", "Queen"),
+            new Song("i_wanna_be_yours", "I Wanna Be Yours", "Arctic Monkeys"),
+            new Song("empire_state_of_mind", "Empire State Of Mind", "Jay-Z and Alicia Keys"));
 
     private Songs() {}
 

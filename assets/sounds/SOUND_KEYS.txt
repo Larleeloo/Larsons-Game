@@ -486,6 +486,10 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
   music/like_a_prayer.mp3                        Like a Prayer (Madonna) (held)                   music/like_a_prayer
   music/misery_business.mp3                      Misery Business (Paramore) (held)                music/misery_business
   music/rocket_man.mp3                           Rocket Man (Elton John) (held)                   music/rocket_man
+  music/apt.mp3                                  APT. (ROSÉ and Bruno Mars) (held)                music/apt
+  music/we_are_the_champions.mp3                 We Are The Champions (Queen) (held)              music/we_are_the_champions
+  music/i_wanna_be_yours.mp3                     I Wanna Be Yours (Arctic Monkeys) (held)         music/i_wanna_be_yours
+  music/empire_state_of_mind.mp3                 Empire State Of Mind (Jay-Z and Alicia Keys) (held) music/empire_state_of_mind
 
 
 INTERFACE

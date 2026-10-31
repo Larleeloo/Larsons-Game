@@ -1002,13 +1002,14 @@ own MP3 or muted in **Pause → Sounds → Music**, with its own volume.
 music/<song>_medieval.mid         an arrangement: open it in FL Studio (a track per instrument)
 tools/music/<song>.py             writes that MIDI and renders assets/sounds/music/<song>.mp3
 tools/music/medieval.py           the toolkit: parts, the MIDI file, rendering and the seamless loop
+tools/music/arrange.py            chord names, tunes written as note names, and the band's ways of playing
 ```
 
 `python3 tools/music/dream_on.py` makes both of a song's files (FluidSynth
 and the FluidR3 General MIDI SoundFont render it; `--midi` writes just the
-MIDI). To use an arrangement edited in FL Studio instead, export it from
-there as a loop and put it over the song's MP3 - see
-[`music/`](music/README.md).
+MIDI), and `python3 tools/music/all.py` makes every song's. To use an
+arrangement edited in FL Studio instead, export it from there as a loop and
+put it over the song's MP3 - see [`music/`](music/README.md).
 
 ## Cutscenes
 
@@ -1311,8 +1312,8 @@ assets/levels/              Creative Mode's levels, a folder each (level.json, h
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
 tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
-music/                      the songs' MIDI files, for FL Studio (dream_on_medieval.mid)
-tools/music/                the songs' arrangements in code (dream_on.py) and their toolkit (medieval.py)
+music/                      the songs' MIDI files, for FL Studio (one a song: <song>_medieval.mid)
+tools/music/                the songs' arrangements in code (one script a song) and their toolkit (medieval.py, arrange.py)
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)

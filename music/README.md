@@ -36,6 +36,10 @@ record's. Fix it in the piano roll (or in the song's script, below).
 | `like_a_prayer_medieval.mid` | "Like a Prayer" (Madonna) | D minor and D major, 112 bpm, 1:51 | the monks and the organ open it in church, then it dances; bells at the end |
 | `misery_business_medieval.mid` | "Misery Business" (Paramore) | E major, 172 bpm, 1:29 | the chattering guitar on a fiddle, the lute and the tabor flat out |
 | `rocket_man_medieval.mid` | "Rocket Man" (Elton John) | G minor and B flat major, 68 bpm, 1:53 | the piano on a harpsichord, the slide guitar on a fiddle, bells in the chorus |
+| `apt_medieval.mid` | "APT." (ROSÉ and Bruno Mars) | C major, 149 bpm, 1:43 | a drinking song: the monks shout "apateu" over hands clapped, a fiddle reel |
+| `we_are_the_champions_medieval.mid` | "We Are The Champions" (Queen) | C minor and F major, 64 bpm (in triplets, the record's 6/8), 1:45 | an anthem: the monks sing the chorus over the organ, the bells and the great tabor |
+| `i_wanna_be_yours_medieval.mid` | "I Wanna Be Yours" (Arctic Monkeys) | B flat minor, 67 bpm, 1:40 | a slow sway on a bass viol and a harp, the fiddle answering |
+| `empire_state_of_mind_medieval.mid` | "Empire State Of Mind" (Jay-Z and Alicia Keys) | F sharp major, 87 bpm, 1:50 | the piano loop on a harpsichord, the rhymes as a fiddle rhythm, the chorus on the recorder and the monks |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
 song's script in `tools/music/` lists them with their bars.
@@ -80,7 +84,14 @@ the song's script in `tools/music/`:
 python3 tools/music/wonderwall.py            # music/wonderwall_medieval.mid, and the game's MP3 from it
 python3 tools/music/wonderwall.py --midi     # just the MIDI
 python3 tools/music/wonderwall.py --wav x.wav   # also a WAV, to listen to
+python3 tools/music/all.py                   # every song (all.py --midi: every MIDI)
 ```
+
+Rendering needs FluidSynth with the FluidR3 General MIDI SoundFont and ffmpeg
+(`sudo apt install fluidsynth fluid-soundfont-gm ffmpeg`) and
+`pip install numpy scipy mido`; the MIDI alone needs only mido. A new song is
+a new script beside the others, its MP3 in `assets/sounds/music/`, and a line
+in `audio/Songs.java`.
 
 The arrangement itself lives in that script - the chords as chord names
 (`"F#m7 | A | Esus4 | B7sus4"`), the tunes as note names
