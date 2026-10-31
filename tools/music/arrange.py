@@ -79,6 +79,18 @@ def length(text):
     return total
 
 
+SHARPS = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
+
+
+def transpose(text, semitones):
+    """A chord progression moved up `semitones` (a key change): "Em C | D G" up 2 is "F#m D | E A"."""
+    def move(mt):
+        root, rest, bass = mt.group(1), mt.group(2) or "", mt.group(3)
+        out = SHARPS[(pc(root) + semitones) % 12] + rest
+        return out + ("/" + SHARPS[(pc(bass) + semitones) % 12] if bass else "")
+    return re.sub(r"(?<![A-Za-z#])([A-G][#b]?)((?:maj|m|sus|add|dim|aug|[0-9b])*)(?:/([A-G][#b]?))?", move, text)
+
+
 def tune(text, beats_per_bar=4):
     """A tune as [(beat from its start, length, pitch or None for a rest, accent, slur)]."""
     out, at, last, bar = [], 0.0, 1.0, 1
@@ -204,9 +216,9 @@ PARTS = {
     "viol": ("Bass viol", 42, 10, dict(volume=84, pan=52, reverb=66)),
     "flute": ("Wooden flute", 73, 11, dict(volume=78, pan=66, reverb=70)),
     "bells": ("Bells", 14, 12, dict(volume=58, pan=60, reverb=96)),
-    "psaltery": ("Psaltery", 107, 13, dict(volume=86, pan=40, reverb=64)),
+    "psaltery": ("Psaltery", 107, 13, dict(volume=120, pan=40, reverb=64)),
     "sackbut": ("Sackbut", 57, 14, dict(volume=70, pan=48, reverb=70)),
-    "harpsichord": ("Harpsichord", 6, 15, dict(volume=76, pan=70, reverb=58)),
+    "harpsichord": ("Harpsichord", 6, 15, dict(volume=110, pan=70, reverb=58)),
 }
 
 # The hand drum's strokes by letter, for drums(): (GM drum note, velocity).
@@ -431,10 +443,10 @@ class Band:
         start = self.at(bar, beat)
         for at, ln, note, accent, slur in tune(text, self.song.beats_per_bar):
             s = self.chord_at(start + at)
-            h = self.second(note, s.chord if s else None, below)
+            h = self.second(note + shift, s.chord if s else None, below)
             if h is None:
                 continue
-            p.note(start + at, ln if slur else ln * legato if ln < 2 else ln - .1, h + shift,
+            p.note(start + at, ln if slur else ln * legato if ln < 2 else ln - .1, h,
                    vel + (8 if accent else 0))
 
     def second(self, note, chord, below=True):

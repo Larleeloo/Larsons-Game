@@ -466,6 +466,11 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
   music/wake_me_up.mp3                           Wake Me Up (Avicii) (held)                       music/wake_me_up
   music/dreams.mp3                               Dreams (Fleetwood Mac) (held)                    music/dreams
   music/dont_fear_the_reaper.mp3                 (Don't Fear) The Reaper (Blue Öyster Cult) (held) music/dont_fear_the_reaper
+  music/livin_on_a_prayer.mp3                    Livin' On A Prayer (Bon Jovi) (held)             music/livin_on_a_prayer
+  music/vienna.mp3                               Vienna (Billy Joel) (held)                       music/vienna
+  music/the_less_i_know_the_better.mp3           The Less I Know The Better (Tame Impala) (held)  music/the_less_i_know_the_better
+  music/nine_to_five.mp3                         9 to 5 (Dolly Parton) (held)                     music/nine_to_five
+  music/how_you_remind_me.mp3                    How You Remind Me (Nickelback) (held)            music/how_you_remind_me
 
 
 INTERFACE

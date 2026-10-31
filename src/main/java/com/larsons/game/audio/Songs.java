@@ -45,7 +45,12 @@ public final class Songs {
             new Song("wonderwall", "Wonderwall", "Oasis"),
             new Song("wake_me_up", "Wake Me Up", "Avicii"),
             new Song("dreams", "Dreams", "Fleetwood Mac"),
-            new Song("dont_fear_the_reaper", "(Don't Fear) The Reaper", "Blue Öyster Cult"));
+            new Song("dont_fear_the_reaper", "(Don't Fear) The Reaper", "Blue Öyster Cult"),
+            new Song("livin_on_a_prayer", "Livin' On A Prayer", "Bon Jovi"),
+            new Song("vienna", "Vienna", "Billy Joel"),
+            new Song("the_less_i_know_the_better", "The Less I Know The Better", "Tame Impala"),
+            new Song("nine_to_five", "9 to 5", "Dolly Parton"),
+            new Song("how_you_remind_me", "How You Remind Me", "Nickelback"));
 
     private Songs() {}
 

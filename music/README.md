@@ -16,6 +16,11 @@ record's. Fix it in the piano roll (or in the song's script, below).
 | `wake_me_up_medieval.mid` | "Wake Me Up" (Avicii) | B minor, 124 bpm, 1:41 | a folk song, and the drop as a reel for fiddle and recorder |
 | `dreams_medieval.mid` | "Dreams" (Fleetwood Mac) | A minor, 120 bpm, 1:36 | F and G rocking under the lute and a hammered dulcimer |
 | `dont_fear_the_reaper_medieval.mid` | "(Don't Fear) The Reaper" (Blue Öyster Cult) | A minor, 140 bpm, 1:29 | the picked riff on the lute, the monks' "don't fear the reaper", a shawm solo, and more bell |
+| `livin_on_a_prayer_medieval.mid` | "Livin' On A Prayer" (Bon Jovi) | E minor, 123 bpm, 1:34 | the pulsing bass on a bass viol, the talk box's riff on a shawm, the last chorus a step up |
+| `vienna_medieval.mid` | "Vienna" (Billy Joel) | B flat major, 80 bpm, 2:12 | the piano on a harpsichord, the mandolin on a dulcimer, the organ as the accordion |
+| `the_less_i_know_the_better_medieval.mid` | "The Less I Know The Better" (Tame Impala) | E minor, 117 bpm, 1:38 | the strutting bass line on the viol, a dance beat, a shimmering psaltery |
+| `nine_to_five_medieval.mid` | "9 to 5" (Dolly Parton) | A major, 108 bpm, 2:04 | a country-dance lute, the fiddle singing, the typewriter on wood blocks, a bagpipe chorus |
+| `how_you_remind_me_medieval.mid` | "How You Remind Me" (Nickelback) | E minor, 86 bpm, 1:52 | a quiet picked verse, then the chorus crashing in on the tabor |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
 song's script in `tools/music/` lists them with their bars.
