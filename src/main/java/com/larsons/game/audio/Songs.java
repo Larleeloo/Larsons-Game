@@ -40,7 +40,12 @@ public final class Songs {
 
     /** Every song there is, in the order they were made. */
     public static final List<Song> ALL = List.of(
-            new Song("dream_on", "Dream On", "Aerosmith"));
+            new Song("dream_on", "Dream On", "Aerosmith"),
+            new Song("california_dreamin", "California Dreamin'", "The Mamas & the Papas"),
+            new Song("wonderwall", "Wonderwall", "Oasis"),
+            new Song("wake_me_up", "Wake Me Up", "Avicii"),
+            new Song("dreams", "Dreams", "Fleetwood Mac"),
+            new Song("dont_fear_the_reaper", "(Don't Fear) The Reaper", "Blue Öyster Cult"));
 
     private Songs() {}
 

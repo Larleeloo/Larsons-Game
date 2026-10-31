@@ -461,6 +461,11 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
 
   music/main_menu.mp3                            On the main menu (held)                          music/main_menu
   music/dream_on.mp3                             Dream On (Aerosmith) (held)                      music/dream_on
+  music/california_dreamin.mp3                   California Dreamin' (The Mamas & the Papas) (held) music/california_dreamin
+  music/wonderwall.mp3                           Wonderwall (Oasis) (held)                        music/wonderwall
+  music/wake_me_up.mp3                           Wake Me Up (Avicii) (held)                       music/wake_me_up
+  music/dreams.mp3                               Dreams (Fleetwood Mac) (held)                    music/dreams
+  music/dont_fear_the_reaper.mp3                 (Don't Fear) The Reaper (Blue Öyster Cult) (held) music/dont_fear_the_reaper
 
 
 INTERFACE

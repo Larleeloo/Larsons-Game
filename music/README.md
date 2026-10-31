@@ -4,59 +4,74 @@ The game's songs as MIDI files, to open, play with and rearrange in FL Studio
 (or any DAW). Each is a medieval-style arrangement of a song from the
 roadmap's Sound milestone, made for this game and not for sale.
 
-| File | Song | Plays |
-|---|---|---|
-| `dream_on_medieval.mid` | "Dream On" (Aerosmith, written by Steven Tyler) | the main menu, looping |
+The tunes are played by ear, from the songs' chords and how they go, not
+copied from sheet music - so a note here and there will not be the
+record's. Fix it in the piano roll (or in the song's script, below).
 
-## Dream On (medieval)
+| File | Song | Key, tempo, length | How it goes |
+|---|---|---|---|
+| `dream_on_medieval.mid` | "Dream On" (Aerosmith) | F minor, 80 bpm, 2:00 | the lute on the falling bass, the recorder singing; the main menu's song |
+| `california_dreamin_medieval.mid` | "California Dreamin'" (The Mamas & the Papas) | A minor, 112 bpm, 2:00 | the recorder sings each line and the monks answer it; a wooden flute for the flute solo |
+| `wonderwall_medieval.mid` | "Wonderwall" (Oasis) | F sharp minor, 87 bpm, 2:01 | the lute strummed in sixteenths, a bass viol for the cello |
+| `wake_me_up_medieval.mid` | "Wake Me Up" (Avicii) | B minor, 124 bpm, 1:41 | a folk song, and the drop as a reel for fiddle and recorder |
+| `dreams_medieval.mid` | "Dreams" (Fleetwood Mac) | A minor, 120 bpm, 1:36 | F and G rocking under the lute and a hammered dulcimer |
+| `dont_fear_the_reaper_medieval.mid` | "(Don't Fear) The Reaper" (Blue Öyster Cult) | A minor, 140 bpm, 1:29 | the picked riff on the lute, the monks' "don't fear the reaper", a shawm solo, and more bell |
 
-F minor, 80 bpm, 4/4, 40 bars: exactly two minutes, made to loop (the last
-bar leads back into the first). Markers in the file name the sections:
+Each file has markers naming its sections (Intro, Verse, Chorus ...); the
+song's script in `tools/music/` lists them with their bars.
 
-| Bars | Section | What plays |
-|---|---|---|
-| 1-8 | Intro | the lute alone, picking through the song's falling bass (F minor over F, E, E flat, D, then D flat and C); the harp's low notes join |
-| 9-16 | Verse | the recorder takes the tune; the fiddle and a soft drum come in at the end |
-| 17-24 | Pre-chorus | the lute strummed, the hand drum, the fiddle and the organ's drone |
-| 25-32 | Chorus | everyone, stepping down F minor, E flat, D flat, C; the harp in running notes, the fiddle under the tune |
-| 33-40 | Outro | the falling bass again, quieter, the recorder remembering the verse, into the intro |
+## The band
 
 One track per instrument, each on its own MIDI channel with the General MIDI
-sound nearest to the real thing - swap in better instruments in FL Studio:
+sound nearest to the real thing - swap in better instruments in FL Studio.
+Not every song has every one.
 
 | Track | Channel | General MIDI sound | Stands in for |
 |---|---|---|---|
 | Lute | 1 | Acoustic Guitar (nylon) | a lute |
-| Harp | 2 | Orchestral Harp | a medieval harp |
+| Harp | 2 | Orchestral Harp | a medieval harp: the bass, and rolled chords |
 | Recorder | 3 | Recorder | the voice: the tune |
 | Fiddle | 4 | Fiddle | a vielle |
-| Portative organ (drone) | 5 | Reed Organ | a portative organ or hurdy-gurdy drone, on C |
-| Hand drum | 10 (drums) | Low Conga, Mute High Conga, Low Floor Tom, Tambourine | a frame drum (the deep stroke and the rim), a tabor, a riq |
+| Portative organ (drone) | 5 | Reed Organ | a portative organ or hurdy-gurdy drone |
+| Hammered dulcimer | 6 | Dulcimer | a hammered dulcimer |
+| Shawm | 7 | Shanai | a shawm |
+| Bagpipe | 8 | Bag pipe | a bagpipe |
+| Monks (choir) | 9 | Choir Aahs | voices |
+| Hand drum | 10 (drums) | Low Conga, Mute High Conga, Low Floor Tom, Tambourine, Hi Bongo, Triangle, Wood Block, Cowbell | a frame drum (the deep stroke and the rim), a tabor, a riq, a goblet drum, a bell |
+| Bass viol | 11 | Cello | a bass viol |
+| Wooden flute | 12 | Flute | a wooden transverse flute |
+| Bells | 13 | Tubular Bells | church bells |
+| Psaltery | 14 | Koto | a psaltery |
+| Sackbut | 15 | Trombone | a sackbut |
+| Harpsichord | 16 | Harpsichord | a harpsichord |
 
-The tune is played from memory, so a note here and there may not be the
-record's - fix it in the piano roll.
-
-## Opening it in FL Studio
+## Opening one in FL Studio
 
 **File → Import → MIDI file**, pick the `.mid`, and leave "Start new
 project" and "Accept tempo" ticked: each track arrives as its own channel
-and pattern, at 80 bpm.
+and pattern, at the song's tempo.
 
 ## From the MIDI to the game
 
-The game plays `assets/sounds/music/main_menu.mp3`, rendered from this MIDI
-by `tools/music/dream_on.py`:
+The game plays `assets/sounds/music/<song>.mp3`, rendered from the MIDI by
+the song's script in `tools/music/`:
 
 ```
-python3 tools/music/dream_on.py            # this MIDI, and the game's MP3 from it
-python3 tools/music/dream_on.py --midi     # just the MIDI
+python3 tools/music/wonderwall.py            # music/wonderwall_medieval.mid, and the game's MP3 from it
+python3 tools/music/wonderwall.py --midi     # just the MIDI
+python3 tools/music/wonderwall.py --wav x.wav   # also a WAV, to listen to
 ```
 
-The arrangement itself lives in that script (the notes are written out bar
-by bar), so a change made there comes out in both files. A change made in FL
-Studio goes the other way: export the song from FL Studio as a WAV or MP3
-and put it in the game as `assets/sounds/music/main_menu.mp3` - make it
-exactly as long as the 40 bars (two minutes) with the reverb's tail
-mixed back over the start, so it loops without a gap. You can also try any
-MP3 in the game without touching the repository: **Pause → Sounds → Music →
-Choose…** on "The main menu's song".
+The arrangement itself lives in that script - the chords as chord names
+(`"F#m7 | A | Esus4 | B7sus4"`), the tunes as note names
+(`"A4e C#5q. B4e A4q."`, see `tools/music/arrange.py`) - so a change made
+there comes out in both files. A change made in FL Studio goes the other
+way: export the song from FL Studio as a WAV or MP3 and put it in the game
+over `assets/sounds/music/<song>.mp3` - make it exactly as long as the song's
+bars, with the reverb's tail mixed back over the start, so it loops without
+a gap. You can also try any MP3 in the game without touching the
+repository: **Pause → Sounds → Music → Choose…** on the song.
+
+Where the songs play: the main menu plays Dream On; a level plays the song
+picked for it in Creative Mode's Level tool, or all of them shuffled (the
+demo, and a new level), or none.

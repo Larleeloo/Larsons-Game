@@ -257,15 +257,21 @@ class SoundKeysTest {
         assertEquals(8 * 44100, wind.frames());
         PcmClip click = Mp3Decoder.decode(readPack("ui/click.mp3"));
         assertEquals(Math.round(0.06 * 44100), click.frames());
-        // the songs: stereo, whole seconds long (Dream On is exactly its 40 bars at 80 bpm), and as quiet
-        // where each loops round as a sample is next to the one before it
+        // the songs: stereo, at least a minute (Dream On exactly its 40 bars at 80 bpm), and where each loops
+        // round no bigger a step than from one sample to the next just before it and just after
         assertEquals(120 * 44100, Mp3Decoder.decode(readPack("music/dream_on.mp3")).frames());
         for (Songs.Song s : Songs.ALL) {
             PcmClip song = Mp3Decoder.decode(readPack("music/" + s.id() + ".mp3"));
             assertEquals(2, song.channels(), s.id());
             assertTrue(song.seconds() > 60, s.id() + " is at least a minute long");
+            int n = song.frames();
             for (int c = 0; c < 2; c++) {
-                assertEquals(song.sample(song.frames() - 1, c), song.sample(0, c), 0.01, s.id() + "'s loop seam");
+                float step = 0.002f;
+                for (int i = 1; i < 2000; i++) {
+                    step = Math.max(step, Math.abs(song.sample(i, c) - song.sample(i - 1, c)));
+                    step = Math.max(step, Math.abs(song.sample(n - i, c) - song.sample(n - i - 1, c)));
+                }
+                assertEquals(song.sample(n - 1, c), song.sample(0, c), step, s.id() + "'s loop seam");
             }
         }
     }
