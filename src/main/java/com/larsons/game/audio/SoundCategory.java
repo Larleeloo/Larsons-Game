@@ -9,7 +9,7 @@ package com.larsons.game.audio;
  * <p>A sound's category follows from its key ({@link SoundKeys#categoryOf}):
  * a body's walk is {@link #MOVEMENT}, its axe chop {@link #WEAPONS}, its
  * laugh {@link #VOICES}; a chest's anything {@link #WORLD}; a dummy's
- * {@link #CREATURES}. Things defined elsewhere (a creative-mode object) name
+ * {@link #CREATURES}; a song {@link #MUSIC}. Things defined elsewhere (a creative-mode object) name
  * theirs when they {@link SoundKeys#register} their sounds.
  */
 public enum SoundCategory {
@@ -28,6 +28,8 @@ public enum SoundCategory {
             "The chests, the loot thrown out of them and its rarity, picking things up and dropping them."),
     AMBIENT("ambient", "Ambient",
             "Sounds of the place itself, looping quietly: the breeze over the meadow, and more to come."),
+    MUSIC("music", "Music",
+            "The songs, each looping for as long as you are where it plays: the main menu's, and more to come."),
     INTERFACE("interface", "Interface",
             "Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines, the level editor.");
 

@@ -1,5 +1,6 @@
 package com.larsons.game.core;
 
+import com.larsons.game.audio.Music;
 import com.larsons.game.audio.SoundCategory;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.SoundPack;
@@ -171,6 +172,7 @@ public final class Game implements AutoCloseable {
             }
             if (in.pressed(GLFW_KEY_F11)) toggleFullscreen();
             autopilot.step(dt, this);
+            Music.update(dt);
 
             sprites.beginFrame();
             sprites.pump();
@@ -375,6 +377,7 @@ public final class Game implements AutoCloseable {
         if (scene != null) scene.exit();
         saveWardrobe();
         settings.save();
+        Music.reset();
         Sounds.dispose();
         worldRenderer.close();
         items.close();

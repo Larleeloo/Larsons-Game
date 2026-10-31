@@ -128,6 +128,18 @@ class SoundKeysTest {
         assertEquals(SoundCategory.WORLD, SoundKeys.categoryOf("world/loot_rare"));
         assertEquals(SoundCategory.AMBIENT, SoundKeys.categoryOf("ambient/stream"));
         assertEquals(SoundCategory.INTERFACE, SoundKeys.categoryOf("combat/lock_on"));
+        assertEquals(SoundCategory.MUSIC, SoundKeys.categoryOf("music/main_menu"));
+    }
+
+    @Test
+    void theMainMenusSongIsAHeldRowOfTheMusicTab() {
+        String key = SoundKeys.music("main_menu");
+        assertEquals("music/main_menu", key);
+        assertEquals("music/main_menu.mp3", SoundKeys.preferredFile(key));
+        assertEquals(List.of(key), SoundKeys.chain(key));
+        assertTrue(SoundKeys.isLooping(key));
+        assertTrue(SoundKeys.in(SoundCategory.MUSIC).stream().anyMatch(e -> e.key().equals(key) && e.looping()));
+        assertTrue(SoundKeys.folders().contains(SoundKeys.MUSIC));
     }
 
     @Test
@@ -217,6 +229,14 @@ class SoundKeysTest {
         assertEquals(8 * 44100, wind.frames());
         PcmClip click = Mp3Decoder.decode(readPack("ui/click.mp3"));
         assertEquals(Math.round(0.06 * 44100), click.frames());
+        // the main menu's song: stereo, exactly its 40 bars at 80 bpm, and as quiet where it loops round as
+        // a sample is next to the one before it
+        PcmClip song = Mp3Decoder.decode(readPack("music/main_menu.mp3"));
+        assertEquals(2, song.channels());
+        assertEquals(120 * 44100, song.frames());
+        for (int c = 0; c < 2; c++) {
+            assertEquals(song.sample(song.frames() - 1, c), song.sample(0, c), 0.01, "the loop's seam");
+        }
     }
 
     private static byte[] readPack(String file) {
