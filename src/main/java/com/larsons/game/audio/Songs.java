@@ -55,7 +55,12 @@ public final class Songs {
             new Song("sunflower", "Sunflower", "Post Malone and Swae Lee"),
             new Song("thunder", "Thunder", "Imagine Dragons"),
             new Song("beat_it", "Beat It", "Michael Jackson"),
-            new Song("basket_case", "Basket Case", "Green Day"));
+            new Song("basket_case", "Basket Case", "Green Day"),
+            new Song("espresso", "Espresso", "Sabrina Carpenter"),
+            new Song("everlong", "Everlong", "Foo Fighters"),
+            new Song("pompeii", "Pompeii", "Bastille"),
+            new Song("ride", "Ride", "Twenty One Pilots"),
+            new Song("fast_car", "Fast Car", "Tracy Chapman"));
 
     private Songs() {}
 

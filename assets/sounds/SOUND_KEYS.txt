@@ -476,6 +476,11 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
   music/thunder.mp3                              Thunder (Imagine Dragons) (held)                 music/thunder
   music/beat_it.mp3                              Beat It (Michael Jackson) (held)                 music/beat_it
   music/basket_case.mp3                          Basket Case (Green Day) (held)                   music/basket_case
+  music/espresso.mp3                             Espresso (Sabrina Carpenter) (held)              music/espresso
+  music/everlong.mp3                             Everlong (Foo Fighters) (held)                   music/everlong
+  music/pompeii.mp3                              Pompeii (Bastille) (held)                        music/pompeii
+  music/ride.mp3                                 Ride (Twenty One Pilots) (held)                  music/ride
+  music/fast_car.mp3                             Fast Car (Tracy Chapman) (held)                  music/fast_car
 
 
 INTERFACE

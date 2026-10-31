@@ -26,6 +26,11 @@ record's. Fix it in the piano roll (or in the song's script, below).
 | `thunder_medieval.mid` | "Thunder" (Imagine Dragons) | C major, 84 bpm, 1:54 | a war song: the great tabor's boom and the hands' clap, the monks for "thunder" |
 | `beat_it_medieval.mid` | "Beat It" (Michael Jackson) | E minor, 138 bpm, 1:37 | the guitar riff on a fiddle and a bass viol together, a shawm solo |
 | `basket_case_medieval.mid` | "Basket Case" (Green Day) | E flat major, 172 bpm, 1:29 | a punk jig: the lute flat out, the tabor at a gallop, a bagpipe chorus |
+| `espresso_medieval.mid` | "Espresso" (Sabrina Carpenter) | A minor, 104 bpm, 1:51 | sly funk on a dulcimer's stabs and a bass viol, a psaltery bridge |
+| `everlong_medieval.mid` | "Everlong" (Foo Fighters) | D major, 158 bpm, 1:37 | restless eighths on the lute over a drone on D, a quiet harp break |
+| `pompeii_medieval.mid` | "Pompeii" (Bastille) | A major, 128 bpm, 1:45 | the monks' "eh-eh-oh" chant, pounding toms on the tabor, a bagpipe chorus |
+| `ride_medieval.mid` | "Ride" (Twenty One Pilots) | G minor, 75 bpm, 1:55 | an easy reggae lilt: the lute's chords on the offbeats |
+| `fast_car_medieval.mid` | "Fast Car" (Tracy Chapman) | D major, 104 bpm, 1:51 | the picked riff on the lute in running sixteenths |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
 song's script in `tools/music/` lists them with their bars.
