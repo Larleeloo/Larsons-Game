@@ -19,4 +19,7 @@ public interface Scene {
 
     /** Title-bar suffix. */
     default String name() { return getClass().getSimpleName(); }
+
+    /** What it loaded as it was opened, in a few words, for the loading screen ("" to say nothing). */
+    default String loaded() { return ""; }
 }

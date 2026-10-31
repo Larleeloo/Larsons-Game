@@ -15,6 +15,7 @@ This README is also the plan: each task is a set of chunks, and each chunk is
 ticked off as it lands.
 
 - [Quick start](#quick-start)
+- [The loading screen](#the-loading-screen)
 - [Controls](#controls)
 - [What's in the demo](#whats-in-the-demo)
 - [The sprite stack](#the-sprite-stack)
@@ -56,6 +57,55 @@ The main menu has three tabs: **Play** (the demo, a meadow below the
 highlands), **Cutscene** (the menu's cutscene, played on its own) and **Dev**,
 which shows only once **1025** has been typed on the menu (either row of
 digits) and holds [Creative Mode](#creative-mode), the level editor.
+
+## The loading screen
+
+The window opens at once, on a screen that shows everything the game loads as
+it starts, step by step: what each step found, how long it took, and what is
+loading right now.
+
+<p align="center">
+  <img src="docs/screenshots/loading-sprites.png" width="49%" alt="The loading screen indexing the sprite sheets: sprites/hair/side_part_px128, 228 of 578 folders, 637,848 sheets so far, and the folders just indexed listed on the right">
+  <img src="docs/screenshots/loading-menu.png" width="49%" alt="The loading screen at its last step: every step ticked off in green with what it found and its time, the main menu's sprite sheets going up to the GPU, 11 of 14">
+</p>
+
+On the left, every step under its heading - done (green), working (gold), to
+come (grey) or failed (red) - with what it found and its time:
+
+- **Graphics**: the window and OpenGL (which GPU, which version), the fonts
+  and the sprite shader.
+- **Sprites**: every sprite sheet in `assets/sprites/` and each body's folder
+  beside it indexed - the longest step, some 1.5 million sheets in 578
+  folders, counted folder by folder -; the stand-in character drawn on the
+  worker threads; the chest's and the dummies' sheets; the 128-colour
+  palette, the items and their tiers; the cutscene close-ups.
+- **The world**: the trees, grass and rocks found and planted, the highlands
+  raised, the scenery's sheets and the ground textures put on the GPU, the
+  world's shaders compiled and the hills built.
+- **Sound**: the sound pack and your own sounds set up, then every sound
+  effect decoded in the background, file by file.
+- **Starting**: your character dressed, the main menu opened (Creative Mode's
+  saved levels listed, the cutscene read), its music decoded, and the sprite
+  sheets its first frame draws decoded and put on the GPU - so the menu is
+  all there when the screen fades away, nothing popping in.
+
+On the right, the step at work: what it is on (a folder, a file), how far
+through it is and how long it took last time; the background work going on
+beside it; and the last things loaded. The bar along the bottom is weighted
+by how long each step took the last time the game started
+(`config/boot.json`, safe to delete), so it moves at an even pace and never
+shows 100 % while anything is left. The console gets the same in one line:
+`[boot] ready in 8.37 s - Indexing the character sprite sheets 6.19 s, ...`.
+
+If a step fails, the screen stays up with it in red and what went wrong,
+until a key is pressed (the console has the stack trace). Closing the window
+while it loads quits at once. **F12** takes a screenshot of it.
+
+The sprite index also got quicker: it lists each folder's file names without
+asking the disk about every file, and looks names in the usual form
+(`walk_middle_ne.png`) up rather than parsing them - the same sheets, found
+about six times faster (44 s to 6 s for the 1.5 million here, before the
+window could even open).
 
 ## Controls
 
@@ -1252,7 +1302,8 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 ```
 src/main/java/com/larsons/game/
   Main.java                 entry point (headless AWT, macOS first-thread relaunch)
-  core/                     Game (window, loop, overlays), FramePacer, Settings, Scene, Autopilot, Screenshot
+  core/                     Game (window, loop, overlays), Boot and LoadingScreen (what loads as the game starts,
+                            and the screen that shows it), FramePacer, Settings, Scene, Autopilot, Screenshot
   audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
                             Sounds, SoundPack, SoundKeys, SoundCategory, SoundDef, SoundStore; the hooks:
                             AnimationSound, SoundEmitter, WorldSounds; Music (a scene's song, faded in and out)
@@ -1390,7 +1441,15 @@ the sculpting brushes and the level's edge, resizing, a level's folder written
 and read back the same - unknown kinds and keys kept -, the demo copied into a
 level with everything in it and that level played as the demo, sound spots,
 undo and redo of every kind of change, the scatter brush keeping trees apart
-and off cliffs, and pointing at the ground and at things through the camera.
+and off cliffs, and pointing at the ground and at things through the camera;
+and the loading screen (`core/BootTest`, `core/LoadingScreenTest`,
+`sprite/SpriteLibraryTest`, `audio/SoundPreloadTest`): the steps in order and
+what each reports, the screen drawn as a step starts and as it goes but never
+more than 30 times a second, background work watched until it is done (and let
+go if it breaks), a failed step held on screen, a closed window not taken for
+a failure, the bar weighted by last time's timings and the file they are kept
+in, the sprite index's running count and its listing finding the same sheets
+as parsing every name, and the sound effects counted as they decode.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:

@@ -99,6 +99,13 @@ public final class Input {
 
     public boolean down(int key) { return key >= 0 && key < down.length && down[key]; }
 
+    /** Whether any key or mouse button went down this frame. */
+    public boolean anyPressed() {
+        for (boolean p : pressed) if (p) return true;
+        for (boolean p : mousePressed) if (p) return true;
+        return false;
+    }
+
     /** First frame the key went down. */
     public boolean pressed(int key) { return key >= 0 && key < pressed.length && pressed[key]; }
 

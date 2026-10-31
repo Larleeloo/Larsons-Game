@@ -52,7 +52,14 @@ public final class SceneryRenderer implements AutoCloseable {
 
     /** Upload every sheet of {@code sprites}. Must be made on the GL thread. */
     public SceneryRenderer(ScenerySprites sprites) {
+        this(sprites, (name, done) -> {});
+    }
+
+    /** The renderer, telling {@code progress} each sheet's name as it starts on it, and how many are done. */
+    public SceneryRenderer(ScenerySprites sprites, java.util.function.ObjIntConsumer<String> progress) {
+        int done = 0;
         for (ScenerySprites.Sprite s : sprites.sprites()) {
+            progress.accept(s.name(), done++);
             try {
                 BufferedImage image = ImageIO.read(s.sheet().toFile());
                 if (image == null) throw new IOException("not an image");
