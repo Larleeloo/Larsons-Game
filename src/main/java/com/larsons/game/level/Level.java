@@ -1,5 +1,6 @@
 package com.larsons.game.level;
 
+import com.larsons.game.audio.Songs;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.Sky;
 
@@ -12,7 +13,8 @@ import java.util.Map;
  * One area of the game as Creative Mode builds it: a square of ground
  * {@link #size} metres a side round the origin - sculpted ({@link
  * #heights}) and painted ({@link #ground}) - the sky over it with what stands
- * far off round the horizon ({@link #sky}), and everything placed in it
+ * far off round the horizon ({@link #sky}), the music played in it
+ * ({@link #music}), and everything placed in it
  * ({@link #objects}): the player's spawn, the trees, rocks and grass, the
  * weapons and wearables lying about, the chests, the dummies, the vines,
  * named spots - and, as the game grows, its NPCs, quests, enemies, sounds.
@@ -35,6 +37,7 @@ public final class Level {
     private String name;
     private double size;
     private Sky sky = Sky.DEFAULT;
+    private String music = Songs.SHUFFLE;
     private HeightField heights;
     private GroundMap ground;
     private final List<LevelObject> objects = new ArrayList<>();
@@ -95,6 +98,18 @@ public final class Level {
 
     public void setSky(Sky sky) {
         this.sky = sky == null ? Sky.DEFAULT : sky;
+    }
+
+    /**
+     * The music played in the level: a song's id ({@link Songs}, e.g.
+     * {@code dream_on}), looping; {@link Songs#SHUFFLE} for all of them one
+     * after another (a new level's); or {@link Songs#NONE}.
+     */
+    public String music() { return music; }
+
+    /** The level's music ({@link #music}); blank is none. */
+    public void setMusic(String music) {
+        this.music = music == null || music.isBlank() ? Songs.NONE : music.trim();
     }
 
     public HeightField heights() { return heights; }

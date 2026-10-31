@@ -29,7 +29,7 @@ public enum SoundCategory {
     AMBIENT("ambient", "Ambient",
             "Sounds of the place itself, looping quietly: the breeze over the meadow, and more to come."),
     MUSIC("music", "Music",
-            "The songs, each looping for as long as you are where it plays: the main menu's, and more to come."),
+            "The songs: the main menu's, and the medieval covers the levels play, one or all shuffled."),
     INTERFACE("interface", "Interface",
             "Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines, the level editor.");
 

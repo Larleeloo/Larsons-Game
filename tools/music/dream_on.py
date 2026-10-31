@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """"Dream On" (Aerosmith, written by Steven Tyler) as a medieval tavern piece:
-the main menu's music.
+the main menu's music, and one of the songs a level can play.
 
 The song's own bones are kept - the falling bass under the minor chord that
 opens it (F, E, E flat, D, D flat, C: the old lament bass), and the chorus
@@ -14,8 +14,8 @@ the record's; fix it in the MIDI.
     python3 tools/music/dream_on.py --wav x.wav  # also a WAV, to listen to
 
 Writes music/dream_on_medieval.mid (open it in FL Studio) and
-assets/sounds/music/main_menu.mp3 (the main menu's music, a seamless
-two-minute loop). An arrangement for Larson's Game, not for sale.
+assets/sounds/music/dream_on.mp3 (a seamless two-minute loop). An
+arrangement for Larson's Game, not for sale.
 
 40 bars of 4/4 at 80 bpm (two minutes exactly), in F minor:
 
@@ -33,7 +33,7 @@ import medieval as m
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 MIDI = os.path.join(ROOT, "music", "dream_on_medieval.mid")
-MP3 = os.path.join(ROOT, "assets", "sounds", "music", "main_menu.mp3")
+MP3 = os.path.join(ROOT, "assets", "sounds", "music", "dream_on.mp3")
 
 # Chords as (bass, three notes above it), MIDI note numbers (60 = middle C).
 FM = (53, (60, 65, 68))          # F minor

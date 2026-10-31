@@ -988,7 +988,7 @@ assets/sounds/
   combat/flying_dummy/    fly.mp3, warn.mp3, swoop.mp3, hit.mp3, fall.mp3, down.mp3, rise.mp3
   world/                  loot_throw.mp3, loot_land.mp3, loot_uncommon.mp3 ... loot_mythic.mp3
   ambient/                wind.mp3, stream.mp3, crickets.mp3
-  music/                  main_menu.mp3 (the main menu's song, a seamless loop)
+  music/                  dream_on.mp3 ... one per song (seamless loops); main_menu.mp3, your own menu song
   ui/                     click.mp3, hover.mp3, pause.mp3, inventory_open.mp3, wear.mp3, error.mp3 ...
 ```
 
@@ -1014,33 +1014,52 @@ list, and the same fallbacks and volume.
 
 ### Music
 
-A scene names the song it wants as it opens and lets it go as it closes
-(`audio/Music`): the main menu plays `music/main_menu`. The song is read on
-a thread of its own, so the menu never waits for it, then fades in over
-2.5 seconds; leaving fades it out over 1.5, and the next scene's song (if it
-has one) starts once it is quiet. Going from one menu straight into another
-keeps it playing. A song loops seamlessly and always plays at its own pitch,
-and like any sound it can be swapped for your own MP3 or muted in **Pause →
-Sounds → Music**, with its own volume.
+The songs are medieval-style covers of the songs on the roadmap's Sound
+milestone - lute, harp, recorder, fiddle, a portative organ's drone and a
+hand drum - arranged for this game and not for sale. Each is listed in
+`audio/Songs` and is a seamless loop at `assets/sounds/music/<song>.mp3`,
+heard under its own sound key (`music/dream_on`); the full list, with what
+each arrangement does, is in [`music/`](music/README.md).
 
-The main menu's song is **"Dream On"** (Aerosmith, written by Steven Tyler)
-arranged as a medieval piece - the lute picking through the song's falling
-bass (F minor over F, E, E flat, D, D flat, C, the old lament bass), the
-recorder taking the tune, the chorus stepping down F minor, E flat, D flat,
-C with the fiddle, the hand drum and a portative organ's drone. It is the
-first of the covers on the roadmap's Sound milestone, an arrangement for this
-game and not for sale.
+Where they play:
+
+- **The main menu** plays **"Dream On"** (Aerosmith), looping. Its key is
+  `music/main_menu`, which falls back to `music/dream_on`: put your own
+  `main_menu.mp3` in the pack (or choose one in Pause → Sounds → Music) and
+  the menu plays that instead.
+- **A level** plays the music its maker picked in Creative Mode's Level tool:
+  one song looping, **Shuffle all** (every song once in a random order, then
+  shuffled again, never the same one twice running), or **None**. The demo
+  and every new level shuffle; a level saved before levels had music does
+  too. It plays a little under the menu's level (`DemoScene.MUSIC_VOLUME`).
+- **Creative Mode** itself is quiet but for the Level tool's song player:
+  pick a song under **Listen to**, play or pause it, and drag the timeline to
+  anywhere in it (it is silent while held and plays on from where it is let
+  go); **Use this song** makes it the level's. The choice is saved in
+  `level.json` (`"music": "dream_on"`) and undoes like any other change.
+
+A scene names the music it wants as it opens and lets it go as it closes
+(`audio/Music`). A song is read on a thread of its own, so nothing waits for
+it, then fades in over 2.5 seconds; leaving fades it out over 1.5, and the
+next scene's song (if it has one) starts once it is quiet. Going from one
+menu straight into another keeps it playing, and a level entered again with
+the same playlist carries on with it. In a playlist each song plays through
+once, fades as it ends, and the next one (already read ahead) follows. A song
+always plays at its own pitch, and like any sound it can be swapped for your
+own MP3 or muted in **Pause → Sounds → Music**, with its own volume.
 
 ```
-music/dream_on_medieval.mid       the arrangement: open it in FL Studio (a track per instrument)
-tools/music/dream_on.py           writes that MIDI and renders assets/sounds/music/main_menu.mp3
+music/<song>_medieval.mid         an arrangement: open it in FL Studio (a track per instrument)
+tools/music/<song>.py             writes that MIDI and renders assets/sounds/music/<song>.mp3
 tools/music/medieval.py           the toolkit: parts, the MIDI file, rendering and the seamless loop
+tools/music/arrange.py            chord names, tunes written as note names, and the band's ways of playing
 ```
 
-`python3 tools/music/dream_on.py` makes both (FluidSynth and the FluidR3
-General MIDI SoundFont render it; `--midi` writes just the MIDI). To use an
+`python3 tools/music/dream_on.py` makes both of a song's files (FluidSynth
+and the FluidR3 General MIDI SoundFont render it; `--midi` writes just the
+MIDI), and `python3 tools/music/all.py` makes every song's. To use an
 arrangement edited in FL Studio instead, export it from there as a loop and
-put it at `assets/sounds/music/main_menu.mp3` - see [`music/`](music/README.md).
+put it over the song's MP3 - see [`music/`](music/README.md).
 
 ## Cutscenes
 
@@ -1140,7 +1159,7 @@ standing under the pointer. Seven tools, on the number keys:
 | **4 Paint** | dirt, forest floor, gravel or flower meadow over the grass; Shift paints back to grass |
 | **5 Scatter** | grass, trees or rocks - one sprite or a kind mixed - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep. Shift pulls up what you are sowing |
 | **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range |
-| **7 Level** | its name, its size (64, 128, 192 or 256 m a side), save, play, back to the menu |
+| **7 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
@@ -1159,7 +1178,7 @@ A level is a folder of `assets/levels/`, meant to be read and to sit in git:
 
 ```
 assets/levels/<level>/
-  level.json    its name, size, sky and backdrops, and every object - one a line
+  level.json    its name, size, sky and backdrops, music, and every object - one a line
   height.png    the sculpted ground, 16-bit grey: a height every 0.5 m (value / 256 - 128 m)
   ground.png    the paint, a pixel every 0.25 m: red dirt, green forest floor, blue gravel, alpha meadow
 ```
@@ -1344,8 +1363,8 @@ assets/levels/              Creative Mode's levels, a folder each (level.json, h
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
 tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
-music/                      the songs' MIDI files, for FL Studio (dream_on_medieval.mid)
-tools/music/                the songs' arrangements in code (dream_on.py) and their toolkit (medieval.py)
+music/                      the songs' MIDI files, for FL Studio (one a song: <song>_medieval.mid)
+tools/music/                the songs' arrangements in code (one script a song) and their toolkit (medieval.py, arrange.py)
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)

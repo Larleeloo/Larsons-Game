@@ -230,8 +230,13 @@ public final class Sounds {
      * the clip is empty.
      */
     static SoundMixer.Voice startMusic(String key, PcmClip clip, double volume) {
+        return startMusic(key, clip, volume, 0);
+    }
+
+    /** {@link #startMusic(String, PcmClip, double)} from {@code seconds} into the song (a preview's jump). */
+    static SoundMixer.Voice startMusic(String key, PcmClip clip, double volume, double seconds) {
         if (!isEnabled() || clip == null || clip.isEmpty() || volume <= 0) return null;
-        return MIXER.play(clip, 1.0, volume, 0, true, group(SoundKeys.categoryOf(key)));
+        return MIXER.play(clip, 1.0, volume, 0, true, group(SoundKeys.categoryOf(key)), seconds);
     }
 
     /**

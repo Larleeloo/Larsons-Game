@@ -64,6 +64,7 @@ public final class Font implements AutoCloseable {
 
         StringBuilder chars = new StringBuilder();
         for (char c = 32; c < 127; c++) chars.append(c);
+        for (char c = 0xC0; c <= 0xFF; c++) if (awt.canDisplay(c)) chars.append(c);   // accented letters: Öyster
         for (char c : EXTRA.toCharArray()) if (awt.canDisplay(c)) chars.append(c);
 
         // Shelf-pack every glyph into rows of a 1024-wide atlas.

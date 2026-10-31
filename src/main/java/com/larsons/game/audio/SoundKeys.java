@@ -32,7 +32,8 @@ import java.util.Set;
  *   combat/dice_roll               -&gt; combat/dice_roll.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
- *   music/main_menu                -&gt; music/main_menu.mp3      (the main menu's song)
+ *   music/dream_on                 -&gt; music/dream_on.mp3       (a song)
+ *   music/main_menu                -&gt; music/main_menu.mp3, else music/dream_on.mp3
  * </pre>
  *
  * <p>Keys fall back from the specific to the general ({@link #chain}), as the
@@ -151,10 +152,11 @@ public final class SoundKeys {
     public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets");
 
     /**
-     * The songs, each named after where it plays and looping for as long as
-     * that lasts ({@link Music}): the main menu's.
+     * The places that play a song of their own, and the song each plays until
+     * the player gives the place a file of its own ({@link #chain}): the main
+     * menu, Dream On. The songs themselves are {@link Songs#ALL}.
      */
-    public static final List<String> MUSIC_TRACKS = List.of("main_menu");
+    public static final Map<String, String> MUSIC_PLACES = Map.of("main_menu", "dream_on");
 
     /** The moves each weapon has a sound of its own for, at its stance (the others fall back to these). */
     static final List<AnimState> WEAPON_MOVES = List.of(AnimState.ATTACK, AnimState.SPIN_ATTACK, AnimState.PARRY,
@@ -279,6 +281,9 @@ public final class SoundKeys {
         }
         out.add(key);
         if (parts.length >= 3 && family(parts[0]) != null) out.add(parts[0] + "/" + parts[parts.length - 1]);
+        if (parts.length == 2 && parts[0].equals("music") && MUSIC_PLACES.containsKey(parts[1])) {
+            out.add(music(MUSIC_PLACES.get(parts[1])));        // a place's song: the song it plays
+        }
         return out;
     }
 
@@ -466,7 +471,10 @@ public final class SoundKeys {
         out.add(row(SoundCategory.WORLD, "item/pickup", "Picking something up", "pickup"));
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
-        for (String s : MUSIC_TRACKS) out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
+        for (String s : MUSIC_PLACES.keySet().stream().sorted().toList()) {
+            out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
+        }
+        for (Songs.Song song : Songs.ALL) out.add(row(SoundCategory.MUSIC, song.key(), song.label(), song.id()));
         for (String s : UI_SOUNDS) out.add(row(SoundCategory.INTERFACE, ui(s), uiName(s), s));
         out.add(row(SoundCategory.INTERFACE, combat("lock_on"), "Locking on to a target", "lock_on"));
         out.add(row(SoundCategory.INTERFACE, combat("lock_off"), "Letting the target go", "lock_off"));
@@ -630,7 +638,7 @@ public final class SoundKeys {
 
     private static String musicName(String s) {
         return switch (s) {
-            case "main_menu" -> "The main menu's song";
+            case "main_menu" -> "On the main menu";
             default -> s;
         };
     }
@@ -729,7 +737,7 @@ public final class SoundKeys {
         return "ambient/" + name;
     }
 
-    /** A song, named after where it plays ({@link #MUSIC_TRACKS}), e.g. {@code music/main_menu}. */
+    /** A song ({@link Songs}) or a place that plays one ({@link #MUSIC_PLACES}), e.g. {@code music/dream_on}. */
     public static String music(String name) {
         return "music/" + name;
     }

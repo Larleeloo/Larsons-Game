@@ -1,6 +1,8 @@
 package com.larsons.game.scene;
 
+import com.larsons.game.audio.Music;
 import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Songs;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.audio.WorldSounds;
 import com.larsons.game.combat.CombatHud;
@@ -142,6 +144,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final DebugCode debugCode = new DebugCode();
     /** The level being played, or null: the demo. */
     private final Level level;
+    /** How loud the music plays under the game, of the song's own level (the menu plays it at full). */
+    public static final double MUSIC_VOLUME = 0.7;
     /** Back to the editor, or null: the level is not being play-tested. */
     private final Runnable back;
     /** The demo's scenery or the level's, as it is when shown. */
@@ -287,12 +291,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void enter() {
         camera.snapTo(pivot());
+        Songs.playChoice(level == null ? Songs.SHUFFLE : level.music(), MUSIC_VOLUME);
     }
 
     @Override
     public void exit() {
         sounds.stop();
         inventory.dispose();
+        Music.stop();
     }
 
     private Vec3 pivot() {

@@ -457,9 +457,39 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
 
 MUSIC
 -----
-The songs, each looping for as long as you are where it plays: the main menu's, and more to come.
+The songs: the main menu's, and the medieval covers the levels play, one or all shuffled.
 
-  music/main_menu.mp3                            The main menu's song (held)                      music/main_menu
+  music/main_menu.mp3                            On the main menu (held)                          music/main_menu
+  music/dream_on.mp3                             Dream On (Aerosmith) (held)                      music/dream_on
+  music/california_dreamin.mp3                   California Dreamin' (The Mamas & the Papas) (held) music/california_dreamin
+  music/wonderwall.mp3                           Wonderwall (Oasis) (held)                        music/wonderwall
+  music/wake_me_up.mp3                           Wake Me Up (Avicii) (held)                       music/wake_me_up
+  music/dreams.mp3                               Dreams (Fleetwood Mac) (held)                    music/dreams
+  music/dont_fear_the_reaper.mp3                 (Don't Fear) The Reaper (Blue Öyster Cult) (held) music/dont_fear_the_reaper
+  music/livin_on_a_prayer.mp3                    Livin' On A Prayer (Bon Jovi) (held)             music/livin_on_a_prayer
+  music/vienna.mp3                               Vienna (Billy Joel) (held)                       music/vienna
+  music/the_less_i_know_the_better.mp3           The Less I Know The Better (Tame Impala) (held)  music/the_less_i_know_the_better
+  music/nine_to_five.mp3                         9 to 5 (Dolly Parton) (held)                     music/nine_to_five
+  music/how_you_remind_me.mp3                    How You Remind Me (Nickelback) (held)            music/how_you_remind_me
+  music/die_young.mp3                            Die Young (Kesha) (held)                         music/die_young
+  music/sunflower.mp3                            Sunflower (Post Malone and Swae Lee) (held)      music/sunflower
+  music/thunder.mp3                              Thunder (Imagine Dragons) (held)                 music/thunder
+  music/beat_it.mp3                              Beat It (Michael Jackson) (held)                 music/beat_it
+  music/basket_case.mp3                          Basket Case (Green Day) (held)                   music/basket_case
+  music/espresso.mp3                             Espresso (Sabrina Carpenter) (held)              music/espresso
+  music/everlong.mp3                             Everlong (Foo Fighters) (held)                   music/everlong
+  music/pompeii.mp3                              Pompeii (Bastille) (held)                        music/pompeii
+  music/ride.mp3                                 Ride (Twenty One Pilots) (held)                  music/ride
+  music/fast_car.mp3                             Fast Car (Tracy Chapman) (held)                  music/fast_car
+  music/something_just_like_this.mp3             Something Just Like This (The Chainsmokers and Coldplay) (held) music/something_just_like_this
+  music/crazy.mp3                                Crazy (Gnarls Barkley) (held)                    music/crazy
+  music/like_a_prayer.mp3                        Like a Prayer (Madonna) (held)                   music/like_a_prayer
+  music/misery_business.mp3                      Misery Business (Paramore) (held)                music/misery_business
+  music/rocket_man.mp3                           Rocket Man (Elton John) (held)                   music/rocket_man
+  music/apt.mp3                                  APT. (ROSÉ and Bruno Mars) (held)                music/apt
+  music/we_are_the_champions.mp3                 We Are The Champions (Queen) (held)              music/we_are_the_champions
+  music/i_wanna_be_yours.mp3                     I Wanna Be Yours (Arctic Monkeys) (held)         music/i_wanna_be_yours
+  music/empire_state_of_mind.mp3                 Empire State Of Mind (Jay-Z and Alicia Keys) (held) music/empire_state_of_mind
 
 
 INTERFACE
