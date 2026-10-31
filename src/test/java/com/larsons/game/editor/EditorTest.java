@@ -1,5 +1,6 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.audio.Songs;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelObject;
 import com.larsons.game.level.LevelWorld;
@@ -57,8 +58,12 @@ class EditorTest {
         l.ground().paint(GroundMap.DIRT, 0, 0, 2, 1);
         undo.before(l, Undo.Part.SKY, "Sky");
         l.setSky(l.sky().withFog(200));
+        undo.before(l, Undo.Part.SKY, "Music");
+        l.setMusic("dream_on");
 
-        assertEquals("Sky", undo.nextUndo());
+        assertEquals("Music", undo.nextUndo());
+        assertEquals("Music", undo.undo(l));
+        assertEquals(Songs.SHUFFLE, l.music());
         assertEquals("Sky", undo.undo(l));
         assertEquals(Sky.DEFAULT.fog(), l.sky().fog(), 1e-9);
         assertEquals("Paint", undo.undo(l));
@@ -73,9 +78,21 @@ class EditorTest {
         assertEquals(1, l.ofType(ObjectTypes.DUMMY).size());
         assertEquals("Sculpt", undo.redo(l));
         assertEquals(2, l.heights().height(0, 0), 0.05);
-        assertEquals("Paint", undo.nextRedo());
+        assertEquals("Paint", undo.redo(l));
+        assertEquals("Sky", undo.redo(l));
+        assertEquals("Music", undo.redo(l));
+        assertEquals("dream_on", l.music());
+        assertEquals("Music", undo.undo(l));
+        assertEquals("Music", undo.nextRedo());
         undo.before(l, Undo.Part.OBJECTS, "Delete");
         assertFalse(undo.canRedo(), "a new change drops what could have been redone");
+    }
+
+    @Test
+    void theSongPlayersClockReadsMinutesAndSeconds() {
+        assertEquals("0:00", CreativeScene.clock(0));
+        assertEquals("1:05", CreativeScene.clock(65.9));
+        assertEquals("2:00", CreativeScene.clock(120));
     }
 
     @Test

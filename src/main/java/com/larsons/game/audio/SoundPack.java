@@ -384,7 +384,7 @@ public final class SoundPack {
                     combat/dice_roll.mp3              the damage dice tumbling over her head
                     world/loot_legendary.mp3          a Legendary item landing out of a chest
                     ambient/wind.mp3                  the breeze over the meadow (held)
-                    music/main_menu.mp3               the main menu's song (held)
+                    music/dream_on.mp3                the song "Dream On" (held)
                     ui/click.mp3                      any button clicked
 
                 A file in a body's or an object's own folder is that one's alone
@@ -407,13 +407,17 @@ public final class SoundPack {
 
                 ## Music
 
-                `music/` holds the songs, each named after where it plays and
-                looping for as long as you are there, faded in and out:
-                `main_menu.mp3` on the main menu. Make a song as one seamless
-                loop. A song always plays at exactly its own pitch. The main
-                menu's is "Dream On" arranged for lute, recorder and harp; its
-                MIDI is `music/dream_on_medieval.mid` in the repository, and
-                `tools/music/dream_on.py` renders it to this MP3.
+                `music/` holds the songs, each a medieval-style cover named
+                after the song (`dream_on.mp3`), faded in and out and always
+                played at exactly its own pitch. Make a song as one seamless
+                loop. Each one's MIDI is `music/<song>_medieval.mid` in the
+                repository, and `tools/music/<song>.py` renders it to this MP3.
+
+                A place that plays one song has a name of its own that falls
+                back to it: `music/main_menu.mp3`, if you put one here, is the
+                main menu's song, else it plays `dream_on.mp3`. A level plays
+                the song its maker picked in Creative Mode, or every song
+                shuffled (the demo, and a new level), or none.
 
                 ## Fresh pitch
 

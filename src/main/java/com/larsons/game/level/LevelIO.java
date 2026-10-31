@@ -1,5 +1,7 @@
 package com.larsons.game.level;
 
+import com.larsons.game.audio.Songs;
+
 import com.larsons.game.util.Json;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.Sky;
@@ -26,7 +28,7 @@ import java.util.stream.Stream;
  * level when it was made ({@link #slug}), holding
  *
  * <pre>
- *   level.json   its name, size, sky and backdrops, and every object - one a line
+ *   level.json   its name, size, sky and backdrops, music, and every object - one a line
  *   height.png   its sculpted ground, 16-bit grey: a height a pixel, every 0.5 m
  *                (value / 256 - 128 metres), the north-west corner first
  *   ground.png   what its ground is made of, a pixel every 0.25 m: red dirt, green
@@ -42,6 +44,7 @@ import java.util.stream.Stream;
  *   "name": "The old mill",
  *   "size": 128,
  *   "sky": {"zenith": "#5C78A3", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
+ *   "music": "dream_on",
  *   "objects": [
  *     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
  *     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
@@ -60,7 +63,7 @@ public final class LevelIO {
     /** A height's 16-bit value is {@code (metres + OFFSET) * SCALE}. */
     static final double OFFSET = 128, SCALE = 256;
 
-    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "objects");
+    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "objects");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
@@ -141,6 +144,7 @@ public final class LevelIO {
         Level level = new Level(Json.str(j, "name", folder.getFileName().toString()), size);
         Object sky = j.get("sky");
         if (sky instanceof Map<?, ?>) level.setSky(sky(Json.asObject(sky)));
+        level.setMusic(Json.str(j, "music", Songs.SHUFFLE));          // a level saved before music: shuffled
         int highest = 0;
         Object objs = j.get("objects");
         if (objs instanceof List<?> list) {
@@ -154,7 +158,9 @@ public final class LevelIO {
         }
         level.setNextId(highest + 1);
         for (Map.Entry<String, Object> e : j.entrySet()) {
-            if (!KNOWN.contains(e.getKey())) level.extra().put(e.getKey(), e.getValue());
+            boolean known = KNOWN.contains(e.getKey())
+                    && !(e.getKey().equals("music") && !(e.getValue() instanceof String));  // a later game's music: kept
+            if (!known) level.extra().put(e.getKey(), e.getValue());
         }
         Path hp = folder.resolve(HEIGHTS);
         if (Files.isRegularFile(hp)) readHeights(hp, level.heights());
@@ -265,6 +271,7 @@ public final class LevelIO {
         head.put("name", level.name());
         head.put("size", round(level.size()));
         head.put("sky", sky(level.sky()));
+        head.put("music", level.music());
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         String text = Json.stringify(head);
         StringBuilder sb = new StringBuilder(text.substring(0, text.lastIndexOf('}')).stripTrailing());

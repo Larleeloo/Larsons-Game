@@ -1,6 +1,8 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.audio.MusicPreview;
 import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.audio.Songs;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.FlyingDummy;
@@ -64,7 +66,10 @@ import static org.lwjgl.glfw.GLFW.*;
  *   <li><b>Sky</b> - the sky's colours, the fog, and the distant backgrounds:
  *       mountains, hills, a tree line, towers, the sea - all in the game's
  *       128 colours.</li>
- *   <li><b>Level</b> - its name and size; save, play-test, leave.</li>
+ *   <li><b>Level</b> - its name and size; its music (a song, every song
+ *       shuffled, or none), with a player to listen to each song first -
+ *       play, pause and a timeline to jump about in it; save, play-test,
+ *       leave.</li>
  * </ul>
  *
  * <p>Ctrl+Z undoes and Ctrl+Y redoes ({@link Undo}); Ctrl+S saves it to
@@ -154,6 +159,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private boolean thinFog = true;
     private double time, leaveAt = -10;
     private String propSnapshot;
+    /** The Level tool's song player, and the song it is on. */
+    private final MusicPreview preview = new MusicPreview();
+    private String listening = "";
 
     /**
      * Edit {@code level}, saved in {@code folder} (null: not yet saved - the
@@ -189,8 +197,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         game.window().setTitle(Game.TITLE + " — " + name());
     }
 
+    @Override
+    public void exit() {
+        preview.close();
+    }
+
     /** The level being edited. */
     public Level level() { return level; }
+
+    /** The Level tool's song player. */
+    MusicPreview preview() { return preview; }
 
     // --- the palette ------------------------------------------------------------------------
 
@@ -220,6 +236,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     @Override
     public void update(double dt) {
         time += dt;
+        preview.update(dt);
         Input in = game.window().input();
         if (game.importer().visible()) return;
         double mx = in.mouseX(), my = in.mouseY();
@@ -362,6 +379,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void setTool(Tool t) {
         if (t == tool) return;
+        if (tool == Tool.LEVEL) preview.pause();
         tool = t;
         moving = boxing = stroking = false;
         widgets.stopTyping();
@@ -1211,6 +1229,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         int pick = widgets.choice(ui, "Size", sizes, at, x, y, w);
         if (pick != at) resize(Level.SIZES[pick]);
         y += 40;
+        y = musicSection(ui, x, y, w);
         ui.paragraph(ui.small, (folder == null ? "Not saved yet" : "Saved in " + game.relative(folder))
                 + "\n" + things(level.objects().size()) + " placed", x, y, w, Theme.HINT);
         y += 60;
@@ -1223,6 +1242,91 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.paragraph(ui.small, "Everything here is saved in the level's folder: level.json (readable, one thing "
                 + "a line), height.png (the ground's heights) and ground.png (its paint).", x, y, w,
                 Theme.ITEM_DISABLED);
+    }
+
+    /**
+     * The level's music - none, every song shuffled, or one song looping -
+     * and a player to listen to any song first: play or pause, a timeline to
+     * drag to anywhere in it, where it is of how long, and "Use this song".
+     * Returns the y below it.
+     */
+    private float musicSection(Ui ui, float x, float y, float w) {
+        List<String> shown = new ArrayList<>(List.of("None", "Shuffle all"));
+        for (Songs.Song song : Songs.ALL) shown.add(song.title());
+        int cur = musicIndex(level.music());
+        int pick = widgets.choice(ui, "Music", shown, cur, x, y, w, MUSIC_LABEL);
+        if (pick != cur) setMusic(pick == 0 ? Songs.NONE : pick == 1 ? Songs.SHUFFLE : Songs.ALL.get(pick - 2).id());
+        y += 34;
+        if (Songs.ALL.isEmpty()) return y + 6;
+        if (Songs.byId(listening) == null) {
+            listening = Songs.byId(level.music()) != null ? level.music() : Songs.ALL.get(0).id();
+        }
+        List<String> titles = Songs.ALL.stream().map(Songs.Song::title).toList();
+        int li = Songs.ALL.indexOf(Songs.byId(listening));
+        int lp = widgets.choice(ui, "Listen to", titles, li, x, y, w, MUSIC_LABEL);
+        if (lp != li) listen(Songs.ALL.get(lp).id());
+        Songs.Song song = Songs.byId(listening);
+        preview.open(song.key());
+        y += 34;
+
+        boolean ready = preview.ready();
+        if (ui.button(preview.playing() ? "Pause" : "Play", x, y, 64, 28, preview.playing(),
+                ready || preview.loading())) {
+            preview.toggle();
+        }
+        double len = preview.length();
+        double t = len > 0 ? preview.position() / len : 0;
+        double nt = ui.slider(x + 74, y + 4, w - 74, 20, t);
+        if (nt != t && len > 0) preview.scrub(nt * len);
+        if (preview.scrubbing() && !ui.input().mouseDown(GLFW_MOUSE_BUTTON_LEFT)) preview.release();
+        y += 34;
+
+        String clock = preview.loading() ? "Reading the song…" : !ready ? "No sound file for this song"
+                : clock(preview.position()) + " / " + clock(len);
+        ui.text(ui.small, clock, x, y + 6, ready ? Theme.ITEM : Theme.HINT);
+        if (song.id().equals(level.music())) {
+            String in = "In this level";
+            ui.text(ui.small, in, x + w - ui.small.width(in) - 6, y + 6, Theme.TITLE);
+        } else if (ui.button("Use this song", x + w - 120, y, 120, 26)) {
+            setMusic(song.id());
+        }
+        y += 32;
+        return y + ui.paragraph(ui.small, song.label(), x, y, w, Theme.ITEM_DISABLED) + 10;
+    }
+
+    /** The music rows' labels are short: more of the row for the song's title. */
+    private static final float MUSIC_LABEL = 0.3f;
+
+    /** Where {@code music} is in the Music choice: none, shuffle, then the songs (unknown: none). */
+    private static int musicIndex(String music) {
+        if (Songs.SHUFFLE.equals(music)) return 1;
+        Songs.Song song = Songs.byId(music);
+        return song == null ? 0 : 2 + Songs.ALL.indexOf(song);
+    }
+
+    /** The level's music from now on, as one undo step; a song chosen is the one listened to. */
+    private void setMusic(String music) {
+        if (music.equals(level.music())) return;
+        undo.before(level, Undo.Part.SKY, "Music");
+        level.setMusic(music);
+        dirty = true;
+        if (Songs.byId(music) != null) listen(music);
+    }
+
+    /** Listen to {@code id} in the player, from its start (paused, unless it was playing). */
+    private void listen(String id) {
+        if (id.equals(listening)) return;
+        boolean was = preview.playing();
+        listening = id;
+        Songs.Song song = Songs.byId(id);
+        preview.open(song == null ? "" : song.key());
+        if (was) preview.play();
+    }
+
+    /** {@code seconds} as m:ss. */
+    static String clock(double seconds) {
+        int s = (int) Math.max(0, Math.floor(seconds));
+        return (s / 60) + ":" + String.format("%02d", s % 60);
     }
 
     // --- the right panel: what is being placed, or what is selected ------------------------------------
@@ -1462,6 +1566,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                             r, a.length > 4 ? Double.parseDouble(a[4]) : density, Math.PI * r * r * 0.2, random);
                 }
                 changed();
+            }
+            case "music" -> setMusic(argument.isBlank() ? Songs.NONE : argument.trim());
+            case "listen" -> {
+                // listen <song> [seconds] [play]: the Level tool's player on a song, at a time, playing
+                if (a.length > 0) listen(a[0]);
+                preview.open(Songs.byId(listening) == null ? "" : Songs.byId(listening).key());
+                long until = System.nanoTime() + 10_000_000_000L;
+                while (preview.loading() && System.nanoTime() < until) Thread.onSpinWait();
+                if (a.length > 1) preview.seek(Double.parseDouble(a[1]));
+                if (a.length > 2 && a[2].equals("play")) preview.play();
             }
             case "sky" -> {
                 // sky zenith|horizon #RRGGBB, sky fog <m>

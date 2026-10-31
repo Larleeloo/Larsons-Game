@@ -90,7 +90,12 @@ final class Widgets {
 
     /** One of {@code options} (shown as {@code shown}); the arrows, or a click, step through them. */
     int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w) {
-        float lw = w * 0.42f, bx = x + lw, bw = w - lw;
+        return choice(ui, label, shown, index, x, y, w, 0.42f);
+    }
+
+    /** {@link #choice(Ui, String, List, int, float, float, float)} with its label {@code share} of the width. */
+    int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w, float share) {
+        float lw = w * share, bx = x + lw, bw = w - lw;
         label(ui, label, x, y);
         int n = shown.size();
         if (n == 0) return index;

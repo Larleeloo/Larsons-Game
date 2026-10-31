@@ -457,9 +457,10 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
 
 MUSIC
 -----
-The songs, each looping for as long as you are where it plays: the main menu's, and more to come.
+The songs: the main menu's, and the medieval covers the levels play, one or all shuffled.
 
-  music/main_menu.mp3                            The main menu's song (held)                      music/main_menu
+  music/main_menu.mp3                            On the main menu (held)                          music/main_menu
+  music/dream_on.mp3                             Dream On (Aerosmith) (held)                      music/dream_on
 
 
 INTERFACE

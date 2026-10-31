@@ -158,10 +158,21 @@ public final class SoundMixer {
 
     /** {@link #play(PcmClip, double, double, double, boolean)} as one of a volume {@code group}'s voices. */
     public Voice play(PcmClip clip, double pitch, double volume, double pan, boolean loop, int group) {
+        return play(clip, pitch, volume, pan, loop, group, 0);
+    }
+
+    /**
+     * {@link #play(PcmClip, double, double, double, boolean, int)} from {@code
+     * startSeconds} into the clip rather than its start - a song resumed, or
+     * a preview scrubbed to the middle.
+     */
+    public Voice play(PcmClip clip, double pitch, double volume, double pan, boolean loop, int group,
+                      double startSeconds) {
         if (clip == null || clip.isEmpty() || volume <= 0) return NONE;
         if (!ensureStarted()) return NONE;
         double rate = clip.sampleRate() / (double) SAMPLE_RATE * Math.max(0.01, pitch);
         Voice v = new Voice(clip, rate, volume, pan, loop, group);
+        v.position = Math.max(0, Math.min(clip.frames() - 1, startSeconds * clip.sampleRate()));
         synchronized (voices) {
             if (voices.size() >= MAX_VOICES) {
                 // Drop the oldest one-shot rather than refuse the new sound:

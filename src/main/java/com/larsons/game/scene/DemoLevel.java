@@ -77,6 +77,7 @@ public final class DemoLevel {
                     Map.of("length", w.length()));
         }
         for (Terrain.Place p : t.places()) level.add(ObjectTypes.MARKER, p.x(), p.z(), 0, Map.of("name", p.name()));
+        level.setMusic(com.larsons.game.audio.Songs.SHUFFLE);      // as the demo plays it
         return level;
     }
 

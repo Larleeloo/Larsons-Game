@@ -1,5 +1,6 @@
 package com.larsons.game.level;
 
+import com.larsons.game.audio.Songs;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.sprite.Wardrobe;
@@ -147,7 +148,8 @@ class LevelTest {
         l.add(ObjectTypes.ITEM, 1, 2, 0, Map.of("item", "sword", "tier", "iron"));
         l.add(ObjectTypes.VINES, 0, 10, Math.PI / 2, Map.of("length", 6.5)).setLift(0.25);
         l.add(new LevelObject(0, "npc", 4, 4, 0, Map.of("dialogue", "hello", "likes", List.of("cats", 3))));
-        l.extra().put("music", Map.of("track", "village"));
+        l.setMusic("dream_on");
+        l.extra().put("weather", Map.of("rain", "light"));
 
         Path folder = root.resolve("round_trip");
         LevelIO.save(l, folder);
@@ -177,7 +179,9 @@ class LevelTest {
         LevelObject npc = back.ofType("npc").get(0);
         assertEquals("hello", npc.str("dialogue", ""), "a kind this game does not know is kept");
         assertEquals(List.of("cats", 3.0), npc.props().get("likes"));
-        assertEquals(Map.of("track", "village"), back.extra().get("music"), "and keys it does not know");
+        assertEquals("dream_on", back.music());
+        assertTrue(json.contains("\"music\": \"dream_on\""), json);
+        assertEquals(Map.of("rain", "light"), back.extra().get("weather"), "and keys it does not know");
         for (double[] p : new double[][]{{-6, 3}, {8, 8}, {0, 0}, {-3, 1}}) {
             assertEquals(l.heights().height(p[0], p[1]), back.heights().height(p[0], p[1]), 1 / 256.0,
                     "the height at " + p[0] + ", " + p[1]);
@@ -203,6 +207,25 @@ class LevelTest {
         Level back = LevelIO.load(folder);
         assertTrue(back.heights().flat());
         assertTrue(back.ground().isEmpty());
+    }
+
+    @Test
+    void aLevelPlaysEverySongShuffledUntilToldOtherwise(@TempDir Path root) throws IOException {
+        Level l = Level.blank("Tunes", 64);
+        assertEquals(Songs.SHUFFLE, l.music(), "a new level");
+        l.setMusic("  ");
+        assertEquals(Songs.NONE, l.music(), "blank is none");
+
+        Path folder = Files.createDirectories(root.resolve("old"));          // saved before levels had music
+        Files.writeString(folder.resolve(LevelIO.FILE), "{\"format\": 1, \"name\": \"Old\", \"size\": 64, \"objects\": []}");
+        assertEquals(Songs.SHUFFLE, LevelIO.load(folder).music());
+
+        Files.writeString(folder.resolve(LevelIO.FILE),                     // a later game's music, not a name
+                "{\"format\": 1, \"name\": \"New\", \"size\": 64, \"music\": {\"day\": \"a\", \"night\": \"b\"}, \"objects\": []}");
+        Level later = LevelIO.load(folder);
+        assertEquals(Songs.SHUFFLE, later.music());
+        LevelIO.save(later, root.resolve("again"));
+        assertTrue(Files.readString(root.resolve("again").resolve(LevelIO.FILE)).contains("\"music\": \"shuffle\""));
     }
 
     @Test
