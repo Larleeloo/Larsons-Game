@@ -149,6 +149,11 @@ public final class TerrainRenderer implements AutoCloseable {
      * from the first time it is handed another ({@link #draw}), that one's.
      * Must be made on the GL thread.
      */
+    /** How many triangles the hills are drawn with. */
+    public int triangles() {
+        return count / 3;
+    }
+
     public TerrainRenderer(GroundTexture ground, Terrain terrain) {
         this.ground = ground;
         shader = new Shader("terrain", VERTEX, FRAGMENT);

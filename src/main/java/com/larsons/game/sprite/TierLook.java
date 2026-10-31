@@ -89,6 +89,11 @@ public final class TierLook {
     }
 
     /** No looks: every tier as it is drawn. */
+    /** How many tiers {@code tiers.json} gives a look. */
+    public int tierCount() {
+        return tiers.size();
+    }
+
     public static TierLook none() {
         return new TierLook(Map.of(), Map.of(), Map.of(), Map.of(), null);
     }

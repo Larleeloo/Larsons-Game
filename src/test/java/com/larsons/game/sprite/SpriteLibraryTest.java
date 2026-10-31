@@ -308,6 +308,54 @@ class SpriteLibraryTest {
     }
 
     @Test
+    void theIndexReportsEachFolderAsItGoesWithARunningTotal() throws Exception {
+        png("sprites/body/hero/walk_side_e.png");
+        png("sprites/body/hero/idle_side_e.png");
+        png("sprites/hat/cap/walk_side_e.png");
+        png("sprites_masculine/body/masculine/walk_side_e.png");
+        List<String> seen = new ArrayList<>();
+        lib = new SpriteLibrary(root.resolve("sprites"), 1L << 30, 1.0, false, (done, of, folder, sheets) ->
+                seen.add(done + "/" + of + " " + root.relativize(folder).toString().replace('\\', '/') + " " + sheets));
+        assertEquals(List.of("1/3 sprites/body/hero 2", "2/3 sprites/hat/cap 3",
+                "3/3 sprites_masculine/body/masculine 4"), seen);
+        assertEquals(new SpriteLibrary.Census(2, 2, 3, 4), lib.census());
+    }
+
+    @Test
+    void sheetsAreFoundAsTheyAlwaysWereWithoutParsingEveryName() throws Exception {
+        png("body/hero/walk_side_e.png");             // the canonical name: looked up, not parsed
+        png("body/hero/Walk-0-E.png");                // the same sheet by another name, first in order: kept
+        png("body/hero/old/idle_side_e.png");         // in a folder of its own
+        png("body/hero/a/b/c/run_side_e.png");        // four deep: found
+        png("body/hero/a/b/c/d/jump_side_e.png");     // five deep: not looked for
+        png("body/hero/IDLE_TOP_N.PNG");              // capitals, extension too
+        png("body/hero/walk_side_e_0001.png");        // a loose frame: skipped, to be imported
+        Files.writeString(root.resolve("body/hero/notes.txt"), "not a sheet");
+        lib = new SpriteLibrary(root, 1L << 30, 1.0);
+        SpriteLibrary.Entry e = lib.entry(Slot.BODY, "hero");
+        assertEquals(4, e.count());
+        assertEquals(root.resolve("body/hero/Walk-0-E.png"), e.sheet(AnimState.WALK, Elevation.SIDE, Facing.EAST));
+        assertEquals(root.resolve("body/hero/old/idle_side_e.png"),
+                e.sheet(AnimState.IDLE, Elevation.SIDE, Facing.EAST));
+        assertEquals(root.resolve("body/hero/a/b/c/run_side_e.png"),
+                e.sheet(AnimState.RUN, Elevation.SIDE, Facing.EAST));
+        assertEquals(root.resolve("body/hero/IDLE_TOP_N.PNG"), e.sheet(AnimState.IDLE, Elevation.TOP, Facing.NORTH));
+        assertNull(e.sheet(AnimState.JUMP, Elevation.SIDE, Facing.EAST));
+        assertEquals(List.of("walk_side_e_0001.png"), e.skipped());
+    }
+
+    @Test
+    void classicAnimationsAskedForAtTheStartAreIndexedInTheSamePass() throws Exception {
+        png("sprites/carry_right/sword_px128/attack_side_s.png");
+        png("animations_v1/sprites/carry_right/sword_px128/attack_side_s.png");
+        lib = new SpriteLibrary(root.resolve("sprites"), 1L << 30, 1.0, true, SpriteLibrary.ScanProgress.NONE);
+        assertTrue(lib.classic());
+        assertTrue(lib.classicIndexed().isDone(), "nothing left to index in the background");
+        assertEquals(root.resolve("animations_v1/sprites/carry_right/sword_px128/attack_side_s.png"),
+                lib.resolve(Slot.CARRY_RIGHT, "sword_px128", AnimState.ATTACK, Elevation.SIDE, Facing.SOUTH).file());
+    }
+
+    @Test
     void rescanPicksUpNewFolders() throws Exception {
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         int before = lib.generation();

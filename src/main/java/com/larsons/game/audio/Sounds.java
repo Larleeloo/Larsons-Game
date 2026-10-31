@@ -380,6 +380,25 @@ public final class Sounds {
     }
 
     /**
+     * How far {@link #preload} has got: the files decoded, of how many (-1
+     * while they are still being counted), and the one being decoded now.
+     */
+    public record Preload(int done, int total, Path current) {
+
+        /** Whether every file has been decoded (or there was nothing to decode). */
+        public boolean finished() {
+            return total >= 0 && done >= total;
+        }
+    }
+
+    private static volatile Preload preloaded = new Preload(0, 0, null);
+
+    /** How far the decoding {@link #preload} started has got (the loading screen shows it). */
+    public static Preload preloadProgress() {
+        return preloaded;
+    }
+
+    /**
      * Decode every file in the pack now, on a background thread, so the first
      * footstep or swing does not wait for its MP3 to be read. The songs are
      * left to {@link Music}, which decodes one when it is about to play it.
@@ -387,15 +406,30 @@ public final class Sounds {
     public static void preload() {
         Path root = SoundPack.root();
         Path music = root.resolve(SoundKeys.MUSIC);
+        preloaded = new Preload(0, -1, null);
         Thread t = new Thread(() -> {
-            if (!Files.isDirectory(root)) return;
-            try (Stream<Path> files = Files.walk(root)) {
-                files.filter(f -> {
-                    String n = f.getFileName().toString().toLowerCase();
-                    return (n.endsWith(".mp3") || n.endsWith(".wav")) && !f.startsWith(music);
-                }).forEach(SoundLoader::load);
-            } catch (IOException | RuntimeException e) {
+            List<Path> files = List.of();
+            if (Files.isDirectory(root)) {
+                try (Stream<Path> walk = Files.walk(root)) {
+                    files = walk.filter(f -> {
+                        String n = f.getFileName().toString().toLowerCase();
+                        return (n.endsWith(".mp3") || n.endsWith(".wav")) && !f.startsWith(music);
+                    }).sorted().toList();
+                } catch (IOException | RuntimeException e) {
+                    System.err.println("[sound] preloading " + root + ": " + e.getMessage());
+                }
+            }
+            int done = 0;
+            try {
+                for (Path f : files) {
+                    preloaded = new Preload(done, files.size(), f);
+                    SoundLoader.load(f);
+                    done++;
+                }
+            } catch (RuntimeException e) {
                 System.err.println("[sound] preloading " + root + ": " + e.getMessage());
+            } finally {
+                preloaded = new Preload(files.size(), files.size(), null);
             }
         }, "sound-preload");
         t.setDaemon(true);

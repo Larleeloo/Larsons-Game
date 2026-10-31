@@ -241,11 +241,28 @@ public final class SpriteLibrary implements AutoCloseable {
         this(root, budgetBytes, scale, GL);
     }
 
+    /**
+     * The library, its folders indexed before this returns, telling {@code
+     * progress} how far it has got (the loading screen); {@code classic}: the
+     * first version of the re-animated states is drawn, and so indexed in the
+     * same pass ({@link #setClassic}).
+     */
+    public SpriteLibrary(Path root, long budgetBytes, double scale, boolean classic, ScanProgress progress) {
+        this(root, budgetBytes, scale, GL, classic, progress);
+    }
+
     SpriteLibrary(Path root, long budgetBytes, double scale, Uploader uploader) {
+        this(root, budgetBytes, scale, uploader, false, ScanProgress.NONE);
+    }
+
+    private SpriteLibrary(Path root, long budgetBytes, double scale, Uploader uploader, boolean classic,
+                          ScanProgress progress) {
         this.root = root;
         this.budgetBytes = budgetBytes;
         this.scale = scale;
         this.uploader = uploader;
+        this.classic = classic;
+        this.indexClassic = classic;
         threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
         workers = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "sprite-decoder");
@@ -255,7 +272,7 @@ public final class SpriteLibrary implements AutoCloseable {
             t.setPriority(Thread.NORM_PRIORITY - 2);
             return t;
         });
-        rescan();
+        rescan(progress);
     }
 
     public Path root() { return root; }
@@ -319,25 +336,56 @@ public final class SpriteLibrary implements AutoCloseable {
     // --- the folder index ------------------------------------------------------------
 
     /**
+     * What {@link #rescan(ScanProgress)} reports as it goes, after each
+     * cosmetic (or body) folder: how many of the folders it has indexed, of
+     * how many, the one it has just done, and the sheets found so far. On
+     * the thread that is indexing.
+     */
+    @FunctionalInterface
+    public interface ScanProgress {
+        ScanProgress NONE = (done, of, folder, sheets) -> {};
+
+        void indexed(int done, int of, Path folder, int sheets);
+    }
+
+    /**
      * Re-read {@code assets/sprites/} and every body's folder beside it
      * ({@code assets/sprites_<body>/}). Cheap: file names only, no pixels.
      */
-    public synchronized void rescan() {
-        Map<String, Index> roots = new LinkedHashMap<>();
-        roots.put(DEFAULT_ROOT, scanRoot(root));
+    public void rescan() {
+        rescan(ScanProgress.NONE);
+    }
+
+    /** {@link #rescan()}, telling {@code progress} how far it has got. */
+    public synchronized void rescan(ScanProgress progress) {
+        Map<String, Path> dirs = new LinkedHashMap<>();
+        dirs.put(DEFAULT_ROOT, root);
         Path parent = root.toAbsolutePath().getParent();
         String prefix = root.getFileName() + "_";
         if (parent != null && Files.isDirectory(parent)) {
-            try (Stream<Path> dirs = Files.list(parent)) {
-                for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
+            try (Stream<Path> list = Files.list(parent)) {
+                for (Path dir : list.filter(Files::isDirectory).sorted().toList()) {
                     String name = dir.getFileName().toString();
                     if (name.startsWith(prefix) && name.length() > prefix.length()) {
-                        roots.put(name.substring(prefix.length()), scanRoot(dir));
+                        dirs.put(name.substring(prefix.length()), dir);
                     }
                 }
             } catch (IOException e) {
                 System.err.println("[sprites] cannot list " + parent + ": " + e.getMessage());
             }
+        }
+        // every item folder of every sprites folder first, so the progress has a total
+        Map<String, Map<Slot, List<Path>>> items = new LinkedHashMap<>();
+        int total = 0;
+        for (Map.Entry<String, Path> d : dirs.entrySet()) {
+            Map<Slot, List<Path>> slots = itemFolders(d.getValue());
+            for (List<Path> l : slots.values()) total += l.size();
+            items.put(d.getKey(), slots);
+        }
+        int[] done = {0, 0};
+        Map<String, Index> roots = new LinkedHashMap<>();
+        for (Map.Entry<String, Path> d : dirs.entrySet()) {
+            roots.put(d.getKey(), scanRoot(d.getValue(), items.get(d.getKey()), progress, done, total));
         }
         // a body is in the folder whose body/ has it; the default's first, a
         // body's own folder over it
@@ -353,6 +401,21 @@ public final class SpriteLibrary implements AutoCloseable {
         generation++;
     }
 
+    /** What the index holds: how many sprites folders, cosmetics (bodies included) and sheets. */
+    public record Census(int folders, int bodies, int items, int sheets) {}
+
+    /** How much the last {@link #rescan} found. */
+    public Census census() {
+        int items = 0, sheets = 0;
+        for (Index i : index.roots().values()) {
+            for (Map<String, Entry> slot : i.slots().values()) {
+                items += slot.size();
+                for (Entry e : slot.values()) sheets += e.count();
+            }
+        }
+        return new Census(index.roots().size(), index.bodyRoot().size(), items, sheets);
+    }
+
     /** Where a sprites folder's first-version sheets are kept ({@link #CLASSIC_FOLDER}). */
     static Path classicRoot(Path base) {
         Path abs = base.toAbsolutePath();
@@ -360,23 +423,34 @@ public final class SpriteLibrary implements AutoCloseable {
         return parent == null ? null : parent.resolve(CLASSIC_FOLDER).resolve(abs.getFileName());
     }
 
-    private Index scanRoot(Path base) {
+    /** The item folders of each slot of a sprites folder, sorted. */
+    private static Map<Slot, List<Path>> itemFolders(Path base) {
+        Map<Slot, List<Path>> out = new EnumMap<>(Slot.class);
+        for (Slot slot : Slot.values()) {
+            Path slotDir = base.resolve(slot.key());
+            if (!Files.isDirectory(slotDir)) continue;
+            try (Stream<Path> dirs = Files.list(slotDir)) {
+                out.put(slot, dirs.filter(Files::isDirectory).sorted().toList());
+            } catch (IOException e) {
+                System.err.println("[sprites] cannot list " + slotDir + ": " + e.getMessage());
+            }
+        }
+        return out;
+    }
+
+    private Index scanRoot(Path base, Map<Slot, List<Path>> folders, ScanProgress progress, int[] done,
+                           int total) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
         Path archive = indexClassic ? classicRoot(base) : null;
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
-            Path slotDir = base.resolve(slot.key());
-            if (Files.isDirectory(slotDir)) {
-                try (Stream<Path> dirs = Files.list(slotDir)) {
-                    for (Path dir : dirs.filter(Files::isDirectory).sorted().toList()) {
-                        Path old = archive == null ? null
-                                : archive.resolve(slot.key()).resolve(dir.getFileName().toString());
-                        Entry e = scanItem(slot, dir, old);
-                        items.put(e.name(), e);
-                    }
-                } catch (IOException e) {
-                    System.err.println("[sprites] cannot list " + slotDir + ": " + e.getMessage());
-                }
+            for (Path dir : folders.getOrDefault(slot, List.of())) {
+                Path old = archive == null ? null
+                        : archive.resolve(slot.key()).resolve(dir.getFileName().toString());
+                Entry e = scanItem(slot, dir, old);
+                items.put(e.name(), e);
+                done[1] += e.count();
+                progress.indexed(++done[0], total, dir, done[1]);
             }
             next.put(slot, Collections.unmodifiableMap(items));
         }
@@ -395,20 +469,63 @@ public final class SpriteLibrary implements AutoCloseable {
                 Collections.unmodifiableMap(classic));
     }
 
-    private static void scanSheets(Path dir, Map<String, Path> sheets, List<String> skipped) {
-        try (Stream<Path> files = Files.walk(dir, 4)) {
-            for (Path f : files.filter(Files::isRegularFile).sorted().toList()) {
-                String rel = dir.relativize(f).toString();
-                if (!rel.toLowerCase().endsWith(".png")) continue;
-                SpriteNames.Parsed p = SpriteNames.parse(rel);
-                if (!p.complete() || p.frame() != null) {
-                    skipped.add(rel);
-                    continue;
-                }
-                sheets.putIfAbsent(key(p.state(), p.elevation(), p.facing()), f);
+    /** The key of every canonical sheet name ({@code walk_middle_ne.png}), read without the parser. */
+    private static final Map<String, String> CANONICAL = canonicalNames();
+
+    private static Map<String, String> canonicalNames() {
+        Map<String, String> out = new HashMap<>();
+        for (AnimState s : AnimState.values()) {
+            for (Elevation e : Elevation.values()) {
+                for (Facing f : Facing.values()) out.put(SpriteNames.fileName(s, e, f), key(s, e, f));
             }
+        }
+        return out;
+    }
+
+    /**
+     * The sheets in an item folder (and in its folders, four deep), by key.
+     * A folder holds thousands of them and there are hundreds of folders, so
+     * this is the start's longest wait (the loading screen shows it): the
+     * names are listed without asking the disk about each file (a {@code
+     * .png} is taken to be a file - only what may be a folder is looked at),
+     * and a name in the canonical form is looked up rather than parsed. The
+     * same sheets come out as from walking the folder and parsing every name:
+     * the files in path order, the first of a key kept.
+     */
+    static void scanSheets(Path dir, Map<String, Path> sheets, List<String> skipped) {
+        List<Path> files = new ArrayList<>();
+        try {
+            listPngs(dir, 4, files);
         } catch (IOException e) {
             skipped.add("(unreadable: " + e.getMessage() + ")");
+            return;
+        }
+        Collections.sort(files);
+        for (Path f : files) {
+            String rel = dir.relativize(f).toString();
+            String known = CANONICAL.get(rel);
+            if (known != null) {
+                sheets.putIfAbsent(known, f);
+                continue;
+            }
+            SpriteNames.Parsed p = SpriteNames.parse(rel);
+            if (!p.complete() || p.frame() != null) {
+                skipped.add(rel);
+                continue;
+            }
+            sheets.putIfAbsent(key(p.state(), p.elevation(), p.facing()), f);
+        }
+    }
+
+    private static void listPngs(Path dir, int depth, List<Path> out) throws IOException {
+        try (java.nio.file.DirectoryStream<Path> entries = Files.newDirectoryStream(dir)) {
+            for (Path p : entries) {
+                String name = p.getFileName().toString();
+                if (name.regionMatches(true, name.length() - 4, ".png", 0, 4)) out.add(p);
+                else if (depth > 1 && Files.isDirectory(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    listPngs(p, depth - 1, out);
+                }
+            }
         }
     }
 
@@ -710,7 +827,11 @@ public final class SpriteLibrary implements AutoCloseable {
         pump(Long.MAX_VALUE);
     }
 
-    private void pump(long budgetNs) {
+    /**
+     * {@link #pump()} with {@code budgetNs} to spend on uploads this frame:
+     * more while the loading screen is up and nothing else needs the frame.
+     */
+    public void pump(long budgetNs) {
         long start = System.nanoTime();
         boolean uploaded = false;
         Decoded d;

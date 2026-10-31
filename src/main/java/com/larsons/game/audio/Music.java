@@ -98,6 +98,15 @@ public final class Music {
         return pending != null && !pending.isDone() && pendingKey.equals(wanted);
     }
 
+    /**
+     * Whether there is nothing left to read for the song asked for: it is
+     * sounding (fading in included), it was found to be silent, or none is
+     * asked for. The loading screen waits for this.
+     */
+    public static synchronized boolean settled() {
+        return wanted.isEmpty() || current.equals(wanted) || wanted.equals(silent);
+    }
+
     /** Advance the fades by {@code dt} seconds and start the song asked for once it is decoded. Every frame. */
     public static synchronized void update(double dt) {
         if (!current.isEmpty() && !current.equals(wanted)) {      // what is no longer wanted fades out first

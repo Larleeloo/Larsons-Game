@@ -126,6 +126,12 @@ public final class MainMenuScene implements Scene {
         Music.stop();
     }
 
+    @Override
+    public String loaded() {
+        String saved = levels.isEmpty() ? "no levels yet" : levels.size() + " level" + (levels.size() == 1 ? "" : "s");
+        return "Creative Mode: " + saved + (cutscene != null ? ", the cutscene" : "");
+    }
+
     /** The tabs shown: the Dev tab only once it has been unlocked. */
     List<Tab> tabs() {
         List<Tab> out = new ArrayList<>(List.of(Tab.PLAY, Tab.CUTSCENE));
