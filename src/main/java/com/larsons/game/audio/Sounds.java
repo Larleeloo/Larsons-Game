@@ -41,7 +41,11 @@ import java.util.stream.Stream;
  *
  * <p><b>Fresh pitch.</b> Every playback is at a slightly different pitch,
  * drawn from ±{@link SoundPack#pitchVariation()} — the trick Minecraft uses
- * so a run of footsteps never sounds like a stuck record.
+ * so a run of footsteps never sounds like a stuck record. A song
+ * ({@link SoundCategory#MUSIC}) always plays at exactly its own pitch.
+ *
+ * <p><b>Music.</b> The songs go through {@link Music}, which decodes one off
+ * the game loop, starts it looping and fades it in and out.
  *
  * <p>Everything here is safe to call from the game loop and safe on a machine
  * with no audio device at all: the mixer goes quiet and every call is a no-op.
@@ -208,13 +212,26 @@ public final class Sounds {
         if (v != null) v.stop();
     }
 
-    /** Hand an already-resolved sound to the mixer. */
+    /** Hand an already-resolved sound to the mixer (a song at exactly its own pitch: no drift). */
     private static SoundMixer.Voice start(String key, Resolution r, double volumeScale, double pan, boolean loop) {
         if (r.clip().isEmpty()) return null;
         SoundDef def = r.def();
-        double volume = def.volume() * volumeScale * sfxVolume();
+        SoundCategory category = SoundKeys.categoryOf(key);
+        double volume = def.volume() * volumeScale * (category == SoundCategory.MUSIC ? 1 : sfxVolume());
         if (volume <= 0) return null;
-        return MIXER.play(r.clip(), pitchFor(def), volume, pan, loop, group(SoundKeys.categoryOf(key)));
+        double pitch = category == SoundCategory.MUSIC ? def.pitch() : pitchFor(def);
+        return MIXER.play(r.clip(), pitch, volume, pan, loop, group(category));
+    }
+
+    /**
+     * Start a song {@link Music} has decoded for {@code key}: looping, in the
+     * middle, at exactly its own pitch, at {@code volume} - in its category's
+     * volume group, so the Music slider moves it. Null when sound is off or
+     * the clip is empty.
+     */
+    static SoundMixer.Voice startMusic(String key, PcmClip clip, double volume) {
+        if (!isEnabled() || clip == null || clip.isEmpty() || volume <= 0) return null;
+        return MIXER.play(clip, 1.0, volume, 0, true, group(SoundKeys.categoryOf(key)));
     }
 
     /**
@@ -364,16 +381,18 @@ public final class Sounds {
 
     /**
      * Decode every file in the pack now, on a background thread, so the first
-     * footstep or swing does not wait for its MP3 to be read.
+     * footstep or swing does not wait for its MP3 to be read. The songs are
+     * left to {@link Music}, which decodes one when it is about to play it.
      */
     public static void preload() {
         Path root = SoundPack.root();
+        Path music = root.resolve(SoundKeys.MUSIC);
         Thread t = new Thread(() -> {
             if (!Files.isDirectory(root)) return;
             try (Stream<Path> files = Files.walk(root)) {
                 files.filter(f -> {
                     String n = f.getFileName().toString().toLowerCase();
-                    return n.endsWith(".mp3") || n.endsWith(".wav");
+                    return (n.endsWith(".mp3") || n.endsWith(".wav")) && !f.startsWith(music);
                 }).forEach(SoundLoader::load);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[sound] preloading " + root + ": " + e.getMessage());

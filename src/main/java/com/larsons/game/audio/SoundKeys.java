@@ -32,6 +32,7 @@ import java.util.Set;
  *   combat/dice_roll               -&gt; combat/dice_roll.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
+ *   music/main_menu                -&gt; music/main_menu.mp3      (the main menu's song)
  * </pre>
  *
  * <p>Keys fall back from the specific to the general ({@link #chain}), as the
@@ -60,6 +61,7 @@ public final class SoundKeys {
     public static final String COMBAT = "combat";
     public static final String WORLD = "world";
     public static final String AMBIENT = "ambient";
+    public static final String MUSIC = "music";
     /** Where a key from an unrecognised namespace lands. */
     public static final String OTHER = "other";
 
@@ -148,6 +150,12 @@ public final class SoundKeys {
     /** The place itself, each a loop: the meadow's breeze, a stream, crickets (for sound objects in a level). */
     public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets");
 
+    /**
+     * The songs, each named after where it plays and looping for as long as
+     * that lasts ({@link Music}): the main menu's.
+     */
+    public static final List<String> MUSIC_TRACKS = List.of("main_menu");
+
     /** The moves each weapon has a sound of its own for, at its stance (the others fall back to these). */
     static final List<AnimState> WEAPON_MOVES = List.of(AnimState.ATTACK, AnimState.SPIN_ATTACK, AnimState.PARRY,
             AnimState.SHIELD_BASH, AnimState.AXE_ATTACK, AnimState.AXE_HEAVY_ATTACK, AnimState.AXE_SPIN_ATTACK,
@@ -225,6 +233,7 @@ public final class SoundKeys {
         out.add(COMBAT);
         out.add(WORLD);
         out.add(AMBIENT);
+        out.add(MUSIC);
         return out;
     }
 
@@ -323,6 +332,7 @@ public final class SoundKeys {
             case "combat" -> COMBAT;
             case "world" -> WORLD;
             case "ambient" -> AMBIENT;
+            case "music" -> MUSIC;
             default -> null;
         };
     }
@@ -362,6 +372,7 @@ public final class SoundKeys {
             case "item" -> last.equals("equip") ? SoundCategory.WEAPONS : SoundCategory.WORLD;
             case "ui" -> SoundCategory.INTERFACE;
             case "ambient" -> SoundCategory.AMBIENT;
+            case "music" -> SoundCategory.MUSIC;
             case "combat" -> {
                 if (parts.length >= 3) yield SoundCategory.CREATURES;
                 if (last.startsWith("lock_")) yield SoundCategory.INTERFACE;
@@ -455,6 +466,7 @@ public final class SoundKeys {
         out.add(row(SoundCategory.WORLD, "item/pickup", "Picking something up", "pickup"));
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
+        for (String s : MUSIC_TRACKS) out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
         for (String s : UI_SOUNDS) out.add(row(SoundCategory.INTERFACE, ui(s), uiName(s), s));
         out.add(row(SoundCategory.INTERFACE, combat("lock_on"), "Locking on to a target", "lock_on"));
         out.add(row(SoundCategory.INTERFACE, combat("lock_off"), "Letting the target go", "lock_off"));
@@ -616,6 +628,13 @@ public final class SoundKeys {
         };
     }
 
+    private static String musicName(String s) {
+        return switch (s) {
+            case "main_menu" -> "The main menu's song";
+            default -> s;
+        };
+    }
+
     private static String uiName(String s) {
         return switch (s) {
             case "click" -> "Button clicked";
@@ -710,11 +729,16 @@ public final class SoundKeys {
         return "ambient/" + name;
     }
 
+    /** A song, named after where it plays ({@link #MUSIC_TRACKS}), e.g. {@code music/main_menu}. */
+    public static String music(String name) {
+        return "music/" + name;
+    }
+
     /**
      * Whether a key names a sound that plays for as long as its state holds,
      * rather than once: a looping animation (a walk, an idle), a chest
      * standing shut or open, a flier flapping on its rounds, anything
-     * ambient. These loop until stopped.
+     * ambient, a song. These loop until stopped.
      */
     public static boolean isLooping(String key) {
         if (key == null) return false;
@@ -731,7 +755,7 @@ public final class SoundKeys {
             }
             case "chest" -> state.equals("idle") || state.equals("opened");
             case "combat" -> parts.length >= 3 && state.equals("fly");
-            case "ambient" -> true;
+            case "ambient", "music" -> true;
             default -> false;
         };
     }

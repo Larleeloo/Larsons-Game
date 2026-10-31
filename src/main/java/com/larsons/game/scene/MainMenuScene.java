@@ -1,5 +1,6 @@
 package com.larsons.game.scene;
 
+import com.larsons.game.audio.Music;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
@@ -45,6 +46,10 @@ import static org.lwjgl.glfw.GLFW.*;
  * </ul>
  *
  * <p>Left and right (or Q and E) change tab; up, down and Enter choose.
+ *
+ * <p>The menu's own song ({@link #MUSIC}: "Dream On" for lute, recorder and
+ * harp, {@code assets/sounds/music/main_menu.mp3}) loops behind every tab,
+ * fading in as the menu opens and out as it is left ({@link Music}).
  */
 public final class MainMenuScene implements Scene {
 
@@ -63,6 +68,8 @@ public final class MainMenuScene implements Scene {
     static final double CONFIRM = 3;
     /** How many saved levels the Dev tab lists at once (the wheel scrolls). */
     static final int ROWS = 7;
+    /** The song that plays on the menu. */
+    public static final String MUSIC = SoundKeys.music("main_menu");
 
     private final Game game;
     private final World world;
@@ -111,6 +118,12 @@ public final class MainMenuScene implements Scene {
     public void enter() {
         camera.snapTo(follow());
         refreshLevels();
+        Music.play(MUSIC);
+    }
+
+    @Override
+    public void exit() {
+        Music.stop();
     }
 
     /** The tabs shown: the Dev tab only once it has been unlocked. */

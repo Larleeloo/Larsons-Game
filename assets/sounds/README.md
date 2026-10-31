@@ -4,14 +4,15 @@ Every sound the game makes is a file in this folder, named after
 what it is the sound of. MP3 or WAV (also AIFF and AU); MP3 is
 read by the game's own decoder, so no codec is needed.
 
-The files here now are **placeholders**, made in code by
-`tools/sounds/make_placeholders.py` - replace any of them with a
-real recording of the same name. You can also pick your own file
-for any sound in the game without touching this folder: Pause →
-Sounds, one tab per category (footsteps and movement, voices,
-weapons, hits and magic, creatures, world and loot, ambient,
-interface), each sound with a play button, Choose…, Mute and
-Reset. Those choices are yours alone (`config/sounds.json`).
+The files here now, but for the music, are **placeholders**, made
+in code by `tools/sounds/make_placeholders.py` - replace any of
+them with a real recording of the same name. You can also pick
+your own file for any sound in the game without touching this
+folder: Pause → Sounds, one tab per category (footsteps and
+movement, voices, weapons, hits and magic, creatures, world and
+loot, ambient, music, interface), each sound with a play button,
+Choose…, Mute and Reset. Those choices are yours alone
+(`config/sounds.json`).
 
 ## Naming
 
@@ -30,6 +31,7 @@ action it plays on:
     combat/dice_roll.mp3              the damage dice tumbling over her head
     world/loot_legendary.mp3          a Legendary item landing out of a chest
     ambient/wind.mp3                  the breeze over the meadow (held)
+    music/main_menu.mp3               the main menu's song (held)
     ui/click.mp3                      any button clicked
 
 A file in a body's or an object's own folder is that one's alone
@@ -49,6 +51,16 @@ seamless loop, and an attack from its first frame.
 
 `SOUND_KEYS.txt` lists the exact name of every sound in the game, by
 category.
+
+## Music
+
+`music/` holds the songs, each named after where it plays and
+looping for as long as you are there, faded in and out:
+`main_menu.mp3` on the main menu. Make a song as one seamless
+loop. A song always plays at exactly its own pitch. The main
+menu's is "Dream On" arranged for lute, recorder and harp; its
+MIDI is `music/dream_on_medieval.mid` in the repository, and
+`tools/music/dream_on.py` renders it to this MP3.
 
 ## Fresh pitch
 

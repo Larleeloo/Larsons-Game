@@ -176,9 +176,14 @@ Drop sprite sheets on the window at any time to import them.
   the flying dummies, the chests and the loot ringing out by rarity, the
   menus, and the breeze over it all: 125 original placeholder sounds, made
   in code, played through the engine's MP3 decoder and mixer. **Pause →
-  Sounds** has a tab for each of 8 categories with its own volume, and every
+  Sounds** has a tab for each of 9 categories with its own volume, and every
   sound in it can be played, swapped for any MP3 on your computer, muted or
   reset - see [Sound](#sound).
+- **Music on the main menu** - "Dream On" as a medieval tavern piece, for
+  lute, recorder, harp, fiddle, a portative organ's drone and a hand drum:
+  a two-minute seamless loop that fades in as the menu opens and out as it
+  is left. Its MIDI is in [`music/`](music/), ready for FL Studio - see
+  [Music](#music).
 
   <img src="docs/screenshots/new-states.png" width="98%" alt="Twelve of the new states in the demo, 128-pixel pixel art: the crouch walk, a pick-up, laughing, crying, surprise, the sword's spin attack, the shield up, the battle axe at the ready, its heavy attack and its spin, the bow at full draw and the crossbow aimed">
 - **Scenery** — oak trees swaying and tufts of grass blowing in the breeze,
@@ -873,7 +878,7 @@ standing open) goes round without a hiccup.
 ### What makes a sound
 
 Everything that happens in the game is a **sound hook**, and every sound
-belongs to one of eight **categories** (`audio/SoundCategory`), each with its
+belongs to one of nine **categories** (`audio/SoundCategory`), each with its
 own volume:
 
 | Category | What is in it |
@@ -885,6 +890,7 @@ own volume:
 | **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up |
 | **World & loot** | the chests (shut and humming, thrown open, standing open, closing), the loot thrown out and landing, and its rarity ringing out from Uncommon to Mythic, picking things up and dropping them |
 | **Ambient** | the breeze over everything (and a stream and crickets, ready for the places that need them) |
+| **Music** | the songs, each looping where it plays: the main menu's |
 | **Interface** | menus, the inventory, the wardrobe, the lock-on, screenshots, cutscene lines, and the level editor's tools |
 
 The animations are hooks themselves (`audio/AnimationSound`, updated each
@@ -932,6 +938,7 @@ assets/sounds/
   combat/flying_dummy/    fly.mp3, warn.mp3, swoop.mp3, hit.mp3, fall.mp3, down.mp3, rise.mp3
   world/                  loot_throw.mp3, loot_land.mp3, loot_uncommon.mp3 ... loot_mythic.mp3
   ambient/                wind.mp3, stream.mp3, crickets.mp3
+  music/                  main_menu.mp3 (the main menu's song, a seamless loop)
   ui/                     click.mp3, hover.mp3, pause.mp3, inventory_open.mp3, wear.mp3, error.mp3 ...
 ```
 
@@ -943,7 +950,7 @@ to the standing one); a footstep on one ground to `player/footstep.mp3`;
 `chests/open.mp3` is every chest's. A body's sounds are the body the
 wardrobe wears, in any style.
 
-The files there now are **placeholders**, every one made in code by
+The files there now, but for the music, are **placeholders**, every one made in code by
 [`tools/sounds/make_placeholders.py`](tools/sounds/make_placeholders.py)
 (Python with numpy and scipy, and ffmpeg) - filtered noise, struck and
 plucked strings, formant voices - so they are the game's own, with no
@@ -954,6 +961,36 @@ naming some (`... player/jump ui/click`) makes just those again.
 Other code can add sounds of its own (`SoundKeys.register`, the level
 editor's objects): each gets a row in its category's tab, a line in the key
 list, and the same fallbacks and volume.
+
+### Music
+
+A scene names the song it wants as it opens and lets it go as it closes
+(`audio/Music`): the main menu plays `music/main_menu`. The song is read on
+a thread of its own, so the menu never waits for it, then fades in over
+2.5 seconds; leaving fades it out over 1.5, and the next scene's song (if it
+has one) starts once it is quiet. Going from one menu straight into another
+keeps it playing. A song loops seamlessly and always plays at its own pitch,
+and like any sound it can be swapped for your own MP3 or muted in **Pause →
+Sounds → Music**, with its own volume.
+
+The main menu's song is **"Dream On"** (Aerosmith, written by Steven Tyler)
+arranged as a medieval piece - the lute picking through the song's falling
+bass (F minor over F, E, E flat, D, D flat, C, the old lament bass), the
+recorder taking the tune, the chorus stepping down F minor, E flat, D flat,
+C with the fiddle, the hand drum and a portative organ's drone. It is the
+first of the covers on the roadmap's Sound milestone, an arrangement for this
+game and not for sale.
+
+```
+music/dream_on_medieval.mid       the arrangement: open it in FL Studio (a track per instrument)
+tools/music/dream_on.py           writes that MIDI and renders assets/sounds/music/main_menu.mp3
+tools/music/medieval.py           the toolkit: parts, the MIDI file, rendering and the seamless loop
+```
+
+`python3 tools/music/dream_on.py` makes both (FluidSynth and the FluidR3
+General MIDI SoundFont render it; `--midi` writes just the MIDI). To use an
+arrangement edited in FL Studio instead, export it from there as a loop and
+put it at `assets/sounds/music/main_menu.mp3` - see [`music/`](music/README.md).
 
 ## Cutscenes
 
@@ -1218,7 +1255,7 @@ src/main/java/com/larsons/game/
   core/                     Game (window, loop, overlays), FramePacer, Settings, Scene, Autopilot, Screenshot
   audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
                             Sounds, SoundPack, SoundKeys, SoundCategory, SoundDef, SoundStore; the hooks:
-                            AnimationSound, SoundEmitter, WorldSounds
+                            AnimationSound, SoundEmitter, WorldSounds; Music (a scene's song, faded in and out)
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
                             GpuInfo
   math/                     Vec3, Mat4
@@ -1253,8 +1290,11 @@ assets/sprites/             the sprite sheets (one folder per layer) and their c
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
-assets/sounds/              the sound pack: the placeholder sounds by category and object, SOUND_KEYS.txt
+assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
+                            SOUND_KEYS.txt
 tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
+music/                      the songs' MIDI files, for FL Studio (dream_on_medieval.mid)
+tools/music/                the songs' arrangements in code (dream_on.py) and their toolkit (medieval.py)
 assets/scenery/             the trees, grass tufts, rocks and the ground tile, and their contract
 assets/ui/                  inventory_background.png (432 × 768) when there is one
 assets/closeups/            the cutscene close-ups (one folder per layer, like the sprites)
@@ -1323,7 +1363,10 @@ sound in the category whose tab lists it, registered sounds), the pack's lookup
 and fallbacks (a move to the move it is a version of, a footstep to any
 footstep), your own sounds beating the game's and muting, the footstep's
 ground, every listed sound having a placeholder that decodes gaplessly, its
-key list being up to date, and the engine's
+key list being up to date, the music (a song read off the game loop, faded
+in and out, coming back up when asked for again, the next one waiting for
+the last, a muted one silent, the main menu's decoding to exactly its two
+minutes with no seam), and the engine's
 MP3 decoder tests; the fighting (`combat/CombatTest`): the dice per
 rarity, swings' reach and arc, heavy and unarmed rolls, the wand's one-die heavy blow, the heavy attack's cooldown, every attack state
 having a move, arrows arcing onto a dummy, bolts sticking, spells' colours

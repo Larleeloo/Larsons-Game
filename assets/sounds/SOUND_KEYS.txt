@@ -455,6 +455,13 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
   ambient/crickets.mp3                           Crickets (held; for sound objects) (held)        ambient/crickets
 
 
+MUSIC
+-----
+The songs, each looping for as long as you are where it plays: the main menu's, and more to come.
+
+  music/main_menu.mp3                            The main menu's song (held)                      music/main_menu
+
+
 INTERFACE
 ---------
 Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines, the level editor.
