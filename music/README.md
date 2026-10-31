@@ -31,6 +31,11 @@ record's. Fix it in the piano roll (or in the song's script, below).
 | `pompeii_medieval.mid` | "Pompeii" (Bastille) | A major, 128 bpm, 1:45 | the monks' "eh-eh-oh" chant, pounding toms on the tabor, a bagpipe chorus |
 | `ride_medieval.mid` | "Ride" (Twenty One Pilots) | G minor, 75 bpm, 1:55 | an easy reggae lilt: the lute's chords on the offbeats |
 | `fast_car_medieval.mid` | "Fast Car" (Tracy Chapman) | D major, 104 bpm, 1:51 | the picked riff on the lute in running sixteenths |
+| `something_just_like_this_medieval.mid` | "Something Just Like This" (The Chainsmokers and Coldplay) | B major, 103 bpm, 1:52 | a harpsichord verse, the plucked drop on a psaltery and a dulcimer |
+| `crazy_medieval.mid` | "Crazy" (Gnarls Barkley) | C minor, 112 bpm, 1:43 | spaghetti-western swagger on a bass viol and a plucked harp, the monks' "crazy" |
+| `like_a_prayer_medieval.mid` | "Like a Prayer" (Madonna) | D minor and D major, 112 bpm, 1:51 | the monks and the organ open it in church, then it dances; bells at the end |
+| `misery_business_medieval.mid` | "Misery Business" (Paramore) | E major, 172 bpm, 1:29 | the chattering guitar on a fiddle, the lute and the tabor flat out |
+| `rocket_man_medieval.mid` | "Rocket Man" (Elton John) | G minor and B flat major, 68 bpm, 1:53 | the piano on a harpsichord, the slide guitar on a fiddle, bells in the chorus |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
 song's script in `tools/music/` lists them with their bars.

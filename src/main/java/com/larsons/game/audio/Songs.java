@@ -60,7 +60,12 @@ public final class Songs {
             new Song("everlong", "Everlong", "Foo Fighters"),
             new Song("pompeii", "Pompeii", "Bastille"),
             new Song("ride", "Ride", "Twenty One Pilots"),
-            new Song("fast_car", "Fast Car", "Tracy Chapman"));
+            new Song("fast_car", "Fast Car", "Tracy Chapman"),
+            new Song("something_just_like_this", "Something Just Like This", "The Chainsmokers and Coldplay"),
+            new Song("crazy", "Crazy", "Gnarls Barkley"),
+            new Song("like_a_prayer", "Like a Prayer", "Madonna"),
+            new Song("misery_business", "Misery Business", "Paramore"),
+            new Song("rocket_man", "Rocket Man", "Elton John"));
 
     private Songs() {}
 

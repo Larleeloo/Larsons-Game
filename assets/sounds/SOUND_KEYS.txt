@@ -481,6 +481,11 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
   music/pompeii.mp3                              Pompeii (Bastille) (held)                        music/pompeii
   music/ride.mp3                                 Ride (Twenty One Pilots) (held)                  music/ride
   music/fast_car.mp3                             Fast Car (Tracy Chapman) (held)                  music/fast_car
+  music/something_just_like_this.mp3             Something Just Like This (The Chainsmokers and Coldplay) (held) music/something_just_like_this
+  music/crazy.mp3                                Crazy (Gnarls Barkley) (held)                    music/crazy
+  music/like_a_prayer.mp3                        Like a Prayer (Madonna) (held)                   music/like_a_prayer
+  music/misery_business.mp3                      Misery Business (Paramore) (held)                music/misery_business
+  music/rocket_man.mp3                           Rocket Man (Elton John) (held)                   music/rocket_man
 
 
 INTERFACE
