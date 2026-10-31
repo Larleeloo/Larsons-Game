@@ -50,7 +50,12 @@ public final class Songs {
             new Song("vienna", "Vienna", "Billy Joel"),
             new Song("the_less_i_know_the_better", "The Less I Know The Better", "Tame Impala"),
             new Song("nine_to_five", "9 to 5", "Dolly Parton"),
-            new Song("how_you_remind_me", "How You Remind Me", "Nickelback"));
+            new Song("how_you_remind_me", "How You Remind Me", "Nickelback"),
+            new Song("die_young", "Die Young", "Kesha"),
+            new Song("sunflower", "Sunflower", "Post Malone and Swae Lee"),
+            new Song("thunder", "Thunder", "Imagine Dragons"),
+            new Song("beat_it", "Beat It", "Michael Jackson"),
+            new Song("basket_case", "Basket Case", "Green Day"));
 
     private Songs() {}
 

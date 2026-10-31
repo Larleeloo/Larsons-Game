@@ -21,6 +21,11 @@ record's. Fix it in the piano roll (or in the song's script, below).
 | `the_less_i_know_the_better_medieval.mid` | "The Less I Know The Better" (Tame Impala) | E minor, 117 bpm, 1:38 | the strutting bass line on the viol, a dance beat, a shimmering psaltery |
 | `nine_to_five_medieval.mid` | "9 to 5" (Dolly Parton) | A major, 108 bpm, 2:04 | a country-dance lute, the fiddle singing, the typewriter on wood blocks, a bagpipe chorus |
 | `how_you_remind_me_medieval.mid` | "How You Remind Me" (Nickelback) | E minor, 86 bpm, 1:52 | a quiet picked verse, then the chorus crashing in on the tabor |
+| `die_young_medieval.mid` | "Die Young" (Kesha) | C sharp minor, 128 bpm, 1:45 | a revel: the tabor and hands clapped, the monks shouting the chorus back, a fiddle jig |
+| `sunflower_medieval.mid` | "Sunflower" (Post Malone and Swae Lee) | D major, 90 bpm, 1:47 | lazy, sunny chords on a psaltery and a lute |
+| `thunder_medieval.mid` | "Thunder" (Imagine Dragons) | C major, 84 bpm, 1:54 | a war song: the great tabor's boom and the hands' clap, the monks for "thunder" |
+| `beat_it_medieval.mid` | "Beat It" (Michael Jackson) | E minor, 138 bpm, 1:37 | the guitar riff on a fiddle and a bass viol together, a shawm solo |
+| `basket_case_medieval.mid` | "Basket Case" (Green Day) | E flat major, 172 bpm, 1:29 | a punk jig: the lute flat out, the tabor at a gallop, a bagpipe chorus |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
 song's script in `tools/music/` lists them with their bars.

@@ -471,6 +471,11 @@ The songs: the main menu's, and the medieval covers the levels play, one or all 
   music/the_less_i_know_the_better.mp3           The Less I Know The Better (Tame Impala) (held)  music/the_less_i_know_the_better
   music/nine_to_five.mp3                         9 to 5 (Dolly Parton) (held)                     music/nine_to_five
   music/how_you_remind_me.mp3                    How You Remind Me (Nickelback) (held)            music/how_you_remind_me
+  music/die_young.mp3                            Die Young (Kesha) (held)                         music/die_young
+  music/sunflower.mp3                            Sunflower (Post Malone and Swae Lee) (held)      music/sunflower
+  music/thunder.mp3                              Thunder (Imagine Dragons) (held)                 music/thunder
+  music/beat_it.mp3                              Beat It (Michael Jackson) (held)                 music/beat_it
+  music/basket_case.mp3                          Basket Case (Green Day) (held)                   music/basket_case
 
 
 INTERFACE
