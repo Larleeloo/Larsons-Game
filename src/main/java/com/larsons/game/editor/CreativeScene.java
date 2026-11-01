@@ -22,16 +22,19 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.sprite.PixelPalette;
+import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Atmosphere;
+import com.larsons.game.world.Biome;
 import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
+import com.larsons.game.world.WaterMap;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -84,7 +87,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level");
+        TIME("Time"), LEVEL("Level"), WATER("Water");
 
         final String label;
 
@@ -96,8 +99,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** What the sculpting brush does. */
     enum Sculpt { RAISE, LOWER, SMOOTH, FLATTEN }
 
-    /** The paint brush's materials: grass (paints the others away), then {@link GroundMap}'s four. */
-    static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow"};
+    /** The paint brush's materials: grass (paints the others away), then {@link GroundMap}'s twelve. */
+    static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
+            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal"};
 
     /** How far the camera can pull back, metres. */
     static final double FAR = 160;
@@ -144,6 +148,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     // --- brushes
     private Sculpt sculpt = Sculpt.RAISE;
     private int material = 1;
+    /** The Paint tool's page: 0 the ground's materials, 1 the biomes. */
+    private int paintTab;
+    private Biome biome = Biome.MARSH;
+    private boolean sowBiome = true;
+    // --- water
+    private WaterMap.Kind waterKind = WaterMap.Kind.CLEAR;
+    private double waterDepth = 0.6, waterSpeed = 0.8;
+    /** Whether the stroke's water lies level (a pond, a lake) or follows the ground down (a stream). */
+    private boolean waterLevel = true;
+    private boolean waterFlows;
+    private double strokeSurface, flowX, flowZ;
+    private Vec3 lastDab;
     private double radius = 3, strength = 0.5, flatHeight;
     private boolean stroking;
     private double sowTimer, brushSound;
@@ -285,6 +301,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SCULPT -> sculptTool(press, held, shift, ctrl, dt);
             case PAINT -> paintTool(press, held, shift, dt);
             case SCATTER -> scatterTool(press, held, shift, dt);
+            case WATER -> waterTool(press, held, shift, dt);
             default -> { }
         }
         if (!held) stroking = false;
@@ -323,7 +340,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (!ctrl) {
             int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
-                    GLFW_KEY_8};
+                    GLFW_KEY_8, GLFW_KEY_9};
             for (int i = 0; i < toolKeys.length; i++) if (in.pressed(toolKeys[i])) setTool(Tool.values()[i]);
             if (in.pressed(GLFW_KEY_H)) hideUi = !hideUi;
             if (in.pressed(GLFW_KEY_G)) {
@@ -399,7 +416,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean brushTool() {
-        return tool == Tool.SCULPT || tool == Tool.PAINT || tool == Tool.SCATTER;
+        return tool == Tool.SCULPT || tool == Tool.PAINT || tool == Tool.SCATTER || tool == Tool.WATER;
     }
 
     private static double clampRadius(double r) {
@@ -655,12 +672,84 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintTool(boolean press, boolean held, boolean shift, double dt) {
         if (cursor == null) return;
+        boolean biomes = paintTab == 1, sowing = biomes && sowBiome && !shift;
         if (press) {
-            undo.before(level, Undo.Part.GROUND, "Paint");
+            undo.before(level, sowing ? Undo.Part.ALL : Undo.Part.GROUND, biomes ? biome.label() : "Paint");
             stroking = true;
+            sowTimer = 0;
         }
         if (!stroking || !held) return;
-        level.ground().paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, Math.min(1, strength * 5 * dt));
+        double amount = Math.min(1, strength * 5 * dt);
+        if (shift || !biomes) {
+            level.ground().paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+        } else {
+            level.ground().paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
+        }
+        dirty = true;
+        if (sowing) {
+            sowTimer -= dt;
+            if (sowTimer <= 0) {
+                sowTimer = SOW_EVERY;
+                sowBiome(biome, cursor.x(), cursor.z(), radius, 1);
+            }
+        }
+        brushTick(dt);
+    }
+
+    /** Sow {@code b}'s plants, trees and rocks within {@code r} of {@code (x, z)}, {@code times} brush-dabs' worth. */
+    private void sowBiome(Biome b, double x, double z, double r, int times) {
+        sowBiome(b, x, z, r, times, null);
+    }
+
+    /** {@link #sowBiome(Biome, double, double, double, int)}, only {@code only} of them (null: all). */
+    private void sowBiome(Biome b, double x, double z, double r, int times, SceneryProfile.Kind only) {
+        boolean any = false;
+        double area = Math.PI * r * r;
+        SceneryProfile.Kind[] kinds = {SceneryProfile.Kind.TUFT, SceneryProfile.Kind.TREE, SceneryProfile.Kind.ROCK};
+        double[] thickness = {0.55, 0.6, 0.6};
+        for (int k = 0; k < kinds.length; k++) {
+            if (only != null && kinds[k] != only) continue;
+            Scatter.Set set = Scatter.biomeSet(sprites, b, kinds[k]);
+            if (set.sprites().isEmpty()) continue;
+            for (int t = 0; t < times; t++) {
+                if (!Scatter.sow(level, view.terrain(), sprites, set, x, z, r, thickness[k], area * 0.2, random)
+                        .isEmpty()) {
+                    any = true;
+                }
+            }
+        }
+        if (any) changed();
+    }
+
+    /**
+     * The water brush: water of the kind chosen, its surface level over the
+     * whole stroke (a pond) or following the ground under the brush (a
+     * stream), flowing the way the brush moves if asked; Shift takes it away.
+     */
+    private void waterTool(boolean press, boolean held, boolean shift, double dt) {
+        if (cursor == null) return;
+        if (press) {
+            undo.before(level, Undo.Part.WATER, shift ? "Dry" : waterKind.label());
+            stroking = true;
+            strokeSurface = cursor.y() + waterDepth;
+            lastDab = cursor;
+            flowX = flowZ = 0;
+        }
+        if (!stroking || !held) return;
+        if (shift) {
+            level.water().erase(cursor.x(), cursor.z(), radius);
+        } else {
+            double dx = cursor.x() - lastDab.x(), dz = cursor.z() - lastDab.z(), moved = Math.hypot(dx, dz);
+            if (moved > 0.05) {
+                // the way the brush goes, smoothed, is the way the water runs
+                flowX = flowX * 0.6 + dx / moved * 0.4;
+                flowZ = flowZ * 0.6 + dz / moved * 0.4;
+                lastDab = cursor;
+            }
+            double len = Math.hypot(flowX, flowZ), speed = waterFlows && len > 0.2 ? waterSpeed / len : 0;
+            double surface = waterLevel ? strokeSurface : cursor.y() + waterDepth;
+            level.water().paint(waterKind, surface, cursor.x(), cursor.z(), radius, flowX * speed, flowZ * speed);
+        }
         dirty = true;
         brushTick(dt);
     }
@@ -857,7 +946,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (cursor != null && !hideUi || cursor != null && scriptedCursor != null) {
             if (brushTool()) {
-                int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A : 0x7FD0FF;
+                int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A
+                        : tool == Tool.WATER ? 0x5FA8FF : 0x7FD0FF;
                 gizmos.disc(cursor.x(), cursor.z(), radius, bc, 0.12f);
                 gizmos.ring(cursor.x(), cursor.z(), radius, bc, 0.9f);
             } else if (tool == Tool.PLACE && template != null && level.contains(cursor.x(), cursor.z())) {
@@ -963,6 +1053,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case PAINT -> "Hold the left button: paint · Shift: back to grass · [ ]: brush size (or Shift+wheel) · "
                     + "Shift+[ ]: strength";
             case SCATTER -> "Hold the left button: scatter · Shift: pull up · [ ]: brush size (or Shift+wheel)";
+            case WATER -> "Hold the left button: water · Shift: dry it up · [ ]: brush size (or Shift+wheel) · "
+                    + "the water lies level from where you press, or follows the ground down";
             case SKY -> "Pick what to colour, then click a swatch · the fog and the backdrops show as you change them";
             case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
                     + "and light rays · Run the time to watch a day go by";
@@ -992,6 +1084,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SCULPT -> sculptPanel(ui, px, py, pw);
             case PAINT -> paintPanel(ui, px, py, pw);
             case SCATTER -> scatterPanel(ui, px, py, pw);
+            case WATER -> waterPanel(ui, px, py, pw);
             case SKY -> skyPanel(ui, px, py, pw);
             case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
@@ -1099,14 +1192,103 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Paint the ground", x, y);
-        for (int i = 0; i < MATERIALS.length; i++) {
-            if (ui.button(MATERIALS[i], x, y, w, 30, material == i, true)) material = i;
-            y += 36;
+        String[] tabs = {"Ground", "Biome"};
+        float tw = (w - 4) / 2, bw = (w - 6) / 2;
+        for (int i = 0; i < tabs.length; i++) {
+            if (ui.button(tabs[i], x + i * (tw + 4), y, tw, 28, paintTab == i, true)) paintTab = i;
         }
-        brushSliders(ui, x, y + 14, w, "Strength");
-        y += 104;
-        ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen.",
-                x, y, w, Theme.HINT);
+        y += 38;
+        if (paintTab == 0) {
+            for (int i = 0; i < MATERIALS.length; i++) {
+                if (ui.button(MATERIALS[i], x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, material == i, true)) {
+                    material = i;
+                }
+            }
+            y += (MATERIALS.length + 1) / 2 * 34;
+            brushSliders(ui, x, y + 10, w, "Strength");
+            y += 100;
+            ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen.",
+                    x, y, w, Theme.HINT);
+            return;
+        }
+        Biome[] all = Biome.values();
+        for (int i = 0; i < all.length; i++) {
+            if (ui.button(all[i].label(), x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, biome == all[i], true)) {
+                biome = all[i];
+            }
+        }
+        y += (all.length + 1) / 2 * 34 + 4;
+        sowBiome = widgets.toggle(ui, "Sow its plants", sowBiome, x, y, w);
+        y += 40;
+        brushSliders(ui, x, y + 10, w, "Strength");
+        y += 100;
+        ui.paragraph(ui.small, biomeHint(biome) + " Shift paints back to grass (and sows nothing).", x, y, w,
+                Theme.HINT);
+    }
+
+    /** What the biome brush lays down for {@code b}, in a sentence. */
+    private String biomeHint(Biome b) {
+        List<String> grows = new ArrayList<>();
+        for (SceneryProfile.Kind k : new SceneryProfile.Kind[] {SceneryProfile.Kind.TUFT, SceneryProfile.Kind.TREE,
+                SceneryProfile.Kind.ROCK}) {
+            for (String n : Scatter.biomeSet(sprites, b, k).sprites()) {
+                if (grows.size() < 6) grows.add(ObjectTypes.readable(n).toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        String ground = b.ground() < 0 ? "grass" : MATERIALS[b.ground() + 1].toLowerCase(java.util.Locale.ROOT);
+        String accent = MATERIALS[b.accent() + 1].toLowerCase(java.util.Locale.ROOT);
+        return "Paints " + ground + " with patches of " + accent
+                + (grows.isEmpty() ? "." : "; sows " + String.join(", ", grows) + ".")
+                + " Its water: " + b.water().label().toLowerCase(java.util.Locale.ROOT) + " (the Water tool, 9).";
+    }
+
+    private void waterPanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Water", x, y);
+        WaterMap.Kind[] kinds = WaterMap.Kind.values();
+        float bw = (w - 6) / 2;
+        for (int i = 0; i < kinds.length; i++) {
+            if (ui.button(kinds[i].label(), x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, waterKind == kinds[i],
+                    true)) {
+                waterKind = kinds[i];
+            }
+        }
+        y += (kinds.length + 1) / 2 * 34 + 4;
+        radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y + 10, w);
+        waterDepth = widgets.slider(ui, "w-depth", "Depth (m)", waterDepth, 0.1, 4, "%.2f", x, y + 50, w);
+        y += 96;
+        waterLevel = widgets.toggle(ui, "Lies level", waterLevel, x, y, w);
+        y += 38;
+        waterFlows = widgets.toggle(ui, "Flows", waterFlows, x, y, w);
+        y += 40;
+        if (waterFlows) {
+            waterSpeed = widgets.slider(ui, "w-speed", "Current (m/s)", waterSpeed, 0.1, WaterMap.MAX_FLOW, "%.1f", x,
+                    y + 10, w);
+            y += 52;
+        }
+        // the sea
+        WaterMap water = level.water();
+        boolean sea = !Double.isNaN(water.seaLevel());
+        boolean seaNow = widgets.toggle(ui, "The sea", sea, x, y, w);
+        y += 40;
+        if (seaNow != sea) {
+            undo.before(level, Undo.Part.WATER, seaNow ? "The sea" : "No sea");
+            water.setSeaLevel(seaNow ? -0.5 : Double.NaN);
+            dirty = true;
+        }
+        if (seaNow) {
+            double at = widgets.stepper(ui, "Sea level (m)", water.seaLevel(), 0.25, -20, 40, "%.2f", x, y, w);
+            if (at != water.seaLevel()) {
+                undo.before(level, Undo.Part.WATER, "Sea level");
+                water.setSeaLevel(at);
+                dirty = true;
+            }
+            y += 44;
+        }
+        ui.paragraph(ui.small, "Sculpt a hollow (3), then fill it from its bottom: the water lies level at the "
+                + "depth above where you press. Turn \"Lies level\" off for a stream down a slope; \"Flows\" makes "
+                + "it run the way the brush moves. The sea fills everything below its level, out to the horizon. She wades in the "
+                + "shallows and cannot go deeper than " + String.format(java.util.Locale.ROOT, "%.1f", WaterMap.TOO_DEEP)
+                + " m.", x, y, w, Theme.HINT);
     }
 
     private void scatterPanel(Ui ui, float x, float y, float w) {
@@ -1661,10 +1843,49 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "paint" -> {
-                // paint <0 grass .. 4 meadow> x z radius
+                // paint <0 grass .. 12 crystal> x z radius
                 undo.before(level, Undo.Part.GROUND, "Paint");
                 level.ground().paint(Integer.parseInt(a[0]) - 1, Double.parseDouble(a[1]), Double.parseDouble(a[2]),
                         Double.parseDouble(a[3]), 1);
+                dirty = true;
+            }
+            case "biome" -> {
+                // biome <key> x z radius [sow 0|1]
+                Biome b = Biome.byKey(a[0]);
+                if (b == null) return false;
+                double x = Double.parseDouble(a[1]), z = Double.parseDouble(a[2]), r = Double.parseDouble(a[3]);
+                boolean sow = a.length <= 4 || !a[4].equals("0");
+                undo.before(level, sow ? Undo.Part.ALL : Undo.Part.GROUND, b.label());
+                level.ground().paint(b::groundAt, x, z, r, 1);
+                if (sow) sowBiome(b, x, z, r, 6);
+                dirty = true;
+            }
+            case "sow" -> {
+                // sow <biome> x z radius [dabs] [tuft|tree|rock]: its plants, trees and rocks, the ground as it is
+                Biome b = Biome.byKey(a[0]);
+                if (b == null) return false;
+                undo.before(level, Undo.Part.OBJECTS, "Sow");
+                sowBiome(b, Double.parseDouble(a[1]), Double.parseDouble(a[2]), Double.parseDouble(a[3]),
+                        a.length > 4 ? Integer.parseInt(a[4]) : 1,
+                        a.length > 5 ? SceneryProfile.Kind.byKey(a[5]) : null);
+            }
+            case "waterdepth" -> waterDepth = Double.parseDouble(a[0]);
+            case "water" -> {
+                // water <clear|swamp|sea|crystal> x z radius [surface|auto] [flowx flowz]
+                // water erase x z radius;  water sea <surface|off>
+                undo.before(level, Undo.Part.WATER, "Water");
+                String k = a[0].toLowerCase(java.util.Locale.ROOT);
+                if (k.equals("sea") && a.length == 2) {
+                    level.water().setSeaLevel(a[1].equalsIgnoreCase("off") ? Double.NaN : Double.parseDouble(a[1]));
+                } else if (k.equals("erase")) {
+                    level.water().erase(Double.parseDouble(a[1]), Double.parseDouble(a[2]), Double.parseDouble(a[3]));
+                } else {
+                    double x = Double.parseDouble(a[1]), z = Double.parseDouble(a[2]);
+                    double surface = a.length > 4 && !a[4].equals("auto") ? Double.parseDouble(a[4])
+                            : view.terrain().height(x, z) + waterDepth;
+                    level.water().paint(WaterMap.Kind.byKey(k), surface, x, z, Double.parseDouble(a[3]),
+                            a.length > 6 ? Double.parseDouble(a[5]) : 0, a.length > 6 ? Double.parseDouble(a[6]) : 0);
+                }
                 dirty = true;
             }
             case "scatter" -> {

@@ -1,0 +1,13 @@
+{
+ "kind": "tree",
+ "frameWidth": 160,
+ "frameHeight": 128,
+ "frames": 48,
+ "fps": 12,
+ "frameWorldSize": 6.0,
+ "radius": 0.22,
+ "shadowRadius": 1.7,
+ "biomes": [
+  "savannah"
+ ]
+}

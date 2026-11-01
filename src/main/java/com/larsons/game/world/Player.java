@@ -274,6 +274,7 @@ public final class Player {
 
     /** The ground she walks on. */
     private Terrain terrain = Terrain.FLAT;
+    private WaterMap water = WaterMap.NONE;
     /** The wall she is climbing, or null. */
     private Terrain.Wall wall;
     /** Stepping up or down over its lip: which, how far along it, its lip (out from its foot), how long since it began. */
@@ -488,6 +489,13 @@ public final class Player {
      * up a 1-in-2), downhill up to a fifth faster.
      */
     private double slopeFactor(Vec3 wish) {
+        double wade = 1;
+        double deep = waterDepth();
+        if (deep > WaterMap.WADE) wade = deep > 0.5 ? 0.5 : 0.7;          // wading slows her
+        return wade * hillFactor(wish);
+    }
+
+    private double hillFactor(Vec3 wish) {
         double len = wish.horizontalLength();
         if (len < 1e-6 || terrain.flat()) return 1;
         double rise = terrain.rise(position.x(), position.z(), wish.x() / len, wish.z() / len);
@@ -528,6 +536,11 @@ public final class Player {
 
     /** Whether she can go to {@code (x, z)} from where her feet are, by {@code step}. */
     private boolean canStep(double x, double z, Vec3 step, double feetY, boolean grounded) {
+        if (!water.isEmpty()) {
+            // water too deep to wade: not in, unless she is in it already (then only towards the shallows)
+            double there = water.depth(x, z, terrain.height(x, z));
+            if (there > WaterMap.TOO_DEEP && there > waterDepth() - 1e-6) return false;
+        }
         double rise = terrain.height(x, z) - feetY;
         if (rise <= 0.02) return true;                           // level, or down
         if (!grounded) return rise <= 0.02;                      // in the air: nothing higher than her feet
@@ -1003,6 +1016,18 @@ public final class Player {
 
     /** The ground she walks on. */
     public Terrain terrain() { return terrain; }
+
+    /** The water she wades through: too deep, she cannot go in. */
+    public WaterMap water() { return water; }
+
+    public void setWater(WaterMap w) {
+        water = w == null ? WaterMap.NONE : w;
+    }
+
+    /** How deep the water is where she stands (0: dry). */
+    public double waterDepth() {
+        return water.isEmpty() ? 0 : water.depth(position.x(), position.z(), position.y());
+    }
 
     /** Walk on {@code t} from now on (null: flat ground); she is put on it where she stands. */
     public void setTerrain(Terrain t) {

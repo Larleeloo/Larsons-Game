@@ -82,6 +82,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     private final VoidRenderer voidRenderer;
     private final TerrainRenderer terrain;
+    private final WaterRenderer water;
     private final SceneryRenderer scenery;
     private final Batch batch;
     private final SpriteLibrary sprites;
@@ -121,6 +122,7 @@ public final class WorldRenderer implements AutoCloseable {
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
         this.ray = Texture.upload(LightRays.pixels(), true);
+        this.water = new WaterRenderer();
         this.combat = new CombatRenderer(sprites, objects);
     }
 
@@ -179,6 +181,7 @@ public final class WorldRenderer implements AutoCloseable {
         if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
         batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
+        scenery.bendAwayFrom(walkers(world));
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
@@ -281,6 +284,17 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(g.centre(t).sub(eye).dot(forward));
         }
 
+        double shine = 1 - light.day();
+        if (shine > 0.05) {
+            for (Scenery.Placed gp : glowing(world, eye, GLOW_REACH)) {
+                draws.add(() -> {
+                    batch.depthAnchor(gp.position());
+                    sceneryGlow(gp, right, up, shine);
+                });
+                dist.add(glowCentre(gp).sub(eye).dot(forward));
+            }
+        }
+
         for (World.LightSpot ls : world.lights()) {
             if (!ls.glow()) continue;
             draws.add(() -> {
@@ -300,6 +314,9 @@ public final class WorldRenderer implements AutoCloseable {
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+
+        // --- the water, over what stands and wades in it ------------------------------
+        water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
 
         // --- light rays, added over it all (tested against the scenery and the ground) ----
         List<LightRays.Shaft> shafts = LightRays.shafts(world, light, eye, world.time());
@@ -350,11 +367,57 @@ public final class WorldRenderer implements AutoCloseable {
             lamps.add(new Lamp(g.position.add(0, 0.5, 0), 1.4, g.item.rarity().rgb(), 0.35 * night));
         }
         for (World.LightSpot s : world.lights()) lamps.add(new Lamp(s.at(), s.radius(), s.rgb(), s.strength() * night));
+        // the crystals' glow, and anything else of the scenery's that shines at night
+        double shine = 1 - light.day();
+        if (shine > 0.05) {
+            for (Scenery.Placed p : glowing(world, camera.target(), GLOW_REACH)) {
+                boolean tree = p.profile().kind() == com.larsons.game.sprite.SceneryProfile.Kind.TREE;
+                lamps.add(new Lamp(glowCentre(p), tree ? 4.0 : 2.4, p.profile().glow(), (tree ? 0.8 : 0.65) * shine));
+            }
+        }
         Vec3 target = camera.target();
         lamps.sort(Comparator.comparingDouble(m -> m.at().sub(target).length() - m.radius()));
         for (Lamp m : lamps) {
             if (!l.add(m.at().x(), m.at().y(), m.at().z(), m.radius(), m.rgb(), m.strength())) break;
         }
+    }
+
+    /** How near the camera's target scenery must be for its night glow to light the ground, metres. */
+    static final double GLOW_REACH = 45;
+
+    /** Everything of {@code world}'s scenery that glows, within {@code reach} of {@code near}. */
+    private static List<Scenery.Placed> glowing(World world, Vec3 near, double reach) {
+        List<Scenery.Placed> out = new ArrayList<>();
+        for (Map.Entry<com.larsons.game.sprite.ScenerySprites.Sprite, List<Scenery.Placed>> e
+                : world.scenery().bySprite().entrySet()) {
+            if (e.getKey().profile().glow() < 0) continue;
+            for (Scenery.Placed p : e.getValue()) {
+                if (Math.hypot(p.x() - near.x(), p.z() - near.z()) < reach) out.add(p);
+            }
+        }
+        return out;
+    }
+
+    /** Where a glowing piece of scenery's light comes from: low in it, as a crystal's heart. */
+    private static Vec3 glowCentre(Scenery.Placed p) {
+        return p.position().add(0, p.profile().frameWorldHeight() * 0.3, 0);
+    }
+
+    /** The feet of everyone walking about, whom the tall grass leans away from. */
+    private static List<Vec3> walkers(World world) {
+        List<Vec3> out = new ArrayList<>();
+        out.add(world.player().feet());
+        for (com.larsons.game.combat.Dummy d : world.dummies()) out.add(d.position());
+        return out;
+    }
+
+    /** A glowing crystal's halo at night: a soft wash of its colour round it. */
+    private void sceneryGlow(Scenery.Placed p, Vec3 right, Vec3 up, double shine) {
+        int rgb = p.profile().glow();
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        double size = p.profile().frameWorldHeight() * 0.9;
+        Vec3 tl = glowCentre(p).sub(right.scale(size / 2)).add(up.scale(size / 2));
+        batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (0.32 * shine));
     }
 
     /** A placed light's own glow: a small bright spot where it is, and a soft halo round it. */
@@ -517,5 +580,6 @@ public final class WorldRenderer implements AutoCloseable {
         shadow.close();
         glow.close();
         ray.close();
+        water.close();
     }
 }

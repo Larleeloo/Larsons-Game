@@ -180,6 +180,7 @@ public final class World {
     private Random random = new Random();
     private Scenery scenery = Scenery.NONE;
     private GroundMap ground = GroundMap.NONE;
+    private WaterMap water = WaterMap.NONE;
     private Sky sky = Sky.DEFAULT;
     private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
     private final List<LightSpot> lights = new ArrayList<>();
@@ -279,6 +280,19 @@ public final class World {
 
     public void setGround(GroundMap g) {
         ground = g == null ? GroundMap.NONE : g;
+    }
+
+    /** Its ponds, rivers and streams and its sea ({@link WaterMap}): none until it is given some. */
+    public WaterMap water() { return water; }
+
+    public void setWater(WaterMap w) {
+        water = w == null ? WaterMap.NONE : w;
+        player.setWater(water);
+    }
+
+    /** The biome {@code (x, z)} is in (by its ground and its water). */
+    public Biome biome(double x, double z) {
+        return Biome.at(ground, water, x, z, terrain.height(x, z));
     }
 
     /** The sky over it and what stands far off round the horizon. */

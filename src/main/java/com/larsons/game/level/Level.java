@@ -2,6 +2,7 @@ package com.larsons.game.level;
 
 import com.larsons.game.audio.Songs;
 import com.larsons.game.world.GroundMap;
+import com.larsons.game.world.WaterMap;
 import com.larsons.game.world.Sky;
 
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ public final class Level {
     private String music = Songs.SHUFFLE;
     private HeightField heights;
     private GroundMap ground;
+    private WaterMap water;
     private final List<LevelObject> objects = new ArrayList<>();
     private final Map<String, Object> extra = new LinkedHashMap<>();
     private int nextId = 1;
@@ -50,6 +52,7 @@ public final class Level {
         this.size = size;
         heights = new HeightField(size);
         ground = new GroundMap(size);
+        water = new WaterMap(size);
     }
 
     /** A new level as the editor starts one: empty but for the player's spawn in the middle. */
@@ -80,9 +83,11 @@ public final class Level {
         if (newSize == size) return;
         HeightField h = new HeightField(newSize).copyFrom(heights);
         GroundMap g = new GroundMap(newSize).copyFrom(ground);
+        WaterMap w = new WaterMap(newSize).copyFrom(water);
         size = newSize;
         heights = h;
         ground = g;
+        water = w;
         double half = newSize / 2;
         objects.removeIf(o -> Math.abs(o.x()) > half || Math.abs(o.z()) > half);
     }
@@ -92,6 +97,7 @@ public final class Level {
         size = newSize;
         heights = new HeightField(newSize);
         ground = new GroundMap(newSize);
+        water = new WaterMap(newSize);
     }
 
     public Sky sky() { return sky; }
@@ -122,6 +128,13 @@ public final class Level {
 
     public void setGround(GroundMap g) {
         ground = g;
+    }
+
+    /** Its ponds, rivers and streams, and its sea. */
+    public WaterMap water() { return water; }
+
+    public void setWater(WaterMap w) {
+        water = w;
     }
 
     /** Everything placed in it, in the order it was placed. */

@@ -1,0 +1,16 @@
+{
+ "kind": "rock",
+ "frameWidth": 128,
+ "frameHeight": 128,
+ "frames": 1,
+ "fps": 1,
+ "frameWorldSize": 2.4,
+ "radius": 0.35,
+ "shadowRadius": 0.9,
+ "facing": "camera",
+ "biomes": [
+  "marsh",
+  "jungle",
+  "plains"
+ ]
+}

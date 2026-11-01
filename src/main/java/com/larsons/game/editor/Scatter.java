@@ -6,6 +6,7 @@ import com.larsons.game.level.LevelWorld;
 import com.larsons.game.level.ObjectTypes;
 import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
+import com.larsons.game.world.Biome;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Terrain;
@@ -21,7 +22,8 @@ import java.util.Random;
  * brush as it is held down - each at a turn of its own, half of them
  * mirrored, never inside another's footprint, trees {@link
  * SceneryLayout#TREE_SPACING} m apart as the demo has them, nothing on
- * ground too steep for it - or, held with Shift, pulled up again.
+ * ground too steep for it nor in water (but reeds) - or, held with Shift,
+ * pulled up again.
  *
  * <p>What it sows is a {@link Set}: one sprite, or every sprite of a kind.
  */
@@ -32,7 +34,10 @@ final class Scatter {
 
     private Scatter() {}
 
-    /** The sets there are: each kind's sprites mixed, then each sprite alone. */
+    /**
+     * The sets there are: the meadow's grass, trees and rocks mixed (the
+     * sprites that name no biome), then each biome's, then each sprite alone.
+     */
     static List<Set> sets(ScenerySprites sprites) {
         List<Set> out = new ArrayList<>();
         Map<SceneryProfile.Kind, String> mixes = new LinkedHashMap<>();
@@ -41,13 +46,38 @@ final class Scatter {
         mixes.put(SceneryProfile.Kind.ROCK, "Rocks (mixed)");
         for (Map.Entry<SceneryProfile.Kind, String> m : mixes.entrySet()) {
             List<String> names = new ArrayList<>();
-            for (ScenerySprites.Sprite s : sprites.ofKind(m.getKey())) names.add(s.name());
+            for (ScenerySprites.Sprite s : sprites.meadow(m.getKey())) names.add(s.name());
             if (!names.isEmpty()) out.add(new Set(m.getValue(), names));
+        }
+        for (Biome b : Biome.values()) {
+            for (SceneryProfile.Kind k : mixes.keySet()) {
+                Set s = biomeSet(sprites, b, k);
+                if (!s.sprites().isEmpty()) out.add(s);
+            }
         }
         for (ScenerySprites.Sprite s : sprites.sprites()) {
             out.add(new Set(ObjectTypes.readable(s.name()), List.of(s.name())));
         }
         return out;
+    }
+
+    /**
+     * What grows in {@code biome} of {@code kind}: the sprites whose profiles
+     * name it - and, on the plains, the meadow's own, which name none.
+     */
+    static Set biomeSet(ScenerySprites sprites, Biome biome, SceneryProfile.Kind kind) {
+        List<String> names = new ArrayList<>();
+        for (ScenerySprites.Sprite s : sprites.ofKind(kind)) {
+            if (s.profile().grows(biome.key()) || biome == Biome.PLAINS && s.profile().biomes().isEmpty()) {
+                names.add(s.name());
+            }
+        }
+        String what = switch (kind) {
+            case TUFT -> "plants";
+            case TREE -> "trees";
+            case ROCK -> "rocks";
+        };
+        return new Set(biome.label() + ": " + what, names);
     }
 
     /** How many a square metre each kind is sown at a density of 1 (grass thick, trees far apart). */
@@ -88,6 +118,7 @@ final class Scatter {
             if (!level.contains(px, pz)) continue;
             double steepest = s.kind() == SceneryProfile.Kind.TUFT ? SceneryLayout.STEEPEST * 1.5 : SceneryLayout.STEEPEST;
             if (terrain.slope(px, pz) > steepest) continue;
+            if (level.water().depth(px, pz, terrain.height(px, pz)) > wadeDepth(s)) continue;
             Scenery.Placed cand = new Scenery.Placed(s, px, terrain.height(px, pz), pz, random.nextDouble() * Math.PI,
                     random.nextBoolean(), 0);
             if (!fits(cand, near)) continue;
@@ -99,6 +130,15 @@ final class Scatter {
             near.add(cand);
         }
         return added;
+    }
+
+    /**
+     * How deep in water {@code s} may stand: reeds and the marsh's and the
+     * river's other plants knee-deep, the rest only on dry ground.
+     */
+    static double wadeDepth(ScenerySprites.Sprite s) {
+        boolean wet = s.profile().grows(Biome.MARSH.key()) || s.profile().grows(Biome.RIVER.key());
+        return s.kind() == SceneryProfile.Kind.TUFT && wet ? 0.45 : 0.02;
     }
 
     /** Whether {@code c} stands clear of everything in {@code near}: footprints apart, trees spaced. */

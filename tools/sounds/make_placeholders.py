@@ -449,6 +449,53 @@ def _(k):
     return out
 
 
+@sound("player/footstep_sand", 0.4)
+def _(k):
+    d = 0.2
+    return 0.5 * thump(k, d, 85, 0.7, 0.05, 0.6, 400) + 0.7 * rustle(k, d, 2600, 9000, 0.6) * env(d, 0.006, 0.12)
+
+
+@sound("player/footstep_mud", 0.45)
+def _(k):
+    d = 0.3
+    body = thump(k, d, 70, 0.6, 0.08, 0.9, 300)
+    squelch = sweep(k.noise(d), glide(d, [(0, 700), (0.4, 260), (1, 180)]), 6.0) * env(d, 0.01, 0.2)
+    pop = place(silence(d), osc(glide(0.04, [(0, 380), (1, 620)])) * bell(0.04, 0.3, 1.0) * 0.4, 0.17)
+    return body + 0.8 * squelch + pop
+
+
+@sound("player/footstep_snow", 0.42)
+def _(k):
+    d = 0.24
+    return 0.45 * thump(k, d, 80, 0.7, 0.05, 0.5, 350) + crunch(k, d, 900, 700, 4200, 0.045)
+
+
+@sound("player/footstep_stone", 0.45)
+def _(k):
+    d = 0.14
+    return 0.6 * thump(k, d, 120, 0.7, 0.03, 0.4, 1200) + 0.5 * wood(k.uniform(900, 1300), d, 0.03, k) \
+        + 0.15 * crunch(k, d, 160, 2500, 8000, 0.02)
+
+
+@sound("player/footstep_water", 0.42)
+def _(k):
+    d = 0.42
+    splash = bp(k.noise(d), 500, 4200) * env(d, 0.004, 0.3)
+    out = 0.3 * thump(k, d, 70, 0.6, 0.06, 0.6, 400) + splash
+    for _ in range(6):                          # drops falling back
+        f = k.uniform(700, 1600)
+        place(out, chirp(f, f * k.uniform(1.6, 2.4), k.uniform(0.012, 0.025)) * 0.35, k.uniform(0.06, 0.3))
+    return out
+
+
+@sound("player/footstep_crystal", 0.4)
+def _(k):
+    d = 0.5
+    out = 0.45 * thump(k, d, 110, 0.7, 0.03, 0.3, 900) + 0.12 * crunch(k, d, 200, 3000, 9000, 0.02)
+    f = k.uniform(1700, 2300)
+    return out + 0.35 * modal(d, [(f, 1, 0.35), (f * 2.41, 0.5, 0.22), (f * 3.9, 0.25, 0.12)])
+
+
 @sound("player/jump", 0.4)
 def _(k):
     d = 0.3
@@ -1079,6 +1126,155 @@ def _(k):
                 pulse = osc(f, 0.014) * bell(0.014, 0.3, 1.0)
                 place(out, pulse, t + p * 0.03, 0.6 + 0.4 * (f == 4600.0), wrap=True)
             t += every
+    return out
+
+
+def bird(k, f, d, notes=3):
+    """A small bird's phrase: a few quick whistled notes, each gliding."""
+    out = silence(d)
+    t = 0.0
+    for _ in range(notes):
+        n = k.uniform(0.05, 0.12)
+        f0 = f * k.uniform(0.85, 1.2)
+        place(out, chirp(f0, f0 * k.uniform(0.7, 1.4), n), t, k.uniform(0.6, 1.0))
+        t += n + k.uniform(0.02, 0.07)
+    return out
+
+
+def croak(k, f, d):
+    """A frog: a buzzing pulse train through a low formant, falling a little."""
+    rate = glide(d, [(0, f), (1, f * 0.85)])
+    phase = np.cumsum(rate) / SR
+    pulses = (np.diff(np.floor(phase), prepend=0) > 0).astype(float)
+    x = resonator(signal.lfilter([1], [1, -0.9], pulses), f * 4.2, 260) + 0.5 * resonator(pulses, f * 9, 500)
+    return x * bell(d, 0.3, 1.4)
+
+
+@sound("ambient/plains", 0.2)
+def _(k):
+    d = 12.0
+    out = 0.12 * k.periodic(d, band_shape(150, 900, -4))
+    for _ in range(14):
+        f = k.uniform(2600, 4800)
+        place(out, bird(k, f, 0.6, int(k.uniform(2, 6))), k.uniform(0, d), k.uniform(0.25, 0.8), wrap=True)
+    return out
+
+
+@sound("ambient/marsh", 0.2)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    out = 0.35 * k.periodic(d, band_shape(80, 500, -5))                   # water lapping
+    buzz = osc(410 + 9 * np.sin(2 * np.pi * t / d * 3)) * (0.5 + 0.5 * np.sin(2 * np.pi * t / d * 2 + 1)) ** 2
+    out += 0.12 * buzz + 0.06 * osc(660 + 6 * np.sin(2 * np.pi * t / d * 5)) * (0.5 + 0.5 * np.sin(2 * np.pi * t / d))
+    for _ in range(10):                                                   # a bloop, a dragonfly
+        place(out, chirp(k.uniform(180, 320), k.uniform(400, 700), 0.08) * 0.4, k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/frogs", 0.22)
+def _(k):
+    d = 8.0
+    out = 0.04 * k.periodic(d, band_shape(2500, 7000))
+    for f, every, start in ((95.0, 1.3, 0.2), (130.0, 1.9, 0.9), (75.0, 2.6, 1.6)):
+        t = start
+        while t < d:
+            place(out, croak(k, f, k.uniform(0.18, 0.32)), t, k.uniform(0.6, 1.0), wrap=True)
+            t += every * k.uniform(0.8, 1.2)
+    return out
+
+
+@sound("ambient/mountains", 0.22)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(200, 1400, -3))
+    gust = 0.4 + 0.45 * np.sin(2 * np.pi * t / d + 0.3) ** 2 + 0.15 * np.sin(2 * np.pi * 4 * t / d)
+    whistle = k.periodic(d, lambda f: np.exp(-((f - 950) / 60) ** 2) + 0.6 * np.exp(-((f - 1420) / 50) ** 2))
+    return low * gust + 0.4 * whistle * gust ** 2
+
+
+@sound("ambient/jungle", 0.2)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    out = 0.08 * k.periodic(d, band_shape(3000, 9000)) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 3))
+    for _ in range(22):
+        f = k.uniform(1500, 5200)
+        place(out, bird(k, f, 0.8, int(k.uniform(2, 7))), k.uniform(0, d), k.uniform(0.2, 0.7), wrap=True)
+    for _ in range(4):                                                    # a whooping call far off
+        f = k.uniform(500, 800)
+        call = silence(1.2)
+        for i in range(4):
+            place(call, chirp(f, f * 1.6, 0.18), i * 0.24, 0.8 - i * 0.12)
+        place(out, call, k.uniform(0, d), 0.3, wrap=True)
+    return out
+
+
+@sound("ambient/jungle_night", 0.2)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    trill = osc(5200, d) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 22 * t))) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 2))
+    out = 0.1 * trill + 0.05 * k.periodic(d, band_shape(1500, 6000))
+    for f, every in ((110.0, 2.2), (160.0, 3.1)):
+        tt = k.uniform(0, 1)
+        while tt < d:
+            place(out, croak(k, f, 0.22), tt, 0.5, wrap=True)
+            tt += every * k.uniform(0.8, 1.2)
+    for at in (2.0, 7.0):                                                 # an owl
+        for i, f in enumerate((420.0, 380.0)):
+            place(out, osc(glide(0.35, [(0, f), (0.3, f * 1.05), (1, f * 0.92)])) * bell(0.35, 0.3, 1.2) * 0.35,
+                  at + i * 0.45, wrap=True)
+    return out
+
+
+@sound("ambient/savannah", 0.18)
+def _(k):
+    d = 9.0
+    t = t_of(d)
+    cicada = bp(k.periodic(d, band_shape(4000, 7500)), 4000, 7500) * (0.5 + 0.5 * np.sin(2 * np.pi * 47 * t)) ** 2
+    swell = 0.4 + 0.6 * np.sin(np.pi * t / d * 2) ** 2
+    out = 0.5 * cicada * swell + 0.35 * k.periodic(d, band_shape(150, 900, -4))
+    for _ in range(5):
+        place(out, bird(k, k.uniform(2000, 3200), 0.5, 2), k.uniform(0, d), 0.25, wrap=True)
+    return out
+
+
+@sound("ambient/ocean", 0.25)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    out = silence(d)
+    for i, at in enumerate((0.0, 4.1, 8.3)):                              # three waves to a loop
+        crash = np.clip((t - at) % d, 0, None)
+        level = np.where(crash < 3.6, np.sin(np.pi * np.minimum(crash / 3.6, 1)) ** 1.5, 0)
+        out += level * (0.9 - 0.1 * i)
+    wash = k.periodic(d, band_shape(250, 4000, -2))
+    hiss = k.periodic(d, band_shape(3000, 9000))
+    return wash * (0.25 + out) + 0.3 * hiss * out
+
+
+@sound("ambient/waste", 0.22)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(60, 450, -4))
+    moan = k.periodic(d, lambda f: np.exp(-((f - 310) / 25) ** 2) + 0.7 * np.exp(-((f - 465) / 25) ** 2))
+    swell = 0.5 + 0.5 * np.sin(2 * np.pi * t / d * 2 + 1.2)
+    return low * (0.6 + 0.4 * swell) + 0.5 * moan * swell ** 2
+
+
+@sound("ambient/crystal", 0.2)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    hum = sum(a * osc(f, d) for f, a in ((220.0, 0.5), (221.0 + 1 / d, 0.5), (330.0, 0.3), (440.0 + 2 / d, 0.15)))
+    out = 0.25 * hum * (0.7 + 0.3 * np.sin(2 * np.pi * t / d))
+    notes = [1318.5, 1568.0, 1760.0, 2093.0, 2349.3, 2637.0]
+    for _ in range(18):
+        f = notes[int(k.uniform(0, len(notes)))]
+        place(out, chime([f], 2.0, decay=1.4, bright=0.5), k.uniform(0, d), k.uniform(0.15, 0.45), wrap=True)
     return out
 
 

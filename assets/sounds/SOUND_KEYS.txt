@@ -19,6 +19,12 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/footstep_dirt.mp3                       Footstep on a dirt path                          player/footstep_dirt
   player/footstep_gravel.mp3                     Footstep on gravel                               player/footstep_gravel
   player/footstep_forest.mp3                     Footstep on the forest floor                     player/footstep_forest
+  player/footstep_sand.mp3                       Footstep on sand (and ash)                       player/footstep_sand
+  player/footstep_mud.mp3                        Footstep in mud                                  player/footstep_mud
+  player/footstep_snow.mp3                       Footstep in snow                                 player/footstep_snow
+  player/footstep_stone.mp3                      Footstep on bare rock                            player/footstep_stone
+  player/footstep_water.mp3                      Wading through water                             player/footstep_water
+  player/footstep_crystal.mp3                    Footstep on crystal                              player/footstep_crystal
   player/jump.mp3                                Jump                                             player/jump
   player/land.mp3                                Landing                                          player/land
   player/hard_landing.mp3                        Hard landing (hurt)                              player/hard_landing
@@ -112,6 +118,12 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/footstep_dirt.mp3              feminine footstep on a dirt path                 player/feminine/footstep_dirt
   player/feminine/footstep_gravel.mp3            feminine footstep on gravel                      player/feminine/footstep_gravel
   player/feminine/footstep_forest.mp3            feminine footstep on the forest floor            player/feminine/footstep_forest
+  player/feminine/footstep_sand.mp3              feminine footstep on sand (and ash)              player/feminine/footstep_sand
+  player/feminine/footstep_mud.mp3               feminine footstep in mud                         player/feminine/footstep_mud
+  player/feminine/footstep_snow.mp3              feminine footstep in snow                        player/feminine/footstep_snow
+  player/feminine/footstep_stone.mp3             feminine footstep on bare rock                   player/feminine/footstep_stone
+  player/feminine/footstep_water.mp3             feminine wading through water                    player/feminine/footstep_water
+  player/feminine/footstep_crystal.mp3           feminine footstep on crystal                     player/feminine/footstep_crystal
   player/feminine/land.mp3                       feminine landing                                 player/feminine/land
   player/feminine/hard_landing.mp3               feminine hard landing (hurt)                     player/feminine/hard_landing
   player/feminine/landing_roll.mp3               feminine rolling out of a fall                   player/feminine/landing_roll
@@ -196,6 +208,12 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/footstep_dirt.mp3             masculine footstep on a dirt path                player/masculine/footstep_dirt
   player/masculine/footstep_gravel.mp3           masculine footstep on gravel                     player/masculine/footstep_gravel
   player/masculine/footstep_forest.mp3           masculine footstep on the forest floor           player/masculine/footstep_forest
+  player/masculine/footstep_sand.mp3             masculine footstep on sand (and ash)             player/masculine/footstep_sand
+  player/masculine/footstep_mud.mp3              masculine footstep in mud                        player/masculine/footstep_mud
+  player/masculine/footstep_snow.mp3             masculine footstep in snow                       player/masculine/footstep_snow
+  player/masculine/footstep_stone.mp3            masculine footstep on bare rock                  player/masculine/footstep_stone
+  player/masculine/footstep_water.mp3            masculine wading through water                   player/masculine/footstep_water
+  player/masculine/footstep_crystal.mp3          masculine footstep on crystal                    player/masculine/footstep_crystal
   player/masculine/land.mp3                      masculine landing                                player/masculine/land
   player/masculine/hard_landing.mp3              masculine hard landing (hurt)                    player/masculine/hard_landing
   player/masculine/landing_roll.mp3              masculine rolling out of a fall                  player/masculine/landing_roll
@@ -450,9 +468,19 @@ AMBIENT
 -------
 Sounds of the place itself, looping quietly: the breeze over the meadow, and more to come.
 
-  ambient/wind.mp3                               Breeze over the meadow (held) (held)             ambient/wind
-  ambient/stream.mp3                             A stream (held; for sound objects) (held)        ambient/stream
-  ambient/crickets.mp3                           Crickets (held; for sound objects) (held)        ambient/crickets
+  ambient/wind.mp3                               Breeze over everything (held) (held)             ambient/wind
+  ambient/stream.mp3                             A river or stream (held) (held)                  ambient/stream
+  ambient/crickets.mp3                           Crickets: the plains and savannah at night (held) (held) ambient/crickets
+  ambient/plains.mp3                             The plains by day: birdsong (held) (held)        ambient/plains
+  ambient/marsh.mp3                              The marsh by day: insects over the water (held) (held) ambient/marsh
+  ambient/frogs.mp3                              The marsh at night: frogs (held) (held)          ambient/frogs
+  ambient/mountains.mp3                          The mountains: high wind (held) (held)           ambient/mountains
+  ambient/jungle.mp3                             The jungle by day: birds and insects (held) (held) ambient/jungle
+  ambient/jungle_night.mp3                       The jungle at night (held) (held)                ambient/jungle_night
+  ambient/savannah.mp3                           The savannah by day: dry heat, cicadas (held) (held) ambient/savannah
+  ambient/ocean.mp3                              The sea: waves on the shore (held) (held)        ambient/ocean
+  ambient/waste.mp3                              The waste: a hollow wind (held) (held)           ambient/waste
+  ambient/crystal.mp3                            The crystal biome: chimes and hum (held) (held)  ambient/crystal
 
 
 MUSIC

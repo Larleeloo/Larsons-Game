@@ -88,6 +88,7 @@ public final class LevelWorld {
     public static void stage(World world, Level level, Terrain terrain) {
         world.setTerrain(terrain);
         world.setGround(level.ground());
+        world.setWater(level.water());
         world.setSky(level.sky());
         world.startDay();
         double h = level.half();

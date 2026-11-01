@@ -72,7 +72,8 @@ public final class SoundKeys {
     public static final String DEFAULT_BODY = "feminine";
 
     /** The kinds of ground a footstep can fall on (after {@code world/GroundMap}'s materials, grass for the rest). */
-    public static final List<String> SURFACES = List.of("grass", "dirt", "gravel", "forest");
+    public static final List<String> SURFACES = List.of("grass", "dirt", "gravel", "forest", "sand", "mud", "snow",
+            "stone", "water", "crystal");
 
     /**
      * A body's sounds that are not animations: the footsteps on each
@@ -81,7 +82,8 @@ public final class SoundKeys {
      * wall; and its voice - hurt, knocked out, out of breath.
      */
     public static final List<String> PLAYER_SOUNDS = List.of("footstep_grass", "footstep_dirt", "footstep_gravel",
-            "footstep_forest", "land", "hard_landing", "landing_roll", "crouch", "stand", "climb_grip",
+            "footstep_forest", "footstep_sand", "footstep_mud", "footstep_snow", "footstep_stone", "footstep_water",
+            "footstep_crystal", "land", "hard_landing", "landing_roll", "crouch", "stand", "climb_grip",
             "climb_top", "let_go", "hurt", "knocked_out", "out_of_breath");
 
     /** The voice among {@link #PLAYER_SOUNDS} (the rest are movement). */
@@ -148,8 +150,15 @@ public final class SoundKeys {
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
             "loot_epic", "loot_legendary", "loot_mythic");
 
-    /** The place itself, each a loop: the meadow's breeze, a stream, crickets (for sound objects in a level). */
-    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets");
+    /**
+     * The place itself, each a loop: the breeze over everything; each
+     * biome's by day and by night (world/Biome - the plains' birdsong and
+     * crickets, the marsh's frogs, the sea ...), heard where it is and
+     * fading into the next across its edge; and any of them placed as a
+     * sound object in a level.
+     */
+    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
+            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal");
 
     /**
      * The places that play a song of their own, and the song each plays until
@@ -416,7 +425,8 @@ public final class SoundKeys {
     public static List<Entry> all() {
         List<Entry> out = new ArrayList<>();
         // --- the menu's rows
-        for (String s : List.of("footstep_grass", "footstep_dirt", "footstep_gravel", "footstep_forest")) {
+        for (String surface : SURFACES) {
+            String s = "footstep_" + surface;
             out.add(row(SoundCategory.MOVEMENT, "player/" + s, playerName(s), s));
         }
         out.add(row(SoundCategory.MOVEMENT, "player/jump", "Jump", "jump"));
@@ -557,6 +567,12 @@ public final class SoundKeys {
             case "footstep_dirt" -> "Footstep on a dirt path";
             case "footstep_gravel" -> "Footstep on gravel";
             case "footstep_forest" -> "Footstep on the forest floor";
+            case "footstep_sand" -> "Footstep on sand (and ash)";
+            case "footstep_mud" -> "Footstep in mud";
+            case "footstep_snow" -> "Footstep in snow";
+            case "footstep_stone" -> "Footstep on bare rock";
+            case "footstep_water" -> "Wading through water";
+            case "footstep_crystal" -> "Footstep on crystal";
             case "land" -> "Landing";
             case "hard_landing" -> "Hard landing (hurt)";
             case "landing_roll" -> "Rolling out of a fall";
@@ -629,9 +645,19 @@ public final class SoundKeys {
 
     private static String ambientName(String s) {
         return switch (s) {
-            case "wind" -> "Breeze over the meadow (held)";
-            case "stream" -> "A stream (held; for sound objects)";
-            case "crickets" -> "Crickets (held; for sound objects)";
+            case "wind" -> "Breeze over everything (held)";
+            case "stream" -> "A river or stream (held)";
+            case "crickets" -> "Crickets: the plains and savannah at night (held)";
+            case "plains" -> "The plains by day: birdsong (held)";
+            case "marsh" -> "The marsh by day: insects over the water (held)";
+            case "frogs" -> "The marsh at night: frogs (held)";
+            case "mountains" -> "The mountains: high wind (held)";
+            case "jungle" -> "The jungle by day: birds and insects (held)";
+            case "jungle_night" -> "The jungle at night (held)";
+            case "savannah" -> "The savannah by day: dry heat, cicadas (held)";
+            case "ocean" -> "The sea: waves on the shore (held)";
+            case "waste" -> "The waste: a hollow wind (held)";
+            case "crystal" -> "The crystal biome: chimes and hum (held)";
             default -> s;
         };
     }

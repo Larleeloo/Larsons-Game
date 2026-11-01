@@ -1,0 +1,15 @@
+{
+ "kind": "tuft",
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "frames": 24,
+ "fps": 12,
+ "frameWorldSize": 1.2,
+ "radius": 0.0,
+ "shadowRadius": 0.0,
+ "biomes": [
+  "marsh",
+  "river"
+ ],
+ "bend": true
+}

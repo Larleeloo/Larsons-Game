@@ -934,13 +934,13 @@ own volume:
 
 | Category | What is in it |
 |---|---|
-| **Footsteps & movement** | a footstep each time a foot comes down - on the ground under it (grass, a dirt path, gravel or the forest floor), quieter the softer she goes - jumping, landing (louder the farther she fell), a hard landing, rolling out of a fall, crouching and standing, the dash and the combat roll, stepping over a ledge, each hand taking hold of the vines, letting go |
+| **Footsteps & movement** | a footstep each time a foot comes down - on the ground under it (grass, a dirt path, gravel, the forest floor, sand, mud, snow, stone or crystal) or a splash wading through water, quieter the softer she goes - jumping, landing (louder the farther she fell), a hard landing, rolling out of a fall, crouching and standing, the dash and the combat roll, stepping over a ledge, each hand taking hold of the vines, letting go |
 | **Voices** | each body's laugh, cry, surprise and anger, being hurt, knocked out, and out of breath |
 | **Weapons** | every swing, chop, smash, thrust, shot and cast of all eight weapons, the parry, taking each weapon in hand, the heavy attack ready again |
 | **Hits & magic** | the dice, a blow landing, arrows and bolts striking or sticking, spells cast, hitting, bursting on the ground or fizzling, venom, being struck, blocking, parrying, dodging |
 | **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up |
 | **World & loot** | the chests (shut and humming, thrown open, standing open, closing), the loot thrown out and landing, and its rarity ringing out from Uncommon to Mythic, picking things up and dropping them |
-| **Ambient** | the breeze over everything (and a stream and crickets, ready for the places that need them) |
+| **Ambient** | the breeze over everything, and each biome's own by day and by night - the plains' birdsong and crickets, the marsh's insects and frogs, the mountain wind, the jungle by day and by night, the savannah's cicadas, the sea, a stream, the waste's hollow wind, the crystals' chimes - fading into each other across the biomes' edges (and any of them placed as a sound in a level) |
 | **Music** | the songs, each looping where it plays: the main menu's |
 | **Interface** | menus, the inventory, the wardrobe, the lock-on, screenshots, cutscene lines, and the level editor's tools |
 
@@ -1130,6 +1130,65 @@ every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
 Settings → Scenery) hides it all. The folder's format is in
 [assets/scenery/README.md](assets/scenery/README.md).
 
+## Biomes and water
+
+The moon is more than a meadow. There are **nine biomes**, each with ground,
+plants, trees, rocks, water and sounds of its own, all painted in Creative
+Mode with the biome brush, and a **Biome tour** level in `assets/levels/`
+(Dev tab, **Play** or **Edit**) that has every one of them:
+
+<p align="center">
+  <img src="docs/screenshots/biome-tour.png" width="98%" alt="The Biome tour level from above: snowy mountains, jungle, the crystal biome, marsh, plains, savannah, waste and a sea bay, a river running through">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-jungle.png" width="49%" alt="The jungle: giant trees with hanging vines, palms and ferns by the river">
+  <img src="docs/screenshots/biome-shore.png" width="49%" alt="The ocean shore: a sea bay, palms on the sand, the river running in, acacias on the savannah behind">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-crystal.png" width="49%" alt="The crystal biome: iridescent ground, crystal trees and spires, a crystal stream flowing to the river">
+  <img src="docs/screenshots/biome-marsh.png" width="49%" alt="The marsh: mud and meadow, weeping willows, reeds, mossy logs and swamp pools">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-crystal-night.png" width="49%" alt="The crystal biome at night, its trees and crystals glowing and lighting the ground">
+  <img src="docs/screenshots/creative-biome.png" width="49%" alt="Creative Mode's Paint tool on its Biome page: the nine biomes, Sow its plants, and what the marsh lays down">
+</p>
+
+| Biome | Ground | What grows there | Water | Its sound by day / by night |
+|---|---|---|---|---|
+| **Plains** | grass, flower meadow | the meadow's grass, tall grass, ferns, wildflowers; oak, birch, pine, autumn trees; rocks, mossy logs | clear | birdsong / crickets |
+| **Marsh** | mud, meadow | reeds, wildflowers; weeping willows; mossy logs, river stones | swamp, with lily pads | insects over the water / frogs |
+| **Mountains** | stone, snow | snowy pines; snow boulders | clear | high wind |
+| **Jungle** | jungle floor, forest floor | ferns, wildflowers; jungle giants with hanging vines, palms; mossy logs | swamp | birds and insects / the jungle at night |
+| **Savannah** | dry grass, red earth | dry grass, tall dry grass; acacias; termite mounds | clear | cicadas / crickets |
+| **Ocean shore** | sand, gravel | beach grass; palms; beach rocks | the sea, its waves running up the beach | waves |
+| **River** | gravel, sand | reeds; willows; river stones | clear, flowing | the stream |
+| **Waste** | ash, stone | thorn bushes; dead trees; ash spires | swamp | a hollow wind |
+| **Crystal** | iridescent crystal, stone | crystal grass; crystal trees, clusters and spires, iridescent rocks - **glowing at night** | crystal water, shimmering violet and mint | chimes and hum |
+
+- **Water** is painted (Creative Mode's Water tool): ponds and lakes lying
+  level in a hollow, streams and rivers following the ground down and
+  flowing - their ripples drift with the current - swamp water with lily
+  pads, crystal water, and **the sea**, which fills everything below its level
+  (and runs on to the horizon when it is above the land round the level).
+  It is pixel art like the rest: banded by depth, the sky in it at a glancing
+  angle, the sun glittering, a ragged line of foam at the shore. She **wades**
+  through the shallows - slower the deeper it is - and cannot walk in deeper
+  than 1.05 m.
+- **Tall grass** bends aside as she walks through it, and springs back.
+- **The crystals glow at night**, lighting the ground round them in their
+  own colours.
+- **Her footsteps** sound of what she walks on - grass, dirt, gravel, forest
+  floor, sand (and ash), mud, snow, stone, crystal - and splash in water.
+- **Each biome's sound** is heard as much as the country round her is that
+  biome, so one fades into the next as she crosses from one to another, and
+  changes with the day.
+
+All of it was modelled and drawn by the scripts in 3D-Modeling's `scenery/`
+(the trees in `tree_species.py`, the rocks in `rock_sprites.py`, the plants in
+`grass_tuft_sprites.py`, the ground in `ground_textures.py`), in the same
+128-colour palette; a sprite's `profile.json` names the biomes it grows in
+([assets/scenery/README.md](assets/scenery/README.md)).
+
 ## Day and night
 
 The world is a moon of a gas giant, and it keeps one face to it: the planet
@@ -1192,18 +1251,19 @@ editable), and every saved level with **Edit**, **Play**, **Copy** and
 
 The editor shows the level as it will be played - the ground, the scenery, the
 items turning, the dummies, the chests - with what you are about to place
-standing under the pointer. Eight tools, on the number keys:
+standing under the pointer. Nine tools, on the number keys:
 
 | Tool | What it does |
 |---|---|
 | **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
 | **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind) |
 | **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it |
-| **4 Paint** | dirt, forest floor, gravel or flower meadow over the grass; Shift paints back to grass |
-| **5 Scatter** | grass, trees or rocks - one sprite or a kind mixed - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep. Shift pulls up what you are sowing |
+| **4 Paint** | **Ground**: any of the twelve grounds - dirt, forest floor, gravel, flower meadow, sand, mud, snow, stone, jungle floor, dry grass, ash, crystal - over the grass. **Biome**: one of the nine biomes - its ground with patches of its second ground worked through it, and (**Sow its plants**, on by default) its plants, trees and rocks sown as you paint. Shift paints back to grass |
+| **5 Scatter** | grass, trees or rocks - one sprite, the meadow's mixed, or a biome's plants, trees or rocks - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep, nothing in water but reeds. Shift pulls up what you are sowing |
 | **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range |
 | **7 Time** | the time of day and the weather: the hour the level starts at (Dawn, Noon, Dusk, Night), how many minutes a day lasts (0: the time stands still) and **Run it here** to watch the day go by in the editor; the planet - where it hangs, how high, how big, its bands, rings or not -; and how cloudy, starry and misty it is, the aurora, how high the mist reaches and the light rays |
 | **8 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
+| **9 Water** | clear, swamp, sea or crystal water, how deep, and either **lying level** from where you press (a pond: sculpt a hollow, fill it from its bottom) or following the ground down (a stream); **Flows** makes it run the way the brush moves, at the current you set. **The sea**, on or off, and its level. Shift dries it up |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
@@ -1225,6 +1285,11 @@ assets/levels/<level>/
   level.json    its name, size, sky and backdrops, music, and every object - one a line
   height.png    the sculpted ground, 16-bit grey: a height every 0.5 m (value / 256 - 128 m)
   ground.png    the paint, a pixel every 0.25 m: red dirt, green forest floor, blue gravel, alpha meadow
+  ground2.png   the same for sand, mud, snow, stone (only when any is painted)
+  ground3.png   the same for jungle floor, dry grass, ash, crystal
+  water.png     the painted water, a pixel every 0.5 m: its surface's height in red and green (16 bits,
+                value / 256 - 128 m), its kind (1 clear, 2 swamp, 3 sea, 4 crystal) and the way it flows
+                (sixteenths of a turn, << 3) in blue, how fast in alpha (of 3 m/s)
 ```
 
 ```json
@@ -1236,6 +1301,7 @@ assets/levels/<level>/
           "time": {"start": 10, "day": 24},
           "planet": {"show": true, "azimuth": 200, "elevation": 16, "size": 26, "rings": false, "seed": 1},
           "clouds": 0.35, "stars": 0.85, "aurora": 0.35, "mist": {"thick": 0.25, "height": 2.5}, "rays": 0.6},
+  "sea": -1.5,
   "objects": [
     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
@@ -1521,7 +1587,15 @@ day (`world/DayCycleTest`): the sun's round, the planet's place and phase, the
 light from noon to the planet-lit night, the stars, the sunset's warm horizon,
 the clock, the time-lapse and the still day, the mist and the light rays by
 the hour, lights falling off in bands, and a level's time, weather, lights and
-rays saved and played back.
+rays saved and played back; and the biomes and water (`world/WaterAndBiomeTest`,
+`editor/BiomeScatterTest`): painted water's surface, kind and current, the sea
+below its level and a pool above it, the water's bytes, the water's mesh
+running on from cell to cell and slanting where the paint stops, a biome read
+from the ground and the water, the biome brush's mix, the twelve grounds in
+three groups and their snapshots, a level's water, sea and grounds saved and
+read back (and their files gone when dry), how deep she stands, what she hears
+by day and by night, tall grass leaning away from her, each ground's
+footstep, each biome's sets, and nothing but reeds sown in a pond.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -1553,11 +1627,15 @@ the item's own colours) and
 
 `scene` also takes `creative` (a new level), `edit:<folder>` and
 `play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
-<place|select|sculpt|paint|scatter|sky|time|level>`, `entry <sprite|item|kind|label>`
+<place|select|sculpt|paint|scatter|sky|time|level|water>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
 `turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
-<strength> [seconds] [height]`, `paint <0 grass … 4 meadow> <x> <z> <radius>`,
+<strength> [seconds] [height]`, `paint <0 grass … 12 crystal> <x> <z> <radius>`,
+`biome <plains|marsh|mountains|jungle|savannah|ocean|river|waste|crystal> <x> <z> <radius> [0]` (its
+ground, and its plants sown unless 0), `sow <biome> <x> <z> <radius> [dabs] [tuft|tree|rock]`, `water
+<clear|swamp|sea|crystal> <x> <z> <radius> [surface|auto] [flowx flowz]` (`auto`: the ground there and
+the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|off>`,
 `scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
 `sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
 height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui

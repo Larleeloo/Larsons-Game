@@ -103,9 +103,9 @@ public final class TerrainRenderer implements AutoCloseable {
                 // (every texture read before anything branches: their mip levels need the neighbours)
                 vec3 grass = uGroundTile > 0.0 ? groundColour(vPos.xz) : vec3(0.60, 0.63, 0.68);
                 float tile = max(uGroundTile, 1.0);
-                vec3 rx = texture(uGroundGravel, vPos.zy / tile).rgb;
-                vec3 rz = texture(uGroundGravel, vPos.xy / tile).rgb;
-                vec3 rtop = texture(uGroundGravel, vPos.xz / tile).rgb;
+                vec3 rx = texture(uGroundTiles, vec3(vPos.zy / tile, 3.0)).rgb;
+                vec3 rz = texture(uGroundTiles, vec3(vPos.xy / tile, 3.0)).rgb;
+                vec3 rtop = texture(uGroundTiles, vec3(vPos.xz / tile, 3.0)).rgb;
 
                 // rock: the gravel seen from the side on a face, from above on a ledge, in strata
                 float side = abs(n.x) / max(1e-4, abs(n.x) + abs(n.z));

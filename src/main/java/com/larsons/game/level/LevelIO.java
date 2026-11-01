@@ -6,6 +6,7 @@ import com.larsons.game.util.Json;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Sky;
+import com.larsons.game.world.WaterMap;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -34,6 +35,9 @@ import java.util.stream.Stream;
  *                (value / 256 - 128 metres), the north-west corner first
  *   ground.png   what its ground is made of, a pixel every 0.25 m: red dirt, green
  *                forest floor, blue gravel, alpha flower meadow (none: grass)
+ *   ground2.png  the same for sand, mud, snow and stone
+ *   ground3.png  and for the jungle floor, dry grass, ash and crystal
+ *   water.png    where water lies, a pixel every 0.5 m (see world/WaterMap)
  * </pre>
  *
  * <p>The images are left out while there is nothing on them (flat ground,
@@ -60,11 +64,12 @@ import java.util.stream.Stream;
  */
 public final class LevelIO {
 
-    public static final String FILE = "level.json", HEIGHTS = "height.png", GROUND = "ground.png";
+    public static final String FILE = "level.json", HEIGHTS = "height.png", GROUND = "ground.png",
+            WATER = "water.png";
     /** A height's 16-bit value is {@code (metres + OFFSET) * SCALE}. */
     static final double OFFSET = 128, SCALE = 256;
 
-    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "objects");
+    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "objects");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
@@ -146,6 +151,7 @@ public final class LevelIO {
         Object sky = j.get("sky");
         if (sky instanceof Map<?, ?>) level.setSky(sky(Json.asObject(sky)));
         level.setMusic(Json.str(j, "music", Songs.SHUFFLE));          // a level saved before music: shuffled
+        if (j.get("sea") instanceof Number n) level.water().setSeaLevel(n.doubleValue());
         int highest = 0;
         Object objs = j.get("objects");
         if (objs instanceof List<?> list) {
@@ -166,7 +172,13 @@ public final class LevelIO {
         Path hp = folder.resolve(HEIGHTS);
         if (Files.isRegularFile(hp)) readHeights(hp, level.heights());
         Path gp = folder.resolve(GROUND);
-        if (Files.isRegularFile(gp)) readGround(gp, level.ground());
+        if (Files.isRegularFile(gp)) readGround(gp, level.ground(), 0);
+        for (int g = 1; g < GroundMap.GROUPS; g++) {
+            Path more = folder.resolve(groundFile(g));
+            if (Files.isRegularFile(more)) readGround(more, level.ground(), g);
+        }
+        Path wp = folder.resolve(WATER);
+        if (Files.isRegularFile(wp)) readWater(wp, level.water());
         return level;
     }
 
@@ -281,7 +293,7 @@ public final class LevelIO {
         into.setHeights(h);
     }
 
-    static void readGround(Path file, GroundMap into) throws IOException {
+    static void readGround(Path file, GroundMap into, int group) throws IOException {
         BufferedImage img = ImageIO.read(file.toFile());
         if (img == null) throw new IOException("not an image: " + file);
         int n = into.cells();
@@ -294,7 +306,7 @@ public final class LevelIO {
                 for (int b = 0; b < 4; b++) rgba[k + b] = (byte) (b < bands ? raster.getSample(c, r, b) : 0);
             }
         }
-        into.setRgba(rgba);
+        into.setRgba(group, rgba);
     }
 
     // --- writing ---------------------------------------------------------------------------
@@ -306,9 +318,51 @@ public final class LevelIO {
         Path hp = folder.resolve(HEIGHTS);
         if (level.heights().flat()) Files.deleteIfExists(hp);
         else writeHeights(level.heights(), hp);
-        Path gp = folder.resolve(GROUND);
-        if (level.ground().isEmpty()) Files.deleteIfExists(gp);
-        else writeGround(level.ground(), gp);
+        for (int g = 0; g < GroundMap.GROUPS; g++) {
+            Path gp = folder.resolve(groundFile(g));
+            if (level.ground().isEmpty(g)) Files.deleteIfExists(gp);
+            else writeGround(level.ground(), g, gp);
+        }
+        Path wp = folder.resolve(WATER);
+        if (level.water().nonePainted()) Files.deleteIfExists(wp);
+        else writeWater(level.water(), wp);
+    }
+
+    static void readWater(Path file, WaterMap into) throws IOException {
+        BufferedImage img = ImageIO.read(file.toFile());
+        if (img == null) throw new IOException("not an image: " + file);
+        int n = into.cells();
+        byte[] b = new byte[n * n * 4];
+        var raster = img.getRaster();
+        int bands = raster.getNumBands();
+        for (int r = 0; r < Math.min(n, img.getHeight()); r++) {
+            for (int c = 0; c < Math.min(n, img.getWidth()); c++) {
+                int k = (r * n + c) * 4;
+                for (int i = 0; i < 4; i++) b[k + i] = (byte) (i < bands ? raster.getSample(c, r, i) : 0);
+            }
+        }
+        into.setBytes(b);
+    }
+
+    static void writeWater(WaterMap w, Path file) throws IOException {
+        int n = w.cells();
+        byte[] b = w.bytes();
+        BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_4BYTE_ABGR);
+        var raster = img.getRaster();
+        int[] px = new int[4];
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                int k = (r * n + c) * 4;
+                for (int i = 0; i < 4; i++) px[i] = b[k + i] & 0xFF;
+                raster.setPixel(c, r, px);
+            }
+        }
+        write(img, file);
+    }
+
+    /** The image group {@code g} of the ground's materials is kept in: ground.png, ground2.png, ground3.png. */
+    public static String groundFile(int g) {
+        return g == 0 ? GROUND : "ground" + (g + 1) + ".png";
     }
 
     /** {@code level.json}'s text for {@code level}: the header pretty, each object on a line of its own. */
@@ -319,6 +373,7 @@ public final class LevelIO {
         head.put("size", round(level.size()));
         head.put("sky", sky(level.sky()));
         head.put("music", level.music());
+        if (!Double.isNaN(level.water().seaLevel())) head.put("sea", round(level.water().seaLevel()));
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         String text = Json.stringify(head);
         StringBuilder sb = new StringBuilder(text.substring(0, text.lastIndexOf('}')).stripTrailing());
@@ -421,9 +476,9 @@ public final class LevelIO {
         write(img, file);
     }
 
-    static void writeGround(GroundMap g, Path file) throws IOException {
+    static void writeGround(GroundMap g, int group, Path file) throws IOException {
         int n = g.cells();
-        byte[] rgba = g.rgba();
+        byte[] rgba = g.rgba(group);
         BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_4BYTE_ABGR);
         var raster = img.getRaster();
         int[] px = new int[4];

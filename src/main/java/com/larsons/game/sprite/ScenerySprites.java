@@ -284,6 +284,20 @@ public final class ScenerySprites {
         return Collections.unmodifiableList(out);
     }
 
+    /** The sprites of {@code kind} the demo's meadow is planted with: those of no biome of their own. */
+    public List<Sprite> meadow(SceneryProfile.Kind kind) {
+        List<Sprite> out = new ArrayList<>();
+        for (Sprite s : sprites) if (s.kind() == kind && s.profile().biomes().isEmpty()) out.add(s);
+        return Collections.unmodifiableList(out);
+    }
+
+    /** The sprites that grow in {@code biome} (a {@code world/Biome} key). */
+    public List<Sprite> ofBiome(String biome) {
+        List<Sprite> out = new ArrayList<>();
+        for (Sprite s : sprites) if (s.profile().grows(biome)) out.add(s);
+        return Collections.unmodifiableList(out);
+    }
+
     /** The ground's grass, or null for the plain floor. */
     public Ground ground() { return ground; }
 

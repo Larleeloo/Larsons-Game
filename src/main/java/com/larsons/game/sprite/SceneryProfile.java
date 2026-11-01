@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -42,13 +44,36 @@ import java.util.Map;
  *       the rest.</li>
  * </ul>
  *
+ * <p>And three fields of the biomes' scenery:
+ * <ul>
+ *   <li>{@code biomes} - the biomes it grows in ({@code ["marsh", "river"]};
+ *       {@code world/Biome}): the biome brush and the scatter brush's biome
+ *       sets sow it there. None: the demo's meadow plants it.</li>
+ *   <li>{@code glow} - a colour ({@code "#7FE8FF"}) it shines with at night,
+ *       lighting the ground round it (the crystals).</li>
+ *   <li>{@code bend} - true for tall grass that bends aside as someone
+ *       walks through it.</li>
+ * </ul>
+ *
  * <p>Anything the file leaves out keeps its kind's default (the sizes the
  * 3D-Modeling scripts draw at); a file with no {@code kind} is taken to be
  * the kind its folder's name suggests ({@code oak_tree}, {@code grass_tuft_a},
  * {@code mossy_rock}). Pure data: nothing here touches the GPU.
  */
 public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps,
-                             double frameWorldSize, double radius, double shadowRadius, boolean facesCamera) {
+                             double frameWorldSize, double radius, double shadowRadius, boolean facesCamera,
+                             List<String> biomes, int glow, boolean bend) {
+
+    public SceneryProfile {
+        biomes = biomes == null ? List.of() : List.copyOf(biomes);
+    }
+
+    /** A profile of no biome (the meadow's), no glow, not bending. */
+    public SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps, double frameWorldSize,
+                          double radius, double shadowRadius, boolean facesCamera) {
+        this(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius, facesCamera, List.of(),
+                -1, false);
+    }
 
     public static final String FILE_NAME = "profile.json";
 
@@ -127,19 +152,38 @@ public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int fra
         double shadow = Math.max(0, Json.num(j, "shadowRadius", d.shadowRadius));
         String facing = Json.str(j, "facing", "").trim().toLowerCase(Locale.ROOT);
         boolean facesCamera = facing.equals("camera") || (!facing.equals("cross") && d.facesCamera);
+        List<String> biomes = new ArrayList<>();
+        if (j.get("biomes") instanceof List<?> list) {
+            for (Object o : list) if (o != null) biomes.add(o.toString().trim().toLowerCase(Locale.ROOT));
+        }
+        int glow = -1;
+        String g = Json.str(j, "glow", "").trim();
+        if (g.startsWith("#") && g.length() == 7) {
+            try {
+                glow = Integer.parseInt(g.substring(1), 16);
+            } catch (NumberFormatException ignored) {
+                // no glow
+            }
+        }
+        boolean bend = Boolean.TRUE.equals(j.get("bend"));
         return new SceneryProfile(kind, fw, fh, frames, fps > 0 ? fps : d.fps, size > 0 ? size : d.frameWorldSize,
-                radius, shadow, facesCamera);
+                radius, shadow, facesCamera, biomes, glow, bend);
     }
 
     /** The same profile with {@code frames} frames (the catalogue fills in "every cell of the sheet"). */
     public SceneryProfile withFrames(int frames) {
         return new SceneryProfile(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius,
-                facesCamera);
+                facesCamera, biomes, glow, bend);
     }
 
     /** Metres one frame stands tall: {@link #frameWorldSize()} across, in the frame's own proportions. */
     public double frameWorldHeight() {
         return frameWorldSize * frameHeight / (double) frameWidth;
+    }
+
+    /** Whether it grows in {@code biome} (a {@code world/Biome} key). */
+    public boolean grows(String biome) {
+        return biomes.contains(biome);
     }
 
     /** Whether the player is kept out of it (a trunk, a rock) rather than walking through it (grass). */
