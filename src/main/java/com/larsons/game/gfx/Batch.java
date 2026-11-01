@@ -86,9 +86,11 @@ public final class Batch implements AutoCloseable {
             out vec2 vUv;
             out vec4 vColor;
             out float vDepth;
+            out vec3 vWorld;
             flat out vec4 vClip;
             flat out int vPalette;
             void main() {
+                vWorld = aPos;
                 vec4 clip = uProj * vec4(aPos, 1.0);
                 float along = dot(aPos - uEye, uPlaneNormal);
                 if (aPlane > 0.0 && along > 1e-4) {
@@ -115,6 +117,7 @@ public final class Batch implements AutoCloseable {
             in vec2 vUv;
             in vec4 vColor;
             in float vDepth;
+            in vec3 vWorld;
             flat in vec4 vClip;       // u0 v0 u1 v1: texture coordinates outside it are not drawn
             flat in int vPalette;     // the palette row an index texture is coloured from; -1: RGBA texture
             uniform sampler2D uTex;
@@ -122,7 +125,9 @@ public final class Batch implements AutoCloseable {
             uniform vec3 uFogColor;
             uniform vec2 uFog;          // near, far; far <= 0 disables fog
             uniform float uAlphaCut;
+            uniform int uSceneLit;      // 1: lit by the scene's light and in its mist (the world); 0: as drawn (the UI)
             out vec4 fragColor;
+            """ + SceneLight.GLSL + """
             void main() {
                 // Sample before any discard: mip selection needs the neighbours' coordinates.
                 vec4 t = texture(uTex, vUv);
@@ -141,6 +146,12 @@ public final class Batch implements AutoCloseable {
                 if (uAlphaCut >= 0.5) {
                     if (c.a <= uAlphaCut) discard;
                     c = vec4(c.rgb / c.a, 1.0);
+                }
+                if (uSceneLit == 1) {
+                    // (light - a glow - is its own light: it is not darkened by the night)
+                    if (vColor.a > 0.0) c.rgb *= sceneLight(vWorld);
+                    float m = sceneMist(vWorld);
+                    c.rgb = vColor.a > 0.0 ? mix(c.rgb, uMistColour * c.a, m) : c.rgb * (1.0 - m);
                 }
                 if (uFog.y > 0.0) {
                     float f = clamp((vDepth - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
@@ -169,6 +180,8 @@ public final class Batch implements AutoCloseable {
     private float plane;
     /** The height of the ground their anchor stands on: the plane is never tested below it. */
     private float floor;
+    /** The light the world's batches are drawn in ({@link #useSceneLight}); null: as drawn. */
+    private SceneLight sceneLight;
 
     public Batch() {
         shader = new Shader("batch", VERTEX, FRAGMENT);
@@ -235,7 +248,21 @@ public final class Batch implements AutoCloseable {
         } else {
             shader.set("uFog", 0f, 0f);
         }
+        boolean lit = fogColor != null && sceneLight != null;
+        shader.set("uSceneLit", lit ? 1 : 0);
+        if (lit) sceneLight.bind(shader);
         glBindVertexArray(vao);
+    }
+
+    /**
+     * Draw every batch begun with fog from here on - the world's: its
+     * scenery, its shadows, its sprites - in {@code light}: lit by its
+     * ambient light and its lights, in its mist. A batch with no fog (the
+     * UI) is drawn as it is whatever this is. {@code null}: as drawn. Takes
+     * effect at the next {@link #begin}.
+     */
+    public void useSceneLight(SceneLight light) {
+        sceneLight = light;
     }
 
     /** For UI and shadows: no fog. */

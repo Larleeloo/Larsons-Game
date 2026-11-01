@@ -181,6 +181,9 @@ public final class World {
     private Scenery scenery = Scenery.NONE;
     private GroundMap ground = GroundMap.NONE;
     private Sky sky = Sky.DEFAULT;
+    private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
+    private final List<LightSpot> lights = new ArrayList<>();
+    private final List<RaySpot> raySpots = new ArrayList<>();
     /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
     private double[] bounds;
     private double time;
@@ -285,6 +288,44 @@ public final class World {
         sky = s == null ? Sky.DEFAULT : s;
     }
 
+    /** The time of day: what hour it is, and how fast it goes by. */
+    public DayCycle clock() { return clock; }
+
+    /** Set the clock to the hour the sky's day starts at. */
+    public void startDay() {
+        clock.setHour(sky.air().startHour());
+    }
+
+    /**
+     * A light standing in the world - a lantern, a glowing crystal - that
+     * lights what is round it, mostly at night.
+     *
+     * @param at       where it is
+     * @param radius   metres it reaches
+     * @param rgb      its colour, {@code 0xRRGGBB}
+     * @param strength how bright it is, 0 – 2
+     * @param glow     whether it shows as a glowing spot itself (else only its light is seen)
+     */
+    public record LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow) {}
+
+    /** The lights placed in it. */
+    public List<LightSpot> lights() { return lights; }
+
+    /**
+     * Light rays slanting down at a spot - through a gap in the trees, a
+     * window - as the sun is low.
+     *
+     * @param at       the spot on the ground they light
+     * @param count    how many shafts
+     * @param spread   metres round the spot they are spread over
+     * @param height   metres up they start
+     * @param strength how strong they are, 0 – 2
+     */
+    public record RaySpot(Vec3 at, int count, double spread, double height, double strength) {}
+
+    /** The light rays placed in it (beside those the trees give: {@link LightRays}). */
+    public List<RaySpot> raySpots() { return raySpots; }
+
     /** Keep her within {@code x0 .. x1}, {@code z0 .. z1} from the next tick: a level's edges (null: none). */
     public void setBounds(double x0, double x1, double z0, double z1) {
         bounds = new double[]{x0, x1, z0, z1};
@@ -301,6 +342,7 @@ public final class World {
      */
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
+        clock.tick(dt, sky.air());
         for (Chest c : chests) {
             c.tick(dt, s -> durations == null ? 0 : durations.apply(c, s));
             player.keepOut(c.position(), Chest.RADIUS);

@@ -36,7 +36,37 @@ import java.util.Map;
 public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
-            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound";
+            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
+            RAYS = "rays";
+
+    /** The colours a placed light can be, by name, and what they are. */
+    public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
+
+    private static Map<String, Integer> lightColours() {
+        Map<String, Integer> m = new LinkedHashMap<>();
+        m.put("lantern", 0xFFC468);
+        m.put("candle", 0xFFA448);
+        m.put("fire", 0xFF7A30);
+        m.put("moonlight", 0x9CB8FF);
+        m.put("crystal", 0x7FE8FF);
+        m.put("magic", 0xC890FF);
+        m.put("fairy", 0x9CFF8A);
+        m.put("rose", 0xFF8AB0);
+        m.put("white", 0xFFFFFF);
+        return Collections.unmodifiableMap(m);
+    }
+
+    /** The colour named {@code name} ({@link #LIGHT_COLOURS}), a {@code #RRGGBB}, or the lantern's. */
+    public static int lightColour(String name) {
+        Integer c = LIGHT_COLOURS.get(name);
+        if (c != null) return c;
+        String h = name == null ? "" : name.startsWith("#") ? name.substring(1) : name;
+        try {
+            return h.length() == 6 ? Integer.parseInt(h, 16) : 0xFFC468;
+        } catch (NumberFormatException e) {
+            return 0xFFC468;
+        }
+    }
 
     /** The chest's sprites (assets/sprites/objects/). */
     public static final String CHEST_SPRITE = "ornate_chest";
@@ -78,6 +108,22 @@ public final class ObjectTypes {
                 0xB48CFF, false,
                 (o, b) -> b.world().soundSpots().add(new World.SoundSpot(o.str("sound", SoundKeys.ambient("stream")),
                         b.onGround(o).add(0, 1, 0)))));
+        register(new ObjectType(LIGHT, "Light", Category.LIGHTS,
+                List.of(Prop.choice("colour", "Colour", "lantern", o -> List.copyOf(LIGHT_COLOURS.keySet())),
+                        Prop.number("radius", "Reach (m)", 5, 0.5, 30, 0.5),
+                        Prop.number("strength", "Strength", 1, 0.1, 2, 0.1),
+                        Prop.number("height", "Height (m)", 1.2, 0, 12, 0.1),
+                        Prop.toggle("glow", "Shows a glow", true)), 0.4, 1.4, 0xFFC468, false,
+                (o, b) -> b.world().lights().add(new World.LightSpot(b.onGround(o).add(0, o.num("height", 1.2), 0),
+                        o.num("radius", 5), lightColour(o.str("colour", "lantern")), o.num("strength", 1),
+                        o.bool("glow", true)))));
+        register(new ObjectType(RAYS, "Light rays", Category.LIGHTS,
+                List.of(Prop.number("count", "Shafts", 4, 1, 16, 1),
+                        Prop.number("spread", "Spread (m)", 1.5, 0.2, 8, 0.1),
+                        Prop.number("height", "From (m up)", 6, 1, 30, 0.5),
+                        Prop.number("strength", "Strength", 1, 0.1, 2, 0.1)), 0.6, 2.0, 0xFFF0B0, false,
+                (o, b) -> b.world().raySpots().add(new World.RaySpot(b.onGround(o), (int) o.num("count", 4),
+                        o.num("spread", 1.5), o.num("height", 6), o.num("strength", 1)))));
     }
 
     private static ScenerySprites scenerySprites = ScenerySprites.NONE;

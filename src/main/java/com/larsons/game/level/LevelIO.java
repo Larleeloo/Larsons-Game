@@ -4,6 +4,7 @@ import com.larsons.game.audio.Songs;
 
 import com.larsons.game.util.Json;
 import com.larsons.game.world.GroundMap;
+import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Sky;
 
 import javax.imageio.ImageIO;
@@ -194,7 +195,53 @@ public final class LevelIO {
         }
         return new Sky(colour(Json.str(j, "zenith", ""), Sky.DEFAULT.zenith()),
                 colour(Json.str(j, "horizon", ""), Sky.DEFAULT.horizon()), Json.num(j, "fog", Sky.DEFAULT.fog()),
-                backdrops);
+                backdrops, air(j));
+    }
+
+    /**
+     * The time and the weather of a sky's {@code j}: its {@code "time"}
+     * ({@code start} hour, real minutes a {@code day}), its {@code "planet"},
+     * {@code "clouds"}, {@code "stars"}, {@code "aurora"}, {@code "mist"} and
+     * {@code "rays"} - each as {@link Atmosphere#DEFAULT} has it where the
+     * file says nothing (a level made before there was time).
+     */
+    static Atmosphere air(Map<String, Object> j) {
+        Atmosphere d = Atmosphere.DEFAULT;
+        Map<String, Object> time = Json.obj(j, "time"), planet = Json.obj(j, "planet"), mist = Json.obj(j, "mist");
+        if (time == null) time = Map.of();
+        if (planet == null) planet = Map.of();
+        if (mist == null) mist = Map.of();
+        return new Atmosphere(Json.num(time, "start", d.startHour()), Json.num(time, "day", d.dayMinutes()),
+                Json.bool(planet, "show", d.planet()), Json.num(planet, "azimuth", d.planetAzimuth()),
+                Json.num(planet, "elevation", d.planetElevation()), Json.num(planet, "size", d.planetSize()),
+                Json.bool(planet, "rings", d.rings()), (int) Json.num(planet, "seed", d.planetSeed()),
+                Json.num(j, "clouds", d.clouds()), Json.num(j, "stars", d.stars()), Json.num(j, "aurora", d.aurora()),
+                Json.num(mist, "thick", d.mist()), Json.num(mist, "height", d.mistHeight()),
+                Json.num(j, "rays", d.rays()));
+    }
+
+    static Map<String, Object> air(Atmosphere a, Map<String, Object> j) {
+        Map<String, Object> time = new LinkedHashMap<>();
+        time.put("start", round(a.startHour()));
+        time.put("day", round(a.dayMinutes()));
+        j.put("time", time);
+        Map<String, Object> planet = new LinkedHashMap<>();
+        planet.put("show", a.planet());
+        planet.put("azimuth", round(a.planetAzimuth()));
+        planet.put("elevation", round(a.planetElevation()));
+        planet.put("size", round(a.planetSize()));
+        planet.put("rings", a.rings());
+        planet.put("seed", a.planetSeed());
+        j.put("planet", planet);
+        j.put("clouds", round(a.clouds()));
+        j.put("stars", round(a.stars()));
+        j.put("aurora", round(a.aurora()));
+        Map<String, Object> mist = new LinkedHashMap<>();
+        mist.put("thick", round(a.mist()));
+        mist.put("height", round(a.mistHeight()));
+        j.put("mist", mist);
+        j.put("rays", round(a.rays()));
+        return j;
     }
 
     /** {@code "#RRGGBB"} as a colour, or {@code fallback}. */
@@ -314,7 +361,7 @@ public final class LevelIO {
             list.add(m);
         }
         j.put("backdrops", list);
-        return j;
+        return air(s.air(), j);
     }
 
     static String hex(int rgb) {

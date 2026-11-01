@@ -28,6 +28,7 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Chest;
+import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
@@ -160,6 +161,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private boolean scriptDraw, scriptBlock;
     /** A scripted roll: the dodge key held until the dash has turned into the roll. */
     private boolean scriptRoll;
+    /** A scripted run set the clock's speed (the N key leaves it alone). */
+    private boolean scriptedTimeLapse;
 
     public DemoScene(Game game) {
         this.game = game;
@@ -197,6 +200,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(shownScenery());
+        world.startDay();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
 
@@ -404,6 +408,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_F9)) {
             toggled();
             setClassic(!game.settings().classicAnimations);
+        }
+
+        // --- the time of day: N held runs it fast ---------------------------------------------
+        if (!scriptedTimeLapse) world.clock().setSpeed(in.down(GLFW_KEY_N) && !inventory.open() ? DayCycle.TIME_LAPSE : 1);
+        if (in.pressed(GLFW_KEY_N) && !inventory.open() && !world.sky().air().timeRuns()) {
+            game.toast("The time stands still here", Theme.HINT);
         }
 
         // --- items, the chest -----------------------------------------------------------
@@ -703,8 +713,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
                     + "Alt/Z in the air: land in a roll · "
                     + "the hills are up the north path",
-            "Tab height · O auto height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · "
-                    + "F11 full screen · Esc menu"};
+            "Tab height · O auto height · Right-drag orbit · +/- zoom · N (held) time-lapse · H HUD · "
+                    + "F9 classic/new animations · F11 full screen · Esc menu"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
@@ -771,9 +781,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 ? Theme.WARNING : Theme.ITEM);
         y += lh;
         SpriteView v = r.view();
-        ui.text(ui.small, String.format("Camera  pitch %.0f°  yaw %.0f°  zoom %.1f m   →  %s sprites (%d°)",
+        ui.text(ui.small, String.format("Camera  pitch %.0f°  yaw %.0f°  zoom %.1f m   →  %s sprites (%d°)   ·   %s%s",
                         Math.toDegrees(camera.pitch()), Math.toDegrees(camera.yaw()) % 360, camera.distance(),
-                        v.elevation().label(), (int) v.elevation().renderAngle()),
+                        v.elevation().label(), (int) v.elevation().renderAngle(),
+                        DayCycle.clock(world.clock().hour()),
+                        world.clock().speed() > 1 ? " (time-lapse, N)" : world.sky().air().timeRuns() ? "" : " (time still)"),
                 x, y, Theme.ITEM);
         y += lh;
         ui.text(ui.small, String.format("Player  %s%s%s  frame %d/%d @ %.0f fps  facing %s   ·   %s animations (F9)",
@@ -843,6 +855,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                                 AnimState emote) {
         return new Player.Intent(0, 0, false, false, false, attack, attack || scriptDraw, crouch, heavy, spin,
                 parry, scriptBlock, false, emote);
+    }
+
+    /** "6:30" or "6.5" as an hour of the day (6.5). */
+    static double hourOf(String text) {
+        int colon = text.indexOf(':');
+        if (colon < 0) return Double.parseDouble(text);
+        return Integer.parseInt(text.substring(0, colon).trim()) + Integer.parseInt(text.substring(colon + 1).trim()) / 60.0;
     }
 
     /**
@@ -1055,6 +1074,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 } else {
                     return false;
                 }
+            }
+            case "time" -> world.clock().setHour(hourOf(argument.trim()));
+            case "timelapse" -> {
+                String a = argument.trim();
+                scriptedTimeLapse = !a.equals("off");
+                world.clock().setSpeed(a.equals("off") ? 1 : a.equals("on") || a.isEmpty() ? DayCycle.TIME_LAPSE
+                        : Double.parseDouble(a));
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
             case "stamina" -> p.setStamina(Double.parseDouble(argument.trim()));

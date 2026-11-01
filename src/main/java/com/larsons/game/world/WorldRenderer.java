@@ -3,6 +3,7 @@ package com.larsons.game.world;
 import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
+import com.larsons.game.gfx.SceneLight;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
@@ -89,6 +90,11 @@ public final class WorldRenderer implements AutoCloseable {
     private final ItemRenderer itemRenderer;
     private final Texture shadow;
     private final Texture glow;
+    private final Texture ray;
+    /** The light the frame being drawn is lit with, made afresh every frame. */
+    private final SceneLight sceneLight = new SceneLight();
+    /** The time of day's light the last frame was drawn in. */
+    private DayCycle.Daylight daylight;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
     private final CombatRenderer combat;
 
@@ -114,6 +120,7 @@ public final class WorldRenderer implements AutoCloseable {
         this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
+        this.ray = Texture.upload(LightRays.pixels(), true);
         this.combat = new CombatRenderer(sprites, objects);
     }
 
@@ -157,16 +164,20 @@ public final class WorldRenderer implements AutoCloseable {
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
         Sky sky = world.sky();
-        float[] fog = sky == Sky.DEFAULT ? VoidRenderer.HORIZON : sky.horizonColour();
+        DayCycle.Daylight light = world.clock().daylight(sky);
+        daylight = light;
+        float[] fog = light.horizon();
         float fogFar = (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
+        lightUp(world, camera, light);
         voidRenderer.useGround(world.ground());
         // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
         float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
-        voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, world.time(), pixel);
-        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar);
+        voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
+        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+        batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
 
@@ -179,6 +190,7 @@ public final class WorldRenderer implements AutoCloseable {
         batch.begin(viewProj, fog, 0, fogFar);
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
+        shadowStrength = (float) (0.55 + 0.45 * light.day());
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time())) continue;
@@ -190,8 +202,8 @@ public final class WorldRenderer implements AutoCloseable {
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
-            double light = c.light();
-            if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
+            double lit = c.light();
+            if (lit > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * lit));
         }
         combat.shadows(world, this::groundShadow);
         for (Scenery.Placed s : world.scenery().shadowed()) {
@@ -269,6 +281,15 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(g.centre(t).sub(eye).dot(forward));
         }
 
+        for (World.LightSpot ls : world.lights()) {
+            if (!ls.glow()) continue;
+            draws.add(() -> {
+                batch.depthAnchor(ground.onGround(ls.at()));
+                lightGlow(ls, right, up);
+            });
+            dist.add(ls.at().sub(eye).dot(forward));
+        }
+
         combat.sprites(world, batch, camera, (d, draw) -> {
             draws.add(draw);
             dist.add(d);
@@ -279,7 +300,87 @@ public final class WorldRenderer implements AutoCloseable {
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+
+        // --- light rays, added over it all (tested against the scenery and the ground) ----
+        List<LightRays.Shaft> shafts = LightRays.shafts(world, light, eye, world.time());
+        if (!shafts.isEmpty()) {
+            batch.begin(viewProj, fog, 0, fogFar);
+            float[] sun = light.sunColour();
+            for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
+            batch.end();
+        }
+        batch.useSceneLight(null);
         glDepthMask(true);
+    }
+
+    /** The time of day's light the last frame was drawn in (null before the first). */
+    public DayCycle.Daylight daylight() { return daylight; }
+
+    /** The light this frame is drawn in: the hour's, and the lights round the camera. */
+    public SceneLight sceneLight() { return sceneLight; }
+
+    /**
+     * Make this frame's {@link SceneLight}: lit as the hour is, in the mist
+     * as thick as it lies now, with the lights nearest the camera's target -
+     * an open chest's glow, the loot's beams, the lights placed in the world -
+     * which mostly show at night.
+     */
+    private void lightUp(World world, OrbitCamera camera, DayCycle.Daylight light) {
+        SceneLight l = sceneLight.clearLights();
+        float[] a = light.ambient();
+        System.arraycopy(a, 0, l.ambient, 0, 3);
+        Vec3 eye = camera.eye();
+        l.camera[0] = (float) eye.x();
+        l.camera[1] = (float) eye.y();
+        l.camera[2] = (float) eye.z();
+        Atmosphere air = world.sky().air();
+        l.mist = (float) (light.mist() * 0.32);
+        l.mistHeight = (float) air.mistHeight();
+        l.time = (float) world.time();
+        float[] h = light.horizon();
+        for (int i = 0; i < 3; i++) l.mistColour[i] = 0.62f * a[i] * 0.92f + 0.38f * h[i];
+        double night = 1 - 0.75 * light.day();
+        record Lamp(Vec3 at, double radius, int rgb, double strength) {}
+        List<Lamp> lamps = new ArrayList<>();
+        for (Chest c : world.chests()) {
+            if (c.light() > 0) lamps.add(new Lamp(c.position().add(0, 0.7, 0), 3.6, 0xFFC468, 0.95 * c.light() * night));
+        }
+        for (World.GroundItem g : world.items()) {
+            if (!g.beam() || !g.landed(world.time())) continue;
+            lamps.add(new Lamp(g.position.add(0, 0.5, 0), 1.4, g.item.rarity().rgb(), 0.35 * night));
+        }
+        for (World.LightSpot s : world.lights()) lamps.add(new Lamp(s.at(), s.radius(), s.rgb(), s.strength() * night));
+        Vec3 target = camera.target();
+        lamps.sort(Comparator.comparingDouble(m -> m.at().sub(target).length() - m.radius()));
+        for (Lamp m : lamps) {
+            if (!l.add(m.at().x(), m.at().y(), m.at().z(), m.radius(), m.rgb(), m.strength())) break;
+        }
+    }
+
+    /** A placed light's own glow: a small bright spot where it is, and a soft halo round it. */
+    private void lightGlow(World.LightSpot ls, Vec3 right, Vec3 up) {
+        float r = ((ls.rgb() >> 16) & 255) / 255f, g = ((ls.rgb() >> 8) & 255) / 255f, b = (ls.rgb() & 255) / 255f;
+        double night = daylight == null ? 1 : 1 - 0.6 * daylight.day();
+        for (double[] k : new double[][]{{0.55, 0.35}, {0.16, 1.0}}) {
+            double size = k[0];
+            Vec3 tl = ls.at().sub(right.scale(size / 2)).add(up.scale(size / 2));
+            batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b,
+                    (float) (k[1] * Math.min(1.5, ls.strength()) * night));
+        }
+    }
+
+    /** One shaft of light: a ribbon down its length, turned to face the eye. */
+    private void rayQuad(LightRays.Shaft s, Vec3 eye, float[] sun) {
+        Vec3 along = s.bottom().sub(s.top());
+        Vec3 mid = s.top().add(along.scale(0.5));
+        Vec3 side = along.cross(eye.sub(mid));
+        if (side.length() < 1e-6) return;
+        side = side.normalize().scale(s.width() / 2);
+        Vec3 tl = s.top().sub(side), tr = s.top().add(side), br = s.bottom().add(side), bl = s.bottom().sub(side);
+        float k = (float) Math.min(1.2, s.strength());
+        batch.glow(ray, (float) tl.x(), (float) tl.y(), (float) tl.z(), (float) tr.x(), (float) tr.y(), (float) tr.z(),
+                (float) br.x(), (float) br.y(), (float) br.z(), (float) bl.x(), (float) bl.y(), (float) bl.z(),
+                0, 0, 1, 1, sun[0], sun[1] * 0.96f, sun[2] * 0.85f, 0.35f * k);
     }
 
     /** {@code palette} with every colour {@link #GHOST_RGB}, each entry's alpha kept: a layer as a flat silhouette. */
@@ -330,8 +431,11 @@ public final class WorldRenderer implements AutoCloseable {
         return camera.groundForward().scale(Math.cos(lean)).add(0, -Math.sin(lean), 0);
     }
 
+    /** How dark the shadows are this frame: fainter by night, when the light is weaker. */
+    private float shadowStrength = 1f;
+
     private void groundShadow(Vec3 at, double radius, float alpha) {
-        groundQuad(shadow, at, radius, 0, 0, 0, alpha);
+        groundQuad(shadow, at, radius, 0, 0, 0, alpha * shadowStrength);
     }
 
     /** Pieces a side a shadow on a slope is laid in, and how far over the ground they lie, metres. */
@@ -412,5 +516,6 @@ public final class WorldRenderer implements AutoCloseable {
         itemRenderer.close();
         shadow.close();
         glow.close();
+        ray.close();
     }
 }

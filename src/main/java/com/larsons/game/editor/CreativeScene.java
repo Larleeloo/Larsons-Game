@@ -27,6 +27,8 @@ import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Atmosphere;
+import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
@@ -82,7 +84,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        LEVEL("Level");
+        TIME("Time"), LEVEL("Level");
 
         final String label;
 
@@ -105,6 +107,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     static final float LEFT_W = 278, RIGHT_W = 286, TOP_H = 46, HELP_H = 30;
     /** How often a held scatter brush sows, seconds. */
     static final double SOW_EVERY = 0.08;
+    /** Hours a second the time runs at when it is run in the editor. */
+    static final double PREVIEW_HOURS = 0.75;
 
     private final Game game;
     private final Level level;
@@ -151,6 +155,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private int skyTarget;
     private int backdrop = -1;
     private int addKind;
+    // --- time and weather
+    /** Which of the Time tool's pages is shown: 0 the time, 1 the planet, 2 the weather. */
+    private int timeTab;
+    /** Whether the time runs in the editor (a preview), and the hour it has run to. */
+    private boolean runTime;
+    private double runHour;
     // --- the pointer, and what it is over
     private Vec3 cursor;
     private LevelObject hover;
@@ -289,6 +299,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         view.refresh();
         if (thinFog) view.world().setSky(level.sky().withFog(Math.max(level.sky().fog(), camera.distance() * 2.6)));
+        if (runTime) runHour = (runHour + dt * PREVIEW_HOURS) % 24;
+        view.world().clock().setHour(shownHour());
         view.world().idle(dt);
         camera.update(dt, focusPoint());
         camera.keepAbove(view.terrain(), 0.5);
@@ -310,7 +322,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         if (!ctrl) {
-            int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7};
+            int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
+                    GLFW_KEY_8};
             for (int i = 0; i < toolKeys.length; i++) if (in.pressed(toolKeys[i])) setTool(Tool.values()[i]);
             if (in.pressed(GLFW_KEY_H)) hideUi = !hideUi;
             if (in.pressed(GLFW_KEY_G)) {
@@ -817,6 +830,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
                     gizmos.ring(o.x(), o.z(), 1.0, c, 0.4f);
                 }
+                case ObjectTypes.LIGHT -> {
+                    gizmos.post(foot, o.num("height", 1.2), ObjectTypes.lightColour(o.str("colour", "")), 0.9f, camera);
+                    gizmos.ring(o.x(), o.z(), o.num("radius", 5), ObjectTypes.lightColour(o.str("colour", "")), 0.3f);
+                }
+                case ObjectTypes.RAYS -> {
+                    gizmos.post(foot, Math.min(4, o.num("height", 6)), c, 0.9f, camera);
+                    gizmos.ring(o.x(), o.z(), o.num("spread", 1.5), c, 0.6f);
+                }
                 case ObjectTypes.FLIER -> {
                     gizmos.ring(o.x(), o.z(), FlyingDummy.RADIUS_OF_ROUNDS, c, 0.35f);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -863,6 +884,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case ObjectTypes.MARKER -> o.str("name", "spot");
                 case ObjectTypes.VINES -> "Vines";
                 case ObjectTypes.SOUND -> "Sound: " + ObjectTypes.readable(o.str("sound", "?"));
+                case ObjectTypes.LIGHT -> "Light";
+                case ObjectTypes.RAYS -> "Light rays";
                 default -> ObjectTypes.get(o.type()) == null ? o.type() + "?" : null;
             };
             if (text == null) continue;
@@ -941,6 +964,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Shift+[ ]: strength";
             case SCATTER -> "Hold the left button: scatter · Shift: pull up · [ ]: brush size (or Shift+wheel)";
             case SKY -> "Pick what to colour, then click a swatch · the fog and the backdrops show as you change them";
+            case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
+                    + "and light rays · Run the time to watch a day go by";
             case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
@@ -968,6 +993,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case PAINT -> paintPanel(ui, px, py, pw);
             case SCATTER -> scatterPanel(ui, px, py, pw);
             case SKY -> skyPanel(ui, px, py, pw);
+            case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
         }
     }
@@ -1208,6 +1234,91 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         propSnapshot = widgets.dragging() ? key : null;
         level.setSky(s);
         dirty = true;
+    }
+
+    /** The hour the editor shows: the level's start, or where the time has run to. */
+    private double shownHour() {
+        return runTime ? runHour : level.sky().air().startHour();
+    }
+
+    private void timePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Time and weather", x, y);
+        String[] tabs = {"Time", "Planet", "Weather"};
+        float bw = (w - 8) / 3;
+        for (int i = 0; i < tabs.length; i++) {
+            if (ui.button(tabs[i], x + i * (bw + 4), y, bw, 28, timeTab == i, true)) timeTab = i;
+        }
+        y += 40;
+        Atmosphere a = level.sky().air(), n = a;
+        switch (timeTab) {
+            case 0 -> {
+                ui.text(ui.body, "It is " + DayCycle.clock(shownHour()) + (runTime ? ", the time running" : ""), x, y,
+                        Theme.TITLE);
+                y += 30;
+                n = n.withStartHour(widgets.slider(ui, "t-start", "Starts at", a.startHour(), 0, 23.99,
+                        "%.1f", x, y + 10, w));
+                y += 48;
+                float qb = (w - 12) / 4;
+                String[] names = {"Dawn", "Noon", "Dusk", "Night"};
+                double[] hours = {6.3, 12, 18.0, 0};
+                for (int i = 0; i < names.length; i++) {
+                    if (ui.button(names[i], x + i * (qb + 4), y, qb, 26)) {
+                        n = n.withStartHour(hours[i]);
+                        runTime = false;
+                    }
+                }
+                y += 36;
+                n = n.withDayMinutes(widgets.slider(ui, "t-day", "Day (min)", a.dayMinutes(), 0,
+                        Atmosphere.MAX_DAY_MINUTES, "%.0f", x, y + 10, w));
+                y += 48;
+                y += ui.paragraph(ui.small, a.timeRuns() ? "A whole day and night, in real minutes. The sun rises "
+                        + "at 06:00 and sets at 18:00. Playing, hold N to run the time fast." : "0: the time stands "
+                        + "still, always this hour.", x, y, w, Theme.HINT) + 10;
+                boolean run = widgets.toggle(ui, "Run it here", runTime, x, y, w);
+                if (run && !runTime) runHour = a.startHour();
+                runTime = run;
+                y += 38;
+            }
+            case 1 -> {
+                n = n.withPlanet(widgets.toggle(ui, "The planet", a.planet(), x, y, w));
+                y += 38;
+                double az = widgets.slider(ui, "t-paz", "Where (°)", a.planetAzimuth(), 0, 359, "%.0f",
+                        x, y + 10, w);
+                y += 44;
+                double el = widgets.slider(ui, "t-pel", "Height (°)", a.planetElevation(), -10, 80, "%.0f", x,
+                        y + 10, w);
+                y += 44;
+                n = n.withPlanetAt(az, el);
+                n = n.withPlanetSize(widgets.slider(ui, "t-psize", "Size (°)", a.planetSize(), 2, 60, "%.0f",
+                        x, y + 10, w));
+                y += 44;
+                n = n.withRings(widgets.toggle(ui, "Rings", a.rings(), x, y, w));
+                y += 34;
+                n = n.withPlanetSeed((int) widgets.stepper(ui, "Bands", a.planetSeed(), 1, 1, 99, "%.0f", x, y, w));
+                y += 38;
+                ui.paragraph(ui.small, "Where: degrees round from north (90 east). The world is the planet's moon, so the planet never moves: only its lit side "
+                        + "turns with the sun - a crescent by day, full at midnight, lighting the night.", x, y, w,
+                        Theme.HINT);
+            }
+            default -> {
+                n = n.withClouds(widgets.slider(ui, "t-clouds", "Clouds", a.clouds(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withStars(widgets.slider(ui, "t-stars", "Stars", a.stars(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withAurora(widgets.slider(ui, "t-aurora", "Aurora", a.aurora(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withMist(widgets.slider(ui, "t-mist", "Mist", a.mist(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withMistHeight(widgets.slider(ui, "t-misth", "Mist up to (m)", a.mistHeight(), 0.3, 30,
+                        "%.1f", x, y + 10, w));
+                y += 44;
+                n = n.withRays(widgets.slider(ui, "t-rays", "Light rays", a.rays(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                ui.paragraph(ui.small, "The mist lies thickest at dawn and by night; the light rays slant through the "
+                        + "trees while the sun is low.", x, y, w, Theme.HINT);
+            }
+        }
+        if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
     }
 
     private void levelPanel(Ui ui, float x, float y, float w) {
@@ -1606,6 +1717,41 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 List<Sky.Backdrop> next = new ArrayList<>(s.backdrops());
                 next.add(b);
                 level.setSky(s.withBackdrops(next));
+                dirty = true;
+            }
+            case "time" -> {
+                // time <hour> | time day <minutes> | time run on|off
+                String[] t = argument.trim().split("\\s+");
+                Atmosphere air = level.sky().air();
+                switch (t[0]) {
+                    case "day" -> level.setSky(level.sky().withAir(air.withDayMinutes(Double.parseDouble(t[1]))));
+                    case "run" -> {
+                        runTime = t.length < 2 || !t[1].equals("off");
+                        runHour = air.startHour();
+                    }
+                    default -> level.setSky(level.sky().withAir(air.withStartHour(Double.parseDouble(t[0]))));
+                }
+            }
+            case "weather" -> {
+                // weather <clouds|stars|aurora|mist|misth|rays|planet|rings|planetat|planetsize> <value...>
+                String[] t = argument.trim().split("\\s+");
+                Atmosphere w = level.sky().air();
+                double v = t.length > 1 && !t[1].equals("on") && !t[1].equals("off") ? Double.parseDouble(t[1]) : 0;
+                boolean on = t.length < 2 || !t[1].equals("off");
+                w = switch (t[0]) {
+                    case "clouds" -> w.withClouds(v);
+                    case "stars" -> w.withStars(v);
+                    case "aurora" -> w.withAurora(v);
+                    case "mist" -> w.withMist(v);
+                    case "misth" -> w.withMistHeight(v);
+                    case "rays" -> w.withRays(v);
+                    case "planet" -> w.withPlanet(on);
+                    case "rings" -> w.withRings(on);
+                    case "planetat" -> w.withPlanetAt(v, Double.parseDouble(t[2]));
+                    case "planetsize" -> w.withPlanetSize(v);
+                    default -> w;
+                };
+                level.setSky(level.sky().withAir(w));
                 dirty = true;
             }
             case "name" -> level.setName(argument);

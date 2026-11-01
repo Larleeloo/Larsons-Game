@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.gfx.SceneLight;
 import com.larsons.game.gfx.Shader;
 import com.larsons.game.math.Mat4;
 import org.lwjgl.BufferUtils;
@@ -82,8 +83,219 @@ public final class VoidRenderer implements AutoCloseable {
             uniform vec4 uBdA[8];       // kind, height (degrees), haze, seed
             uniform vec4 uBdB[8];       // colour (rgb), snow
             uniform vec4 uBdC[8];       // from, to (degrees from north; equal: all round), the sea's shore (m), 0
+            // --- the time of day (DayCycle.Daylight) ---
+            uniform vec3 uSunDir;       // the way to the sun
+            uniform vec3 uSunColour;
+            uniform vec3 uGlow;         // the sunset's glow round the sun
+            uniform vec2 uDay;          // how much it is day, how much of a dawn or sunset
+            uniform float uStars;       // how bright the stars are
+            uniform float uStarTurn;    // how far the sky has turned (radians): the stars wheel round the pole
+            uniform float uAurora;
+            uniform vec3 uPlanetDir;    // the way to the planet's middle
+            uniform vec4 uPlanet;       // its radius (radians; 0: none), its pattern, rings (1) or not, its storms' time
+            uniform vec4 uClouds;       // cover, wind offset (x, z, metres), 0
+            uniform vec3 uCloudLit, uCloudShade;
             out vec4 fragColor;
-            """ + GroundTexture.GLSL + """
+            """ + GroundTexture.GLSL + SceneLight.GLSL + """
+
+            // --- the sky --------------------------------------------------------------------
+            float skHash(vec3 p) {
+                uvec3 q = uvec3(ivec3(floor(p)) + 4096);
+                uint h = q.x * 374761393u + q.y * 668265263u + q.z * 2246822519u;
+                h = (h ^ (h >> 13u)) * 1274126177u;
+                return float((h ^ (h >> 16u)) & 0xffffu) / 65535.0;
+            }
+
+            float skNoise(vec2 p) {
+                vec2 i = floor(p), f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(skHash(vec3(i, 0.0)), skHash(vec3(i + vec2(1.0, 0.0), 0.0)), f.x),
+                           mix(skHash(vec3(i + vec2(0.0, 1.0), 0.0)), skHash(vec3(i + vec2(1.0, 1.0), 0.0)), f.x), f.y);
+            }
+
+            float skFbm(vec2 p) {
+                float a = 0.5, s = 0.0;
+                for (int i = 0; i < 4; i++) {
+                    s += a * skNoise(p);
+                    p = p * 2.03 + vec2(17.1, 9.3);
+                    a *= 0.5;
+                }
+                return s;
+            }
+
+            // a 4 x 4 ordered dither, per pixel of the sky's art (cell), -0.5 .. 0.5
+            float skBayer(vec2 cell) {
+                ivec2 c = ivec2(mod(cell, 4.0));
+                int i = c.x + c.y * 4;
+                int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+                return float(m[i]) / 16.0 - 0.47;
+            }
+
+            // a sky direction from its azimuth (degrees from north through east) and elevation
+            vec3 skDir(float az, float el) {
+                float a = radians(az), e = radians(el);
+                return vec3(sin(a) * cos(e), sin(e), -cos(a) * cos(e));
+            }
+
+            // the planet's bands at latitude lat, longitude lon (radians)
+            vec3 planetBands(float lat, float lon, float seed, float t) {
+                float wob = 0.045 * sin(lon * 3.0 + lat * 21.0 + t * 0.07 + seed)
+                          + 0.05 * (skNoise(vec2(lon * 2.4 + t * 0.02, lat * 16.0 + seed)) - 0.5);
+                float y = lat + wob;
+                float b = sin(y * 10.5 + seed * 1.3) * 0.5 + 0.5;
+                float c = sin(y * 23.0 + seed * 2.1 + 0.6 * sin(lon * 5.0 + t * 0.05)) * 0.5 + 0.5;
+                vec3 cream = vec3(0.92, 0.86, 0.73), tan = vec3(0.80, 0.64, 0.47), orange = vec3(0.86, 0.56, 0.34),
+                     rust = vec3(0.60, 0.36, 0.25), pole = vec3(0.58, 0.60, 0.65), dark = vec3(0.44, 0.30, 0.25);
+                vec3 col = b > 0.64 ? cream : b > 0.40 ? tan : b > 0.20 ? orange : rust;
+                if (c > 0.86) col = mix(col, dark, 0.45);
+                else if (c < 0.10) col = mix(col, cream, 0.35);
+                col = mix(col, pole, smoothstep(0.95, 1.2, abs(y)));
+                // the great storm: an oval drifting along its band
+                float lon0 = seed * 2.7 + t * 0.012;
+                float dx = mod(lon - lon0 + 3.14159265, 6.2831853) - 3.14159265;
+                float e = pow(dx * cos(lat) / 0.21, 2.0) + pow((lat + 0.36) / 0.085, 2.0);
+                if (e < 1.0) col = e < 0.55 ? vec3(0.76, 0.34, 0.22) : vec3(0.88, 0.62, 0.45);
+                return col;
+            }
+
+            // the planet seen along q: its colour, and 1 where it is (it hides what is behind it)
+            vec4 planet(vec3 q) {
+                float R = uPlanet.x;
+                if (R <= 0.0) return vec4(0.0);
+                vec3 P = uPlanetDir;
+                vec3 right = normalize(cross(P, vec3(0.0, 1.0, 0.0)));
+                vec3 up = cross(right, P);
+                float sr = sin(R);
+                vec2 uv = vec2(dot(q, right), dot(q, up)) / sr;
+                float rr = dot(uv, uv);
+                vec4 ring = vec4(0.0);
+                // its spin axis, tipped a little
+                vec3 A = normalize(up * 0.96 + right * 0.28);
+                if (uPlanet.z > 0.5) {
+                    // the rings: a flat band round its equator, seen edge-on or nearly
+                    float ad = dot(P, A);
+                    if (abs(ad) > 1e-3) {
+                        float tt = -(uv.x * dot(right, A) + uv.y * dot(up, A)) / ad;
+                        vec3 X = uv.x * right + uv.y * up + tt * P;
+                        float r = length(X);
+                        if (r > 1.35 && r < 2.15 && dot(q, P) > 0.0) {
+                            float band = sin(r * 31.0) * 0.5 + 0.5;
+                            float lit = clamp(0.35 + 0.65 * max(0.0, dot(uSunDir, A) * sign(ad) + 0.4), 0.2, 1.0);
+                            vec3 rc = mix(vec3(0.62, 0.55, 0.47), vec3(0.85, 0.78, 0.66), band) * lit;
+                            float a = r < 1.55 ? 0.55 : r > 1.95 ? 0.4 : 0.8;
+                            // behind the planet where it would be behind its body
+                            if (!(rr < 1.0 && tt > 0.0)) ring = vec4(rc, a * (band > 0.25 ? 1.0 : 0.35));
+                        }
+                    }
+                }
+                if (rr >= 1.0 || dot(q, P) <= 0.0) return ring;
+                float w = sqrt(1.0 - rr);
+                vec3 N = uv.x * right + uv.y * up - w * P;
+                vec3 B = normalize(cross(A, -P)), C = cross(B, A);
+                float lat = asin(clamp(dot(N, A), -1.0, 1.0));
+                float lon = atan(dot(N, B), dot(N, C));
+                float t = uPlanet.w;
+                vec3 col = planetBands(lat, lon + t * (0.006 + 0.004 * cos(lat * 2.0)), uPlanet.y, t);
+                float lam = dot(N, uSunDir);
+                float shade = lam > 0.42 ? 1.0 : lam > 0.16 ? 0.84 : lam > 0.0 ? 0.66 : 0.0;
+                col *= mix(0.82, 1.0, w);
+                vec3 night = col * 0.07 + vec3(0.018, 0.022, 0.045);
+                vec3 c = shade > 0.0 ? col * shade : night;
+                if (w < 0.16 && lam > 0.0) c = mix(c, vec3(1.0, 0.92, 0.80), 0.25);   // its air, lit at the rim
+                if (ring.a > 0.0) c = mix(c, ring.rgb, ring.a);
+                return vec4(c, 1.0);
+            }
+
+            // the sky along dir, its pixels px degrees: the colours of the hour, the sunset's glow, the
+            // stars and the aurora by night, the sun, the planet and the clouds
+            vec3 skyColour(vec3 dir, float px) {
+                float az = degrees(atan(dir.x, -dir.z));
+                if (az < 0.0) az += 360.0;
+                float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
+                vec2 cell = vec2(floor(az / px), floor(el / px));
+                float qaz = (cell.x + 0.5) * px, qel = (cell.y + 0.5) * px;
+                vec3 q = skDir(qaz, qel);
+                float dither = skBayer(cell);
+
+                // the colours of the hour, in bands
+                float g = pow(clamp(q.y, 0.0, 1.0), 0.6);
+                g = floor(g * 18.0 + 0.5 + dither * 0.35) / 18.0;
+                vec3 c = mix(uHorizon, uZenith, g);
+                // the sunset's glow round the sun, low in the sky
+                vec2 sxz = normalize(uSunDir.xz + vec2(1e-5));
+                float toward = max(0.0, dot(normalize(q.xz + vec2(1e-5)), sxz));
+                float glow = uDay.y * pow(toward, 3.0) * (1.0 - smoothstep(0.0, 38.0, qel));
+                c = mix(c, uGlow, floor(glow * 7.0 + 0.5 + dither * 0.35) / 7.0 * 0.8);
+
+                // the stars, wheeling round the pole, and the band of the galaxy across them
+                vec4 pl = planet(q);
+                if (uStars > 0.003) {
+                    float lat = radians(90.0 - 55.0);
+                    vec3 pole = vec3(0.0, sin(lat), -cos(lat));
+                    float ct = cos(uStarTurn), st = sin(uStarTurn);
+                    vec3 r = q * ct + cross(pole, q) * st + pole * dot(pole, q) * (1.0 - ct);
+                    float k = 1.0 / radians(px);
+                    vec3 sc = floor(r * k);
+                    float h = skHash(sc);
+                    vec3 M = normalize(vec3(0.42, 0.55, 0.72));
+                    float band = exp(-pow(dot(r, M) / 0.16, 2.0));
+                    float thr = 0.9965 - 0.004 * band;
+                    if (h > thr) {
+                        float b = (h - thr) / (1.0 - thr);
+                        float tw = 0.65 + 0.35 * sin(uTime * (2.0 + 3.0 * b) + h * 211.0);
+                        float hue = skHash(sc + 31.0);
+                        vec3 sc3 = hue > 0.8 ? vec3(0.75, 0.82, 1.0) : hue > 0.6 ? vec3(1.0, 0.9, 0.7) : vec3(1.0);
+                        c = mix(c, sc3, clamp(uStars * tw * (0.55 + 0.45 * b) * (1.0 - pl.a), 0.0, 1.0));
+                    }
+                    float neb = skFbm(r.xy * 3.0 + r.z * 2.0) * band;
+                    vec3 nc = mix(vec3(0.30, 0.18, 0.45), vec3(0.15, 0.35, 0.45), skFbm(r.zx * 4.0));
+                    c += nc * floor(neb * uStars * 5.0 + 0.5) / 5.0 * 0.22 * (1.0 - pl.a);
+                }
+
+                // the aurora: curtains of light over the northern horizon
+                if (uAurora > 0.003 && uDay.x < 0.9) {
+                    float n = mod(qaz + 180.0, 360.0) - 180.0;
+                    if (abs(n) < 75.0) {
+                        float base = 7.0 + 3.0 * sin(n * 0.045 + uTime * 0.06) + 1.5 * sin(n * 0.13 - uTime * 0.11);
+                        float rise = qel - base;
+                        float streak = skNoise(vec2(n * 0.55 + uTime * 0.3, uTime * 0.05));
+                        float a = streak * smoothstep(0.0, 1.5, rise) * (1.0 - smoothstep(3.0, 24.0, rise))
+                                * (1.0 - smoothstep(55.0, 75.0, abs(n)));
+                        a = floor(a * 5.0 + 0.5) / 5.0;
+                        vec3 ac = mix(vec3(0.25, 0.95, 0.60), vec3(0.62, 0.35, 0.95), clamp(rise / 18.0, 0.0, 1.0));
+                        c += ac * a * uAurora * (1.0 - uDay.x) * 0.75 * (1.0 - pl.a);
+                    }
+                }
+
+                // the sun: a glow round it and its disc - hidden behind the planet (an eclipse)
+                float sa = degrees(acos(clamp(dot(q, uSunDir), -1.0, 1.0)));
+                float halo = exp(-sa / 5.0) * (0.25 + 0.5 * uDay.x);
+                c += uSunColour * floor(halo * 5.0 + 0.5) / 5.0 * 0.6 * (1.0 - pl.a);
+                if (sa < 1.8 && pl.a < 0.5) c = uSunColour;
+
+                // the planet - seen through the day's air: its dark side is the sky's blue by day, and
+                // even its lit side a little hazy
+                vec3 seen = mix(pl.rgb, c, (max(pl.r, max(pl.g, pl.b)) < 0.2 ? 0.7 : 0.18) * uDay.x);
+                c = mix(c, seen, pl.a);
+
+                // the clouds: drifting over everything, lit from the sun's side
+                if (uClouds.x > 0.003 && q.y > 0.01) {
+                    vec2 pc = q.xz / q.y * 900.0 + uClouds.yz;
+                    float thr = 1.0 - uClouds.x * 0.62 - 0.1;
+                    float n = skFbm(pc / 1100.0);
+                    if (n > thr) {
+                        float toSun = skFbm((pc + normalize(uSunDir.xz + vec2(1e-5)) * 110.0) / 1100.0);
+                        float lit = toSun < n ? 1.0 : 0.0;
+                        float edge = n < thr + 0.03 ? 1.0 : 0.0;
+                        vec3 cc = mix(uCloudShade, uCloudLit, max(lit, edge * 0.6));
+                        float fade = smoothstep(0.02, 0.14, q.y);
+                        cc = mix(uHorizon, cc, fade);
+                        float a = n < thr + 0.012 ? 0.5 : 1.0;
+                        c = mix(c, cc, a * (0.55 + 0.45 * fade));
+                    }
+                }
+                return c;
+            }
 
             // --- the distant backgrounds ---------------------------------------------------
             float bdHash(float n) {
@@ -198,7 +410,7 @@ public final class VoidRenderer implements AutoCloseable {
                     if (arc <= 0.0) continue;
                     // where the arc tapers off at its ends, everything is lower by as much
                     float h = uBdA[i].y, del = qel / arc;
-                    vec3 col = uBdB[i].rgb;
+                    vec3 col = uBdB[i].rgb * uAmbient;
                     if (kind <= 1) {
                         // the lit side faces the sun (west), the other in shadow, as the art is shaded
                         vec3 on = bdPeaks(kind == 1, qaz, del, h, uBdA[i].w, uBdB[i].w > 0.5);
@@ -235,7 +447,7 @@ public final class VoidRenderer implements AutoCloseable {
                     if (length(p.xz) < uBdC[i].z) continue;
                     vec2 cell = floor(p.xz / vec2(1.6, 0.6));
                     float wave = bdHash(cell.x * 7.0 + cell.y * 131.0 + floor(uTime * 1.5 + bdHash(cell.y) * 9.0));
-                    vec3 col = uBdB[i].rgb * (wave > 0.93 ? 1.45 : wave > 0.7 ? 1.12 : 1.0);
+                    vec3 col = uBdB[i].rgb * uAmbient * (wave > 0.93 ? 1.45 : wave > 0.7 ? 1.12 : 1.0);
                     float haze = clamp(uBdA[i].z + (1.0 - uBdA[i].z) * (1.0 - exp(-t / 900.0)), 0.0, 1.0);
                     return vec4(mix(col, horizon, haze), 1.0);
                 }
@@ -276,7 +488,6 @@ public final class VoidRenderer implements AutoCloseable {
                 gl_FragDepth = 1.0;
                 vec3 dir = normalize(uForward + vNdc.x * uTanHalf.x * uRight
                                               + vNdc.y * uTanHalf.y * uUp);
-                vec3 sky = mix(uHorizon, uZenith, pow(clamp(dir.y, 0.0, 1.0), 0.6));
 
                 // (the ground is sampled before any early exit: its mip levels need the neighbours' coordinates)
                 float t = dir.y < -1e-4 ? -uEye.y / dir.y : 0.0;
@@ -284,11 +495,14 @@ public final class VoidRenderer implements AutoCloseable {
                 vec3 grass = uGroundTile > 0.0 ? groundColour(p.xz) : vec3(0.0);
 
                 if (dir.y >= -1e-4 || uEye.y <= 0.0) {
+                    vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
                     vec4 far = backdrops(dir, uHorizon, false);
                     fragColor = vec4(mix(sky, far.rgb, far.a), 1.0);
                     return;
                 }
                 vec3 c = uGroundTile > 0.0 ? grass : studioFloor(p);
+                c *= sceneLight(p);
+                c = mix(c, uMistColour, sceneMist(p));
                 float fog = 1.0 - exp(-pow(t / uFogDistance, 2.0));
                 c = mix(c, uHorizon, fog);
                 vec4 water = sea(dir, p, t, uHorizon);
@@ -330,21 +544,24 @@ public final class VoidRenderer implements AutoCloseable {
 
     /**
      * Draw the sky and the flat ground round {@code terrain}'s hills from
-     * {@code camera}, writing the ground's depth. Leaves depth testing on.
+     * {@code camera}, writing the ground's depth, at noon. Leaves depth testing on.
      */
     public void draw(OrbitCamera camera, double aspect, float fogDistance, Mat4 viewProj, Terrain terrain) {
-        draw(camera, aspect, fogDistance, viewProj, terrain, Sky.DEFAULT, 0, 0.2f);
+        Sky still = Sky.DEFAULT.withAir(Atmosphere.STILL);
+        draw(camera, aspect, fogDistance, viewProj, terrain, still, DayCycle.Daylight.noon(still), SceneLight.NONE,
+                0, 0.2f);
     }
 
     /**
-     * Draw {@code sky} - its colours, its distant backgrounds, {@code
-     * pixelDegrees} of the view a backdrop's pixel - and the flat ground
-     * round {@code terrain}'s hills from {@code camera} at world time {@code
-     * time} (the sea glints with it), writing the ground's depth. Leaves
-     * depth testing on.
+     * Draw {@code sky} as {@code light} has it at this hour - its colours,
+     * the sun, the planet, the stars, the clouds, its distant backgrounds,
+     * {@code pixelDegrees} of the view a pixel of them - and the flat ground
+     * round {@code terrain}'s hills, lit by {@code scene} and in its mist,
+     * from {@code camera} at world time {@code time} (the sea glints, the
+     * clouds drift), writing the ground's depth. Leaves depth testing on.
      */
     public void draw(OrbitCamera camera, double aspect, float fogDistance, Mat4 viewProj, Terrain terrain, Sky sky,
-                     double time, float pixelDegrees) {
+                     DayCycle.Daylight light, SceneLight scene, double time, float pixelDegrees) {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_ALWAYS);
         glDepthMask(true);
@@ -356,7 +573,7 @@ public final class VoidRenderer implements AutoCloseable {
         set("uForward", camera.forward());
         double tanY = Math.tan(camera.fovY() / 2);
         shader.set("uTanHalf", (float) (tanY * aspect), (float) tanY);
-        float[] horizon = sky == Sky.DEFAULT ? HORIZON : sky.horizonColour(), zenith = Sky.rgb(sky.zenith());
+        float[] horizon = light.horizon(), zenith = light.zenith();
         shader.set("uHorizon", horizon[0], horizon[1], horizon[2]);
         shader.set("uZenith", zenith[0], zenith[1], zenith[2]);
         shader.set("uFogDistance", fogDistance);
@@ -372,6 +589,26 @@ public final class VoidRenderer implements AutoCloseable {
             shader.set("uBdC[" + i + "]", (float) b.from(), (float) b.to(), (float) b.distance(), 0);
         }
         shader.set("uBackdrops", n);
+        // the time of day
+        set("uSunDir", light.sun());
+        float[] sc = light.sunColour(), glow = light.glow();
+        shader.set("uSunColour", sc[0], sc[1], sc[2]);
+        shader.set("uGlow", glow[0], glow[1], glow[2]);
+        shader.set("uDay", (float) light.day(), (float) light.twilight());
+        shader.set("uStars", (float) light.stars());
+        shader.set("uStarTurn", (float) (light.hour() / 24 * Math.PI * 2));
+        Atmosphere air = sky.air();
+        shader.set("uAurora", (float) air.aurora());
+        set("uPlanetDir", light.planet());
+        shader.set("uPlanet", air.planet() ? (float) Math.toRadians(air.planetSize() / 2) : 0f,
+                (float) (air.planetSeed() * 1.618 % 7), air.rings() ? 1f : 0f, (float) (time % 20000));
+        float[] cl = light.cloudLit(), cs = light.cloudShade();
+        double wind = time * 6.0;           // the clouds drift with the wind, 6 m a second up there
+        shader.set("uClouds", (float) air.clouds(), (float) (Scenery.WIND.x() * wind % 100000),
+                (float) (Scenery.WIND.z() * wind % 100000), 0f);
+        shader.set("uCloudLit", cl[0], cl[1], cl[2]);
+        shader.set("uCloudShade", cs[0], cs[1], cs[2]);
+        scene.bind(shader);
         shader.set("uViewProj", viewProj);
         shader.set("uDepthBack", TerrainRenderer.DEPTH_BACK);
         ground.bind(shader, 0);

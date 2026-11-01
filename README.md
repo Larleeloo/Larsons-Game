@@ -134,6 +134,7 @@ window could even open).
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
+| **N** (held) | time-lapse: the day runs sixty times as fast while it is held ([Day and night](#day-and-night)) |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F11** | full screen, with the display switched to its fastest refresh rate - or back to the window ([frame rate](#120-frames-a-second)) |
 | **F12** | screenshot (to `screenshots/`) |
@@ -1129,6 +1130,48 @@ every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
 Settings → Scenery) hides it all. The folder's format is in
 [assets/scenery/README.md](assets/scenery/README.md).
 
+## Day and night
+
+The world is a moon of a gas giant, and it keeps one face to it: the planet
+hangs in the same place in the sky all day and all night, banded and huge, and
+the sun goes round it. The sun rises in the east at 06:00, stands in the south
+at noon and sets in the west at 18:00. The planet is lit on its side towards
+the sun, so it is a thin crescent near the sun by day and **full at
+midnight**, when it lights the night.
+
+<p align="center">
+  <img src="docs/screenshots/day-and-night.png" width="98%" alt="The meadow at dawn, noon, sunset and midnight under the gas giant">
+</p>
+<p align="center">
+  <img src="docs/screenshots/light-rays.png" width="49%" alt="Morning mist and light rays slanting through the trees">
+  <img src="docs/screenshots/night-lights.png" width="49%" alt="The open chest and its loot lighting the ground at night">
+</p>
+<p align="center">
+  <img src="docs/screenshots/creative-time.png" width="60%" alt="Creative Mode's Time tool at nine in the evening, two lights placed">
+</p>
+
+- **The light** is white by day, gold low in the morning and evening, rose at
+  the sunset and blue by night - warmer under a full planet. Every sprite, the
+  ground, the hills and the scenery are lit by it.
+- **The sky** shades from the horizon up, glows round the sun at dawn and
+  dusk, and has drifting pixel clouds lit by the sun (pink at sunset, grey
+  under the planet), stars that wheel round the pole through the night, and an
+  aurora.
+- **Mist** lies on the ground, thickest at dawn and thinning as it rises,
+  drifting in banks.
+- **Light rays** slant down through the trees' crowns and the mist while the
+  sun is low, in the morning and the evening.
+- **Lights of their own** - an open chest's warm glow, the loot's rarity
+  colours, lanterns and crystals placed in a level - light what is round them
+  at night, in pixel-hard bands as the art is shaded.
+
+A day lasts 24 minutes (an hour a minute); hold **N** for the time-lapse.
+In a demo script, `time 6:30` sets the hour and `timelapse on|off|<speed>`
+runs it fast. Each level sets its own start hour, the day's length (0: the
+time stands still), the planet - where it hangs, how big, its bands, rings -
+and its clouds, stars, aurora, mist and light rays, with Creative Mode's
+**Time** tool.
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas
@@ -1149,17 +1192,18 @@ editable), and every saved level with **Edit**, **Play**, **Copy** and
 
 The editor shows the level as it will be played - the ground, the scenery, the
 items turning, the dummies, the chests - with what you are about to place
-standing under the pointer. Seven tools, on the number keys:
+standing under the pointer. Eight tools, on the number keys:
 
 | Tool | What it does |
 |---|---|
-| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
+| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
 | **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind) |
 | **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it |
 | **4 Paint** | dirt, forest floor, gravel or flower meadow over the grass; Shift paints back to grass |
 | **5 Scatter** | grass, trees or rocks - one sprite or a kind mixed - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep. Shift pulls up what you are sowing |
 | **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range |
-| **7 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
+| **7 Time** | the time of day and the weather: the hour the level starts at (Dawn, Noon, Dusk, Night), how many minutes a day lasts (0: the time stands still) and **Run it here** to watch the day go by in the editor; the planet - where it hangs, how high, how big, its bands, rings or not -; and how cloudy, starry and misty it is, the aurora, how high the mist reaches and the light rays |
+| **8 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
@@ -1188,18 +1232,22 @@ assets/levels/<level>/
   "format": 1,
   "name": "Lakeside",
   "size": 128,
-  "sky": {"zenith": "#4A6FA5", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
+  "sky": {"zenith": "#4A6FA5", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...],
+          "time": {"start": 10, "day": 24},
+          "planet": {"show": true, "azimuth": 200, "elevation": 16, "size": 26, "rings": false, "seed": 1},
+          "clouds": 0.35, "stars": 0.85, "aurora": 0.35, "mist": {"thick": 0.25, "height": 2.5}, "rays": 0.6},
   "objects": [
     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
     {"id": 3, "type": "item", "x": 1.4, "z": -2.2, "yaw": 0, "item": "sword", "tier": "iron"},
     {"id": 4, "type": "dummy", "x": 3, "z": -2, "yaw": 200, "health": 100},
-    {"id": 5, "type": "sound", "x": -12, "z": 8, "yaw": 0, "sound": "ambient/stream"}
+    {"id": 5, "type": "sound", "x": -12, "z": 8, "yaw": 0, "sound": "ambient/stream"},
+    {"id": 6, "type": "light", "x": 4, "z": 9, "yaw": 0, "colour": "lantern", "radius": 5, "strength": 1}
   ]
 }
 ```
 
-The images are left out while the ground is flat and all grass. Keys and kinds
+A level without `time`, `planet` and the rest gets the demo's day. The images are left out while the ground is flat and all grass. Keys and kinds
 of object this game does not know are read and written back as they were, so
 a level made by a newer game loses nothing in an older editor.
 
@@ -1468,7 +1516,12 @@ more than 30 times a second, background work watched until it is done (and let
 go if it breaks), a failed step held on screen, a closed window not taken for
 a failure, the bar weighted by last time's timings and the file they are kept
 in, the sprite index's running count and its listing finding the same sheets
-as parsing every name, and the sound effects counted as they decode.
+as parsing every name, and the sound effects counted as they decode; and the
+day (`world/DayCycleTest`): the sun's round, the planet's place and phase, the
+light from noon to the planet-lit night, the stars, the sunset's warm horizon,
+the clock, the time-lapse and the still day, the mist and the light rays by
+the hour, lights falling off in bands, and a level's time, weather, lights and
+rays saved and played back.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -1487,7 +1540,7 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
 `chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
-by dummy n, facing it), `dummy add <x> <z>`, `goto <place|spawn>` (the
+by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the
 highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
 (dive at her now / stand under flier n / lock on to it), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
 that high, rolling out of it), `climb [down|top]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
@@ -1500,13 +1553,13 @@ the item's own colours) and
 
 `scene` also takes `creative` (a new level), `edit:<folder>` and
 `play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
-<place|select|sculpt|paint|scatter|sky|level>`, `entry <sprite|item|kind|label>`
+<place|select|sculpt|paint|scatter|sky|time|level>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
 `turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
 <strength> [seconds] [height]`, `paint <0 grass … 4 meadow> <x> <z> <radius>`,
 `scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
-`sky fog <m>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
+`sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
 height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
 on|off`, `fog game|thin`, `playtest [x z]` and `leave`.
 
