@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "blanket": [
+   0
+  ],
+  "leather": [
+   1
+  ],
+  "fittings": [
+   2
+  ]
+ },
+ "materials": [
+  "blanket",
+  "leather",
+  "fittings"
+ ]
+}

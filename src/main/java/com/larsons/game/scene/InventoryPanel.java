@@ -516,6 +516,7 @@ final class InventoryPanel {
                 : item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
         Border border = item.border();
         String effect = item.def().isFood() ? "Eat: " + item.def().food().effect()
+                : item.def().isTack() ? "Saddles a horse: walk up to one and press E"
                 : border == null ? null : border.label() + " border: " + border.effect();
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));

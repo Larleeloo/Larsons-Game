@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.AnimalKind;
 import com.larsons.game.math.Pchip;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
@@ -77,6 +78,16 @@ import java.util.function.ToDoubleFunction;
  * <p>The ranged attacks have <b>aimed-up</b> variants (the bow's draw and loose,
  * the crossbow's shot, the staff's and the wand's casts, standing): she
  * plays one when what she aims at is well above her ({@link #setAimUp}).
+ *
+ * <p>She <b>rides</b> a saddled horse ({@link World#mount}): a hop up into the
+ * saddle ({@link #MOUNT_TIME}), then she steers it - it turns no faster than
+ * {@link #RIDE_TURN}, slowing round a sharp turn - at a walk, a canter (the
+ * run key) or a gallop (the sprint key), never off a ledge nor into deep
+ * water; and a hop down off its side. Sitting it she plays {@link
+ * AnimState#RIDE} (at a stand and a walk) or {@link AnimState#RIDE_RUN},
+ * frame for frame with the horse's sheet - its clock is hers ({@link
+ * #horseTime}) - and her feet are where its {@link RideTrack} puts the seat
+ * in that frame, so she rises and falls with its back.
  *
  * <p>For looking at the art rather than playing, a state can be
  * <em>previewed</em>: it loops in place (the one-shots included) until the
@@ -171,6 +182,20 @@ public final class Player {
     /** Ground steeper than this (rise a metre) she cannot stand on: she slides down it, this fast (a second). */
     public static final double SLIDE = Terrain.STEEP * 1.6, SLIDE_SPEED = 4;
 
+    /** How long getting up into the saddle takes, and getting down off it, seconds. */
+    public static final double MOUNT_TIME = 0.6, DISMOUNT_TIME = 0.5;
+    /** How high over the straight way between she hops, getting on or off, metres. */
+    public static final double MOUNT_HOP = 0.45;
+    /** The horse's paces under her: a walk, a canter (the run key), a gallop (the sprint key), metres a second. */
+    public static final double RIDE_WALK = 1.9, RIDE_CANTER = 6.0, RIDE_GALLOP = 9.5;
+    /** How fast she turns the horse, radians a second (a gallop turns wider). */
+    public static final double RIDE_TURN = 2.8;
+    /** Faster than this the horse plays its run sheet (and she {@link AnimState#RIDE_RUN}), metres a second. */
+    public static final double RIDE_RUN_ABOVE = 3.2;
+
+    /** Whether she rides: not, getting up into the saddle, sitting it, getting down. */
+    public enum Riding { NO, MOUNTING, RIDING, DISMOUNTING }
+
     /** Something that happened to her this frame, for the world to show: a fall's hurt, a roll out of one... */
     public record Event(Kind kind, double amount) {
         public enum Kind {
@@ -189,7 +214,11 @@ public final class Player {
             /** Hurt by something ({@code amount}). */
             HURT,
             /** Her health ran out. */
-            KNOCKED_OUT
+            KNOCKED_OUT,
+            /** Up in the saddle. */
+            MOUNTED,
+            /** Down off the horse, on her feet. */
+            DISMOUNTED
         }
     }
 
@@ -290,6 +319,15 @@ public final class Player {
     private BooleanSupplier aimUp = () -> false;
     private final List<Event> events = new ArrayList<>();
 
+    // riding: the hop on or off (from, to, how far into it), the pace, the seat under her
+    private Riding riding = Riding.NO;
+    private double rideTime, rideSpeed, rideLift, rideAhead;
+    private Vec3 hopFrom = Vec3.ZERO, hopTo = Vec3.ZERO;
+    private double hopFromLift, hopFromAhead, hopFromHeading, hopToHeading;
+    private RideTrack rideTrack = RideTrack.standard();
+    private String horseSheet = "idle";
+    private double horseTime, horseRate = 1;
+
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private final Inventory inventory;
@@ -324,6 +362,12 @@ public final class Player {
             // One-shots loop too while previewed, with a beat's pause between.
             if (!preview.loops() && stateTime > durations.applyAsDouble(preview) + 0.35) stateTime = 0;
             turnToward(dt);
+            return;
+        }
+        if (riding != Riding.NO) {
+            crouched = false;
+            if (riding == Riding.RIDING) steer(dt, in);
+            else hop(dt, durations);
             return;
         }
         if (ledge != null) {
@@ -480,6 +524,210 @@ public final class Player {
             }
         }
     }
+
+    // --- riding --------------------------------------------------------------------------
+
+    /**
+     * Get up on the saddled horse standing at {@code horseAt} facing {@code
+     * horseHeading} (its seat where {@code track} says): a hop from where she
+     * stands into the saddle, turning to face its way. False - and nothing
+     * happens - when she is on one already, climbing, in the air, or busy.
+     */
+    public boolean mount(Vec3 horseAt, double horseHeading, RideTrack track) {
+        if (riding != Riding.NO || wall != null || ledge != null || airborne() || preview != null
+                || action != null && !isEmote(action)) {
+            return false;
+        }
+        rideTrack = track == null ? RideTrack.standard() : track;
+        riding = Riding.MOUNTING;
+        rideTime = 0;
+        hopFrom = position;
+        hopTo = horseAt;
+        hopFromLift = 0;
+        hopFromAhead = 0;
+        hopFromHeading = heading;
+        hopToHeading = horseHeading;
+        action = null;
+        drawing = false;
+        jumping = false;
+        grab = null;
+        crouched = false;
+        rollPrimed = false;
+        velocity = Vec3.ZERO;
+        rideSpeed = 0;
+        horseSheet = "idle";
+        horseTime = 0;
+        horseRate = 1;
+        return true;
+    }
+
+    /**
+     * Get down off the horse onto {@code to} (its ground, beside it): a hop
+     * down off the saddle. False when she is not sitting one.
+     */
+    public boolean dismount(Vec3 to) {
+        if (riding != Riding.RIDING) return false;
+        riding = Riding.DISMOUNTING;
+        rideTime = 0;
+        hopFrom = position;
+        hopTo = to;
+        hopFromLift = rideLift;
+        hopFromAhead = rideAhead;
+        hopFromHeading = hopToHeading = heading;
+        velocity = Vec3.ZERO;
+        rideSpeed = 0;
+        return true;
+    }
+
+    /** Off the horse at once, standing where it stood (put somewhere else, knocked out, a new level). */
+    public void unseat() {
+        if (riding == Riding.NO) return;
+        riding = Riding.NO;
+        rideLift = rideAhead = 0;
+        rideSpeed = 0;
+        velocity = Vec3.ZERO;
+        setState(stance().idle(false));
+    }
+
+    /** The hop up into the saddle, or down off it. */
+    private void hop(double dt, ToDoubleFunction<AnimState> durations) {
+        boolean up = riding == Riding.MOUNTING;
+        rideTime += dt;
+        double t = Math.min(1, rideTime / (up ? MOUNT_TIME : DISMOUNT_TIME));
+        double e = t * t * (3 - 2 * t);
+        position = new Vec3(hopFrom.x() + (hopTo.x() - hopFrom.x()) * e, hopFrom.y() + (hopTo.y() - hopFrom.y()) * e,
+                hopFrom.z() + (hopTo.z() - hopFrom.z()) * e);
+        height = 0;
+        double seat = up ? rideTrack.lift("idle", 0) : 0;
+        rideLift = hopFromLift + (seat - hopFromLift) * e + MOUNT_HOP * 4 * t * (1 - t);
+        rideAhead = hopFromAhead + ((up ? rideTrack.seatAhead() : 0) - hopFromAhead) * e;
+        double turn = Math.atan2(Math.sin(hopToHeading - hopFromHeading), Math.cos(hopToHeading - hopFromHeading));
+        heading = wantHeading = hopFromHeading + turn * e;
+        velocity = Vec3.ZERO;
+        // her jump's rise getting on - sitting once she is over the saddle - and its fall getting off
+        AnimState jump = stance().jump() != null ? stance().jump() : AnimState.JUMP;
+        if (up && t >= 0.7) {
+            setState(AnimState.RIDE);
+            stateTime = 0;
+        } else {
+            setState(jump);
+            double top = JUMP_LAUNCH + JUMP_AIRTIME * 0.5;
+            double from = up ? JUMP_LAUNCH : top, to = up ? top : 1.0;
+            stateTime = durations.applyAsDouble(jump) * (from + (to - from) * (up ? t / 0.7 : t));
+        }
+        if (t < 1) return;
+        if (up) {
+            riding = Riding.RIDING;
+            horseSheet = "idle";
+            horseTime = 0;
+            horseRate = 1;
+            events.add(new Event(Event.Kind.MOUNTED, 0));
+        } else {
+            riding = Riding.NO;
+            rideLift = rideAhead = 0;
+            position = terrain.onGround(hopTo);
+            setState(stance().idle(false));
+            events.add(new Event(Event.Kind.DISMOUNTED, 0));
+        }
+    }
+
+    /**
+     * Sitting the horse: it turns toward the way she steers no faster than
+     * {@link #RIDE_TURN}, and goes the way it faces at the pace she asks -
+     * slower round a sharp turn, uphill and through water - gathering
+     * itself up more slowly than it pulls up. Its sheet follows its pace, and
+     * hers its sheet, on its clock.
+     */
+    private void steer(double dt, Intent in) {
+        Vec3 wish = new Vec3(in.moveX(), 0, in.moveZ());
+        double len = Math.min(1, wish.length());
+        double want = 0;
+        if (len > 0.05) {
+            wantHeading = SpriteView.headingOf(wish.x(), wish.z());
+            want = (in.sprint() ? RIDE_GALLOP : in.run() ? RIDE_CANTER : RIDE_WALK) * len;
+        }
+        double diff = Math.atan2(Math.sin(wantHeading - heading), Math.cos(wantHeading - heading));
+        double most = RIDE_TURN * (rideSpeed > RIDE_CANTER ? 0.65 : 1) * dt;
+        heading += Math.max(-most, Math.min(most, diff));
+        Vec3 ahead = SpriteView.headingVector(heading);
+        double along = Math.cos(Math.min(Math.abs(diff), Math.PI / 2));
+        double target = want * (0.3 + 0.7 * along) * slopeFactor(ahead);
+        rideSpeed += (target - rideSpeed) * (1 - Math.exp(-dt * (target > rideSpeed ? 1.8 : 3.2)));
+        if (target == 0 && rideSpeed < 0.05) rideSpeed = 0;
+        if (!rideMove(ahead.scale(rideSpeed * dt))) rideSpeed *= 0.5;          // up against something
+        velocity = ahead.scale(rideSpeed);
+
+        AnimalKind horse = AnimalKind.HORSE;
+        String sheet;
+        double rate;
+        if (rideSpeed < 0.15) {
+            sheet = "idle";
+            rate = 1;
+        } else if (rideSpeed < RIDE_RUN_ABOVE) {
+            sheet = "walk";
+            rate = Math.max(0.6, Math.min(2.2, rideSpeed / horse.walkPace()));
+        } else {
+            sheet = "run";
+            rate = Math.max(0.6, Math.min(2.2, rideSpeed / horse.runPace()));
+        }
+        if (sheet.equals(horseSheet)) {
+            horseTime += dt * rate;
+        } else {
+            horseSheet = sheet;
+            horseTime = 0;
+        }
+        horseRate = rate;
+        setState(sheet.equals("run") ? AnimState.RIDE_RUN : AnimState.RIDE);
+        stateTime = sheet.equals("idle") ? 0 : horseTime;           // standing, she sits still
+        double[] seat = rideTrack.seat(horseSheet, horseTime);
+        rideAhead = seat[0];
+        rideLift = seat[1] - RideTrack.SEAT_Z;
+    }
+
+    /**
+     * The horse's step along the ground: up no steeper than she could walk,
+     * never off a ledge (a drop steeper than it could step down), nor onto
+     * ground too steep to stand on, nor into deep water - sliding along what
+     * stops it a way at a time. False when it did not go the whole step.
+     */
+    private boolean rideMove(Vec3 step) {
+        if (step.horizontalLength() < 1e-12) return true;
+        for (Vec3 s : new Vec3[]{step, new Vec3(step.x(), 0, 0), new Vec3(0, 0, step.z())}) {
+            if (s.horizontalLength() < 1e-12) continue;
+            double x = position.x() + s.x(), z = position.z() + s.z();
+            if (!canStep(x, z, s, position.y(), true)) continue;
+            double ground = terrain.height(x, z);
+            if (position.y() - ground > s.horizontalLength() * 2.5 + 0.12) continue;
+            if (terrain.slopeUnder(x, z) > SLIDE) continue;
+            position = new Vec3(x, ground, z);
+            return s == step;
+        }
+        return false;
+    }
+
+    /** Whether she rides: not, getting on, sitting the horse, getting off. */
+    public Riding riding() { return riding; }
+
+    /** Whether she sits a horse (not getting on or off it). */
+    public boolean mounted() { return riding == Riding.RIDING; }
+
+    /** The horse's sheet under her: {@code idle}, {@code walk} or {@code run}. */
+    public String horseSheet() { return horseSheet; }
+
+    /** How far into {@link #horseSheet} the horse is, seconds at its rate - her own clock while she sits it. */
+    public double horseTime() { return horseTime; }
+
+    /** How fast the horse's sheet plays. */
+    public double horseRate() { return horseRate; }
+
+    /** How far above the ground her feet (her sprite's ground) are, sitting the saddle or hopping to or off it. */
+    public double rideLift() { return rideLift; }
+
+    /** The seat she sits on, its {@code ride.json}. */
+    public RideTrack rideTrack() { return rideTrack; }
+
+    /** Which way she, and her horse, are going, metres a second. */
+    public Vec3 velocity() { return velocity; }
 
     // --- the ground under her ----------------------------------------------------------
 
@@ -993,9 +1241,11 @@ public final class Player {
 
     // --- accessors -------------------------------------------------------------------
 
-    /** Feet position, including the jump height. */
+    /** Feet position, including the jump height - and, riding, up on the saddle (her sprite's ground). */
     public Vec3 feet() {
-        return position.add(0, height, 0);
+        if (riding == Riding.NO) return position.add(0, height, 0);
+        Vec3 f = SpriteView.headingVector(heading);
+        return position.add(f.x() * rideAhead, height + rideLift, f.z() * rideAhead);
     }
 
     /** Position on the ground (where the shadow goes): its height the ground's under her. */
@@ -1003,8 +1253,9 @@ public final class Player {
 
     public double height() { return height; }
 
-    /** Put her standing at {@code p} (on the ground there, off any wall, not falling). */
+    /** Put her standing at {@code p} (on the ground there, off any wall and any horse, not falling). */
     public void setPosition(Vec3 p) {
+        unseat();
         position = terrain.onGround(p);
         height = 0;
         vy = 0;

@@ -62,6 +62,8 @@ public final class Animal implements Target {
     double fleeX, fleeZ;                    // what it runs from
     boolean swimming, airborne, warned;
     double ignore;                          // a friendly one, done with her: how long it leaves her be
+    boolean saddled;                        // a horse with the saddle on: she can ride it, and it stays
+    boolean ridden;                         // she is on it (or getting on or off): the world moves it
 
     Animal(AnimalKind kind, Animals.Herd herd, Temperament temperament, double x, double y, double z, Random random) {
         this.kind = kind;
@@ -116,6 +118,83 @@ public final class Animal implements Target {
     /** Whether it is swimming: on water, sunk to its waterline. */
     public boolean swimming() { return swimming; }
 
+    /**
+     * Whether it has the saddle on (a horse she saddled, or one placed
+     * saddled): she can ride it, it keeps where she left it, and it is never
+     * sent away with those that come and go.
+     */
+    public boolean saddled() { return saddled; }
+
+    /** Put the saddle on it, or take it off; a horse only (any other is left as it is). */
+    public void setSaddled(boolean on) {
+        if (kind != AnimalKind.HORSE) return;
+        saddled = on;
+        if (on) {
+            leaving = false;
+            homeX = x;
+            homeZ = z;
+            roam = Math.min(roam, STAY);
+            if (mode == Mode.FLEE || mode == Mode.FOLLOW || mode == Mode.WANDER) {
+                mode = Mode.REST;
+                modeTime = 0;
+                vx = vz = 0;
+            }
+        }
+    }
+
+    /** How far a saddled horse wanders from where she left it, metres. */
+    public static final double STAY = 2.5;
+
+    /** Whether she is on it, or getting on or off it: it goes where she steers it ({@link #carry}). */
+    public boolean ridden() { return ridden; }
+
+    /**
+     * Whether she rides it ({@code on}) or has got off: while she does, it
+     * does nothing of its own; once she is off, it stays about where she left it.
+     */
+    public void setRidden(boolean on) {
+        if (ridden == on) return;
+        ridden = on;
+        mode = Mode.REST;
+        modeTime = 0;
+        vx = vz = 0;
+        angry = 0;
+        timer = 2 + phase % 3;
+        if (!on) {
+            homeX = x;
+            homeZ = z;
+            roam = STAY;
+            sheet = "idle";
+            sheetTime = 0;
+            rate = 1;
+        }
+    }
+
+    /**
+     * Where she has steered it this frame: at {@code at}, facing {@code
+     * heading}, going {@code velocity}, playing {@code sheet} {@code time}
+     * into it (her clock, so she rises and falls with its back) at {@code rate}.
+     */
+    public void carry(Vec3 at, double heading, String sheet, double time, double rate, Vec3 velocity) {
+        x = at.x();
+        y = at.y();
+        z = at.z();
+        this.heading = heading;
+        this.sheet = sheet;
+        sheetTime = time;
+        this.rate = rate;
+        vx = velocity.x();
+        vz = velocity.z();
+        alpha = 1;
+        swimming = false;
+        airborne = false;
+    }
+
+    /** The sprite it is drawn from: its kind's - the saddled horse's with the saddle on. */
+    public String sprite() {
+        return saddled ? kind.sprite() + "_saddled" : kind.sprite();
+    }
+
     /** Whether it is angry with her: warning her off, or going for her. */
     public boolean hostile() {
         return mode == Mode.WARN || mode == Mode.CHASE || mode == Mode.STRIKE;
@@ -146,7 +225,7 @@ public final class Animal implements Target {
     /** A blow: its health down, a flash, knocked back; and then - by its nature - it runs, or it fights. */
     @Override
     public void hurt(double damage, Vec3 from, boolean react) {
-        if (!alive()) return;
+        if (!alive() || ridden) return;
         if (damage > 0) {
             health = Math.max(0, health - damage);
             sinceHurt = 0;

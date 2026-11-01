@@ -87,6 +87,11 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return wearable != null;
     }
 
+    /** Whether it is tack - the saddle - for a horse, neither held nor worn nor eaten ({@link Tack}). */
+    public boolean isTack() {
+        return Tack.is(this);
+    }
+
     /** Whether it is eaten: a picking from a foraging bush ({@link #food}). */
     public boolean isFood() {
         return food != null;
@@ -99,10 +104,10 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
 
     /**
      * Whether, picked up, it goes into the wardrobe's hand ({@link #carrySlot}):
-     * the sword - no stance of its own, not a wearable, not a picking.
+     * the sword - no stance of its own, not a wearable, not a picking, not tack.
      */
     public boolean inHand() {
-        return !held() && !isWearable() && !isFood();
+        return !held() && !isWearable() && !isFood() && !isTack();
     }
 
     /** The weapon of {@code stance}, or null (the sword stance's are worn, the free one has none). */
@@ -111,10 +116,12 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return null;
     }
 
-    /** A weapon, a wearable or a picking by its id, or null. */
+    /** A weapon, a wearable, a picking or tack by its id, or null. */
     public static ItemDef byId(String id) {
         for (ItemDef d : ALL) if (d.id.equals(id)) return d;
         ItemDef w = Wearables.byId(id);
-        return w != null ? w : Pickings.byId(id);
+        if (w != null) return w;
+        ItemDef p = Pickings.byId(id);
+        return p != null ? p : Tack.byId(id);
     }
 }

@@ -149,10 +149,12 @@ public final class SoundKeys {
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
      * its rarity, Uncommon and up, rung out; picking a bush; a building's
-     * door as she goes in and out, and the stairs inside.
+     * door as she goes in and out, and the stairs inside; saddling a horse,
+     * getting up on it and down off it.
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
-            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs");
+            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
+            "saddle_on", "mount", "dismount");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -169,10 +171,11 @@ public final class SoundKeys {
      * The animals (ambient/AnimalKind) and their sounds, each heard where it
      * is: its call now and then, its cry when it is hit, a defensive one's
      * warning (a goose's hiss, a swarm's angry buzz), a bird's wings taking
-     * off, a bee's sting.
+     * off, a bee's sting - and the hooves of the horse she rides, a step at
+     * a walk and a stride at a canter or a gallop.
      */
     public static final Map<String, List<String>> ANIMAL_SOUNDS = orderedMap(
-            "horse", List.of("neigh", "snort"),
+            "horse", List.of("neigh", "snort", "hooves", "gallop"),
             "cow", List.of("moo", "bellow"),
             "bear", List.of("growl", "roar"),
             "sheep", List.of("baa", "bleat"),
@@ -690,6 +693,8 @@ public final class SoundKeys {
         String what = switch (sound) {
             case "neigh" -> "neighing";
             case "snort" -> "snorting, hit";
+            case "hooves" -> "hooves at a walk, ridden (each step)";
+            case "gallop" -> "hooves at a canter or gallop, ridden (each stride)";
             case "moo" -> "mooing";
             case "bellow" -> "bellowing, hit";
             case "growl" -> "growling";
@@ -739,6 +744,9 @@ public final class SoundKeys {
             case "door_open" -> "A door opening (going in or out)";
             case "door_close" -> "A door shutting behind her";
             case "stairs" -> "Going up or down the stairs";
+            case "saddle_on" -> "Saddling a horse";
+            case "mount" -> "Getting up on a horse";
+            case "dismount" -> "Getting down off a horse";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")

@@ -130,11 +130,12 @@ window could even open).
 | **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword with the sword and shield - or, with no shield worn, the sword alone; an empty slot, empty hands |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot; **A–Z** / **Rarity** sort it |
 | **F1 – F4** | laugh, cry, surprise, anger |
-| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, pick a bush, go in at a door, up or down the stairs or out - whichever is nearest / drop what you are holding |
+| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, pick a bush, go in at a door, up or down the stairs or out - whichever is nearest; by a horse, **saddle** it (with a saddle on her) or **ride** it, and on it, **get off** ([Riding](#riding)) / drop what you are holding |
+| **W A S D**, **Shift**, **Ctrl** (riding) | steer the horse - it turns no faster than a horse can - at a walk, a canter or a gallop |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** / **O** | camera height preset: side → 45° → top-down / the [automatic camera height](#the-automatic-camera-height) on the hills, or fixed |
-| **[ / ]** | loop the previous / next of all 129 states in place |
+| **[ / ]** | loop the previous / next of all 131 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
@@ -155,12 +156,13 @@ Drop sprite sheets on the window at any time to import them.
   ray-casts the ground plane per pixel, so it has no edge and a clean horizon
   at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **129 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **131 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   the dash and the combat roll (played with whatever she holds); the bow,
   crossbow, staff and wand **aimed up** at what flies; climbing;
   reaching down to pick something up, standing or crouched; four emotes -
-  laughing, crying, surprise and anger; the sword's spin attack and parry and
+  laughing, crying, surprise and anger; riding a horse, at a walk and at a
+  gallop; the sword's spin attack and parry and
   the shield held ready and bashed; the sword held alone, with no shield (11
   more: `blade_*`); and the weapons' stances below. The
   HUD names the exact sheet each layer is drawing (and, where a set has no
@@ -985,7 +987,7 @@ assets/sounds/
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
   player/                 footstep_grass.mp3 ... jump.mp3, land.mp3, dash.mp3, roll.mp3, climb_grip.mp3,
                           attack.mp3, axe_attack.mp3, bow_fire.mp3, wand_attack.mp3 ... (both bodies)
-  player/feminine/        her voice: emote_laugh.mp3, hurt.mp3 ... and any of her 129 animations of her own
+  player/feminine/        her voice: emote_laugh.mp3, hurt.mp3 ... and any of her 131 animations of her own
   player/masculine/       ... and his
   chests/                 idle.mp3, open.mp3, opened.mp3, close.mp3 (every chest; chests/<chest>/ for one's own)
   items/                  pickup.mp3, drop.mp3, equip.mp3, and items/<item>/equip.mp3 for each weapon
@@ -1349,6 +1351,47 @@ always, by day, by night). In a level file:
   <img src="docs/screenshots/creative-animals.png" width="49%" alt="Creative Mode: Life, the Animals page">
   <img src="docs/screenshots/creative-herd.png" width="49%" alt="A herd of four horses placed and selected">
 </p>
+
+### Riding
+
+A horse can be ridden with a **saddle** (`world/Tack`): an Uncommon item found
+in the chests, kept in the inventory out of the hotbar's way. Walk up to a
+horse with one and press **E** - *Saddle the horse* - and it has the saddle on
+(its own sheets, `horse_saddled`: the red pad, the leather seat, the stirrups,
+the bridle and the reins). A saddled horse waits for her: it never runs from
+her, stays within a few metres of where she left it, and is never sent away
+with the animals that come and go, however far she goes.
+
+**E** by it - *Ride the horse* - and she hops up into the saddle. On it:
+
+| | |
+|---|---|
+| **W A S D** | steer: it turns toward the way you push, no faster than a horse can (wider at a gallop), slowing round a sharp turn and turning near on the spot to go back |
+| (nothing) / **Shift** / **Ctrl** | a walk (1.9 m/s) / a canter (6 m/s) / a gallop (9.5 m/s); it gathers itself up over a second or so and pulls up quicker |
+| **E** | get off, to its left - or its right, or behind it, wherever there is ground to stand on |
+
+It goes up what she could walk up and never off a ledge or into deep water;
+uphill and through water it is slower. The trees, the rocks, the buildings
+and the other animals keep it out by its body, not her feet.
+
+She sits it in two states of her own, **ride** (at a stand and a walk: the
+reins low in both hands, the heels down in the stirrups, the hips going with
+its back) and **ride_run** (the canter and the gallop: up in the stirrups,
+leant over its neck). They are rendered in Blender sitting the saddled horse
+itself - it hides her far leg, and her skirt and her cape fall over its back
+and its sides - and played frame for frame with its sheet: its clock is hers,
+and her sprite stands where its `ride.json` says the seat is in that frame,
+so she rises and falls with it. Its hooves sound under her, a step at a walk
+and a stride at a canter.
+
+In Creative Mode, a herd of horses can be placed **saddled** (Place → Life →
+*Saddled horse*, or the herd's *Saddled* switch), and the saddle placed as an
+item (Place → Life → *Saddle*):
+
+```json
+{"type": "animals", "x": 4, "z": 40, "kind": "horse", "count": 1, "radius": 2, "when": "always", "saddled": true}
+{"type": "item", "x": 2, "z": 38, "item": "saddle"}
+```
 
 ## Buildings
 

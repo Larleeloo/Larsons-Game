@@ -183,7 +183,7 @@ public final class World {
     private final List<Chest> chests = new ArrayList<>();
     private final List<Building> buildings = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
-    private final Loot loot = Wearables.addTo(new Loot());
+    private final Loot loot = Tack.addTo(Wearables.addTo(new Loot()));
     private final List<Dummy> dummies = new ArrayList<>();
     private final List<FlyingDummy> fliers = new ArrayList<>();
     private final List<SoundSpot> soundSpots = new ArrayList<>();
@@ -200,6 +200,8 @@ public final class World {
     private final List<RaySpot> raySpots = new ArrayList<>();
     private Critters critters = new Critters();
     private Animals animals = new Animals();
+    private Animal steed;
+    private RideTrack rideTrack = RideTrack.standard();
     /** Whether she is inside a building: no sky over it, its own dim light, nothing comes by. */
     private boolean indoors;
     /** The foraging bushes standing in it, and when each one picked has its pickings again. */
@@ -419,11 +421,11 @@ public final class World {
         return flier;
     }
 
-    /** Everything that can be hit: the dummies, the fliers, the animals about. */
+    /** Everything that can be hit: the dummies, the fliers, the animals about (but the horse she rides). */
     public List<Target> targets() {
         List<Target> out = new ArrayList<>(dummies);
         out.addAll(fliers);
-        for (Animal a : animals.live()) if (a.alive()) out.add(a);
+        for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         return out;
     }
 
@@ -570,24 +572,165 @@ public final class World {
             d.tick(dt);
             if (!player.passesThrough()) player.keepOut(d.position(), Dummy.RADIUS);   // (she rolls through them)
         }
+        double feet = feet();
         for (Scenery.Placed s : scenery.solids()) {
-            if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + FEET);
+            if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + feet);
         }
         keepOutOfBuildings();
         for (FlyingDummy f : fliers) swooped(f, f.tick(dt, terrain, player));
-        // the bigger animals are in her way (she rolls through them), as the dummies are
+        // the bigger animals are in her way (she rolls through them), as the dummies are - and her horse's
         if (!player.passesThrough()) {
             for (Animal a : animals.live()) {
-                if (a.alive() && !a.flies() && !a.swimming() && a.radius() >= 0.3
+                if (a.alive() && !a.ridden() && !a.flies() && !a.swimming() && a.radius() >= 0.3
                         && Math.abs(a.position().y() - player.ground().y()) < 1.2) {
-                    player.keepOut(a.position(), a.radius() + FEET * 0.5);
+                    player.keepOut(a.position(), a.radius() + (player.riding() == Player.Riding.NO ? FEET * 0.5
+                            : RIDDEN_RADIUS));
                 }
             }
         }
         if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
         combat.tick(dt, this);
         happened();
+        rideAlong();
         live(dt, player.ground(), player.ground());
+    }
+
+    /** How far round her she keeps out of things: her feet - riding, her horse's body. */
+    private double feet() {
+        return player.riding() == Player.Riding.NO ? FEET : RIDDEN_RADIUS;
+    }
+
+    // --- riding -------------------------------------------------------------------------
+
+    /** How far round her middle her horse keeps out of the trees, the rocks and the walls, metres. */
+    public static final double RIDDEN_RADIUS = 0.5;
+    /** How near a horse she must be to saddle it or get on it, metres from its side. */
+    public static final double HORSE_REACH = 1.6;
+
+    /** The horse she rides, or is getting on or off; null. */
+    public Animal steed() { return steed; }
+
+    /** Where the saddle is on the saddled horse, frame by frame (its sheets' {@code ride.json}). */
+    public RideTrack rideTrack() { return rideTrack; }
+
+    public void setRideTrack(RideTrack track) {
+        rideTrack = track == null ? RideTrack.standard() : track;
+    }
+
+    /** The nearest horse by her that she could do something with (saddled: {@code saddled}), or null. */
+    private Animal nearHorse(boolean saddled) {
+        if (player.riding() != Player.Riding.NO || indoors) return null;
+        Animal best = null;
+        double bestD = HORSE_REACH;
+        Vec3 me = player.ground();
+        for (Animal a : animals.live()) {
+            if (a.kind() != AnimalKind.HORSE || a.saddled() != saddled || !a.alive() || a.hostile() || a.ridden()
+                    || a.swimming() || Math.abs(a.position().y() - me.y()) > 1.0) {
+                continue;
+            }
+            double d = a.position().horizontalDistance(me) - a.radius();
+            if (d < bestD) {
+                best = a;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** The saddled horse she could get on from where she stands, or null. */
+    public Animal reachableHorse() {
+        return nearHorse(true);
+    }
+
+    /** A horse by her without a saddle, when she has one to put on it; else null. */
+    public Animal saddleable() {
+        return saddleSlot() < 0 ? null : nearHorse(false);
+    }
+
+    /** The inventory slot her saddle is in, or -1. */
+    private int saddleSlot() {
+        Inventory inv = player.inventory();
+        for (int i = 0; i < inv.size(); i++) {
+            Item it = inv.get(i);
+            if (it != null && it.def().isTack()) return i;
+        }
+        return -1;
+    }
+
+    /** Saddle {@code horse} with the saddle out of her inventory; false when she has none, or it is no horse. */
+    public boolean saddle(Animal horse) {
+        int slot = saddleSlot();
+        if (horse == null || horse.kind() != AnimalKind.HORSE || horse.saddled() || slot < 0) return false;
+        player.inventory().takeOne(slot);
+        equipSelected();
+        horse.setSaddled(true);
+        combat.sound(SoundKeys.world("saddle_on"), horse.position());
+        return true;
+    }
+
+    /** Get up on the saddled {@code horse}: it stands still for her, and goes where she steers it once she is up. */
+    public boolean mount(Animal horse) {
+        if (horse == null || !horse.saddled() || horse.ridden() || !horse.alive()) return false;
+        if (!player.mount(horse.position(), horse.heading(), rideTrack)) return false;
+        steed = horse;
+        horse.setRidden(true);
+        combat.sound(SoundKeys.world("mount"), horse.position());
+        return true;
+    }
+
+    /**
+     * Get down off the horse, beside it - its left (the way she got on), else
+     * its right, else behind it: wherever there is ground to stand on.
+     * False when she sits none, or there is nowhere to get down.
+     */
+    public boolean dismount() {
+        if (steed == null || !player.mounted()) return false;
+        Vec3 at = steed.position();
+        Vec3 f = SpriteView.headingVector(steed.heading());
+        Vec3 left = new Vec3(f.z(), 0, -f.x());
+        double side = steed.radius() + 0.55;
+        for (Vec3 d : new Vec3[]{left, left.scale(-1), f.scale(-1.6), f.scale(1.6)}) {
+            Vec3 to = terrain.onGround(at.add(d.scale(side)));
+            if (standable(to, at.y())) {
+                player.dismount(to);
+                combat.sound(SoundKeys.world("dismount"), to);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether she could stand at {@code to}, getting down from a horse standing at height {@code from}. */
+    private boolean standable(Vec3 to, double from) {
+        if (Math.abs(to.y() - from) > 0.9 || terrain.slopeUnder(to.x(), to.z()) > Player.SLIDE) return false;
+        if (water.depth(to.x(), to.z(), to.y()) > WaterMap.TOO_DEEP || solidNear(to.x(), to.z(), FEET + 0.1)) {
+            return false;
+        }
+        for (Building b : buildings) if (b.pushOut(to.x(), to.z(), FEET + 0.05) != null) return false;
+        if (bounds != null && (to.x() < bounds[0] || to.x() > bounds[1] || to.z() < bounds[2] || to.z() > bounds[3])) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The horse goes where she has steered it, playing what she has it play,
+     * on her clock; it stands still while she gets on or off; and when she
+     * is off it - got down, or put somewhere else - it is hers no more.
+     */
+    private void rideAlong() {
+        if (steed == null) return;
+        boolean there = animals.live().contains(steed);
+        if (player.riding() == Player.Riding.NO || !there) {
+            if (there) steed.setRidden(false);
+            else player.unseat();                   // the horse is gone (a new level): she is on her feet
+            steed = null;
+            return;
+        }
+        if (player.mounted()) {
+            steed.carry(player.ground(), player.heading(), player.horseSheet(), player.horseTime(),
+                    player.horseRate(), player.velocity());
+        }
     }
 
     /** She walks round the buildings - unless she is up above one (on a cliff over it, flying off one). */
@@ -596,7 +739,7 @@ public final class World {
         double feet = at.y() + player.height();
         for (Building b : buildings) {
             if (feet > b.position().y() + b.profile().height() - 0.3 || feet < b.position().y() - 2) continue;
-            Vec3 to = b.pushOut(at.x(), at.z(), FEET + 0.05);
+            Vec3 to = b.pushOut(at.x(), at.z(), feet() + 0.05);
             if (to != null) {
                 player.shoveTo(to.x(), to.z());
                 at = player.ground();
@@ -1033,7 +1176,8 @@ public final class World {
             if (item.amount <= 0) items.remove(item);
             return took > 0;
         }
-        int slot = item.def.isWearable() ? player.inventory().stow(item.item) : player.inventory().add(item.item);
+        boolean aside = item.def.isWearable() || item.def.isTack();       // not for her hands
+        int slot = aside ? player.inventory().stow(item.item) : player.inventory().add(item.item);
         if (slot < 0) return false;
         items.remove(item);
         if (item.def.inHand()) {
@@ -1042,7 +1186,7 @@ public final class World {
                     : item.def.carrySlot();
             player.wardrobe().set(hand, item.def.id());
         }
-        if (Inventory.isHotbar(slot) && !item.def.isWearable()) select(slot);
+        if (Inventory.isHotbar(slot) && !aside) select(slot);
         return true;
     }
 

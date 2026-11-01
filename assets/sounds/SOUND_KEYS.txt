@@ -114,6 +114,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/climb.mp3                      feminine climb (held)                            player/feminine/climb
   player/feminine/ledge_up.mp3                   feminine ledge, step up                          player/feminine/ledge_up
   player/feminine/ledge_down.mp3                 feminine ledge, step down                        player/feminine/ledge_down
+  player/feminine/ride.mp3                       feminine ride (held)                             player/feminine/ride
+  player/feminine/ride_run.mp3                   feminine ride, gallop (held)                     player/feminine/ride_run
   player/feminine/footstep_grass.mp3             feminine footstep on grass                       player/feminine/footstep_grass
   player/feminine/footstep_dirt.mp3              feminine footstep on a dirt path                 player/feminine/footstep_dirt
   player/feminine/footstep_gravel.mp3            feminine footstep on gravel                      player/feminine/footstep_gravel
@@ -204,6 +206,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/climb.mp3                     masculine climb (held)                           player/masculine/climb
   player/masculine/ledge_up.mp3                  masculine ledge, step up                         player/masculine/ledge_up
   player/masculine/ledge_down.mp3                masculine ledge, step down                       player/masculine/ledge_down
+  player/masculine/ride.mp3                      masculine ride (held)                            player/masculine/ride
+  player/masculine/ride_run.mp3                  masculine ride, gallop (held)                    player/masculine/ride_run
   player/masculine/footstep_grass.mp3            masculine footstep on grass                      player/masculine/footstep_grass
   player/masculine/footstep_dirt.mp3             masculine footstep on a dirt path                player/masculine/footstep_dirt
   player/masculine/footstep_gravel.mp3           masculine footstep on gravel                     player/masculine/footstep_gravel
@@ -426,6 +430,8 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   creatures/dragonfly/buzz.mp3                   Dragonfly: wings darting by                      creature/dragonfly/buzz
   creatures/horse/neigh.mp3                      Horse: neighing                                  creature/horse/neigh
   creatures/horse/snort.mp3                      Horse: snorting, hit                             creature/horse/snort
+  creatures/horse/hooves.mp3                     Horse: hooves at a walk, ridden (each step)      creature/horse/hooves
+  creatures/horse/gallop.mp3                     Horse: hooves at a canter or gallop, ridden (each stride) creature/horse/gallop
   creatures/cow/moo.mp3                          Cow: mooing                                      creature/cow/moo
   creatures/cow/bellow.mp3                       Cow: bellowing, hit                              creature/cow/bellow
   creatures/bear/growl.mp3                       Bear: growling                                   creature/bear/growl
@@ -482,6 +488,9 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/door_open.mp3                            A door opening (going in or out)                 world/door_open
   world/door_close.mp3                           A door shutting behind her                       world/door_close
   world/stairs.mp3                               Going up or down the stairs                      world/stairs
+  world/saddle_on.mp3                            Saddling a horse                                 world/saddle_on
+  world/mount.mp3                                Getting up on a horse                            world/mount
+  world/dismount.mp3                             Getting down off a horse                         world/dismount
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat

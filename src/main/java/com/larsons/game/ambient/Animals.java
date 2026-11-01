@@ -98,7 +98,14 @@ public final class Animals {
      * (null: their own), about when {@code when} says.
      */
     public record Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
-                       Critters.When when) {}
+                       Critters.When when, boolean saddled) {
+
+        /** A herd without the saddle on (any but horses are never saddled). */
+        public Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
+                    Critters.When when) {
+            this(kind, at, count, radius, temperament, when, false);
+        }
+    }
 
     /** What an animal did to her, or had done to it, for the world to say and to play. */
     public enum Outcome { WARNED, STRUCK, BLOCKED, DODGED, PARRIED, RAN_OFF }
@@ -188,6 +195,12 @@ public final class Animals {
         Quarry q = her != null && !her.down() ? her : null;
         for (int i = 0; i < live.size(); i++) {
             Animal a = live.get(i);
+            if (a.ridden) {
+                // she rides it: the world moves it, and its sheet goes by her clock
+                a.sinceHurt += dt;
+                a.alpha = 1;
+                continue;
+            }
             a.sheetTime += dt * a.rate;
             a.sinceHurt += dt;
             a.modeTime += dt;
@@ -234,14 +247,14 @@ public final class Animals {
         for (AnimalKind k : AnimalKind.values()) {
             long want = Math.round(wanted(k, day));
             int have = 0;
-            for (Animal a : live) if (a.kind == k && a.herd == null && !a.leaving) have++;
+            for (Animal a : live) if (a.kind == k && a.herd == null && !a.leaving && !a.saddled) have++;
             if (have < want && spawnFree(k, focus, place)) have++;
             if (have > want && thin <= 0) {
                 thin = 0.5;
                 Animal far = null;
                 double fd = -1;
                 for (Animal a : live) {
-                    if (a.kind != k || a.herd != null || a.leaving || a.hostile()) continue;
+                    if (a.kind != k || a.herd != null || a.leaving || a.hostile() || a.saddled) continue;
                     double d = Math.hypot(a.x - focus.x(), a.z - focus.z());
                     if (d > fd) {
                         fd = d;
@@ -252,6 +265,7 @@ public final class Animals {
             }
         }
         for (Animal a : live) {
+            if (a.saddled) continue;        // a saddled horse stays where she left it, however far she goes
             if (a.herd == null && Math.hypot(a.x - focus.x(), a.z - focus.z()) > REACH + 12) a.gone = true;
             if (a.herd != null && !herds.contains(a.herd)) a.leaving = true;
         }
@@ -264,10 +278,10 @@ public final class Animals {
                 if (!h.equals(a.herd) || a.leaving) continue;
                 // the beaten and the flown are not back until the herd is next made up
                 have++;
-                if (!a.hostile()) extra = a;
+                if (!a.hostile() && !a.saddled) extra = a;
             }
             if (!near) {
-                for (Animal a : live) if (h.equals(a.herd)) a.gone = true;
+                for (Animal a : live) if (h.equals(a.herd) && !a.saddled) a.gone = true;
             } else if (have < want) {
                 spawnIn(h, focus, place);
             } else if (have > want && extra != null) {
@@ -344,6 +358,10 @@ public final class Animals {
             an.homeX = h.at().x();
             an.homeZ = h.at().z();
             an.roam = Math.max(1, h.radius());
+            if (h.saddled() && k == AnimalKind.HORSE) {
+                an.saddled = true;
+                an.roam = Math.min(an.roam, Animal.STAY * 2);
+            }
             live.add(an);
             return;
         }
@@ -566,7 +584,7 @@ public final class Animals {
 
     /** Whether she, near, makes it do something else: run, come up, warn her off, go for her. */
     private boolean notice(Animal a, Quarry her, double d, Critters.Voice voice, Vec3 focus) {
-        if (her == null) return false;
+        if (her == null || a.saddled) return false;             // a saddled horse waits for her
         AnimalKind k = a.kind;
         switch (a.temperament) {
             case SKITTISH -> {

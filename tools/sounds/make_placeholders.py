@@ -1533,6 +1533,33 @@ def _(k):
     return bp(k.noise(d), 180, 1500) * flutter * env(d, 0.01, 0.35)
 
 
+def clop(k, bright=1.0):
+    """One hoof on the ground: a hard knock with a hollow wooden ring and a little grit."""
+    d = 0.13
+    out = thump(k, d, k.uniform(140, 175), 0.5, 0.035, 0.35, 1400) * 0.8
+    out = out + wood(k.uniform(700, 900) * bright, d, 0.025, k) * 0.45
+    return out + crunch(k, d, 160, 1800, 6000, 0.02) * 0.15
+
+
+@sound("creatures/horse/hooves", 0.42)
+def _(k):
+    # a walk's step: one hoof and then the next, close behind it
+    out = silence(0.32)
+    place(out, clop(k), 0.0)
+    place(out, clop(k, 0.92) * 0.8, 0.11 + k.uniform(-0.01, 0.01))
+    return out
+
+
+@sound("creatures/horse/gallop", 0.46)
+def _(k):
+    # a stride of the canter, ba-da-dum: three beats, the last the heaviest
+    out = silence(0.42)
+    for i, (at, g) in enumerate(((0.0, 0.7), (0.085, 0.8), (0.17, 1.0))):
+        place(out, clop(k, 0.95 + 0.04 * i) * g, at + k.uniform(-0.008, 0.008))
+    place(out, thump(k, 0.2, 70, 0.6, 0.08, 0.3, 400) * 0.5, 0.17)
+    return out
+
+
 @sound("creatures/cow/moo", 0.42)
 def _(k):
     d = 1.5
@@ -1802,6 +1829,47 @@ def _(k):
     place(out, thump(k, 0.22, 85, 0.7, 0.1, 0.5, 700), 0.0)                  # the door into its frame
     place(out, wood(k.uniform(900, 1100), 0.12, 0.05, k) * 0.7, 0.0)
     place(out, wood(k.uniform(1600, 1900), 0.05, 0.015, k) * 0.45, 0.07)      # and the latch
+    return out
+
+
+def leather(k, d, lo=300, hi=2400):
+    """Leather creaking: a slow, rough stretch."""
+    return creak(k, d, 120, 210, 0.6) * 0.5 + bp(k.noise(d), lo, hi) * bell(d, 0.5, 1.4) * 0.25
+
+
+@sound("world/saddle_on", 0.4)
+def _(k):
+    # the saddle swung up and down on its back, the girth pulled, a buckle
+    d = 1.0
+    out = silence(d)
+    place(out, whoosh(k, 0.3, 300, 900, 500, 1.4, 0.5, 1.5) * 0.4, 0.0)
+    place(out, thump(k, 0.18, 85, 0.6, 0.08, 0.6, 700) * 0.8, 0.26)
+    place(out, leather(k, 0.4) * 0.8, 0.36)
+    place(out, metal(k.uniform(2200, 2600), 0.25, 0.4, 0.5, k) * 0.35, 0.8)
+    return out
+
+
+@sound("world/mount", 0.4)
+def _(k):
+    # a foot in the stirrup, up, and down into the saddle: leather creaking under her
+    d = 0.75
+    out = silence(d)
+    place(out, metal(k.uniform(1800, 2100), 0.15, 0.25, 0.4, k) * 0.25, 0.0)
+    place(out, whoosh(k, 0.35, 250, 700, 400, 1.4, 0.45, 1.5) * 0.35, 0.08)
+    place(out, thump(k, 0.16, 90, 0.6, 0.07, 0.4, 600) * 0.6, 0.42)
+    place(out, leather(k, 0.3) * 0.9, 0.44)
+    return out
+
+
+@sound("world/dismount", 0.42)
+def _(k):
+    # off the saddle - its leather - and her feet down on the ground
+    d = 0.6
+    out = silence(d)
+    place(out, leather(k, 0.22) * 0.7, 0.0)
+    place(out, whoosh(k, 0.25, 300, 650, 350, 1.4, 0.45, 1.5) * 0.3, 0.06)
+    place(out, thump(k, 0.16, 95, 0.6, 0.07, 0.8, 800), 0.34)
+    place(out, thump(k, 0.14, 100, 0.6, 0.06, 0.8, 800) * 0.7, 0.39)
     return out
 
 

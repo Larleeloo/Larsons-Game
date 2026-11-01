@@ -248,6 +248,7 @@ public final class Wearables {
     public static Pickup pickup(Item item) {
         ItemDef d = item.def();
         if (d.isFood()) return new Pickup(d.food().pickup(), d.food().part(), d.food().rgb());
+        if (d.isTack()) return new Pickup(d.id(), "blanket", Tack.SADDLE_RGB);
         if (!d.isWearable()) return null;
         String dye = d.wearable().dye();
         if (dye != null) return new Pickup(BOTTLE, "liquid", DYE_RGB.getOrDefault(dye, item.rarity().rgb()));

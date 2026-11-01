@@ -38,6 +38,7 @@ import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.RideTrack;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Terrain;
@@ -179,6 +180,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = null;
         this.back = null;
         this.scenery = game.demoScenery();
@@ -226,6 +228,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
@@ -576,10 +579,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, ITEM, BUSH, DOOR }
+    private enum Use { NOTHING, CHEST, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+
+    /** The saddled horse's sheets, where its {@code ride.json} is. */
+    private static final String RIDE_SHEETS = "horse_saddled";
 
     private Use usable() {
+        Player.Riding riding = world.player().riding();
+        if (riding == Player.Riding.RIDING) return Use.DISMOUNT;        // on a horse: only getting off it
+        if (riding != Player.Riding.NO) return Use.NOTHING;
         Vec3 me = world.player().ground();
+        // a horse by her: get on it - or, with a saddle on her, saddle it - before what lies about
+        if (world.reachableHorse() != null) return Use.MOUNT;
+        if (world.saddleable() != null) return Use.SADDLE;
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
         Scenery.Placed b = world.reachableBush();
@@ -594,15 +606,30 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         return b != null ? Use.BUSH : Use.NOTHING;
     }
 
-    /** E: open or shut the chest she stands by, pick up what lies by her, pick a bush, go through a door - whichever is nearest. */
+    /**
+     * E: open or shut the chest she stands by, pick up what lies by her, pick a bush, go through a door -
+     * whichever is nearest; by a horse, saddle it or get on it; on one, get off.
+     */
     private void use() {
         switch (usable()) {
             case CHEST -> toggleChest(world.reachableChest());
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
             case DOOR -> goThrough(usableDoor());
+            case SADDLE -> saddleHorse();
+            case MOUNT -> world.mount(world.reachableHorse());
+            case DISMOUNT -> {
+                if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
+            }
             default -> { }
         }
+    }
+
+    /** E by a horse with a saddle on her: it is saddled, and hers to ride. */
+    private void saddleHorse() {
+        if (!world.saddle(world.saddleable())) return;
+        game.toast("Saddled the horse — press E to ride it (Shift canter, Ctrl gallop, E to get off)",
+                Theme.ACCENT);
     }
 
     // --- inside buildings ------------------------------------------------------------------
@@ -946,6 +973,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));
                 return;
             }
+            if (d.isTack()) {
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + " — walk up to a horse and press E to saddle it", g.item.rarity().colour(1f));
+                return;
+            }
             var lib = game.sprites();
             var worn = world.player().wardrobe();
             var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
@@ -1003,7 +1035,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open / pick a bush / go in, out, up, down · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
+            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
                     + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
                     + "Alt/Z in the air: land in a roll · "
@@ -1016,7 +1048,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         String text, name = "";
         float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
         Use use = usable();
-        if (use == Use.DOOR) {
+        if (use == Use.DISMOUNT && world.player().speed() > 0.5) return;      // (only once it stands)
+        if (use == Use.MOUNT) {
+            text = "E   Ride the horse";
+        } else if (use == Use.SADDLE) {
+            text = "E   Saddle the horse";
+        } else if (use == Use.DISMOUNT) {
+            text = "E   Get off the horse";
+        } else if (use == Use.DOOR) {
             text = "E   " + doorText(usableDoor());
         } else if (use == Use.CHEST) {
             text = "E   " + (world.reachableChest().isOpen() ? "Close the chest" : "Open the chest");
@@ -1175,7 +1214,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private boolean give(Item item) {
         Player p = world.player();
         ItemDef d = item.def();
-        if ((d.isWearable() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
+        if ((d.isWearable() || d.isTack() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
                 .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
                 .ifPresent(world.items()::remove);
@@ -1449,6 +1488,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            // riding: a saddled horse put before her ("steed [metres]"), saddling the one by her, on, off
+            case "steed" -> {
+                double m = argument.isBlank() ? 3 : Double.parseDouble(argument.trim());
+                Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                com.larsons.game.ambient.Animal an = world.addAnimal(com.larsons.game.ambient.AnimalKind.HORSE, at,
+                        null);
+                an.setSaddled(true);
+                an.faceTo(at.add(SpriteView.headingVector(p.heading() + Math.PI / 2)));
+            }
+            case "saddle" -> saddleHorse();
+            case "ride", "mount" -> world.mount(world.reachableHorse());
+            case "getoff", "dismount" -> world.dismount();
             case "door" -> goThrough(usableDoor());
             case "enter" -> {
                 // into the nearest building with an inside, wherever it is

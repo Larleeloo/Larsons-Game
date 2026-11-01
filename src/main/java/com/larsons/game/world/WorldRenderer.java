@@ -252,7 +252,7 @@ public final class WorldRenderer implements AutoCloseable {
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
         shadowStrength = indoors ? 0.85f : (float) (0.55 + 0.45 * light.day());
-        groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
+        if (!p.mounted()) groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time())) continue;
             Vec3 c = g.centre(world.time());
@@ -297,16 +297,27 @@ public final class WorldRenderer implements AutoCloseable {
         List<Double> dist = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
 
+        // riding, she is seen as her horse is - from its pivot, the way it faces - and drawn just
+        // over it (her sheets were cut against it), on its depth: with it, in the animals' pass
+        Animal steed = p.mounted() ? world.steed() : null;
         Vec3 pivot = p.feet().add(0, 0.9, 0);
+        if (steed != null) {
+            ObjectSprites.Entry horse = objects.entry(steed.sprite());
+            pivot = steed.position().add(0, horse == null ? 1.05 : horse.profile().pivotHeight(), 0);
+        }
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
                 p.handsEmpty(), p.stance()), world.wielded(), items);
         LayerStack.Result stack = playerStack;
-        draws.add(() -> {
+        Runnable her = () -> {
             batch.depthAnchor(p.ground());
             LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
-        });
-        dist.add(p.feet().sub(eye).dot(forward));
+        };
+        boolean[] drawnWithHorse = {false};
+        if (steed == null) {
+            draws.add(her);
+            dist.add(p.feet().sub(eye).dot(forward));
+        }
 
         // the dash's afterimages: the frames she leaves behind, fading where they were
         double now = world.time();
@@ -427,8 +438,9 @@ public final class WorldRenderer implements AutoCloseable {
             if (a.alpha() < 0.02) continue;
             Vec3 at = a.position();
             if (at.sub(eye).length() > ANIMAL_REACH) continue;
-            String id = a.kind().sprite();
+            String id = a.sprite();
             ObjectSprites.Entry entry = objects.entry(id);
+            if (entry == null) entry = objects.entry(id = a.kind().sprite());      // (no saddled sheets)
             if (entry == null) continue;
             com.larsons.game.sprite.SpriteProfile prof = entry.profile();
             ObjectStack.Memory memory = animalMemory.get(a);
@@ -437,6 +449,8 @@ public final class WorldRenderer implements AutoCloseable {
             SpriteView av = SpriteView.of(eye, at.add(0, prof.pivotHeight(), 0), a.heading(), camera.yaw());
             ObjectStack.Result ar = ObjectStack.resolve(sprites, objects, id, a.sheet(), a.loops(), a.sheetTime(),
                     t, av, 0, memory);
+            Runnable rider = a == steed ? her : null;
+            if (rider != null) drawnWithHorse[0] = true;
             List<LayerStack.Layer> layers = ar.layers();
             double flash = a.flash();
             if (flash > 0) {
@@ -453,10 +467,16 @@ public final class WorldRenderer implements AutoCloseable {
             draws.add(() -> {
                 batch.depthAnchor(anchor);
                 LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, right, up, alpha);
+                if (rider != null) rider.run();
             });
             dist.add(at.sub(eye).dot(forward));
         }
         animalMemory = animalMemories;
+        if (steed != null && !drawnWithHorse[0]) {
+            // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
+            draws.add(her);
+            dist.add(p.feet().sub(eye).dot(forward));
+        }
 
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;

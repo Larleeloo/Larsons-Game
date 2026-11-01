@@ -11,6 +11,7 @@ import com.larsons.game.world.Chest;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.RideTrack;
 import com.larsons.game.world.World;
 
 import java.util.HashMap;
@@ -97,6 +98,7 @@ public final class WorldSounds {
         String body = p.wardrobe().get(Slot.BODY);
         player.update(SoundKeys.player(body, p.state()), p.stateTime(), 1.0, 0.0);
         steps(p, body, durations, world);
+        hooves(p);
         if (crouched != null && crouched != p.crouched()) {
             Sounds.play(SoundKeys.player(body, p.crouched() ? "crouch" : "stand"), 0.8);
         }
@@ -216,6 +218,31 @@ public final class WorldSounds {
         if (gait) footstep(p, body, s, world);
         else Sounds.play(SoundKeys.player(body, "climb_grip"), 0.8);
     }
+
+    /**
+     * The hooves of the horse she rides: two steps a stride of its walk
+     * sheet, one a stride of its run sheet (a canter's, a gallop's beat) -
+     * counted on its clock as her footsteps are on hers.
+     */
+    private void hooves(Player p) {
+        String sheet = p.mounted() ? p.horseSheet() : "idle";
+        if (sheet.equals("idle")) {
+            hoofSheet = null;
+            return;
+        }
+        boolean run = sheet.equals("run");
+        int frames = p.rideTrack().frames(sheet);
+        double stride = frames > 0 ? frames / RideTrack.FPS : run ? 0.6 : 0.8;
+        double beat = Math.floor(p.horseTime() / stride * (run ? 1 : 2));
+        if (sheet.equals(hoofSheet) && beat == hoofBeat) return;
+        hoofSheet = sheet;
+        hoofBeat = beat;
+        Sounds.play(SoundKeys.creature("horse", run ? "gallop" : "hooves"), run ? 0.9 : 0.65);
+    }
+
+    /** The horse's sheet the last hoof beat was counted in, and which beat. */
+    private String hoofSheet;
+    private double hoofBeat;
 
     private static void footstep(Player p, String body, AnimState s, World world) {
         Vec3 at = p.ground();

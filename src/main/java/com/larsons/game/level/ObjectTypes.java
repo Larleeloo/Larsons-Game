@@ -22,6 +22,7 @@ import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Pickings;
+import com.larsons.game.world.Tack;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
@@ -165,7 +166,8 @@ public final class ObjectTypes {
                         Prop.number("count", "How many", 3, 1, 30, 1),
                         Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
                         Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
-                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes())),
+                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes()),
+                        Prop.toggle("saddled", "Saddled (horses: to ride)", false)),
                 0.6, 1.2, 0xE8B070, false,
                 (o, b) -> {
                     AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
@@ -173,7 +175,8 @@ public final class ObjectTypes {
                     b.world().animals().herds().add(new Animals.Herd(k, b.onGround(o),
                             (int) Math.round(o.num("count", 3)), o.num("radius", 8),
                             Temperament.byKey(o.str("temperament", OWN)),
-                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
+                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key())),
+                            k == AnimalKind.HORSE && o.bool("saddled", false)));
                 }));
     }
 
@@ -359,6 +362,7 @@ public final class ObjectTypes {
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         for (ItemDef d : Wearables.ALL) out.add(d.id());
         for (ItemDef d : Pickings.ALL) out.add(d.id());
+        for (ItemDef d : Tack.ALL) out.add(d.id());
         return out;
     }
 
@@ -431,6 +435,10 @@ public final class ObjectTypes {
             out.add(new Entry(k.label(), Category.LIFE, ANIMALS, Map.of("kind", k.key(), "count", (double) n,
                     "radius", k.flies() ? 4.0 : 8.0, "temperament", OWN, "when", Critters.When.ITS_TIME.key())));
         }
+        // a horse waiting with its saddle on, to ride; and the saddle, for her to saddle one with
+        out.add(new Entry("Saddled horse", Category.LIFE, ANIMALS, Map.of("kind", AnimalKind.HORSE.key(), "count",
+                1.0, "radius", 2.0, "temperament", OWN, "when", Critters.When.ALWAYS.key(), "saddled", true)));
+        for (ItemDef d : Tack.ALL) out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
         // the rooms' pieces: walls with each opening, a floor, stairs up and down, the door out
         for (Room.Opening op : Room.Opening.values()) {
             out.add(new Entry(op == Room.Opening.NONE ? "Wall" : "Wall: " + op.label().toLowerCase(), Category.INSIDE,
@@ -502,7 +510,8 @@ public final class ObjectTypes {
                 AnimalKind k = AnimalKind.byKey(o.str("kind", ""));
                 Temperament n = Temperament.byKey(o.str("temperament", OWN));
                 yield (k == null ? "Animals" : k.label()) + " (" + (int) Math.round(o.num("count", 3)) + ")"
-                        + (n == null || k != null && n == k.temperament() ? "" : ", " + n.label().toLowerCase());
+                        + (n == null || k != null && n == k.temperament() ? "" : ", " + n.label().toLowerCase())
+                        + (k == AnimalKind.HORSE && o.bool("saddled", false) ? ", saddled" : "");
             }
             default -> t.label();
         };
