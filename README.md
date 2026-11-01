@@ -1364,6 +1364,11 @@ with the animals that come and go, however far she goes.
 
 **E** by it - *Ride the horse* - and she hops up into the saddle. On it:
 
+<p align="center">
+  <img src="docs/screenshots/riding-walk.png" width="49%" alt="Riding at a walk in the laced dress, its skirt over the horse's side">
+  <img src="docs/screenshots/riding-gallop.png" width="49%" alt="At the gallop, up in the stirrups, the cape streaming back">
+</p>
+
 | | |
 |---|---|
 | **W A S D** | steer: it turns toward the way you push, no faster than a horse can (wider at a gallop), slowing round a sharp turn and turning near on the spot to go back |
@@ -1392,6 +1397,11 @@ item (Place → Life → *Saddle*):
 {"type": "animals", "x": 4, "z": 40, "kind": "horse", "count": 1, "radius": 2, "when": "always", "saddled": true}
 {"type": "item", "x": 2, "z": 38, "item": "saddle"}
 ```
+
+<p align="center">
+  <img src="docs/screenshots/riding-side.png" width="49%" alt="Sitting the walk, from the side: the cape over its rump">
+  <img src="docs/screenshots/creative-saddled-horse.png" width="49%" alt="Creative Mode: a saddled horse and a saddle placed, the herd's Saddled switch on">
+</p>
 
 ## Buildings
 

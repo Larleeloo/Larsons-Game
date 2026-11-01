@@ -167,7 +167,7 @@ public final class ObjectTypes {
                         Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
                         Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
                         Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes()),
-                        Prop.toggle("saddled", "Saddled (horses: to ride)", false)),
+                        Prop.toggle("saddled", "Saddled", false)),
                 0.6, 1.2, 0xE8B070, false,
                 (o, b) -> {
                     AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
