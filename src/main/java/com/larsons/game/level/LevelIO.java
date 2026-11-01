@@ -71,7 +71,8 @@ public final class LevelIO {
     /** A height's 16-bit value is {@code (metres + OFFSET) * SCALE}. */
     static final double OFFSET = 128, SCALE = 256;
 
-    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "life", "objects");
+    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "life", "objects",
+            "interiors");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
@@ -167,6 +168,20 @@ public final class LevelIO {
             }
         }
         level.setNextId(highest + 1);
+        if (j.get("interiors") instanceof Map<?, ?> ins) {
+            for (Map.Entry<?, ?> e : ins.entrySet()) {
+                if (!(e.getValue() instanceof List<?> floors)) continue;
+                int id;
+                try {
+                    id = Integer.parseInt(String.valueOf(e.getKey()));
+                } catch (NumberFormatException x) {
+                    continue;
+                }
+                List<Level> read = new ArrayList<>();
+                for (Object f : floors) if (f instanceof Map<?, ?>) read.add(floor(Json.asObject(f), read.size()));
+                if (!read.isEmpty()) level.setInterior(id, read);
+            }
+        }
         for (Map.Entry<String, Object> e : j.entrySet()) {
             boolean known = KNOWN.contains(e.getKey())
                     && !(e.getKey().equals("music") && !(e.getValue() instanceof String));  // a later game's music: kept
@@ -183,6 +198,43 @@ public final class LevelIO {
         Path wp = folder.resolve(WATER);
         if (Files.isRegularFile(wp)) readWater(wp, level.water());
         return level;
+    }
+
+    /** A floor of a building's inside as written: its name and what is on it. */
+    static Level floor(Map<String, Object> j, int n) {
+        Level f = new Level(Json.str(j, "name", Interiors.floorName(n)), Level.INTERIOR_SIZE);
+        int highest = 0;
+        if (j.get("objects") instanceof List<?> list) {
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?>)) continue;
+                LevelObject o = object(Json.asObject(item));
+                if (o == null) continue;
+                f.objects().add(o);
+                highest = Math.max(highest, o.id());
+            }
+        }
+        f.setNextId(highest + 1);
+        return f;
+    }
+
+    /** The insides of {@code level}'s buildings, as written - those of buildings still in it. */
+    static Map<String, Object> interiors(Level level) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<Integer, List<Level>> e : level.interiors().entrySet()) {
+            LevelObject b = level.byId(e.getKey());
+            if (b == null || !b.type().equals(ObjectTypes.BUILDING) || e.getValue().isEmpty()) continue;
+            List<Object> floors = new ArrayList<>();
+            for (Level f : e.getValue()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("name", f.name());
+                List<Object> objs = new ArrayList<>();
+                for (LevelObject o : f.objects()) objs.add(object(o));
+                m.put("objects", objs);
+                floors.add(m);
+            }
+            out.put(String.valueOf(e.getKey()), floors);
+        }
+        return out;
     }
 
     /** The nearest size a level can be to {@code s}. */
@@ -379,6 +431,8 @@ public final class LevelIO {
         if (!Double.isNaN(level.water().seaLevel())) head.put("sea", round(level.water().seaLevel()));
         if (!level.life().isDefault()) head.put("life", tidy(level.life().toJson()));
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
+        Map<String, Object> ins = interiors(level);
+        if (!ins.isEmpty()) head.put("interiors", ins);
         String text = Json.stringify(head);
         StringBuilder sb = new StringBuilder(text.substring(0, text.lastIndexOf('}')).stripTrailing());
         sb.append(",\n  \"objects\": [");

@@ -479,6 +479,9 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/loot_legendary.mp3                       Loot: a Legendary find                           world/loot_legendary
   world/loot_mythic.mp3                          Loot: a Mythic find                              world/loot_mythic
   world/forage_pick.mp3                          Picking from a bush                              world/forage_pick
+  world/door_open.mp3                            A door opening (going in or out)                 world/door_open
+  world/door_close.mp3                           A door shutting behind her                       world/door_close
+  world/stairs.mp3                               Going up or down the stairs                      world/stairs
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat

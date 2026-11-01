@@ -25,8 +25,19 @@ import java.util.Map;
  */
 public final class BuildingProfile {
 
-    /** One part, as the building comes: its name, what the editor calls it, its colour and its pattern. */
-    public record Part(String key, String label, int colour, String texture, boolean glow) {}
+    /**
+     * One part, as the building comes: its name, what the editor calls it,
+     * its colour and its pattern; {@code glow}: lit from inside at night (a
+     * window), {@code always}: lit day and night (a fire).
+     */
+    public record Part(String key, String label, int colour, String texture, boolean glow, boolean always) {
+        public Part(String key, String label, int colour, String texture, boolean glow) {
+            this(key, label, colour, texture, glow, false);
+        }
+    }
+
+    /** What kind of thing it is: a building, a piece of furniture, or a piece of a room ({@link Room}). */
+    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room";
 
     /** A view's size in pixels and the pixel its ground point is at. */
     public record Frame(int width, int height, double anchorX, double anchorY, double angle) {}
@@ -42,7 +53,8 @@ public final class BuildingProfile {
     /** The turning part: frames in its strip, degrees over them, degrees a second. */
     public record Anim(int frames, double degrees, double speed) {}
 
-    private final String key, label;
+    private final String key, label, group;
+    private final Room.Spec room;
     private final double pixel, texel, depthMin, depthStep;
     private final Map<Elevation, Frame> frames;
     private final List<Part> parts;
@@ -54,7 +66,17 @@ public final class BuildingProfile {
     public BuildingProfile(String key, String label, double pixel, double texel, double depthMin, double depthStep,
                            Map<Elevation, Frame> frames, List<Part> parts, List<Shape> footprint, double[] door,
                            boolean interior, Anim anim) {
+        this(key, label, BUILDING, null, pixel, texel, depthMin, depthStep, frames, parts, footprint, door, interior,
+                anim);
+    }
+
+    /** As the other, of {@code group} ({@link #BUILDING}, {@link #FURNITURE}, {@link #ROOM}); {@code room}: a room's piece's shape, or null. */
+    public BuildingProfile(String key, String label, String group, Room.Spec room, double pixel, double texel,
+                           double depthMin, double depthStep, Map<Elevation, Frame> frames, List<Part> parts,
+                           List<Shape> footprint, double[] door, boolean interior, Anim anim) {
         this.key = key;
+        this.group = group == null ? BUILDING : group;
+        this.room = room;
         this.label = label;
         this.pixel = pixel;
         this.texel = texel;
@@ -71,6 +93,15 @@ public final class BuildingProfile {
     public String key() { return key; }
 
     public String label() { return label; }
+
+    /** {@link #BUILDING}, {@link #FURNITURE} or {@link #ROOM}. */
+    public String group() { return group; }
+
+    /** Whether it is a piece of furniture (it goes inside, and is filed with what goes inside). */
+    public boolean furniture() { return group.equals(FURNITURE); }
+
+    /** A room's piece's shape - drawn as it is, not from views - or null. */
+    public Room.Spec room() { return room; }
 
     /** Metres a pixel of its views spans. */
     public double pixel() { return pixel; }
@@ -108,13 +139,14 @@ public final class BuildingProfile {
 
     /** How far from its middle its footprint reaches. */
     public double reach() {
-        double r = 0.5;
+        double r = room == null ? 0.5 : Math.hypot(room.length() / 2, room.depth() / 2);
         for (Shape s : footprint) r = Math.max(r, s.reach());
         return r;
     }
 
-    /** How tall it stands, about: the side view's top. */
+    /** How tall it stands, about: the side view's top (a room's piece: its own height). */
     public double height() {
+        if (room != null) return room.height();
         Frame f = frames.get(Elevation.SIDE);
         return f == null ? 4 : f.anchorY() * pixel;
     }
@@ -146,7 +178,8 @@ public final class BuildingProfile {
                 Map<String, Object> p = Json.asObject(x);
                 parts.add(new Part(Json.str(p, "key", "part"), Json.str(p, "label", "Part"),
                         BuildingLook.parseColour(Json.str(p, "colour", "#c0c0c0"), 0xC0C0C0),
-                        Json.str(p, "texture", "smooth"), Json.bool(p, "glow", false)));
+                        Json.str(p, "texture", "smooth"), Json.bool(p, "glow", false),
+                        "always".equals(p.get("glow"))));
             }
         }
         List<Shape> shapes = new ArrayList<>();
@@ -175,7 +208,7 @@ public final class BuildingProfile {
         }
         Map<String, Object> depth = Json.obj(o, "depth");
         return new BuildingProfile(Json.str(o, "key", "building"), Json.str(o, "label", "Building"),
-                Json.num(o, "pixel", 0.0375), Json.num(o, "texel", 0.0375), Json.num(depth, "min", -10),
+                Json.str(o, "group", BUILDING), null, Json.num(o, "pixel", 0.0375), Json.num(o, "texel", 0.0375), Json.num(depth, "min", -10),
                 Json.num(depth, "step", 0.08), frames, parts, shapes, door, Json.bool(o, "interior", false), anim);
     }
 }

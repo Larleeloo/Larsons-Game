@@ -30,7 +30,7 @@ ticked off as it lands.
 - [Day and night](#day-and-night)
 - [Life: critters and foraging](#life-critters-and-foraging)
 - [Animals](#animals)
-- [Buildings](#buildings)
+- [Buildings](#buildings) (and [going inside](#going-inside))
 - [Creative Mode](#creative-mode)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
@@ -130,7 +130,7 @@ window could even open).
 | **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword with the sword and shield - or, with no shield worn, the sword alone; an empty slot, empty hands |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot; **A–Z** / **Rarity** sort it |
 | **F1 – F4** | laugh, cry, surprise, anger |
-| **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
+| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, pick a bush, go in at a door, up or down the stairs or out - whichever is nearest / drop what you are holding |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** / **O** | camera height preset: side → 45° → top-down / the [automatic camera height](#the-automatic-camera-height) on the hills, or fixed |
@@ -1419,6 +1419,70 @@ rows. A new building is a class in 3D-Modeling's
 `buildings.py`, rendered (`passes`) and written into `assets/buildings/`
 (`draw`): the palette lists it from its folder.
 
+### Going inside
+
+Every home, mill and castle piece with a door can be **gone into**: walk up to
+its door and **E** (*Go into the cottage*). Inside she is in its rooms - lit by
+their candles, lanterns and the fire in the hearth, dim and warm, a little
+lighter by day with the daylight in the windows - with the walls between the
+camera and her **cut down to a stub**, as in the Sims, so the room she is in is
+seen into from above like a dolls' house. **E** at a staircase's foot goes up a
+floor, at a stairwell's top down one, and at the **door out** back outside, to
+the building's door, the world outside just as she left it. A floor she goes
+back to is as she left it too: what she dropped, the chests she opened.
+
+<p align="center">
+  <img src="docs/screenshots/inside-door.png" width="49%" alt="She stands at a cottage's door: E Go into the cottage">
+  <img src="docs/screenshots/inside-cottage.png" width="49%" alt="Inside the cottage: the bed, the fire, the table and chairs, a cat, the front wall cut away">
+</p>
+<p align="center">
+  <img src="docs/screenshots/inside-keep-hall.png" width="49%" alt="The keep's great hall: flagstones, stone walls, the long tables, two dogs">
+  <img src="docs/screenshots/inside-upstairs.png" width="49%" alt="The town house's second floor: the bedroom wall with its doorway, the beds, a bookshelf">
+</p>
+
+Each kind comes **furnished** (`level/Interiors`): the cottage one room with a
+bed, a fireplace, a table and chairs and a cat; the log cabin with a dog; the
+town house its kitchen downstairs and its bedrooms up; the keep its great hall,
+its chambers and its armoury on three floors (chests to open up there); the
+mills, the towers, the gatehouse, the spire and the turret theirs. Twelve
+pieces of **furniture** are drawn as the buildings are, from eight directions
+and three heights, at twice the detail: a bed, a table, a chair, a bench, a
+stool, a bookshelf, a cupboard, a wardrobe, a fireplace (its fire always
+burning, lighting the room), a counter, a barrel and a crate - each dressed
+part by part (a bed's frame, blanket and sheets) as a building is.
+
+The rooms are built of **pieces** (`building/Room`): a **wall** as long and as
+high as it is set, plain or with a **doorway**, a **window** or an **archway**
+in it, its two sides each their own colour and pattern and its trim another; a
+**floor**; **stairs up** and **stairs down**; and the **door out**. They are
+drawn as boxes, not views (`building/RoomRenderer`), in the same 128 colours
+and patterns, outlined and shaded as the pixel art is.
+
+<p align="center">
+  <img src="docs/screenshots/creative-edit-inside.png" width="49%" alt="Creative Mode inside the town house's second floor: the floors along the top, a bed selected and its blanket coloured blue">
+  <img src="docs/screenshots/inside-tower-night.png" width="49%" alt="A round tower's ground floor at night, lit by its lantern">
+</p>
+
+**In Creative Mode**, select a building and **Edit inside**: its floors open in
+the editor - the walls, floors, stairs, furniture, chests, lights, animals,
+anything from the palette - with **Place → Inside** holding the room pieces and
+the furniture. Along the top: the floor shown, **<** and **>** (or
+Shift+PgUp / PgDn) to go between floors, **+ Floor** (a floor on top, with the
+top one's walls and a stairwell over each staircase) and **- Floor** (the top
+one, pressed twice); **Play (F5)** starts her right there, inside; **Outside**
+(or Esc) goes back out. It is all saved with the level, under the building's
+number:
+
+```json
+"interiors": {"20": [{"name": "Ground floor", "objects": [
+    {"id": 1, "type": "floor", "x": 0, "z": 0, "yaw": 0, "width": 8.2, "depth": 6.2},
+    {"id": 2, "type": "wall", "x": 0, "z": -3, "yaw": 180, "length": 8.2, "height": 3, "opening": "window"},
+    {"id": 9, "type": "exit", "x": -1.2, "z": 3, "yaw": 0},
+    {"id": 14, "type": "building", "x": -2.6, "z": -2.0, "yaw": 180, "kind": "bed"}, ...]}]}
+```
+
+A building whose inside has not been edited is as its kind comes.
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas
@@ -1652,7 +1716,8 @@ src/main/java/com/larsons/game/
                             parts, views, footprint, door), BuildingLook (a building's colours and patterns, and
                             the six shades of a colour), Building (one standing: its footprint, its own metres),
                             BuildingRenderer (its views coloured, patterned and sorted pixel by pixel), Prefab
-                            (sets of buildings: the small castle)
+                            (sets of buildings: the small castle), Room (the pieces rooms are built of: walls,
+                            floors, stairs, the door out; the walls cut away) and RoomRenderer (drawn as boxes)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
@@ -1660,7 +1725,7 @@ src/main/java/com/larsons/game/
                             SoundsPanel, DebugCode, DemoLevel (the demo as a level)
   level/                    Creative Mode's levels: Level, LevelObject, ObjectType and ObjectTypes (every kind
                             of thing, by key), HeightField (the sculpted ground), LevelWorld (a level played),
-                            LevelIO (its folder)
+                            LevelIO (its folder), Interiors (each kind of building's floors as it comes)
   editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
   tools/                    SampleSprites
@@ -1669,8 +1734,8 @@ assets/sprites/             the sprite sheets (one folder per layer) and their c
                             the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
-assets/buildings/           the buildings: a folder each (profile.json and its 24 views, a mill's turning part
-                            beside them) and textures/ (the 20 patterns and textures.json)
+assets/buildings/           the buildings and the furniture: a folder each (profile.json and its 24 views, a mill's
+                            turning part beside them) and textures/ (the 20 patterns and textures.json)
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
@@ -1793,7 +1858,16 @@ from the ground and the water, the biome brush's mix, the twelve grounds in
 three groups and their snapshots, a level's water, sea and grounds saved and
 read back (and their files gone when dry), how deep she stands, what she hears
 by day and by night, tall grass leaning away from her, each ground's
-footstep, each biome's sets, and nothing but reeds sown in a pond.
+footstep, each biome's sets, and nothing but reeds sown in a pond; and the
+buildings and their insides (`building/BuildingTest`, `building/InteriorTest`):
+a kind's profile, its own metres, its footprint and the click on it, a
+colour's six shades, a look kept in its level, the small castle; a doorway
+walked through and a wall and a window not, the walls on the eye's side cut
+down and the far ones left standing, a wall's two sides and trim, the twelve
+pieces of furniture, every kind's inside as it comes - a door out on the
+ground floor, stairs between its floors, nothing in the way of a door or a
+staircase, no furniture in a wall or another piece - a building's floors saved
+with its level, and going in and out again to the outdoors as she left it.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -1811,7 +1885,9 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
-`chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
+`chest` (open or shut it), `chest goto`, `door` (go through the door, stairs or door out she is at),
+`enter` (into the nearest building with an inside, wherever it is), `upstairs` / `downstairs` (by the
+nearest stairs), `outside`, `dummy goto [n] [metres] [front|back|left|right]` (stand
 by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the
 highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
 (dive at her now / stand under flier n / lock on to it), `animal <kind> [nature] [metres]` (one put that
@@ -1840,7 +1916,8 @@ the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|
 `sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
 height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
 on|off`, `fog game|thin`, `life <critter|animal|regrow|yield|animals> <n>`, `life reset`, `lifepage
-critters|animals`, `playtest [x z]` and `leave`.
+critters|animals`, `playtest [x z]`, `leave`, and for a building's inside `inside` (edit the selected
+building's), `floor <n>` (1: the ground floor), `addfloor` and `outside`.
 
 ---
 

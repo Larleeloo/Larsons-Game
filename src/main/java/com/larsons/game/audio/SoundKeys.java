@@ -148,10 +148,11 @@ public final class SoundKeys {
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
-     * its rarity, Uncommon and up, rung out.
+     * its rarity, Uncommon and up, rung out; picking a bush; a building's
+     * door as she goes in and out, and the stairs inside.
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
-            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick");
+            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -735,6 +736,9 @@ public final class SoundKeys {
             case "loot_throw" -> "Loot thrown out of a chest";
             case "loot_land" -> "Loot landing";
             case "forage_pick" -> "Picking from a bush";
+            case "door_open" -> "A door opening (going in or out)";
+            case "door_close" -> "A door shutting behind her";
+            case "stairs" -> "Going up or down the stairs";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")

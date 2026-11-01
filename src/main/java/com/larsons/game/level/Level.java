@@ -46,6 +46,8 @@ public final class Level {
     private WaterMap water;
     private final List<LevelObject> objects = new ArrayList<>();
     private final Map<String, Object> extra = new LinkedHashMap<>();
+    /** The floors inside its buildings, by the building's number: the ground floor first. */
+    private final Map<Integer, List<Level>> interiors = new LinkedHashMap<>();
     private int nextId = 1;
 
     /** An empty level called {@code name}, {@code size} metres a side: flat grass under the demo's sky. */
@@ -155,6 +157,26 @@ public final class Level {
 
     /** What a newer game wrote at the top of the file that this one does not know, kept to be written back. */
     public Map<String, Object> extra() { return extra; }
+
+    /** How big a floor of a building's inside is, metres a side. */
+    public static final double INTERIOR_SIZE = 64;
+
+    /**
+     * The floors inside building {@code id} (the ground floor first, each a
+     * level of its own: its rooms, furniture, lights, chests...), or null
+     * when none have been made for it - it is then as its kind comes ({@link
+     * Interiors#make}).
+     */
+    public List<Level> interior(int id) { return interiors.get(id); }
+
+    /** Set the floors inside building {@code id} (null: back to as its kind comes). */
+    public void setInterior(int id, List<Level> floors) {
+        if (floors == null) interiors.remove(id);
+        else interiors.put(id, new ArrayList<>(floors));
+    }
+
+    /** Every building's floors, by the building's number. */
+    public Map<Integer, List<Level>> interiors() { return interiors; }
 
     /** The number the next object placed gets. */
     public int nextId() { return nextId; }

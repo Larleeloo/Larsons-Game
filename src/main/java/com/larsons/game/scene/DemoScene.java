@@ -15,7 +15,11 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.Room;
+import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
+import com.larsons.game.level.LevelObject;
 import com.larsons.game.level.LevelWorld;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
@@ -149,8 +153,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public static final double MUSIC_VOLUME = 0.7;
     /** Back to the editor, or null: the level is not being play-tested. */
     private final Runnable back;
-    /** The demo's scenery or the level's, as it is when shown. */
-    private final Scenery scenery;
+    /** The scenery of where she is - the demo's, the level's, a floor of a building's - as it is when shown. */
+    private Scenery scenery;
+    /** Where she is inside a building, or null: outdoors. */
+    private Inside inside;
+    /** The floors of the buildings she has been in, as she left them: by the building, then by the floor. */
+    private final java.util.Map<Integer, java.util.Map<Integer, Left>> visited = new java.util.HashMap<>();
+    /** The insides made, as each kind comes, for the buildings the level has none set for. */
+    private final java.util.Map<Integer, List<Level>> madeInsides = new java.util.HashMap<>();
+    /** The fade through black as she goes through a door, 1 – 0. */
+    private double fade;
     /** When the heavy attack's "ready in" was last said (so held-down presses are not a pile of toasts). */
     private double heavyToast = Double.NEGATIVE_INFINITY;
     private boolean turntable;
@@ -312,6 +324,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void update(double dt) {
         frameDt = dt;
+        fade = Math.max(0, fade - dt * 2.8);
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
@@ -562,30 +575,229 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
     }
 
-    /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick. */
-    private enum Use { NOTHING, CHEST, ITEM, BUSH }
+    /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
+    private enum Use { NOTHING, CHEST, ITEM, BUSH, DOOR }
 
     private Use usable() {
         Vec3 me = world.player().ground();
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
         Scenery.Placed b = world.reachableBush();
+        Building d = usableDoor();
         double dc = c == null ? Double.MAX_VALUE : c.position().horizontalDistance(me);
         double dg = g == null ? Double.MAX_VALUE : g.position.horizontalDistance(me);
         double db = b == null ? Double.MAX_VALUE : Math.hypot(b.x() - me.x(), b.z() - me.z());
+        double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
+        if (d != null && dd < dc && dd < dg && dd < db) return Use.DOOR;
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
         return b != null ? Use.BUSH : Use.NOTHING;
     }
 
-    /** E: open or shut the chest she stands by, pick up what lies by her, or pick a bush - whichever is nearest. */
+    /** E: open or shut the chest she stands by, pick up what lies by her, pick a bush, go through a door - whichever is nearest. */
     private void use() {
         switch (usable()) {
             case CHEST -> toggleChest(world.reachableChest());
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
+            case DOOR -> goThrough(usableDoor());
             default -> { }
         }
+    }
+
+    // --- inside buildings ------------------------------------------------------------------
+
+    /** Inside a building: which, its floors, the floor she is on, and the outdoors as she left it. */
+    private static final class Inside {
+        final Building building;
+        final List<Level> floors;
+        final World.Place outdoors;
+        final Scenery outdoorScenery;
+        /** The camera's height outside, put back as she comes out. */
+        final double outdoorPitch;
+        int floor;
+
+        Inside(Building building, List<Level> floors, World.Place outdoors, Scenery outdoorScenery,
+               double outdoorPitch) {
+            this.building = building;
+            this.floors = floors;
+            this.outdoors = outdoors;
+            this.outdoorScenery = outdoorScenery;
+            this.outdoorPitch = outdoorPitch;
+        }
+    }
+
+    /** How high the camera looks down from inside a building, radians. */
+    static final double INDOOR_PITCH = Math.toRadians(38);
+
+    /** A floor as she left it, and its scenery. */
+    private record Left(World.Place place, Scenery scenery) {}
+
+    /** The door she can go through from where she stands - one that leads somewhere - or null. */
+    private Building usableDoor() {
+        Building d = world.reachableDoor();
+        if (d == null) return null;
+        Room.Spec r = d.profile().room();
+        if (r == null) return level == null || floorsOf(d).isEmpty() ? null : d;
+        if (inside == null) return null;
+        if (r.piece() == Room.Piece.STAIRS) {
+            int next = inside.floor + (r.up() ? 1 : -1);
+            return next >= 0 && next < inside.floors.size() ? d : null;
+        }
+        return d;
+    }
+
+    /** What going through {@code d} is called. */
+    private static String doorText(Building d) {
+        Room.Spec r = d.profile().room();
+        if (r == null) return "Go into the " + d.profile().label().toLowerCase();
+        if (r.piece() == Room.Piece.EXIT) return "Go outside";
+        return r.up() ? "Go upstairs" : "Go downstairs";
+    }
+
+    /** The floors inside {@code b}: as the level has them, or as its kind comes. */
+    private List<Level> floorsOf(Building b) {
+        List<Level> f = level == null ? null : level.interior(b.id());
+        if (f != null && !f.isEmpty()) return f;
+        return madeInsides.computeIfAbsent(b.id(), id -> Interiors.make(b.key()));
+    }
+
+    /** Through {@code d}: into its building, out of the one she is in, up or down its stairs. */
+    private void goThrough(Building d) {
+        if (d == null) return;
+        Room.Spec r = d.profile().room();
+        if (r == null) goIn(d);
+        else if (r.piece() == Room.Piece.EXIT) goOut();
+        else if (r.piece() == Room.Piece.STAIRS) climb(r.up(), d.position());
+    }
+
+    /** Into {@code b}: the outdoors kept as it is, and she comes in at its ground floor's door out. */
+    private void goIn(Building b) {
+        List<Level> floors = floorsOf(b);
+        if (inside != null || floors.isEmpty()) return;
+        Sounds.play(SoundKeys.world("door_open"));
+        inside = new Inside(b, floors, world.leave(), scenery, camera.basePitch());
+        // looked down into from higher, the walls before her cut away, as a dolls' house is
+        camera.setDesiredPitch(Math.max(camera.basePitch(), INDOOR_PITCH));
+        showFloor(0, null, false);
+    }
+
+    /** Out of the building she is in, at its door, facing away from it - the floor kept as she left it. */
+    private void goOut() {
+        if (inside == null) return;
+        keepFloor();
+        world.enter(inside.outdoors);
+        scenery = inside.outdoorScenery;
+        world.setScenery(shownScenery());
+        Building b = inside.building;
+        camera.setDesiredPitch(inside.outdoorPitch);
+        inside = null;
+        Player p = world.player();
+        p.setPosition(world.terrain().onGround(b.door()));
+        p.snapHeading(b.heading());
+        arrived();
+        Sounds.play(SoundKeys.world("door_close"));
+    }
+
+    /** Up ({@code up}) or down a floor, from the stairs at {@code from}. */
+    private void climb(boolean up, Vec3 from) {
+        if (inside == null) return;
+        int next = inside.floor + (up ? 1 : -1);
+        if (next < 0 || next >= inside.floors.size()) return;
+        Sounds.play(SoundKeys.world("stairs"));
+        keepFloor();
+        showFloor(next, from, up);
+    }
+
+    /** The floor she is on, kept as she leaves it - what she dropped, the chests she opened. */
+    private void keepFloor() {
+        visited.computeIfAbsent(inside.building.id(), k -> new java.util.HashMap<>())
+                .put(inside.floor, new Left(world.leave(), scenery));
+    }
+
+    /**
+     * Floor {@code n} of the building she is in - as she left it, or built
+     * from its level - and she on it: at the stairs going the other way
+     * nearest {@code from} (she came up: at a stairwell's top; down: at a
+     * staircase's foot), or - {@code from} null - at its door out.
+     */
+    private void showFloor(int n, Vec3 from, boolean wentUp) {
+        java.util.Map<Integer, Left> kept = visited.get(inside.building.id());
+        Left left = kept == null ? null : kept.remove(n);
+        Level floor = inside.floors.get(n);
+        if (left != null) {
+            world.enter(left.place());
+            scenery = left.scenery();
+        } else {
+            Terrain t = LevelWorld.stageIndoors(world, floor);
+            LevelWorld.spawnAll(world, floor.objects(), floor, t, game.scenerySprites(), world.combat().tuning());
+            scenery = world.scenery();
+        }
+        world.setScenery(shownScenery());
+        inside.floor = n;
+        Building by = null;
+        double best = Double.MAX_VALUE;
+        for (Building b : world.buildings()) {
+            Room.Spec r = b.profile().room();
+            if (r == null) continue;
+            boolean fits = from == null ? r.piece() == Room.Piece.EXIT
+                    : r.piece() == Room.Piece.STAIRS && r.up() != wentUp;
+            if (!fits) continue;
+            double d = from == null ? 0 : b.position().horizontalDistance(from);
+            if (d < best) {
+                best = d;
+                by = b;
+            }
+        }
+        Player p = world.player();
+        Vec3 at;
+        double heading;
+        if (by != null) {
+            at = by.door();
+            heading = by.heading();
+        } else {
+            LevelObject s = floor.spawn();
+            at = s == null ? Vec3.ZERO : new Vec3(s.x(), 0, s.z());
+            heading = s == null ? 0 : s.yaw();
+        }
+        p.setPosition(world.terrain().onGround(at));
+        p.snapHeading(heading);
+        world.setSpawnPoint(world.terrain().onGround(at));
+        arrived();
+    }
+
+    /** She has come through a door: the screen fades in from black, the camera behind her, nothing locked on. */
+    private void arrived() {
+        fade = 1;
+        world.combat().lock(null);
+        camera.setDesiredYaw(world.player().heading());
+        camera.snapTo(pivot());
+    }
+
+    /** Whether she is inside a building. */
+    public boolean indoors() { return inside != null; }
+
+    /**
+     * Start inside building {@code buildingId}, on floor {@code floor}: at
+     * {@code at} (null: where she comes in), facing {@code heading} - the
+     * play-test of a building's inside from Creative Mode.
+     */
+    public void startInside(int buildingId, int floor, Vec3 at, double heading) {
+        Building b = world.building(buildingId);
+        if (b == null) return;
+        goIn(b);
+        if (inside == null) return;
+        if (floor > 0 && floor < inside.floors.size()) {
+            keepFloor();
+            showFloor(floor, null, false);
+        }
+        if (at != null) {
+            Player p = world.player();
+            p.setPosition(world.terrain().onGround(at));
+            p.snapHeading(heading);
+            arrived();
+        }
+        fade = 0;
     }
 
     /**
@@ -767,6 +979,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
+        if (fade > 0) ui.rect(0, 0, ui.width(), ui.height(), new float[]{0, 0, 0, (float) Math.min(1, fade * 1.4)});
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
         boolean hudShown = game.settings().showHud;
@@ -790,7 +1003,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open / pick a bush · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
+            "E pick up / open / pick a bush / go in, out, up, down · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
                     + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
                     + "Alt/Z in the air: land in a roll · "
@@ -803,7 +1016,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         String text, name = "";
         float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
         Use use = usable();
-        if (use == Use.CHEST) {
+        if (use == Use.DOOR) {
+            text = "E   " + doorText(usableDoor());
+        } else if (use == Use.CHEST) {
             text = "E   " + (world.reachableChest().isOpen() ? "Close the chest" : "Open the chest");
         } else if (use == Use.ITEM) {
             // the item's name in its rarity's colour
@@ -1234,6 +1449,29 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            case "door" -> goThrough(usableDoor());
+            case "enter" -> {
+                // into the nearest building with an inside, wherever it is
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    if (b.profile().room() != null || !b.profile().interior() || b.door() == null) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best != null) goIn(best);
+            }
+            case "outside" -> goOut();
+            case "upstairs", "downstairs" -> {
+                boolean up = command.equals("upstairs");
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    Room.Spec r = b.profile().room();
+                    if (r == null || r.piece() != Room.Piece.STAIRS || r.up() != up) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best != null) climb(up, best.position());
+            }
             // the foraging bushes: forage (pick the one in reach), forage goto [n] (stand by the nth
             // nearest with something on it), eat [slot] (eat from that slot, else what is in hand)
             case "forage" -> {

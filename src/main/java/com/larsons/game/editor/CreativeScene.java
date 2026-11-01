@@ -11,12 +11,14 @@ import com.larsons.game.building.Building;
 import com.larsons.game.building.BuildingCatalog;
 import com.larsons.game.building.BuildingLook;
 import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.Room;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelIO;
 import com.larsons.game.level.LevelObject;
@@ -125,6 +127,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private final Game game;
     private final Level level;
     private Path folder;
+    /** Editing the inside of a building: the scene editing the level it stands in (null: editing a level). */
+    private final CreativeScene outside;
+    /** The building whose inside this is (its object's number), its floors, and which floor this is. */
+    private final int insideOf;
+    private final List<Level> floors;
+    private final int floorIndex;
+    /** When the top floor's "remove" was last pressed (it takes two presses). */
+    private double removeFloorAt = -10;
     private boolean dirty;
     private final ScenerySprites sprites;
     private final LevelView view;
@@ -206,10 +216,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * first save makes it a folder of its own in {@code assets/levels/}).
      */
     public CreativeScene(Game game, Level level, Path folder) {
+        this(game, level, folder, null, -1, null, 0);
+    }
+
+    /**
+     * Edit floor {@code floor} of {@code floors}, the inside of building
+     * {@code buildingId} of the level {@code outside} edits: saved with that
+     * level, Esc back out to it.
+     */
+    private CreativeScene(Game game, CreativeScene outside, int buildingId, List<Level> floors, int floor) {
+        this(game, floors.get(floor), outside.folder, outside, buildingId, floors, floor);
+    }
+
+    private CreativeScene(Game game, Level level, Path folder, CreativeScene outside, int insideOf,
+                          List<Level> floors, int floorIndex) {
         this.game = game;
         this.level = level;
         this.folder = folder;
-        this.dirty = folder == null;
+        this.outside = outside;
+        this.insideOf = insideOf;
+        this.floors = floors;
+        this.floorIndex = floorIndex;
+        this.dirty = outside == null && folder == null;
         this.sprites = game.scenerySprites();
         this.view = new LevelView(level, game.wardrobe(), sprites, CombatTuning.load(game.settings().assets));
         this.palette = ObjectTypes.palette();
@@ -220,12 +248,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         camera.setMaxDistance(FAR);
         LevelObject spawn = level.spawn();
         if (spawn != null) focus = new Vec3(spawn.x(), 0, spawn.z());
+        if (outside != null) {
+            view.indoors(outside.level.sky());
+            category = Category.INSIDE;
+            camera.setDesiredDistance(15);
+            camera.setDesiredYaw(0);
+        }
         choose(firstOf(category));
     }
 
     @Override
     public String name() {
+        if (outside != null) {
+            return "Creative Mode: " + outside.level.name() + " - inside the " + insideLabel().toLowerCase() + ", "
+                    + level.name().toLowerCase() + (outside.dirty ? " *" : "");
+        }
         return "Creative Mode: " + level.name() + (dirty ? " *" : "");
+    }
+
+    /** What the building whose inside this is is called. */
+    private String insideLabel() {
+        LevelObject b = outside == null ? null : outside.level.byId(insideOf);
+        return b == null ? "Building" : ObjectTypes.label(b);
     }
 
     @Override
@@ -356,7 +400,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!ctrl) {
             int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
                     GLFW_KEY_8, GLFW_KEY_9, GLFW_KEY_0};
-            for (int i = 0; i < toolKeys.length; i++) if (in.pressed(toolKeys[i])) setTool(Tool.values()[i]);
+            List<Tool> shown = tools();
+            for (int i = 0; i < Math.min(toolKeys.length, shown.size()); i++) {
+                if (in.pressed(toolKeys[i])) setTool(shown.get(i));
+            }
+            if (outside != null && in.pressed(GLFW_KEY_PAGE_UP) && shift) floor(floorIndex + 1);
+            if (outside != null && in.pressed(GLFW_KEY_PAGE_DOWN) && shift) floor(floorIndex - 1);
             if (in.pressed(GLFW_KEY_H)) hideUi = !hideUi;
             if (in.pressed(GLFW_KEY_G)) {
                 snap = !snap;
@@ -422,8 +471,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return new Vec3(focus.x(), t.height(focus.x(), focus.z()) + 0.8 + focusLift, focus.z());
     }
 
+    /** The tools along the top: inside a building, only those that work in there. */
+    private List<Tool> tools() {
+        return outside == null ? List.of(Tool.values()) : List.of(Tool.PLACE, Tool.SELECT, Tool.TIME);
+    }
+
     private void setTool(Tool t) {
-        if (t == tool) return;
+        if (t == tool || !tools().contains(t)) return;
         if (tool == Tool.LEVEL) preview.pause();
         tool = t;
         moving = boxing = stroking = false;
@@ -454,6 +508,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void changed() {
         dirty = true;
+        if (outside != null) {
+            outside.dirty = true;
+            outside.view.objectsChanged();
+        }
         view.objectsChanged();
         game.window().setTitle(Game.TITLE + " — " + name());
     }
@@ -488,7 +546,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         double bestT = Double.MAX_VALUE;
         Terrain t = view.terrain();
         for (LevelObject o : level.objects()) {
-            Building b = o.type().equals(ObjectTypes.BUILDING) ? view.world().building(o.id()) : null;
+            Building b = ObjectTypes.builds(o.type()) ? view.world().building(o.id()) : null;
             double r = ObjectTypes.radius(o, sprites);
             double y0 = t.height(o.x(), o.z()) + o.lift();
             double hit = b != null ? b.rayHit(ray.from(), ray.dir())
@@ -847,6 +905,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Save it to its folder in {@code assets/levels/} (a new one the first time). */
     boolean save() {
+        if (outside != null) {
+            boolean ok = outside.save();
+            game.window().setTitle(Game.TITLE + " — " + name());
+            return ok;
+        }
         Path root = game.settings().levelsDir();
         try {
             if (folder == null) folder = LevelIO.freeFolder(root, level.name());
@@ -870,6 +933,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         Sounds.play(SoundKeys.ui("playtest"));
         double heading = camera.yaw();
         if (at != null && !level.contains(at.x(), at.z())) at = null;
+        if (outside != null) {
+            // the level, she inside this building on this floor
+            DemoScene play = new DemoScene(game, outside.level, null, heading, () -> {
+                Sounds.play(SoundKeys.ui("playtest"));
+                game.switchTo(this);
+            });
+            play.startInside(insideOf, floorIndex, at, heading);
+            game.switchTo(play);
+            return;
+        }
         game.switchTo(new DemoScene(game, level, at, heading, () -> {
             Sounds.play(SoundKeys.ui("playtest"));
             game.switchTo(this);
@@ -878,6 +951,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Back to the main menu: with unsaved changes, only when asked twice. */
     private void leave() {
+        if (outside != null) {
+            goOutside();
+            return;
+        }
         if (dirty && time - leaveAt > 3) {
             leaveAt = time;
             game.toast("Unsaved changes: Ctrl+S saves - Esc again leaves without saving", Theme.WARNING);
@@ -903,7 +980,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         var w = game.window();
         int fw = w.framebufferWidth(), fh = w.framebufferHeight();
         java.util.Set<Integer> lit = new java.util.HashSet<>();
-        for (LevelObject o : selection) if (o.type().equals(ObjectTypes.BUILDING)) lit.add(o.id());
+        for (LevelObject o : selection) if (ObjectTypes.builds(o.type())) lit.add(o.id());
         game.worldRenderer().highlightBuildings(lit);
         game.worldRenderer().render(view.world(), camera, fw, fh);
         game.worldRenderer().highlightBuildings(null);
@@ -976,6 +1053,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     Vec3 door = b == null ? null : b.door();
                     if (door != null && selection.contains(o)) gizmos.ring(door.x(), door.z(), 0.45, 0x8CF08C, 0.9f);
                 }
+                case ObjectTypes.STAIRS, ObjectTypes.EXIT -> {
+                    Building b = view.world().building(o.id());
+                    Vec3 door = b == null ? null : b.door();
+                    if (door != null && selection.contains(o)) gizmos.ring(door.x(), door.z(), 0.45, 0x8CF08C, 0.9f);
+                }
                 case ObjectTypes.FLIER -> {
                     gizmos.ring(o.x(), o.z(), FlyingDummy.RADIUS_OF_ROUNDS, c, 0.35f);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -1015,10 +1097,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * if it is a building standing in the view; false when it is not one.
      */
     private boolean footprint(LevelObject o, double grow, int rgb, float alpha) {
-        if (!o.type().equals(ObjectTypes.BUILDING)) return false;
+        if (!ObjectTypes.builds(o.type())) return false;
         Building b = view.world().building(o.id());
         if (b == null) return false;
-        for (BuildingProfile.Shape s : b.profile().footprint()) {
+        Room.Spec room = b.profile().room();
+        List<BuildingProfile.Shape> shapes = room == null ? b.profile().footprint()
+                : List.of(new BuildingProfile.Shape(false, 0, 0, room.length(), room.depth()));
+        for (BuildingProfile.Shape s : shapes) {
             if (s.circle()) {
                 Vec3 c = b.toWorld(s.x(), s.y());
                 gizmos.ring(c.x(), c.z(), s.w() + grow, rgb, alpha);
@@ -1080,14 +1165,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.rect(0, 0, ui.width(), TOP_H, Theme.withAlpha(Theme.PANEL, 0.96f));
         ui.rect(0, TOP_H - 1, ui.width(), 1, Theme.PANEL_EDGE);
         float x = 8;
-        Tool[] tools = Tool.values();
-        for (int i = 0; i < tools.length; i++) {
-            String label = (i + 1) % 10 + " " + tools[i].label;
+        List<Tool> tools = tools();
+        for (int i = 0; i < tools.size(); i++) {
+            String label = (i + 1) % 10 + " " + tools.get(i).label;
             float bw = ui.body.width(label) + 22;
-            if (ui.button(label, x, 6, bw, TOP_H - 12, tools[i] == tool, true)) setTool(tools[i]);
+            if (ui.button(label, x, 6, bw, TOP_H - 12, tools.get(i) == tool, true)) setTool(tools.get(i));
             x += bw + 4;
         }
-        String[] right = {"Undo", "Redo", "Save", "Play (F5)", "Menu"};
+        if (outside != null) x = floorButtons(ui, x + 8);
+        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
         float rx = ui.width() - 8;
         float[] widths = new float[right.length];
         for (int i = right.length - 1; i >= 0; i--) {
@@ -1095,7 +1181,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             rx -= widths[i] + 4;
         }
         float nameX = x + 10, nameW = rx - nameX - 6;
-        String title = level.name() + (dirty ? " *" : "");
+        String title = outside != null ? "Inside the " + insideLabel().toLowerCase() + (outside.dirty ? " *" : "")
+                : level.name() + (dirty ? " *" : "");
         while (title.length() > 4 && ui.body.width(title) > nameW) title = title.substring(0, title.length() - 3) + "…";
         if (nameW > 40) ui.text(ui.body, title, nameX, (TOP_H - ui.body.lineHeight()) / 2, Theme.ACCENT);
         float bx = rx + 4;
@@ -1111,12 +1198,117 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case 1 -> redo();
                     case 2 -> save();
                     case 3 -> playTest(cursor != null ? cursor : focus);
-                    case 4 -> leave();
+                    case 4 -> leave();         // (inside: back outside)
                     default -> { }
                 }
             }
             bx += widths[i] + 4;
         }
+    }
+
+    /**
+     * Inside a building: which floor this is, a floor down and up, a new
+     * floor on top (its walls as this one's) and this one taken away (the
+     * top floor, pressed twice). Returns where they end.
+     */
+    private float floorButtons(Ui ui, float x) {
+        float h = TOP_H - 12;
+        if (ui.button("<", x, 6, 30, h, false, floorIndex > 0)) floor(floorIndex - 1);
+        x += 34;
+        String name = level.name() + " (" + (floorIndex + 1) + "/" + floors.size() + ")";
+        float nw = ui.body.width(name) + 16;
+        ui.text(ui.body, name, x + 8, (TOP_H - ui.body.lineHeight()) / 2, Theme.TITLE);
+        x += nw;
+        if (ui.button(">", x, 6, 30, h, false, floorIndex < floors.size() - 1)) floor(floorIndex + 1);
+        x += 34;
+        float aw = ui.body.width("+ Floor") + 18;
+        if (ui.button("+ Floor", x, 6, aw, h, false, true)) addFloor();
+        x += aw + 4;
+        float dw = ui.body.width("- Floor") + 18;
+        if (ui.button("- Floor", x, 6, dw, h, false, floors.size() > 1 && floorIndex == floors.size() - 1)) {
+            removeFloor();
+        }
+        return x + dw + 4;
+    }
+
+    /** Edit the inside of building {@code o}: its floors as the level has them, else as its kind comes. */
+    private void editInside(LevelObject o) {
+        List<Level> fl = level.interior(o.id());
+        if (fl == null || fl.isEmpty()) {
+            List<Level> made = Interiors.make(o.str("kind", ""));
+            if (made.isEmpty()) made = List.of(Interiors.emptyFloor(0));
+            level.setInterior(o.id(), made);
+            fl = level.interior(o.id());
+            changed();
+        }
+        view.setGhost(null);
+        Sounds.play(SoundKeys.ui("playtest"));
+        game.switchTo(new CreativeScene(game, this, o.id(), fl, 0));
+    }
+
+    /** Floor {@code n} of this building's inside, the camera where it is. */
+    private void floor(int n) {
+        if (outside == null || n < 0 || n >= floors.size() || n == floorIndex) return;
+        CreativeScene next = new CreativeScene(game, outside, insideOf, floors, n);
+        next.focus = focus;
+        next.camera.setDesiredYaw(camera.yaw());
+        next.camera.setDesiredDistance(camera.distance());
+        next.tool = tools().contains(tool) ? tool : Tool.PLACE;
+        game.switchTo(next);
+    }
+
+    /**
+     * A new floor on top: its walls and floors as the top one's, and a
+     * stairwell down over each staircase up there - then edit it.
+     */
+    private void addFloor() {
+        Level top = floors.get(floors.size() - 1);
+        Level f = Interiors.emptyFloor(floors.size());
+        boolean stairs = false;
+        for (LevelObject o : top.objects()) {
+            boolean shell = o.type().equals(ObjectTypes.WALL) || o.type().equals(ObjectTypes.FLOOR);
+            boolean up = o.type().equals(ObjectTypes.STAIRS) && !o.str("way", "up").equals("down");
+            if (shell) f.add(o.copy(f.nextId()));
+            if (up) {
+                LevelObject down = o.copy(f.nextId());
+                down.set("way", "down");
+                f.add(down);
+                stairs = true;
+            }
+        }
+        floors.add(f);
+        changed();
+        game.toast(stairs ? "Added " + f.name().toLowerCase() + ", reached by the stairs below"
+                : "Added " + f.name().toLowerCase() + ": put Stairs up on the floor below to reach it", Theme.HINT);
+        floor(floors.size() - 1);
+    }
+
+    /** Take away this floor - the top one - when pressed twice. */
+    private void removeFloor() {
+        if (floors.size() < 2 || floorIndex != floors.size() - 1) return;
+        if (time - removeFloorAt > 3) {
+            removeFloorAt = time;
+            game.toast("Press - Floor again to take away " + level.name().toLowerCase() + " and all on it",
+                    Theme.WARNING);
+            return;
+        }
+        floors.remove(floorIndex);
+        changed();
+        CreativeScene below = new CreativeScene(game, outside, insideOf, floors, floorIndex - 1);
+        below.focus = focus;
+        game.switchTo(below);
+    }
+
+    /** Back out to the level the building stands in, the building selected. */
+    private void goOutside() {
+        if (outside == null) return;
+        widgets.stopTyping();
+        Sounds.play(SoundKeys.ui("playtest"));
+        LevelObject b = outside.level.byId(insideOf);
+        outside.selection.clear();
+        if (b != null) outside.selection.add(b);
+        outside.view.objectsChanged();
+        game.switchTo(outside);
     }
 
     private void help(Ui ui) {
@@ -1861,6 +2053,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         py = heading(ui, ObjectTypes.label(o), px, py);
         ui.text(ui.small, o.type() + " #" + o.id(), px, py - 6, Theme.ITEM_DISABLED);
         py += 18;
+        if (hasInside(o)) {
+            List<Level> fl = level.interior(o.id());
+            String label = fl == null ? "Edit inside (as it comes)" : "Edit inside (" + fl.size()
+                    + (fl.size() == 1 ? " floor)" : " floors)");
+            if (ui.button(label, px, py, pw, 30, false, true)) editInside(o);
+            py += 40;
+        }
         properties(ui, o, true, px, py, pw);
     }
 
@@ -1932,7 +2131,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             y += r;
         }
-        if (o.type().equals(ObjectTypes.BUILDING)) lookPanel(ui, o, x, y + 4, w);
+        if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+    }
+
+    /** Whether {@code o} is a building with an inside to edit. */
+    private static boolean hasInside(LevelObject o) {
+        if (!o.type().equals(ObjectTypes.BUILDING)) return false;
+        BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+        return p != null && p.interior();
+    }
+
+    /** What {@code o} - a building, a piece of furniture, a room's piece - is made of, or null. */
+    private static BuildingProfile profileOf(LevelObject o) {
+        Room.Spec room = ObjectTypes.roomSpec(o);
+        if (room != null) return Room.profile(room);
+        return o.type().equals(ObjectTypes.BUILDING) ? BuildingCatalog.get().profile(o.str("kind", "")) : null;
     }
 
     /**
@@ -1942,7 +2155,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      */
     private void lookPanel(Ui ui, LevelObject o, float x, float y, float w) {
         BuildingCatalog catalog = BuildingCatalog.get();
-        BuildingProfile p = catalog.profile(o.str("kind", ""));
+        BuildingProfile p = profileOf(o);
         if (p == null || p.parts().isEmpty()) return;
         y = heading(ui, "Look", x, y);
         List<String> names = new ArrayList<>();
@@ -2282,7 +2495,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "dress" -> {
                 List<LevelObject> targets = tool == Tool.PLACE && template != null ? List.of(template) : selection;
                 for (LevelObject o : targets) {
-                    BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                    BuildingProfile p = profileOf(o);
                     if (p == null || p.part(a[0]) == null) continue;
                     BuildingLook look = BuildingLook.of(o.props().get("look"));
                     if (a.length > 1 && !a[1].equals("-")) look.setColour(a[0], BuildingLook.parseColour(a[1], 0xC0C0C0));
@@ -2298,6 +2511,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "playtest" -> playTest(a.length >= 2 ? new Vec3(Double.parseDouble(a[0]), 0,
                     Double.parseDouble(a[1])) : null);
             case "leave" -> toMenu();
+            // inside: edit the inside of the selected building; floor <n>: that floor (1 the ground); outside: back
+            case "inside" -> {
+                if (selection.size() == 1 && hasInside(selection.get(0))) editInside(selection.get(0));
+                else return false;
+            }
+            case "floor" -> floor(Integer.parseInt(argument.trim()) - 1);
+            case "addfloor" -> addFloor();
+            case "outside" -> goOutside();
             default -> {
                 return false;
             }

@@ -97,6 +97,28 @@ public final class LevelWorld {
     }
 
     /**
+     * Set {@code world} inside a building, on {@code floor}: flat ground, no
+     * water, nothing coming by, within the floor's edges - under the sky
+     * outside, its clock going on. Returns the floor's ground, to {@link
+     * #spawnAll} its objects on.
+     */
+    public static Terrain stageIndoors(World world, Level floor) {
+        return stageIndoors(world, floor, terrain(floor));
+    }
+
+    /** {@link #stageIndoors(World, Level)} on {@code terrain}, the floor's ground made already. */
+    public static Terrain stageIndoors(World world, Level floor, Terrain terrain) {
+        world.setTerrain(terrain);
+        world.setGround(com.larsons.game.world.GroundMap.NONE);
+        world.setWater(com.larsons.game.world.WaterMap.NONE);
+        world.setLife(Interiors.life());
+        world.setIndoors(true);
+        double h = floor.half();
+        world.setBounds(-h, h, -h, h);
+        return terrain;
+    }
+
+    /**
      * Put {@code objects} of {@code level} into {@code world} on {@code
      * terrain} - the items, chests, dummies and fliers it had taken away
      * first, its scenery replaced - and her at the spawn (in the middle if

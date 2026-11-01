@@ -38,6 +38,8 @@ final class LevelView {
     private String featuresKey = "";
     private boolean objectsDirty = true;
     private LevelObject ghost;
+    /** Inside a building: the sky outside it (null: the level is outdoors). */
+    private com.larsons.game.world.Sky outdoors;
 
     LevelView(Level level, Wardrobe wardrobe, ScenerySprites sprites, CombatTuning tuning) {
         this.level = level;
@@ -49,6 +51,13 @@ final class LevelView {
     }
 
     World world() { return world; }
+
+    /** It is a floor inside a building, under {@code sky} outside: drawn as she sees it in there. */
+    void indoors(com.larsons.game.world.Sky sky) {
+        outdoors = sky;
+        objectsDirty = true;
+        refresh();
+    }
 
     Terrain terrain() { return terrain; }
 
@@ -81,7 +90,13 @@ final class LevelView {
             featuresKey = features;
             objectsDirty = true;
         }
-        LevelWorld.stage(world, level, terrain);
+        if (outdoors != null) {
+            LevelWorld.stageIndoors(world, level, terrain);
+            world.setSky(outdoors);
+            world.startDay();
+        } else {
+            LevelWorld.stage(world, level, terrain);
+        }
         if (!objectsDirty) return;
         objectsDirty = false;
         List<LevelObject> all = level.objects();
@@ -90,6 +105,17 @@ final class LevelView {
             withGhost(all, ghost);
         }
         LevelWorld.spawnAll(world, all, level, terrain, sprites, tuning);
+        if (outdoors != null && level.spawn() == null) {
+            // inside, she stands where she comes in: at the door out
+            for (com.larsons.game.building.Building b : world.buildings()) {
+                var r = b.profile().room();
+                if (r != null && r.piece() == com.larsons.game.building.Room.Piece.EXIT) {
+                    world.player().setPosition(terrain.onGround(b.door()));
+                    world.player().snapHeading(b.heading());
+                    break;
+                }
+            }
+        }
         world.player().preview(AnimState.IDLE);
     }
 

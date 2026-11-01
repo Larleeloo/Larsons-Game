@@ -211,22 +211,30 @@ public final class WorldRenderer implements AutoCloseable {
         Sky sky = world.sky();
         DayCycle.Daylight light = world.clock().daylight(sky);
         daylight = light;
-        float[] fog = light.horizon();
-        float fogFar = (float) sky.fog();
+        boolean indoors = world.indoors();
+        float[] fog = indoors ? INDOOR_DARK.clone() : light.horizon();
+        float fogFar = indoors ? INDOOR_FOG : (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
         lightUp(world, camera, light);
-        voidRenderer.useGround(world.ground());
-        // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
-        float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
-        voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
-        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+        if (indoors) {
+            // inside a building: no sky, no ground beyond its floors - the dark
+            glClearColor(INDOOR_DARK[0], INDOOR_DARK[1], INDOOR_DARK[2], 1f);
+            glDepthMask(true);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        } else {
+            voidRenderer.useGround(world.ground());
+            // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
+            float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+            voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
+            if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+        }
         if (buildings != null) {
             // the windows lit from dusk to dawn
             double t = Math.max(0, Math.min(1, (0.55 - light.day()) / 0.4));
-            buildings.draw(world.buildings(), camera, viewProj, fog, fogFar, sceneLight, smooth(t), world.time(),
-                    highlight);
+            buildings.draw(world.buildings(), camera, camera.target(), viewProj, fog, fogFar, sceneLight, smooth(t),
+                    world.time(), highlight);
         }
         batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
@@ -243,7 +251,7 @@ public final class WorldRenderer implements AutoCloseable {
         batch.begin(viewProj, fog, 0, fogFar);
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
-        shadowStrength = (float) (0.55 + 0.45 * light.day());
+        shadowStrength = indoors ? 0.85f : (float) (0.55 + 0.45 * light.day());
         groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time())) continue;
@@ -485,21 +493,31 @@ public final class WorldRenderer implements AutoCloseable {
      */
     private void lightUp(World world, OrbitCamera camera, DayCycle.Daylight light) {
         SceneLight l = sceneLight.clearLights();
-        float[] a = light.ambient();
+        boolean indoors = world.indoors();
+        float[] a = indoors ? indoorAmbient(light.day()) : light.ambient();
         System.arraycopy(a, 0, l.ambient, 0, 3);
         Vec3 eye = camera.eye();
         l.camera[0] = (float) eye.x();
         l.camera[1] = (float) eye.y();
         l.camera[2] = (float) eye.z();
         Atmosphere air = world.sky().air();
-        l.mist = (float) (light.mist() * 0.32);
+        l.mist = indoors ? 0f : (float) (light.mist() * 0.32);
         l.mistHeight = (float) air.mistHeight();
         l.time = (float) world.time();
         float[] h = light.horizon();
         for (int i = 0; i < 3; i++) l.mistColour[i] = 0.62f * a[i] * 0.92f + 0.38f * h[i];
-        double night = 1 - 0.75 * light.day();
+        // (inside, the lamps and candles are lit all day)
+        double night = indoors ? 1 : 1 - 0.75 * light.day();
         record Lamp(Vec3 at, double radius, int rgb, double strength) {}
         List<Lamp> lamps = new ArrayList<>();
+        // a fire burning (a fireplace's), flickering in its bands
+        for (Building b : world.buildings()) {
+            if (!burns(b.profile())) continue;
+            double flicker = 0.9 + 0.07 * Math.sin(world.time() * 7.3 + b.id()) + 0.05 * Math.sin(world.time() * 13.1);
+            Vec3 front = com.larsons.game.sprite.SpriteView.headingVector(b.heading());
+            lamps.add(new Lamp(b.position().add(front.x() * 0.6, 0.5, front.z() * 0.6), 4.8, 0xFF8A40,
+                    0.8 * flicker));
+        }
         for (Chest c : world.chests()) {
             if (c.light() > 0) lamps.add(new Lamp(c.position().add(0, 0.7, 0), 3.6, 0xFFC468, 0.95 * c.light() * night));
         }
@@ -532,6 +550,22 @@ public final class WorldRenderer implements AutoCloseable {
         for (Lamp m : lamps) {
             if (!l.add(m.at().x(), m.at().y(), m.at().z(), m.radius(), m.rgb(), m.strength())) break;
         }
+    }
+
+    /** Inside a building: the dark beyond its rooms, and how far off things fade into it. */
+    static final float[] INDOOR_DARK = {0.035f, 0.028f, 0.024f};
+    static final float INDOOR_FOG = 48f;
+
+    /** The light inside a building, all of it from outside but its lamps: dim and warm, a little more by day. */
+    static float[] indoorAmbient(double day) {
+        float base = (float) (0.46 + 0.2 * Math.max(0, Math.min(1, day)));
+        return new float[]{base, base * 0.95f, base * 0.87f};
+    }
+
+    /** Whether a kind of building has a part that is always lit (a fire). */
+    static boolean burns(BuildingProfile p) {
+        for (BuildingProfile.Part part : p.parts()) if (part.always()) return true;
+        return false;
     }
 
     /** How many fireflies light the ground round them at once (the scene's lights are few). */
@@ -731,13 +765,16 @@ public final class WorldRenderer implements AutoCloseable {
     /** The soft shadow round a building's footprint, each piece of it, lying on the ground. */
     private void buildingShadow(Building b) {
         float alpha = 0.32f * shadowStrength;
+        // a building's falls round it; a piece of furniture's, or a wall's, close about its foot
+        double margin = b.profile().room() != null ? 0.12 : b.profile().furniture() ? 0.2 : BUILDING_SHADOW;
+        if (b.profile().furniture() || b.profile().room() != null) alpha = 0.42f * shadowStrength;
         for (BuildingProfile.Shape s : b.profile().footprint()) {
             if (s.circle()) {
                 Vec3 c = b.toWorld(s.x(), s.y());
-                groundQuad(shadow, c, (s.w() + BUILDING_SHADOW) * 1.25, 0, 0, 0, alpha);
+                groundQuad(shadow, c, (s.w() + margin) * 1.25, 0, 0, 0, alpha);
                 continue;
             }
-            double hw = s.w() / 2 + BUILDING_SHADOW, hd = s.d() / 2 + BUILDING_SHADOW;
+            double hw = s.w() / 2 + margin, hd = s.d() / 2 + margin;
             int n = SLOPE_PIECES;
             for (int j = 0; j < n; j++) {
                 for (int i = 0; i < n; i++) {

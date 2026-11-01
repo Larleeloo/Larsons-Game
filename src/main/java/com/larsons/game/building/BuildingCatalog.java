@@ -53,7 +53,10 @@ public final class BuildingCatalog {
 
     /** The order the editor lists them in; any others after, by name. */
     static final List<String> ORDER = List.of("cottage", "house", "cabin", "windmill", "watermill", "keep",
-            "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire");
+            "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire",
+            // the furniture
+            "bed", "table", "chair", "bench", "stool", "bookshelf", "cupboard", "wardrobe", "fireplace", "counter",
+            "barrel", "crate");
 
     /** Read {@code root}: each folder with a profile, and the patterns. Never fails: what cannot be read is left out. */
     public static BuildingCatalog load(Path root) {

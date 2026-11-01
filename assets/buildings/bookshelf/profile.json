@@ -1,0 +1,69 @@
+{
+ "key": "bookshelf",
+ "label": "Bookshelf",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 66,
+   "height": 124,
+   "anchorX": 33.0,
+   "anchorY": 120.33333333333334,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 66,
+   "height": 132,
+   "anchorX": 33.0,
+   "anchorY": 106.70899457402697,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 66,
+   "height": 66,
+   "anchorX": 33.0,
+   "anchorY": 32.333333333333336,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -2.3763356518756193,
+  "step": 0.01871130434547732
+ },
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "books",
+   "label": "Books",
+   "colour": "#8a3a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "books2",
+   "label": "More books",
+   "colour": "#3a5a7a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.1,
+   0.396
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -11,6 +11,7 @@ import com.larsons.game.building.BuildingCatalog;
 import com.larsons.game.building.BuildingLook;
 import com.larsons.game.building.BuildingProfile;
 import com.larsons.game.building.Prefab;
+import com.larsons.game.building.Room;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.level.ObjectType.Category;
@@ -48,7 +49,8 @@ public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
-            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab";
+            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -187,6 +189,65 @@ public final class ObjectTypes {
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
                 List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
+    }
+
+    static {
+        // what rooms are built of, inside a building: walls, floors, stairs, the door out (Room)
+        register(new ObjectType(WALL, "Wall", Category.INSIDE,
+                List.of(Prop.number("length", "Length (m)", 4, 0.5, 24, 0.25),
+                        Prop.number("height", "Height (m)", Room.STOREY, 1, 8, 0.25),
+                        Prop.choice("opening", "Opening", "none", o -> openings())), 1, Room.STOREY, 0xD8C8A0, false,
+                ObjectTypes::spawnRoom));
+        register(new ObjectType(FLOOR, "Floor", Category.INSIDE,
+                List.of(Prop.number("width", "Width (m)", 4, 0.5, 40, 0.5),
+                        Prop.number("depth", "Depth (m)", 4, 0.5, 40, 0.5)), 1, 0.1, 0x9A6A40, false,
+                ObjectTypes::spawnRoom));
+        register(new ObjectType(STAIRS, "Stairs", Category.INSIDE,
+                List.of(Prop.choice("way", "Going", "up", o -> List.of("up", "down"))), 1.6, Room.STOREY, 0xB08050,
+                false, ObjectTypes::spawnRoom));
+        register(new ObjectType(EXIT, "Door out", Category.INSIDE, List.of(), 0.9, Room.EXIT_H, 0x7AA0D0, false,
+                ObjectTypes::spawnRoom));
+    }
+
+    /** Whether objects of {@code type} stand in the world as {@link Building}s: buildings, furniture, the rooms' pieces. */
+    public static boolean builds(String type) {
+        return type.equals(BUILDING) || type.equals(WALL) || type.equals(FLOOR) || type.equals(STAIRS)
+                || type.equals(EXIT);
+    }
+
+    static List<String> openings() {
+        List<String> out = new ArrayList<>();
+        for (Room.Opening o : Room.Opening.values()) out.add(o.key());
+        return out;
+    }
+
+    private static void spawnRoom(LevelObject o, LevelWorld.Build b) {
+        b.world().addBuilding(room(o, b.terrain()));
+    }
+
+    /** The shape of a room's piece {@code o} ({@link #WALL}, {@link #FLOOR}, {@link #STAIRS}, {@link #EXIT}), or null. */
+    public static Room.Spec roomSpec(LevelObject o) {
+        return switch (o.type()) {
+            case WALL -> Room.wall(o.num("length", 4), o.num("height", Room.STOREY),
+                    Room.Opening.byKey(o.str("opening", "none")));
+            case FLOOR -> Room.floor(o.num("width", 4), o.num("depth", 4));
+            case STAIRS -> Room.stairs(!o.str("way", "up").equals("down"));
+            case EXIT -> Room.exit();
+            default -> null;
+        };
+    }
+
+    /** A room's piece as it stands on {@code terrain}. */
+    public static Building room(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        Room.Spec spec = roomSpec(o);
+        return new Building(o.id(), Room.profile(spec), new Vec3(o.x(), terrain.height(o.x(), o.z()) + o.lift(), o.z()),
+                o.yaw(), BuildingLook.of(o.props().get("look")), null);
+    }
+
+    /** What {@code o} stands as in the world, if it {@link #builds}: a building, a piece of furniture, a room's piece. */
+    public static Building built(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        if (o.type().equals(BUILDING)) return building(o, terrain);
+        return roomSpec(o) == null ? null : room(o, terrain);
     }
 
     /** A {@link #BUILDING} as it stands on {@code terrain}, or null when its kind is not there. */
@@ -370,9 +431,20 @@ public final class ObjectTypes {
             out.add(new Entry(k.label(), Category.LIFE, ANIMALS, Map.of("kind", k.key(), "count", (double) n,
                     "radius", k.flies() ? 4.0 : 8.0, "temperament", OWN, "when", Critters.When.ITS_TIME.key())));
         }
+        // the rooms' pieces: walls with each opening, a floor, stairs up and down, the door out
+        for (Room.Opening op : Room.Opening.values()) {
+            out.add(new Entry(op == Room.Opening.NONE ? "Wall" : "Wall: " + op.label().toLowerCase(), Category.INSIDE,
+                    WALL, Map.of("length", 4.0, "height", Room.STOREY, "opening", op.key())));
+        }
+        out.add(new Entry("Floor", Category.INSIDE, FLOOR, Map.of("width", 4.0, "depth", 4.0)));
+        out.add(new Entry("Stairs up", Category.INSIDE, STAIRS, Map.of("way", "up")));
+        out.add(new Entry("Stairs down", Category.INSIDE, STAIRS, Map.of("way", "down")));
+        out.add(new Entry("Door out", Category.INSIDE, EXIT, Map.of()));
         BuildingCatalog buildings = BuildingCatalog.get();
         for (String key : buildings.keys()) {
-            out.add(new Entry(buildings.profile(key).label(), Category.BUILDINGS, BUILDING, Map.of("kind", key)));
+            BuildingProfile p = buildings.profile(key);
+            out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : Category.BUILDINGS, BUILDING,
+                    Map.of("kind", key)));
         }
         for (Prefab p : Prefab.ALL) {
             boolean all = true;
@@ -385,7 +457,8 @@ public final class ObjectTypes {
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
-                    || t.key().equals(PREFAB)) continue;
+                    || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
+                    || t.key().equals(STAIRS) || t.key().equals(EXIT)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
@@ -419,6 +492,7 @@ public final class ObjectTypes {
                 Prefab p = Prefab.byKey(o.str("set", ""));
                 yield p == null ? "Set " + o.str("set", "?") + " (unknown)" : p.label();
             }
+            case WALL, FLOOR, STAIRS -> Room.profile(roomSpec(o)).label();
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
             case CRITTERS -> {
                 CritterKind k = CritterKind.byKey(o.str("kind", ""));
@@ -458,6 +532,8 @@ public final class ObjectTypes {
             Prefab p = Prefab.byKey(o.str("set", ""));
             if (p != null) return p.reach(BuildingCatalog.get());
         }
+        Room.Spec room = roomSpec(o);
+        if (room != null) return Room.profile(room).reach();
         ObjectType t = get(o.type());
         return t == null ? 0.5 : t.radius();
     }
@@ -468,6 +544,8 @@ public final class ObjectTypes {
             BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
             return p == null ? -1 : p.height();
         }
+        Room.Spec room = roomSpec(o);
+        if (room != null) return room.height();
         return o.type().equals(PREFAB) ? 12 : -1;
     }
 }

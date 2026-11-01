@@ -74,8 +74,7 @@ public final class BuildingRenderer implements AutoCloseable {
             uniform vec3 uVRight, uVUp, uVFwd;   // the view's camera, in the world
             uniform vec3 uRamp[90];        // each part's six colours
             uniform int uLayer[15];        // each part's pattern
-            uniform float uGlow[15];       // 1: lit from inside at night
-            uniform float uNight;
+            uniform float uGlow[15];       // how lit from inside (a window at night); 2: always (a fire)
             uniform vec3 uFogColor;
             uniform vec2 uFog;
             uniform float uFlash;          // the editor's highlight
@@ -105,8 +104,11 @@ public final class BuildingRenderer implements AutoCloseable {
                 vec4 clip = uViewProj * vec4(P, 1.0);
                 gl_FragDepth = clip.w > 1e-4 ? clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0) : 0.0;
                 vec3 lit = c * sceneLight(P);
-                float glow = uGlow[k] * uNight;
-                if (glow > 0.0 && shade > 2) {
+                float glow = min(uGlow[k], 1.0);
+                if (uGlow[k] > 1.5) {
+                    lit = max(lit, c * 1.12);
+                    glow = 0.0;
+                } else if (glow > 0.0 && shade > 2) {
                     vec3 warm = vec3(1.0, 0.8, 0.46) * (0.75 + 0.25 * float(idx) / 5.0);
                     lit = mix(lit, warm, glow);
                 }
@@ -135,6 +137,8 @@ public final class BuildingRenderer implements AutoCloseable {
     private final float[] ramp = new float[MAX_PARTS * 6 * 3];
     private final int[] layers = new int[MAX_PARTS];
     private final float[] glow = new float[MAX_PARTS];
+    private final RoomRenderer rooms;
+    private float night;
 
     /** Drawn from {@code catalog}'s folder, in {@code palette}'s colours. Must be made on the GL thread. */
     public BuildingRenderer(BuildingCatalog catalog, PixelPalette palette) {
@@ -152,6 +156,7 @@ public final class BuildingRenderer implements AutoCloseable {
         glEnableVertexAttribArray(1);
         glBindVertexArray(0);
         patterns = uploadPatterns(catalog);
+        rooms = new RoomRenderer(catalog, palette, patterns);
     }
 
     /** The patterns, a layer each, their tone in red: nearest, repeating. */
@@ -286,10 +291,13 @@ public final class BuildingRenderer implements AutoCloseable {
      * after the ground, before what stands among them. {@code night} 0 – 1
      * lights their windows; {@code time} turns the sails and wheels;
      * {@code highlight} (or null) is drawn lit up (the editor's selection).
+     * The pieces of rooms among them are drawn as they are ({@link
+     * RoomRenderer}): those between the eye and {@code focus} cut down.
      */
-    public void draw(List<Building> buildings, OrbitCamera camera, Mat4 viewProj, float[] fog, float fogFar,
-                     SceneLight light, double night, double time, Set<Integer> highlight) {
+    public void draw(List<Building> buildings, OrbitCamera camera, Vec3 focus, Mat4 viewProj, float[] fog,
+                     float fogFar, SceneLight light, double night, double time, Set<Integer> highlight) {
         if (buildings.isEmpty()) return;
+        rooms.draw(buildings, camera, focus, viewProj, fog, fogFar, light, 1 - night, highlight);
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         glDepthMask(true);
@@ -299,7 +307,7 @@ public final class BuildingRenderer implements AutoCloseable {
         shader.set("uViewProj", viewProj);
         shader.set("uView", 0);
         shader.set("uPatterns", 1);
-        shader.set("uNight", (float) Math.max(0, Math.min(1, night)));
+        this.night = (float) Math.max(0, Math.min(1, night));
         shader.set("uFogColor", fog[0], fog[1], fog[2]);
         shader.set("uFog", fogFar * 0.35f, fogFar);
         light.bind(shader);
@@ -310,6 +318,7 @@ public final class BuildingRenderer implements AutoCloseable {
         double reachSq = Math.pow(fogFar + 30, 2);
         for (Building b : buildings) {
             BuildingProfile p = b.profile();
+            if (p.room() != null) continue;
             Vec3 at = b.position();
             if (at.sub(eye).horizontalLength() > Math.sqrt(reachSq)) continue;
             SpriteView sv = SpriteView.of(eye, at.add(0, Math.min(3, p.height() * 0.4), 0), b.heading(), camera.yaw());
@@ -349,7 +358,7 @@ public final class BuildingRenderer implements AutoCloseable {
             }
             BuildingProfile.Part part = i < parts.size() ? parts.get(i) : null;
             layers[i] = part == null ? 0 : catalog.textureIndex(b.look().texture(part));
-            glow[i] = part != null && part.glow() ? 1f : 0f;
+            glow[i] = part == null ? 0f : part.always() ? 2f : part.glow() ? night : 0f;
         }
         shader.set3v("uRamp", ramp);
         shader.set1iv("uLayer", layers);
@@ -401,6 +410,7 @@ public final class BuildingRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        rooms.close();
         for (View v : views.values()) if (v != MISSING) glDeleteTextures(v.texture());
         views.clear();
         glDeleteTextures(patterns);

@@ -4,6 +4,8 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.PixelPalette;
 import com.larsons.game.sprite.SpriteView;
 
+import java.util.List;
+
 /**
  * A building standing in the world: which kind ({@link BuildingProfile}),
  * where its middle is on the ground, which way its front faces (a heading,
@@ -167,7 +169,12 @@ public final class Building {
         double dx = dir.x() * hz - dir.z() * hx, dy = -dir.x() * hx - dir.z() * hz;
         double y0 = position.y() - 0.1, y1 = position.y() + profile.height();
         double best = -1;
-        for (BuildingProfile.Shape s : profile.footprint()) {
+        Room.Spec room = profile.room();
+        // a room's piece: all of it, its doorway too (a floor is not solid, but is clicked)
+        List<BuildingProfile.Shape> shapes = room == null ? profile.footprint()
+                : List.of(new BuildingProfile.Shape(false, 0, 0, room.length(), room.depth()));
+        if (room != null && room.piece() == Room.Piece.FLOOR) y1 = position.y() + 0.02;
+        for (BuildingProfile.Shape s : shapes) {
             double tIn = Double.NEGATIVE_INFINITY, tOut = Double.POSITIVE_INFINITY;
             if (s.circle()) {
                 double ox = o[0] - s.x(), oy = o[1] - s.y();

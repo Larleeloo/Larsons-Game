@@ -1783,6 +1783,39 @@ def _(k):
     return out
 
 
+@sound("world/door_open", 0.4)
+def _(k):
+    d = 0.75
+    out = silence(d)
+    place(out, wood(k.uniform(1400, 1700), 0.06, 0.02, k) * 0.6, 0.0)          # the latch
+    f = glide(0.55, [(0, 170), (0.35, 240), (0.7, 205), (1, 230)])             # the hinge creaking round
+    creak = signal.sawtooth(2 * np.pi * np.cumsum(f) / SR) * (0.6 + 0.4 * lp(np.abs(k.noise(0.55)), 40))
+    place(out, bp(creak, 350, 2600) * bell(0.55, 0.3, 1.2) * 0.35, 0.08)
+    place(out, crunch(k, 0.5, 90, 2500, 7000, 0.04) * 0.25, 0.1)
+    return out
+
+
+@sound("world/door_close", 0.42)
+def _(k):
+    d = 0.4
+    out = silence(d)
+    place(out, thump(k, 0.22, 85, 0.7, 0.1, 0.5, 700), 0.0)                  # the door into its frame
+    place(out, wood(k.uniform(900, 1100), 0.12, 0.05, k) * 0.7, 0.0)
+    place(out, wood(k.uniform(1600, 1900), 0.05, 0.015, k) * 0.45, 0.07)      # and the latch
+    return out
+
+
+@sound("world/stairs", 0.38)
+def _(k):
+    d = 0.9
+    out = silence(d)
+    for i in range(4):                                            # four steps on wooden treads
+        at = 0.02 + i * 0.21 + k.uniform(-0.015, 0.015)
+        place(out, thump(k, 0.12, k.uniform(95, 120), 0.6, 0.06, 0.5, 900) * (0.9 - 0.1 * i), at)
+        place(out, wood(k.uniform(500, 700), 0.08, 0.03, k) * 0.35, at + 0.004)
+    return out
+
+
 @sound("items/eat", 0.4)
 def _(k):
     d = 0.6

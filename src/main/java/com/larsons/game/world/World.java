@@ -198,8 +198,10 @@ public final class World {
     private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
     private final List<LightSpot> lights = new ArrayList<>();
     private final List<RaySpot> raySpots = new ArrayList<>();
-    private final Critters critters = new Critters();
-    private final Animals animals = new Animals();
+    private Critters critters = new Critters();
+    private Animals animals = new Animals();
+    /** Whether she is inside a building: no sky over it, its own dim light, nothing comes by. */
+    private boolean indoors;
     /** The foraging bushes standing in it, and when each one picked has its pickings again. */
     private List<Scenery.Placed> bushes = List.of();
     private final Map<Scenery.Placed, Double> picked = new IdentityHashMap<>();
@@ -211,6 +213,131 @@ public final class World {
 
     public World(Wardrobe wardrobe) {
         this(wardrobe, Inventory.DEFAULT_SLOTS);
+    }
+
+    /**
+     * What there is of one place - its ground and what stands on it, lies on
+     * it and lives in it, its sky, its edges - kept while she is somewhere
+     * else ({@link #leave}) and found as it was when she comes back ({@link
+     * #enter}): the outdoors while she is inside a building, a floor of it
+     * while she is on another. She, the fighting, the clock and the chests'
+     * loot go with her.
+     */
+    public static final class Place {
+        private final List<GroundItem> items;
+        private final List<Chest> chests;
+        private final List<Building> buildings;
+        private final List<Dummy> dummies;
+        private final List<FlyingDummy> fliers;
+        private final List<SoundSpot> soundSpots;
+        private final List<LightSpot> lights;
+        private final List<RaySpot> raySpots;
+        private final Critters critters;
+        private final Animals animals;
+        private final Terrain terrain;
+        private final Vec3 spawnPoint;
+        private final Scenery scenery;
+        private final Map<Scenery.Placed, Double> picked;
+        private final GroundMap ground;
+        private final WaterMap water;
+        private final Sky sky;
+        private final double[] bounds;
+        private final boolean indoors;
+
+        private Place(World w) {
+            items = List.copyOf(w.items);
+            chests = List.copyOf(w.chests);
+            buildings = List.copyOf(w.buildings);
+            dummies = List.copyOf(w.dummies);
+            fliers = List.copyOf(w.fliers);
+            soundSpots = List.copyOf(w.soundSpots);
+            lights = List.copyOf(w.lights);
+            raySpots = List.copyOf(w.raySpots);
+            critters = w.critters;
+            animals = w.animals;
+            terrain = w.terrain;
+            spawnPoint = w.spawnPoint;
+            scenery = w.scenery;
+            picked = new IdentityHashMap<>(w.picked);
+            ground = w.ground;
+            water = w.water;
+            sky = w.sky;
+            bounds = w.bounds;
+            indoors = w.indoors;
+        }
+
+        /** The buildings standing in it. */
+        public List<Building> buildings() { return buildings; }
+
+        /** Whether it is inside a building. */
+        public boolean indoors() { return indoors; }
+    }
+
+    /**
+     * Leave the place she is in: all of it kept, to {@link #enter} again,
+     * and the world left empty of it - flat ground, nothing in it, nothing
+     * living in it - for the next place to be built in.
+     */
+    public Place leave() {
+        Place p = new Place(this);
+        items.clear();
+        chests.clear();
+        buildings.clear();
+        dummies.clear();
+        fliers.clear();
+        soundSpots.clear();
+        lights.clear();
+        raySpots.clear();
+        Life life = critters.life();
+        critters = new Critters();
+        animals = new Animals();
+        setLife(life);
+        setScenery(Scenery.NONE);
+        picked.clear();
+        setTerrain(Terrain.FLAT);
+        setGround(GroundMap.NONE);
+        setWater(WaterMap.NONE);
+        bounds = null;
+        return p;
+    }
+
+    /** Come back to {@code p}, a place she {@link #leave}s, as it was left (she is put where she is put). */
+    public void enter(Place p) {
+        items.clear();
+        items.addAll(p.items);
+        chests.clear();
+        chests.addAll(p.chests);
+        buildings.clear();
+        buildings.addAll(p.buildings);
+        dummies.clear();
+        dummies.addAll(p.dummies);
+        fliers.clear();
+        fliers.addAll(p.fliers);
+        soundSpots.clear();
+        soundSpots.addAll(p.soundSpots);
+        lights.clear();
+        lights.addAll(p.lights);
+        raySpots.clear();
+        raySpots.addAll(p.raySpots);
+        critters = p.critters;
+        animals = p.animals;
+        setTerrain(p.terrain);
+        spawnPoint = p.spawnPoint;
+        setScenery(p.scenery);
+        picked.clear();
+        picked.putAll(p.picked);
+        setGround(p.ground);
+        setWater(p.water);
+        sky = p.sky;
+        bounds = p.bounds;
+        indoors = p.indoors;
+    }
+
+    /** Whether she is inside a building: no sky over it - its own dim light - and nothing comes by. */
+    public boolean indoors() { return indoors; }
+
+    public void setIndoors(boolean in) {
+        indoors = in;
     }
 
     /** A world whose player carries an inventory of {@code slots} slots. */
@@ -819,6 +946,34 @@ public final class World {
             if (c.inReach(player.ground()) && d < bestD) {
                 best = c;
                 bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** How near the spot before a door she must be to go through it, metres. */
+    public static final double DOOR_REACH = 1.4;
+
+    /**
+     * The nearest door within her reach: a building's with an inside to go
+     * into, the door out of a building she is in, a staircase's foot or a
+     * stairwell's top - or null.
+     */
+    public Building reachableDoor() {
+        Building best = null;
+        double bestD = DOOR_REACH;
+        Vec3 me = player.ground();
+        for (Building b : buildings) {
+            com.larsons.game.building.Room.Spec room = b.profile().room();
+            boolean opens = room == null ? b.profile().interior()
+                    : room.piece() == com.larsons.game.building.Room.Piece.EXIT
+                    || room.piece() == com.larsons.game.building.Room.Piece.STAIRS;
+            Vec3 d = opens ? b.door() : null;
+            if (d == null || Math.abs(player.feet().y() - b.position().y()) > 1.5) continue;
+            double dist = Math.hypot(d.x() - me.x(), d.z() - me.z());
+            if (dist < bestD) {
+                best = b;
+                bestD = dist;
             }
         }
         return best;

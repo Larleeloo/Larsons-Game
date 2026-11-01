@@ -1,0 +1,62 @@
+{
+ "key": "table",
+ "label": "Table",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 110,
+   "height": 52,
+   "anchorX": 55.0,
+   "anchorY": 47.58666666666668,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 110,
+   "height": 108,
+   "anchorX": 55.0,
+   "anchorY": 71.19420101717087,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 110,
+   "height": 110,
+   "anchorX": 55.0,
+   "anchorY": 54.85449728701349,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -1.410847435821576,
+  "step": 0.011109034927728944
+ },
+ "parts": [
+  {
+   "key": "top",
+   "label": "Top",
+   "colour": "#8a5a34",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "legs",
+   "label": "Legs",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.76,
+   0.99
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}
