@@ -1,5 +1,7 @@
 package com.larsons.game.core;
 
+import com.larsons.game.building.BuildingCatalog;
+import com.larsons.game.building.BuildingRenderer;
 import com.larsons.game.audio.Music;
 import com.larsons.game.audio.SoundCategory;
 import com.larsons.game.audio.SoundKeys;
@@ -213,7 +215,12 @@ public final class Game implements AutoCloseable {
             r.detail("the hills: " + String.format("%,d", terrain.columns() * terrain.rows()) + " heights");
             TerrainRenderer t = new TerrainRenderer(groundTexture, terrain);
             WorldRenderer w = new WorldRenderer(v, t, sceneryRenderer, batch, sprites, objects, items);
-            r.summary(plural(t.triangles(), "triangle") + " of hills");
+            r.detail("the buildings and their patterns");
+            BuildingCatalog catalog = BuildingCatalog.load(settings.assets.resolve("buildings"));
+            BuildingCatalog.use(catalog);
+            if (items.pixelPalette() != null) w.useBuildings(new BuildingRenderer(catalog, items.pixelPalette()));
+            r.summary(plural(t.triangles(), "triangle") + " of hills, " + plural(catalog.keys().size(), "building")
+                    + " and " + plural(catalog.textures().size(), "pattern"));
             return new Renderers(v, t, w);
         });
         voidRenderer = renderers.voidRenderer();

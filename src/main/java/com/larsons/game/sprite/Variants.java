@@ -207,10 +207,11 @@ public final class Variants {
     }
 
     /** OKLab (Björn Ottosson's) from and to sRGB, for {@link #custom}. */
-    static final class Oklab {
+    /** Colours as OKLab {@code {L, a, b}}: lightness and hue measured as the eye sees them. */
+    public static final class Oklab {
         private Oklab() {}
 
-        static double[] of(int rgb) {
+        public static double[] of(int rgb) {
             double r = lin((rgb >> 16) & 0xFF), g = lin((rgb >> 8) & 0xFF), b = lin(rgb & 0xFF);
             double l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
             double m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
@@ -220,7 +221,7 @@ public final class Variants {
                     0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s};
         }
 
-        static int rgb(double L, double a, double b) {
+        public static int rgb(double L, double a, double b) {
             double l = L + 0.3963377774 * a + 0.2158037573 * b;
             double m = L - 0.1055613458 * a - 0.0638541728 * b;
             double s = L - 0.0894841775 * a - 1.2914855480 * b;

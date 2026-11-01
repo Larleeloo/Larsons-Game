@@ -1,0 +1,131 @@
+{
+ "key": "watermill",
+ "label": "Watermill",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 350,
+   "height": 256,
+   "anchorX": 175.0,
+   "anchorY": 227.98263224321286,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 350,
+   "height": 394,
+   "anchorX": 175.0,
+   "anchorY": 254.01062646262616,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 350,
+   "height": 350,
+   "anchorX": 175.0,
+   "anchorY": 174.82694782833104,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -9.844025920562194,
+  "step": 0.07751201512253696
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#e0d4bc",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#e0d4bc",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "lower_walls",
+   "label": "Stone base",
+   "colour": "#8e8880",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5e4c40",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#4e3420",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#6a3c22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "shutters",
+   "label": "Shutters",
+   "colour": "#7a3a2a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "wheel",
+   "label": "Water wheel",
+   "colour": "#6e4c30",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   8.75,
+   7.0
+  ],
+  [
+   "box",
+   5.688,
+   0.0,
+   1.25,
+   5.375
+  ]
+ ],
+ "door": [
+  -2.0,
+  -4.5
+ ],
+ "interior": true,
+ "anim": {
+  "frames": 8,
+  "degrees": 30.0,
+  "speed": 24.0
+ }
+}

@@ -7,6 +7,10 @@ import com.larsons.game.audio.MusicPreview;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Songs;
 import com.larsons.game.audio.Sounds;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingCatalog;
+import com.larsons.game.building.BuildingLook;
+import com.larsons.game.building.BuildingProfile;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.core.Autopilot;
@@ -132,6 +136,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private final Undo undo = new Undo();
     private final Random random = new Random();
     private final int[] colours;
+    /** The game's 128 colours (null: no palette file), the buildings' shades are made from. */
+    private final PixelPalette pixelPalette;
+    /** Which part of a building the Look section colours. */
+    private int lookPart;
     private boolean entered;
 
     private Tool tool = Tool.PLACE;
@@ -207,6 +215,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         this.palette = ObjectTypes.palette();
         this.sets = Scatter.sets(sprites);
         PixelPalette pp = PixelPalette.load(game.settings().spritesDir());
+        this.pixelPalette = pp;
         this.colours = pp == null ? fallbackColours() : concat(pp.fills(), pp.lines());
         camera.setMaxDistance(FAR);
         LevelObject spawn = level.spawn();
@@ -454,7 +463,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private LevelObject place(Vec3 at) {
         if (template == null) return null;
         undo.before(level, Undo.Part.OBJECTS, "Place " + templateLabel);
-        LevelObject o = level.add(template.copy(level.nextId()).moveTo(at.x(), at.z()));
+        LevelObject o = template.copy(level.nextId()).moveTo(at.x(), at.z());
+        if (o.type().equals(ObjectTypes.PREFAB)) {
+            // a set: each of its buildings placed as one of its own, all of them selected to move together
+            selection.clear();
+            LevelObject first = null;
+            for (LevelObject piece : ObjectTypes.expand(o, level.nextId())) {
+                LevelObject added = level.add(piece);
+                selection.add(added);
+                if (first == null) first = added;
+            }
+            o = first;
+        } else {
+            o = level.add(o);
+        }
         changed();
         Sounds.play(SoundKeys.ui("place"));
         return o;
@@ -466,9 +488,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         double bestT = Double.MAX_VALUE;
         Terrain t = view.terrain();
         for (LevelObject o : level.objects()) {
+            Building b = o.type().equals(ObjectTypes.BUILDING) ? view.world().building(o.id()) : null;
             double r = ObjectTypes.radius(o, sprites);
             double y0 = t.height(o.x(), o.z()) + o.lift();
-            double hit = Picking.cylinder(ray, o.x(), o.z(), r, y0 - 0.1, y0 + height(o));
+            double hit = b != null ? b.rayHit(ray.from(), ray.dir())
+                    : Picking.cylinder(ray, o.x(), o.z(), r, y0 - 0.1, y0 + height(o));
             if (hit >= 0 && hit < bestT) {
                 bestT = hit;
                 best = o;
@@ -878,7 +902,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     public void render() {
         var w = game.window();
         int fw = w.framebufferWidth(), fh = w.framebufferHeight();
+        java.util.Set<Integer> lit = new java.util.HashSet<>();
+        for (LevelObject o : selection) if (o.type().equals(ObjectTypes.BUILDING)) lit.add(o.id());
+        game.worldRenderer().highlightBuildings(lit);
         game.worldRenderer().render(view.world(), camera, fw, fh);
+        game.worldRenderer().highlightBuildings(null);
         Mat4 vp = camera.viewProjection(fw / (double) Math.max(1, fh));
         marks(vp);
 
@@ -942,6 +970,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.post(foot, Math.min(4, o.num("height", 6)), c, 0.9f, camera);
                     gizmos.ring(o.x(), o.z(), o.num("spread", 1.5), c, 0.6f);
                 }
+                case ObjectTypes.BUILDING -> {
+                    if (!footprint(o, 0, c, 0.35f)) gizmos.post(foot, 1.2, c, 0.9f, camera);
+                    Building b = view.world().building(o.id());
+                    Vec3 door = b == null ? null : b.door();
+                    if (door != null && selection.contains(o)) gizmos.ring(door.x(), door.z(), 0.45, 0x8CF08C, 0.9f);
+                }
                 case ObjectTypes.FLIER -> {
                     gizmos.ring(o.x(), o.z(), FlyingDummy.RADIUS_OF_ROUNDS, c, 0.35f);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -952,11 +986,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
         }
-        if (hover != null && !selection.contains(hover)) {
+        if (hover != null && !selection.contains(hover) && !footprint(hover, 0.1, 0xFFFFFF, 0.55f)) {
             gizmos.ring(hover.x(), hover.z(), ObjectTypes.radius(hover, sprites) + 0.1, 0xFFFFFF, 0.55f);
         }
         for (LevelObject o : selection) {
-            gizmos.ring(o.x(), o.z(), ObjectTypes.radius(o, sprites) + 0.15, 0xFFD25A, 0.95f);
+            if (!footprint(o, 0.15, 0xFFD25A, 0.95f)) {
+                gizmos.ring(o.x(), o.z(), ObjectTypes.radius(o, sprites) + 0.15, 0xFFD25A, 0.95f);
+            }
             if (selection.size() == 1 && !o.type().equals(ObjectTypes.SCENERY)) arrow(o, 0xFFD25A, 1.0);
         }
         if (cursor != null && !hideUi || cursor != null && scriptedCursor != null) {
@@ -972,6 +1008,31 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         gizmos.end();
+    }
+
+    /**
+     * {@code o}'s footprint outlined on the ground, {@code grow} metres out,
+     * if it is a building standing in the view; false when it is not one.
+     */
+    private boolean footprint(LevelObject o, double grow, int rgb, float alpha) {
+        if (!o.type().equals(ObjectTypes.BUILDING)) return false;
+        Building b = view.world().building(o.id());
+        if (b == null) return false;
+        for (BuildingProfile.Shape s : b.profile().footprint()) {
+            if (s.circle()) {
+                Vec3 c = b.toWorld(s.x(), s.y());
+                gizmos.ring(c.x(), c.z(), s.w() + grow, rgb, alpha);
+                continue;
+            }
+            double hw = s.w() / 2 + grow, hd = s.d() / 2 + grow;
+            Vec3[] k = {b.toWorld(s.x() - hw, s.y() - hd), b.toWorld(s.x() + hw, s.y() - hd),
+                    b.toWorld(s.x() + hw, s.y() + hd), b.toWorld(s.x() - hw, s.y() + hd)};
+            for (int i = 0; i < 4; i++) {
+                Vec3 a = k[i], e = k[(i + 1) % 4];
+                gizmos.line(a.x(), a.z(), e.x(), e.z(), 0.1, rgb, alpha);
+            }
+        }
+        return true;
     }
 
     /** A short line along the ground the way {@code o} faces. */
@@ -1871,6 +1932,60 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             y += r;
         }
+        if (o.type().equals(ObjectTypes.BUILDING)) lookPanel(ui, o, x, y + 4, w);
+    }
+
+    /**
+     * A building's look, part by part, as walls are done in the Sims: the
+     * part, any of the 128 colours for it (and the shades it is drawn in),
+     * its pattern - or all of it back as it comes.
+     */
+    private void lookPanel(Ui ui, LevelObject o, float x, float y, float w) {
+        BuildingCatalog catalog = BuildingCatalog.get();
+        BuildingProfile p = catalog.profile(o.str("kind", ""));
+        if (p == null || p.parts().isEmpty()) return;
+        y = heading(ui, "Look", x, y);
+        List<String> names = new ArrayList<>();
+        for (BuildingProfile.Part part : p.parts()) names.add(part.label());
+        lookPart = Math.max(0, Math.min(names.size() - 1, lookPart));
+        lookPart = widgets.choice(ui, "Part", names, lookPart, x, y, w, 0.3f);
+        y += Widgets.ROW + 8;
+        BuildingProfile.Part part = p.parts().get(lookPart);
+        BuildingLook look = BuildingLook.of(o.props().get("look"));
+        int colour = look.colour(part);
+        int[] shades = pixelPalette == null ? null : BuildingLook.ramp(colour, pixelPalette);
+        int cols = 16;
+        float size = Math.min(16, w / cols);
+        int picked = widgets.swatches(ui, colours, shades == null ? colour : shades[3], x, y, cols, size);
+        if (picked >= 0) edit(o, "Colour", () -> setLook(o, p, look.copy().setColour(part.key(), picked)));
+        y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
+        if (shades != null) {
+            ui.text(ui.small, "Shades", x, y + 2, Theme.ITEM);
+            float sx = x + w * 0.3f, sw = (w * 0.7f) / 6;
+            for (int i = 0; i < 6; i++) {
+                int c = shades[i];
+                ui.rect(sx + i * sw, y, sw - 2, 16, Theme.rgb((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 1f));
+            }
+            y += 24;
+        }
+        List<BuildingCatalog.Texture> textures = catalog.textures();
+        if (!textures.isEmpty()) {
+            List<String> labels = new ArrayList<>();
+            for (BuildingCatalog.Texture t : textures) labels.add(t.label());
+            int at = catalog.textureIndex(look.texture(part));
+            int ni = widgets.choice(ui, "Pattern", labels, at, x, y, w, 0.3f);
+            if (ni != at) edit(o, "Pattern", () -> setLook(o, p, look.copy().setTexture(part.key(), textures.get(ni).name())));
+            y += Widgets.ROW + 8;
+        }
+        if (ui.button("As it comes", x, y, w, 28, false, o.props().get("look") != null)) {
+            edit(o, "Look", () -> o.set("look", null));
+        }
+    }
+
+    /** {@code o}'s look set to {@code look} (only what differs from how {@code p} comes is kept). */
+    private static void setLook(LevelObject o, BuildingProfile p, BuildingLook look) {
+        Map<String, Object> props = look.toProps(p);
+        o.set("look", props.isEmpty() ? null : props);
     }
 
     private String itemRarity(LevelObject o) {
@@ -2163,6 +2278,19 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "name" -> level.setName(argument);
             case "size" -> resize(Double.parseDouble(argument.trim()));
             case "save" -> save();
+            // look <part> <#rrggbb|-> [pattern]: the selected buildings' part (the template's while placing)
+            case "dress" -> {
+                List<LevelObject> targets = tool == Tool.PLACE && template != null ? List.of(template) : selection;
+                for (LevelObject o : targets) {
+                    BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                    if (p == null || p.part(a[0]) == null) continue;
+                    BuildingLook look = BuildingLook.of(o.props().get("look"));
+                    if (a.length > 1 && !a[1].equals("-")) look.setColour(a[0], BuildingLook.parseColour(a[1], 0xC0C0C0));
+                    if (a.length > 2) look.setTexture(a[0], a[2]);
+                    edit(o, "Look", () -> setLook(o, p, look));
+                    for (int i = 0; i < p.parts().size(); i++) if (p.parts().get(i).key().equals(a[0])) lookPart = i;
+                }
+            }
             case "undo" -> undo();
             case "redo" -> redo();
             case "ui" -> hideUi = argument.trim().equals("off");

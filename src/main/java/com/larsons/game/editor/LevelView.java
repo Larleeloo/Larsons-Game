@@ -109,6 +109,6 @@ final class LevelView {
     private static void withGhost(List<LevelObject> all, LevelObject ghost) {
         ObjectType t = ObjectTypes.get(ghost.type());
         if (t != null && t.single()) all.removeIf(o -> o.type().equals(ghost.type()));
-        all.add(ghost);
+        all.addAll(ObjectTypes.expand(ghost, -1000));     // (a set of buildings as its buildings)
     }
 }

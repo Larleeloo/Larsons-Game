@@ -6,6 +6,7 @@ import com.larsons.game.ambient.Animals;
 import com.larsons.game.ambient.Critters;
 import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.building.Building;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
@@ -180,6 +181,7 @@ public final class World {
     private final Player player;
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
+    private final List<Building> buildings = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Wearables.addTo(new Loot());
     private final List<Dummy> dummies = new ArrayList<>();
@@ -240,6 +242,20 @@ public final class World {
 
     public List<Chest> chests() { return chests; }
 
+    /** The houses, mills and castle pieces standing in it: solid, she walks round them. */
+    public List<Building> buildings() { return buildings; }
+
+    public Building addBuilding(Building b) {
+        buildings.add(b);
+        return b;
+    }
+
+    /** The building that is level object {@code id}, or null. */
+    public Building building(int id) {
+        for (Building b : buildings) if (b.id() == id) return b;
+        return null;
+    }
+
     public double time() { return time; }
 
     /** What the chests give. */
@@ -294,6 +310,7 @@ public final class World {
 
     /** Whether a tree's or a rock's trunk stands within {@code radius} of {@code (x, z)}. */
     public boolean solidNear(double x, double z, double radius) {
+        for (Building b : buildings) if (b.blocks(x, z, radius)) return true;
         long cx = (long) Math.floor(x / CELL), cz = (long) Math.floor(z / CELL);
         for (long i = cx - 1; i <= cx + 1; i++) {
             for (long j = cz - 1; j <= cz + 1; j++) {
@@ -429,6 +446,7 @@ public final class World {
         for (Scenery.Placed s : scenery.solids()) {
             if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + FEET);
         }
+        keepOutOfBuildings();
         for (FlyingDummy f : fliers) swooped(f, f.tick(dt, terrain, player));
         // the bigger animals are in her way (she rolls through them), as the dummies are
         if (!player.passesThrough()) {
@@ -443,6 +461,20 @@ public final class World {
         combat.tick(dt, this);
         happened();
         live(dt, player.ground(), player.ground());
+    }
+
+    /** She walks round the buildings - unless she is up above one (on a cliff over it, flying off one). */
+    private void keepOutOfBuildings() {
+        Vec3 at = player.ground();
+        double feet = at.y() + player.height();
+        for (Building b : buildings) {
+            if (feet > b.position().y() + b.profile().height() - 0.3 || feet < b.position().y() - 2) continue;
+            Vec3 to = b.pushOut(at.x(), at.z(), FEET + 0.05);
+            if (to != null) {
+                player.shoveTo(to.x(), to.z());
+                at = player.ground();
+            }
+        }
     }
 
     /**

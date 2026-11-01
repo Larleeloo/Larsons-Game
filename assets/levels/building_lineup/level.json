@@ -1,0 +1,120 @@
+{
+ "format": 1,
+ "name": "Building lineup",
+ "size": 110,
+ "sky": {
+  "zenith": "#5C78A3",
+  "horizon": "#BDC9DB",
+  "fog": 110,
+  "backdrops": [],
+  "time": {
+   "start": 11,
+   "day": 24
+  }
+ },
+ "objects": [
+  {
+   "id": 1,
+   "type": "spawn",
+   "x": 0,
+   "z": 0,
+   "yaw": 0
+  },
+  {
+   "id": 2,
+   "type": "building",
+   "x": -23.98,
+   "z": -14,
+   "yaw": 180,
+   "kind": "cottage"
+  },
+  {
+   "id": 3,
+   "type": "building",
+   "x": -11.6,
+   "z": -14,
+   "yaw": 180,
+   "kind": "house"
+  },
+  {
+   "id": 4,
+   "type": "building",
+   "x": 0.85,
+   "z": -14,
+   "yaw": 180,
+   "kind": "cabin"
+  },
+  {
+   "id": 5,
+   "type": "building",
+   "x": 11.67,
+   "z": -14,
+   "yaw": 180,
+   "kind": "windmill"
+  },
+  {
+   "id": 6,
+   "type": "building",
+   "x": 23.2,
+   "z": -14,
+   "yaw": 180,
+   "kind": "watermill"
+  },
+  {
+   "id": 7,
+   "type": "building",
+   "x": -25.32,
+   "z": -36,
+   "yaw": 180,
+   "kind": "keep"
+  },
+  {
+   "id": 8,
+   "type": "building",
+   "x": -12.82,
+   "z": -36,
+   "yaw": 180,
+   "kind": "castle_wall"
+  },
+  {
+   "id": 9,
+   "type": "building",
+   "x": -2.82,
+   "z": -36,
+   "yaw": 180,
+   "kind": "gatehouse"
+  },
+  {
+   "id": 10,
+   "type": "building",
+   "x": 6.55,
+   "z": -36,
+   "yaw": 180,
+   "kind": "round_tower"
+  },
+  {
+   "id": 11,
+   "type": "building",
+   "x": 15.05,
+   "z": -36,
+   "yaw": 180,
+   "kind": "square_tower"
+  },
+  {
+   "id": 12,
+   "type": "building",
+   "x": 22.38,
+   "z": -36,
+   "yaw": 180,
+   "kind": "turret"
+  },
+  {
+   "id": 13,
+   "type": "building",
+   "x": 29.2,
+   "z": -36,
+   "yaw": 180,
+   "kind": "spire"
+  }
+ ]
+}

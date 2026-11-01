@@ -30,6 +30,7 @@ ticked off as it lands.
 - [Day and night](#day-and-night)
 - [Life: critters and foraging](#life-critters-and-foraging)
 - [Animals](#animals)
+- [Buildings](#buildings)
 - [Creative Mode](#creative-mode)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
@@ -1349,6 +1350,75 @@ always, by day, by night). In a level file:
   <img src="docs/screenshots/creative-herd.png" width="49%" alt="A herd of four horses placed and selected">
 </p>
 
+## Buildings
+
+Twelve buildings stand in the world as the player does: drawn from eight
+directions and three camera heights, pre-rendered in Blender (3D-Modeling's
+`buildings/buildings.py`, each one built in code from its kit). The homes and
+mills: a **cottage**, a **town house**, a **log cabin**, a **windmill** (its
+sails turning) and a **watermill** (its wheel turning). The castle's pieces: a
+**keep**, a length of **castle wall**, a **gatehouse** (its portcullis up), a
+**round tower**, a **square tower**, a **turret** and a **spire**.
+
+<p align="center">
+  <img src="docs/screenshots/buildings-homes.png" width="49%" alt="The cottage, town house, log cabin, windmill and watermill">
+  <img src="docs/screenshots/buildings-castle-pieces.png" width="49%" alt="The keep, castle wall, gatehouse, round and square towers, turret and spire">
+</p>
+<p align="center">
+  <img src="docs/screenshots/buildings-village.png" width="49%" alt="The sample village: two cottages and two town houses, each dressed differently, a small castle behind">
+  <img src="docs/screenshots/buildings-castle.png" width="49%" alt="The small castle: keep, curtain walls, four round towers and the gatehouse">
+</p>
+
+**Place → Buildings → Small castle** puts a whole castle down at once - a keep
+in a square of curtain walls, a round tower at each corner with its door to the
+courtyard and the gatehouse in the front wall - and each piece is then a
+building of its own, to move, turn, dress or take away (`building/Prefab`).
+
+**Any colour and any pattern, part by part**, as walls are done in the Sims.
+A building's views are not pictures: every pixel keeps which **part** it shows
+(the walls, the side walls, the roof, the trim, the door, the shutters, the
+windows, the foundation, the chimney, the beams, the logs, the sails...), how it
+is **shaded** (light, mid, shadow, an outline or an inner line), **where on the
+part** it is and **how deep** it is. The game colours each part with any of the
+128 colours - drawn in six shades of the palette, dark to light, as the rest
+of the pixel art is - and lays any of 20 **patterns** over it: brick, stone
+blocks, fieldstone, cobbles, flagstones, plaster, clapboard, logs, timber,
+boards, floorboards, thatch, slate, clay tiles, shingles, window panes, metal,
+woven reeds, checker and smooth. No rendering again: a new look is a click.
+
+<p align="center">
+  <img src="docs/screenshots/creative-building-look.png" width="49%" alt="Creative Mode: a cottage selected, its Look section with the part, the 128 colours, its shades and its pattern">
+  <img src="docs/screenshots/buildings-night.png" width="49%" alt="The village at night, its windows lit">
+</p>
+
+In Creative Mode, select a building (or choose one to place) and its **Look**
+section has the **Part**, the 128 swatches, the **Shades** it will be drawn
+in, its **Pattern** and **As it comes** (every part back as the building
+comes).
+
+**Solid, and sorted pixel by pixel.** Each pixel is written at the depth of the
+point of the building it shows, so she goes behind the corner of a house and
+walks in front of the rest of it, a roof hides her when the camera looks over
+it, and the trees, the items and the animals sort against it the same way. Its
+footprint is solid: she walks round it, and the animals go round it. On a slope
+it is set into the hill down to its lowest corner, never standing off the
+ground; a soft shadow lies round its walls. **At night** its windows are lit
+from inside, warm, from dusk to dawn.
+
+In a level file a building is its kind and the parts changed from how it comes:
+
+```json
+{"type": "building", "x": -15, "z": 16, "yaw": 270, "kind": "cottage",
+ "look": {"walls": {"colour": "#e8c0b0"}, "roof": {"colour": "#707888", "texture": "slate"}}}
+```
+
+`assets/levels/village` is a sample to play and to open in the editor: the two
+cottages and the two town houses dressed differently, the log cabin, both mills
+and the small castle; `assets/levels/building_lineup` has all twelve in two
+rows. A new building is a class in 3D-Modeling's
+`buildings.py`, rendered (`passes`) and written into `assets/buildings/`
+(`draw`): the palette lists it from its folder.
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas
@@ -1373,7 +1443,7 @@ standing under the pointer. Nine tools, on the number keys:
 
 | Tool | What it does |
 |---|---|
-| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
+| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the **buildings** (and the small castle, all its pieces at once; each dressed part by part in its **Look** section), the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
 | **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind) |
 | **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it |
 | **4 Paint** | **Ground**: any of the twelve grounds - dirt, forest floor, gravel, flower meadow, sand, mud, snow, stone, jungle floor, dry grass, ash, crystal - over the grass. **Biome**: one of the nine biomes - its ground with patches of its second ground worked through it, and (**Sow its plants**, on by default) its plants, trees and rocks sown as you paint. Shift paints back to grass |
@@ -1578,6 +1648,11 @@ src/main/java/com/larsons/game/
   ambient/                  the life in the world: Critters, CritterKind and Critter (the little creatures),
                             Animals, AnimalKind, Animal and Temperament (the sixteen animals), Life (how thick
                             each lives in a level)
+  building/                 BuildingCatalog (every kind, from assets/buildings), BuildingProfile (a kind: its
+                            parts, views, footprint, door), BuildingLook (a building's colours and patterns, and
+                            the six shades of a colour), Building (one standing: its footprint, its own metres),
+                            BuildingRenderer (its views coloured, patterned and sorted pixel by pixel), Prefab
+                            (sets of buildings: the small castle)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
@@ -1594,6 +1669,8 @@ assets/sprites/             the sprite sheets (one folder per layer) and their c
                             the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
+assets/buildings/           the buildings: a folder each (profile.json and its 24 views, a mill's turning part
+                            beside them) and textures/ (the 20 patterns and textures.json)
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
@@ -1752,7 +1829,8 @@ the item's own colours) and
 <place|select|sculpt|paint|scatter|sky|time|level|water|life>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
-`turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
+`turn <degrees>`, `dress <part> <#rrggbb|-> [pattern]` (the selected buildings' part, or the one being
+placed), `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
 <strength> [seconds] [height]`, `paint <0 grass … 12 crystal> <x> <z> <radius>`,
 `biome <plains|marsh|mountains|jungle|savannah|ocean|river|waste|crystal> <x> <z> <radius> [0]` (its
 ground, and its plants sown unless 0), `sow <biome> <x> <z> <radius> [dabs] [tuft|tree|rock]`, `water

@@ -1153,6 +1153,13 @@ public final class Player {
         height = Math.max(0, feetY - position.y());
     }
 
+    /** Put her at {@code (x, z)} on the ground there, her feet as high as they were: pushed out of a wall. */
+    public void shoveTo(double x, double z) {
+        double feetY = position.y() + height;
+        position = terrain.onGround(new Vec3(x, 0, z));
+        height = Math.max(0, feetY - position.y());
+    }
+
     /** Keep her on the ground from {@code x0} to {@code x1} and {@code z0} to {@code z1}: a level's edges. */
     public void keepWithin(double x0, double x1, double z0, double z1) {
         double x = Math.max(x0, Math.min(x1, position.x())), z = Math.max(z0, Math.min(z1, position.z()));

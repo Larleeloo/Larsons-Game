@@ -1,0 +1,98 @@
+{
+ "key": "spire",
+ "label": "Spire",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 138,
+   "height": 562,
+   "anchorX": 69.0,
+   "anchorY": 538.0,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 138,
+   "height": 444,
+   "anchorX": 69.0,
+   "anchorY": 381.30212793480297,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 138,
+   "height": 138,
+   "anchorX": 69.0,
+   "anchorY": 68.28748696413095,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -20.1625,
+  "step": 0.15875984251968506
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#9c978c",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Stone trim",
+   "colour": "#bcb5a6",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Plinth",
+   "colour": "#86827a",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Spire",
+   "colour": "#4a5068",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#5e3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "finial",
+   "label": "Finial",
+   "colour": "#c8a040",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   2.375
+  ]
+ ],
+ "door": [
+  0.0,
+  -3.25
+ ],
+ "interior": true,
+ "anim": null
+}

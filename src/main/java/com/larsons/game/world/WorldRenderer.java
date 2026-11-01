@@ -3,6 +3,9 @@ package com.larsons.game.world;
 import com.larsons.game.ambient.Animal;
 import com.larsons.game.ambient.Critter;
 import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.BuildingRenderer;
 import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
@@ -24,6 +27,7 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.lwjgl.opengl.GL33C.*;
 
@@ -95,6 +99,12 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture shadow;
     private final Texture glow;
     private final Texture ray;
+    /** A soft-edged square, black: the shadow a building's walls cast round them. */
+    private final Texture blockShadow;
+    /** The buildings' drawing (null: none to draw). */
+    private BuildingRenderer buildings;
+    /** The buildings drawn lit up (the editor's selection). */
+    private Set<Integer> highlight = Set.of();
     /** The light the frame being drawn is lit with, made afresh every frame. */
     private final SceneLight sceneLight = new SceneLight();
     /** The time of day's light the last frame was drawn in. */
@@ -127,6 +137,7 @@ public final class WorldRenderer implements AutoCloseable {
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
         this.ray = Texture.upload(LightRays.pixels(), true);
+        this.blockShadow = Texture.upload(blockShadowPixels(64), false);
         this.water = new WaterRenderer();
         this.combat = new CombatRenderer(sprites, objects);
     }
@@ -146,6 +157,33 @@ public final class WorldRenderer implements AutoCloseable {
             }
         }
         return PixelData.of(argb, n, n);
+    }
+
+    /** Draw buildings with {@code r} from now on (it is closed with this). */
+    public void useBuildings(BuildingRenderer r) {
+        buildings = r;
+    }
+
+    /** Draw the buildings that are the level objects {@code ids} lit up (null: none) - the editor's selection. */
+    public void highlightBuildings(Set<Integer> ids) {
+        highlight = ids == null ? Set.of() : ids;
+    }
+
+    /** A square, black, solid in its middle and fading out over its outer quarter each way. */
+    static PixelData blockShadowPixels(int n) {
+        int[] argb = new int[n * n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                double ex = Math.min(x + 0.5, n - x - 0.5) / (n * 0.25), ey = Math.min(y + 0.5, n - y - 0.5) / (n * 0.25);
+                double a = smooth(Math.min(1, ex)) * smooth(Math.min(1, ey));
+                argb[y * n + x] = ((int) Math.round(a * 255) << 24);
+            }
+        }
+        return PixelData.of(argb, n, n);
+    }
+
+    private static double smooth(double t) {
+        return t * t * (3 - 2 * t);
     }
 
     /** A soft round blob, black, alpha falling off to nothing at the rim. */
@@ -184,6 +222,12 @@ public final class WorldRenderer implements AutoCloseable {
         float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
         voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
         if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+        if (buildings != null) {
+            // the windows lit from dusk to dawn
+            double t = Math.max(0, Math.min(1, (0.55 - light.day()) / 0.4));
+            buildings.draw(world.buildings(), camera, viewProj, fog, fogFar, sceneLight, smooth(t), world.time(),
+                    highlight);
+        }
         batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
@@ -235,6 +279,7 @@ public final class WorldRenderer implements AutoCloseable {
         for (Scenery.Placed s : world.scenery().shadowed()) {
             groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
         }
+        for (Building b : world.buildings()) buildingShadow(b);
         batch.end();
 
         // --- sprites, far to near (tested against the scenery, not written) --------
@@ -680,6 +725,36 @@ public final class WorldRenderer implements AutoCloseable {
         }
     }
 
+    /** How far past its walls a building's shadow reaches, metres. */
+    static final double BUILDING_SHADOW = 0.7;
+
+    /** The soft shadow round a building's footprint, each piece of it, lying on the ground. */
+    private void buildingShadow(Building b) {
+        float alpha = 0.32f * shadowStrength;
+        for (BuildingProfile.Shape s : b.profile().footprint()) {
+            if (s.circle()) {
+                Vec3 c = b.toWorld(s.x(), s.y());
+                groundQuad(shadow, c, (s.w() + BUILDING_SHADOW) * 1.25, 0, 0, 0, alpha);
+                continue;
+            }
+            double hw = s.w() / 2 + BUILDING_SHADOW, hd = s.d() / 2 + BUILDING_SHADOW;
+            int n = SLOPE_PIECES;
+            for (int j = 0; j < n; j++) {
+                for (int i = 0; i < n; i++) {
+                    double ax = s.x() - hw + 2 * hw * i / n, bx = s.x() - hw + 2 * hw * (i + 1) / n;
+                    double ay = s.y() - hd + 2 * hd * j / n, by = s.y() - hd + 2 * hd * (j + 1) / n;
+                    Vec3 p0 = b.toWorld(ax, ay), p1 = b.toWorld(bx, ay), p2 = b.toWorld(bx, by), p3 = b.toWorld(ax, by);
+                    piece(blockShadow, (float) p0.x(), lift(p0.x(), p0.z()), (float) p0.z(),
+                            (float) p1.x(), lift(p1.x(), p1.z()), (float) p1.z(),
+                            (float) p2.x(), lift(p2.x(), p2.z()), (float) p2.z(),
+                            (float) p3.x(), lift(p3.x(), p3.z()), (float) p3.z(),
+                            (float) i / n, (float) j / n, (float) (i + 1) / n, (float) (j + 1) / n, 0, 0, 0, alpha,
+                            false);
+                }
+            }
+        }
+    }
+
     /** One piece of a {@link #groundQuad}: laid over the ground, or as light. */
     private void piece(Texture tex, float x0, float y0, float z0, float x1, float y1, float z1,
                        float x2, float y2, float z2, float x3, float y3, float z3,
@@ -712,6 +787,8 @@ public final class WorldRenderer implements AutoCloseable {
         shadow.close();
         glow.close();
         ray.close();
+        blockShadow.close();
         water.close();
+        if (buildings != null) buildings.close();
     }
 }

@@ -40,6 +40,7 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         ITEMS("Weapons"),
         WEARABLES("Wearables"),
         LOOT("Chests"),
+        BUILDINGS("Buildings"),
         LIFE("Life"),
         COMBAT("Training"),
         TERRAIN("Terrain"),

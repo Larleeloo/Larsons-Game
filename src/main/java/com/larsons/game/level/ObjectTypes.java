@@ -6,6 +6,11 @@ import com.larsons.game.ambient.CritterKind;
 import com.larsons.game.ambient.Critters;
 import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingCatalog;
+import com.larsons.game.building.BuildingLook;
+import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.Prefab;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.level.ObjectType.Category;
@@ -43,7 +48,7 @@ public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
-            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals";
+            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -168,6 +173,69 @@ public final class ObjectTypes {
                             Temperament.byKey(o.str("temperament", OWN)),
                             Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
                 }));
+    }
+
+    static {
+        // a house, a mill, a castle's keep, a length of its wall: coloured and patterned part by part (its look)
+        register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
+                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys())),
+                3, 5, 0xC8A27A, false,
+                (o, b) -> {
+                    Building building = building(o, b.terrain());
+                    if (building != null) b.world().addBuilding(building);
+                }));
+        // a set of buildings placed together (a small castle): each piece is a building of its own once placed
+        register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
+                List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
+    }
+
+    /** A {@link #BUILDING} as it stands on {@code terrain}, or null when its kind is not there. */
+    public static Building building(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+        if (p == null) return null;
+        // on a slope it is set down to the lowest of its corners - dug into the hill, never standing off it
+        Building at = new Building(o.id(), p, new Vec3(o.x(), 0, o.z()), o.yaw(), null, null);
+        double y = terrain.height(o.x(), o.z());
+        for (BuildingProfile.Shape s : p.footprint()) {
+            double hw = s.circle() ? s.w() * 0.7 : s.w() / 2, hd = s.circle() ? s.w() * 0.7 : s.d() / 2;
+            for (int i = 0; i < 4; i++) {
+                Vec3 c = at.toWorld(s.x() + (i % 2 == 0 ? -hw : hw), s.y() + (i < 2 ? -hd : hd));
+                y = Math.min(y, terrain.height(c.x(), c.z()));
+            }
+        }
+        y = Math.max(y, terrain.height(o.x(), o.z()) - 1.5);
+        return new Building(o.id(), p, new Vec3(o.x(), y + o.lift(), o.z()), o.yaw(),
+                BuildingLook.of(o.props().get("look")), o.str("interior", null));
+    }
+
+    static List<String> prefabKeys() {
+        List<String> out = new ArrayList<>();
+        for (Prefab p : Prefab.ALL) out.add(p.key());
+        return out;
+    }
+
+    /**
+     * What placing {@code o} puts in the level: {@code o} itself, or - a
+     * {@link #PREFAB} - its buildings, each a {@link #BUILDING} of its own
+     * where it stands in the set, numbered from {@code firstId}.
+     */
+    public static List<LevelObject> expand(LevelObject o, int firstId) {
+        if (!o.type().equals(PREFAB)) return List.of(o);
+        Prefab set = Prefab.byKey(o.str("set", ""));
+        if (set == null) return List.of();
+        Vec3 h = com.larsons.game.sprite.SpriteView.headingVector(o.yaw());
+        double hx = h.x(), hz = h.z();
+        List<LevelObject> out = new ArrayList<>();
+        int id = firstId;
+        for (Prefab.Piece p : set.pieces()) {
+            // the set's own metres to the world's, as a building's are (Building#toWorld)
+            double x = o.x() + p.x() * hz - p.y() * hx, z = o.z() - p.x() * hx - p.y() * hz;
+            double fx = p.faceX() * hz - p.faceY() * hx, fz = -p.faceX() * hx - p.faceY() * hz;
+            LevelObject piece = new LevelObject(id++, BUILDING, x, z, o.lift(),
+                    com.larsons.game.sprite.SpriteView.headingOf(fx, fz), Map.of("kind", p.kind()));
+            out.add(piece.turnTo(piece.yaw()));
+        }
+        return out;
     }
 
     static List<String> animalKinds() {
@@ -302,12 +370,22 @@ public final class ObjectTypes {
             out.add(new Entry(k.label(), Category.LIFE, ANIMALS, Map.of("kind", k.key(), "count", (double) n,
                     "radius", k.flies() ? 4.0 : 8.0, "temperament", OWN, "when", Critters.When.ITS_TIME.key())));
         }
+        BuildingCatalog buildings = BuildingCatalog.get();
+        for (String key : buildings.keys()) {
+            out.add(new Entry(buildings.profile(key).label(), Category.BUILDINGS, BUILDING, Map.of("kind", key)));
+        }
+        for (Prefab p : Prefab.ALL) {
+            boolean all = true;
+            for (Prefab.Piece piece : p.pieces()) all &= buildings.profile(piece.kind()) != null;
+            if (all) out.add(new Entry(p.label(), Category.BUILDINGS, PREFAB, Map.of("set", p.key())));
+        }
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
-                    || t.key().equals(CRITTERS) || t.key().equals(ANIMALS)) continue;
+                    || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
+                    || t.key().equals(PREFAB)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
@@ -333,6 +411,14 @@ public final class ObjectTypes {
                 yield item == null ? "Item " + o.str("item", "?") + " (unknown)" : item.name();
             }
             case MARKER -> "Spot \"" + o.str("name", "spot") + "\"";
+            case BUILDING -> {
+                BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                yield p == null ? "Building " + o.str("kind", "?") + " (missing)" : p.label();
+            }
+            case PREFAB -> {
+                Prefab p = Prefab.byKey(o.str("set", ""));
+                yield p == null ? "Set " + o.str("set", "?") + " (unknown)" : p.label();
+            }
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
             case CRITTERS -> {
                 CritterKind k = CritterKind.byKey(o.str("kind", ""));
@@ -364,7 +450,24 @@ public final class ObjectTypes {
                 return new Scenery.Placed(s, 0, 0, 0, false, 0).footprint() + 0.15;
             }
         }
+        if (o.type().equals(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            if (p != null) return p.reach();
+        }
+        if (o.type().equals(PREFAB)) {
+            Prefab p = Prefab.byKey(o.str("set", ""));
+            if (p != null) return p.reach(BuildingCatalog.get());
+        }
         ObjectType t = get(o.type());
         return t == null ? 0.5 : t.radius();
+    }
+
+    /** How tall {@code o} stands, about, if it is a building (else -1). */
+    public static double buildingHeight(LevelObject o) {
+        if (o.type().equals(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            return p == null ? -1 : p.height();
+        }
+        return o.type().equals(PREFAB) ? 12 : -1;
     }
 }

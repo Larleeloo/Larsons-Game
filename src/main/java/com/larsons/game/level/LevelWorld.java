@@ -106,6 +106,7 @@ public final class LevelWorld {
                                 ScenerySprites sprites, CombatTuning tuning) {
         world.items().clear();
         world.chests().clear();
+        world.buildings().clear();
         world.dummies().clear();
         world.fliers().clear();
         world.soundSpots().clear();
