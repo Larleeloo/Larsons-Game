@@ -1304,8 +1304,9 @@ rabbits, squirrels, ducks, geese, swans, butterflies, bees and iguanas**.
 
 Each is drawn the way the player is: pre-rendered in Blender from eight
 directions and three camera heights (3D-Modeling's `creatures/animals.py`),
-with its own sheets - standing, walking, running, eating, and for some
-hopping, swimming, flying and a blow (a peck, a bite, a sting, a swipe).
+with its own sheets - standing, walking, running and eating, the rabbit's and
+the squirrel's hops, and the birds' swimming, flying and wings-up hissing
+attack.
 Ducks, geese and swans swim, sunk to their waterline, and take off when
 startled; butterflies and bees flit about the flowers by day.
 
