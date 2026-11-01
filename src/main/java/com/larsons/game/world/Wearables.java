@@ -241,11 +241,14 @@ public final class Wearables {
     /**
      * What {@code item} is drawn as lying about and in the inventory: a dye
      * as a bottle of it, armour as a shield in its rarity's colour, anything
-     * else worn as a t-shirt on a hanger in it; null for a weapon (drawn as
+     * else worn as a t-shirt on a hanger in it; a picking as its sprig, fruit
+     * or flower in its colour ({@link Food}); null for a weapon (drawn as
      * itself).
      */
     public static Pickup pickup(Item item) {
         ItemDef d = item.def();
+        if (d.isFood()) return new Pickup(d.food().pickup(), d.food().part(), d.food().rgb());
+        if (d.isTack()) return new Pickup(d.id(), "blanket", Tack.SADDLE_RGB);
         if (!d.isWearable()) return null;
         String dye = d.wearable().dye();
         if (dye != null) return new Pickup(BOTTLE, "liquid", DYE_RGB.getOrDefault(dye, item.rarity().rgb()));

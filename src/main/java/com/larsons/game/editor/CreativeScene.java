@@ -1,15 +1,24 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.ambient.AnimalKind;
+import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.MusicPreview;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Songs;
 import com.larsons.game.audio.Sounds;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingCatalog;
+import com.larsons.game.building.BuildingLook;
+import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.Room;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelIO;
 import com.larsons.game.level.LevelObject;
@@ -22,14 +31,19 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
 import com.larsons.game.sprite.PixelPalette;
+import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Atmosphere;
+import com.larsons.game.world.Biome;
+import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
+import com.larsons.game.world.WaterMap;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -38,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -82,7 +97,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        LEVEL("Level");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life");
 
         final String label;
 
@@ -94,8 +109,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** What the sculpting brush does. */
     enum Sculpt { RAISE, LOWER, SMOOTH, FLATTEN }
 
-    /** The paint brush's materials: grass (paints the others away), then {@link GroundMap}'s four. */
-    static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow"};
+    /** The paint brush's materials: grass (paints the others away), then {@link GroundMap}'s twelve. */
+    static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
+            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal"};
 
     /** How far the camera can pull back, metres. */
     static final double FAR = 160;
@@ -105,10 +121,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     static final float LEFT_W = 278, RIGHT_W = 286, TOP_H = 46, HELP_H = 30;
     /** How often a held scatter brush sows, seconds. */
     static final double SOW_EVERY = 0.08;
+    /** Hours a second the time runs at when it is run in the editor. */
+    static final double PREVIEW_HOURS = 0.75;
 
     private final Game game;
     private final Level level;
     private Path folder;
+    /** Editing the inside of a building: the scene editing the level it stands in (null: editing a level). */
+    private final CreativeScene outside;
+    /** The building whose inside this is (its object's number), its floors, and which floor this is. */
+    private final int insideOf;
+    private final List<Level> floors;
+    private final int floorIndex;
+    /** When the top floor's "remove" was last pressed (it takes two presses). */
+    private double removeFloorAt = -10;
     private boolean dirty;
     private final ScenerySprites sprites;
     private final LevelView view;
@@ -120,6 +146,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private final Undo undo = new Undo();
     private final Random random = new Random();
     private final int[] colours;
+    /** The game's 128 colours (null: no palette file), the buildings' shades are made from. */
+    private final PixelPalette pixelPalette;
+    /** Which part of a building the Look section colours. */
+    private int lookPart;
     private boolean entered;
 
     private Tool tool = Tool.PLACE;
@@ -140,6 +170,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     // --- brushes
     private Sculpt sculpt = Sculpt.RAISE;
     private int material = 1;
+    /** The Paint tool's page: 0 the ground's materials, 1 the biomes. */
+    private int paintTab;
+    private Biome biome = Biome.MARSH;
+    private boolean sowBiome = true;
+    // --- water
+    private WaterMap.Kind waterKind = WaterMap.Kind.CLEAR;
+    private double waterDepth = 0.6, waterSpeed = 0.8;
+    /** Whether the stroke's water lies level (a pond, a lake) or follows the ground down (a stream). */
+    private boolean waterLevel = true;
+    private boolean waterFlows;
+    private double strokeSurface, flowX, flowZ;
+    private Vec3 lastDab;
     private double radius = 3, strength = 0.5, flatHeight;
     private boolean stroking;
     private double sowTimer, brushSound;
@@ -151,6 +193,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private int skyTarget;
     private int backdrop = -1;
     private int addKind;
+    // --- time and weather
+    /** Which of the Time tool's pages is shown: 0 the time, 1 the planet, 2 the weather. */
+    private int timeTab;
+    /** Whether the time runs in the editor (a preview), and the hour it has run to. */
+    private boolean runTime;
+    private double runHour;
     // --- the pointer, and what it is over
     private Vec3 cursor;
     private LevelObject hover;
@@ -168,25 +216,60 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * first save makes it a folder of its own in {@code assets/levels/}).
      */
     public CreativeScene(Game game, Level level, Path folder) {
+        this(game, level, folder, null, -1, null, 0);
+    }
+
+    /**
+     * Edit floor {@code floor} of {@code floors}, the inside of building
+     * {@code buildingId} of the level {@code outside} edits: saved with that
+     * level, Esc back out to it.
+     */
+    private CreativeScene(Game game, CreativeScene outside, int buildingId, List<Level> floors, int floor) {
+        this(game, floors.get(floor), outside.folder, outside, buildingId, floors, floor);
+    }
+
+    private CreativeScene(Game game, Level level, Path folder, CreativeScene outside, int insideOf,
+                          List<Level> floors, int floorIndex) {
         this.game = game;
         this.level = level;
         this.folder = folder;
-        this.dirty = folder == null;
+        this.outside = outside;
+        this.insideOf = insideOf;
+        this.floors = floors;
+        this.floorIndex = floorIndex;
+        this.dirty = outside == null && folder == null;
         this.sprites = game.scenerySprites();
         this.view = new LevelView(level, game.wardrobe(), sprites, CombatTuning.load(game.settings().assets));
         this.palette = ObjectTypes.palette();
         this.sets = Scatter.sets(sprites);
         PixelPalette pp = PixelPalette.load(game.settings().spritesDir());
+        this.pixelPalette = pp;
         this.colours = pp == null ? fallbackColours() : concat(pp.fills(), pp.lines());
         camera.setMaxDistance(FAR);
         LevelObject spawn = level.spawn();
         if (spawn != null) focus = new Vec3(spawn.x(), 0, spawn.z());
+        if (outside != null) {
+            view.indoors(outside.level.sky());
+            category = Category.INSIDE;
+            camera.setDesiredDistance(15);
+            camera.setDesiredYaw(0);
+        }
         choose(firstOf(category));
     }
 
     @Override
     public String name() {
+        if (outside != null) {
+            return "Creative Mode: " + outside.level.name() + " - inside the " + insideLabel().toLowerCase() + ", "
+                    + level.name().toLowerCase() + (outside.dirty ? " *" : "");
+        }
         return "Creative Mode: " + level.name() + (dirty ? " *" : "");
+    }
+
+    /** What the building whose inside this is is called. */
+    private String insideLabel() {
+        LevelObject b = outside == null ? null : outside.level.byId(insideOf);
+        return b == null ? "Building" : ObjectTypes.label(b);
     }
 
     @Override
@@ -275,6 +358,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SCULPT -> sculptTool(press, held, shift, ctrl, dt);
             case PAINT -> paintTool(press, held, shift, dt);
             case SCATTER -> scatterTool(press, held, shift, dt);
+            case WATER -> waterTool(press, held, shift, dt);
             default -> { }
         }
         if (!held) stroking = false;
@@ -289,6 +373,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         view.refresh();
         if (thinFog) view.world().setSky(level.sky().withFog(Math.max(level.sky().fog(), camera.distance() * 2.6)));
+        if (runTime) runHour = (runHour + dt * PREVIEW_HOURS) % 24;
+        view.world().clock().setHour(shownHour());
+        view.world().setLife(level.life());
+        view.world().setFocus(view.terrain().onGround(focus));   // (the little creatures live round the view)
         view.world().idle(dt);
         camera.update(dt, focusPoint());
         camera.keepAbove(view.terrain(), 0.5);
@@ -310,8 +398,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         if (!ctrl) {
-            int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7};
-            for (int i = 0; i < toolKeys.length; i++) if (in.pressed(toolKeys[i])) setTool(Tool.values()[i]);
+            int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
+                    GLFW_KEY_8, GLFW_KEY_9, GLFW_KEY_0};
+            List<Tool> shown = tools();
+            for (int i = 0; i < Math.min(toolKeys.length, shown.size()); i++) {
+                if (in.pressed(toolKeys[i])) setTool(shown.get(i));
+            }
+            if (outside != null && in.pressed(GLFW_KEY_PAGE_UP) && shift) floor(floorIndex + 1);
+            if (outside != null && in.pressed(GLFW_KEY_PAGE_DOWN) && shift) floor(floorIndex - 1);
             if (in.pressed(GLFW_KEY_H)) hideUi = !hideUi;
             if (in.pressed(GLFW_KEY_G)) {
                 snap = !snap;
@@ -377,8 +471,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return new Vec3(focus.x(), t.height(focus.x(), focus.z()) + 0.8 + focusLift, focus.z());
     }
 
+    /** The tools along the top: inside a building, only those that work in there. */
+    private List<Tool> tools() {
+        return outside == null ? List.of(Tool.values()) : List.of(Tool.PLACE, Tool.SELECT, Tool.TIME);
+    }
+
     private void setTool(Tool t) {
-        if (t == tool) return;
+        if (t == tool || !tools().contains(t)) return;
         if (tool == Tool.LEVEL) preview.pause();
         tool = t;
         moving = boxing = stroking = false;
@@ -386,7 +485,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean brushTool() {
-        return tool == Tool.SCULPT || tool == Tool.PAINT || tool == Tool.SCATTER;
+        return tool == Tool.SCULPT || tool == Tool.PAINT || tool == Tool.SCATTER || tool == Tool.WATER;
     }
 
     private static double clampRadius(double r) {
@@ -409,6 +508,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void changed() {
         dirty = true;
+        if (outside != null) {
+            outside.dirty = true;
+            outside.view.objectsChanged();
+        }
         view.objectsChanged();
         game.window().setTitle(Game.TITLE + " — " + name());
     }
@@ -418,7 +521,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private LevelObject place(Vec3 at) {
         if (template == null) return null;
         undo.before(level, Undo.Part.OBJECTS, "Place " + templateLabel);
-        LevelObject o = level.add(template.copy(level.nextId()).moveTo(at.x(), at.z()));
+        LevelObject o = template.copy(level.nextId()).moveTo(at.x(), at.z());
+        if (o.type().equals(ObjectTypes.PREFAB)) {
+            // a set: each of its buildings placed as one of its own, all of them selected to move together
+            selection.clear();
+            LevelObject first = null;
+            for (LevelObject piece : ObjectTypes.expand(o, level.nextId())) {
+                LevelObject added = level.add(piece);
+                selection.add(added);
+                if (first == null) first = added;
+            }
+            o = first;
+        } else {
+            o = level.add(o);
+        }
         changed();
         Sounds.play(SoundKeys.ui("place"));
         return o;
@@ -430,9 +546,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         double bestT = Double.MAX_VALUE;
         Terrain t = view.terrain();
         for (LevelObject o : level.objects()) {
+            Building b = ObjectTypes.builds(o.type()) ? view.world().building(o.id()) : null;
             double r = ObjectTypes.radius(o, sprites);
             double y0 = t.height(o.x(), o.z()) + o.lift();
-            double hit = Picking.cylinder(ray, o.x(), o.z(), r, y0 - 0.1, y0 + height(o));
+            double hit = b != null ? b.rayHit(ray.from(), ray.dir())
+                    : Picking.cylinder(ray, o.x(), o.z(), r, y0 - 0.1, y0 + height(o));
             if (hit >= 0 && hit < bestT) {
                 bestT = hit;
                 best = o;
@@ -642,12 +760,93 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintTool(boolean press, boolean held, boolean shift, double dt) {
         if (cursor == null) return;
+        boolean biomes = paintTab == 1, sowing = biomes && sowBiome && !shift;
         if (press) {
-            undo.before(level, Undo.Part.GROUND, "Paint");
+            undo.before(level, sowing ? Undo.Part.ALL : Undo.Part.GROUND, biomes ? biome.label() : "Paint");
             stroking = true;
+            sowTimer = 0;
         }
         if (!stroking || !held) return;
-        level.ground().paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, Math.min(1, strength * 5 * dt));
+        double amount = Math.min(1, strength * 5 * dt);
+        if (shift || !biomes) {
+            level.ground().paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+        } else {
+            level.ground().paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
+        }
+        dirty = true;
+        if (sowing) {
+            sowTimer -= dt;
+            if (sowTimer <= 0) {
+                sowTimer = SOW_EVERY;
+                sowBiome(biome, cursor.x(), cursor.z(), radius, 1);
+            }
+        }
+        brushTick(dt);
+    }
+
+    /** Sow {@code b}'s plants, trees and rocks within {@code r} of {@code (x, z)}, {@code times} brush-dabs' worth. */
+    private void sowBiome(Biome b, double x, double z, double r, int times) {
+        sowBiome(b, x, z, r, times, null);
+    }
+
+    /** {@link #sowBiome(Biome, double, double, double, int)}, only {@code only} of them (null: all). */
+    private void sowBiome(Biome b, double x, double z, double r, int times, SceneryProfile.Kind only) {
+        boolean any = false;
+        double area = Math.PI * r * r;
+        SceneryProfile.Kind[] kinds = {SceneryProfile.Kind.TUFT, SceneryProfile.Kind.TREE, SceneryProfile.Kind.ROCK};
+        double[] thickness = {0.55, 0.6, 0.6};
+        for (int k = 0; k < kinds.length; k++) {
+            if (only != null && kinds[k] != only) continue;
+            Scatter.Set set = Scatter.biomeSet(sprites, b, kinds[k]);
+            if (set.sprites().isEmpty()) continue;
+            for (int t = 0; t < times; t++) {
+                if (!Scatter.sow(level, view.terrain(), sprites, set, x, z, r, thickness[k], area * 0.2, random)
+                        .isEmpty()) {
+                    any = true;
+                }
+            }
+        }
+        // and a few of its foraging bushes among the plants
+        Scatter.Set bushes = Scatter.bushSet(sprites, b);
+        if ((only == null || only == SceneryProfile.Kind.TUFT) && !bushes.sprites().isEmpty()) {
+            for (int t = 0; t < times; t++) {
+                if (!Scatter.sow(level, view.terrain(), sprites, bushes, x, z, r, 0.6, area * 0.2, random).isEmpty()) {
+                    any = true;
+                }
+            }
+        }
+        if (any) changed();
+    }
+
+    /**
+     * The water brush: water of the kind chosen, its surface level over the
+     * whole stroke (a pond) or following the ground under the brush (a
+     * stream), flowing the way the brush moves if asked; Shift takes it away.
+     */
+    private void waterTool(boolean press, boolean held, boolean shift, double dt) {
+        if (cursor == null) return;
+        if (press) {
+            undo.before(level, Undo.Part.WATER, shift ? "Dry" : waterKind.label());
+            stroking = true;
+            strokeSurface = cursor.y() + waterDepth;
+            lastDab = cursor;
+            flowX = flowZ = 0;
+        }
+        if (!stroking || !held) return;
+        if (shift) {
+            level.water().erase(cursor.x(), cursor.z(), radius);
+        } else {
+            double dx = cursor.x() - lastDab.x(), dz = cursor.z() - lastDab.z(), moved = Math.hypot(dx, dz);
+            if (moved > 0.05) {
+                // the way the brush goes, smoothed, is the way the water runs
+                flowX = flowX * 0.6 + dx / moved * 0.4;
+                flowZ = flowZ * 0.6 + dz / moved * 0.4;
+                lastDab = cursor;
+            }
+            double len = Math.hypot(flowX, flowZ), speed = waterFlows && len > 0.2 ? waterSpeed / len : 0;
+            double surface = waterLevel ? strokeSurface : cursor.y() + waterDepth;
+            level.water().paint(waterKind, surface, cursor.x(), cursor.z(), radius, flowX * speed, flowZ * speed);
+        }
         dirty = true;
         brushTick(dt);
     }
@@ -706,6 +905,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Save it to its folder in {@code assets/levels/} (a new one the first time). */
     boolean save() {
+        if (outside != null) {
+            boolean ok = outside.save();
+            game.window().setTitle(Game.TITLE + " — " + name());
+            return ok;
+        }
         Path root = game.settings().levelsDir();
         try {
             if (folder == null) folder = LevelIO.freeFolder(root, level.name());
@@ -729,6 +933,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         Sounds.play(SoundKeys.ui("playtest"));
         double heading = camera.yaw();
         if (at != null && !level.contains(at.x(), at.z())) at = null;
+        if (outside != null) {
+            // the level, she inside this building on this floor
+            DemoScene play = new DemoScene(game, outside.level, null, heading, () -> {
+                Sounds.play(SoundKeys.ui("playtest"));
+                game.switchTo(this);
+            });
+            play.startInside(insideOf, floorIndex, at, heading);
+            game.switchTo(play);
+            return;
+        }
         game.switchTo(new DemoScene(game, level, at, heading, () -> {
             Sounds.play(SoundKeys.ui("playtest"));
             game.switchTo(this);
@@ -737,6 +951,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Back to the main menu: with unsaved changes, only when asked twice. */
     private void leave() {
+        if (outside != null) {
+            goOutside();
+            return;
+        }
         if (dirty && time - leaveAt > 3) {
             leaveAt = time;
             game.toast("Unsaved changes: Ctrl+S saves - Esc again leaves without saving", Theme.WARNING);
@@ -761,7 +979,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     public void render() {
         var w = game.window();
         int fw = w.framebufferWidth(), fh = w.framebufferHeight();
+        java.util.Set<Integer> lit = new java.util.HashSet<>();
+        for (LevelObject o : selection) if (ObjectTypes.builds(o.type())) lit.add(o.id());
+        game.worldRenderer().highlightBuildings(lit);
         game.worldRenderer().render(view.world(), camera, fw, fh);
+        game.worldRenderer().highlightBuildings(null);
         Mat4 vp = camera.viewProjection(fw / (double) Math.max(1, fh));
         marks(vp);
 
@@ -817,6 +1039,25 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
                     gizmos.ring(o.x(), o.z(), 1.0, c, 0.4f);
                 }
+                case ObjectTypes.LIGHT -> {
+                    gizmos.post(foot, o.num("height", 1.2), ObjectTypes.lightColour(o.str("colour", "")), 0.9f, camera);
+                    gizmos.ring(o.x(), o.z(), o.num("radius", 5), ObjectTypes.lightColour(o.str("colour", "")), 0.3f);
+                }
+                case ObjectTypes.RAYS -> {
+                    gizmos.post(foot, Math.min(4, o.num("height", 6)), c, 0.9f, camera);
+                    gizmos.ring(o.x(), o.z(), o.num("spread", 1.5), c, 0.6f);
+                }
+                case ObjectTypes.BUILDING -> {
+                    if (!footprint(o, 0, c, 0.35f)) gizmos.post(foot, 1.2, c, 0.9f, camera);
+                    Building b = view.world().building(o.id());
+                    Vec3 door = b == null ? null : b.door();
+                    if (door != null && selection.contains(o)) gizmos.ring(door.x(), door.z(), 0.45, 0x8CF08C, 0.9f);
+                }
+                case ObjectTypes.STAIRS, ObjectTypes.EXIT -> {
+                    Building b = view.world().building(o.id());
+                    Vec3 door = b == null ? null : b.door();
+                    if (door != null && selection.contains(o)) gizmos.ring(door.x(), door.z(), 0.45, 0x8CF08C, 0.9f);
+                }
                 case ObjectTypes.FLIER -> {
                     gizmos.ring(o.x(), o.z(), FlyingDummy.RADIUS_OF_ROUNDS, c, 0.35f);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -827,16 +1068,19 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
         }
-        if (hover != null && !selection.contains(hover)) {
+        if (hover != null && !selection.contains(hover) && !footprint(hover, 0.1, 0xFFFFFF, 0.55f)) {
             gizmos.ring(hover.x(), hover.z(), ObjectTypes.radius(hover, sprites) + 0.1, 0xFFFFFF, 0.55f);
         }
         for (LevelObject o : selection) {
-            gizmos.ring(o.x(), o.z(), ObjectTypes.radius(o, sprites) + 0.15, 0xFFD25A, 0.95f);
+            if (!footprint(o, 0.15, 0xFFD25A, 0.95f)) {
+                gizmos.ring(o.x(), o.z(), ObjectTypes.radius(o, sprites) + 0.15, 0xFFD25A, 0.95f);
+            }
             if (selection.size() == 1 && !o.type().equals(ObjectTypes.SCENERY)) arrow(o, 0xFFD25A, 1.0);
         }
         if (cursor != null && !hideUi || cursor != null && scriptedCursor != null) {
             if (brushTool()) {
-                int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A : 0x7FD0FF;
+                int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A
+                        : tool == Tool.WATER ? 0x5FA8FF : 0x7FD0FF;
                 gizmos.disc(cursor.x(), cursor.z(), radius, bc, 0.12f);
                 gizmos.ring(cursor.x(), cursor.z(), radius, bc, 0.9f);
             } else if (tool == Tool.PLACE && template != null && level.contains(cursor.x(), cursor.z())) {
@@ -846,6 +1090,34 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         gizmos.end();
+    }
+
+    /**
+     * {@code o}'s footprint outlined on the ground, {@code grow} metres out,
+     * if it is a building standing in the view; false when it is not one.
+     */
+    private boolean footprint(LevelObject o, double grow, int rgb, float alpha) {
+        if (!ObjectTypes.builds(o.type())) return false;
+        Building b = view.world().building(o.id());
+        if (b == null) return false;
+        Room.Spec room = b.profile().room();
+        List<BuildingProfile.Shape> shapes = room == null ? b.profile().footprint()
+                : List.of(new BuildingProfile.Shape(false, 0, 0, room.length(), room.depth()));
+        for (BuildingProfile.Shape s : shapes) {
+            if (s.circle()) {
+                Vec3 c = b.toWorld(s.x(), s.y());
+                gizmos.ring(c.x(), c.z(), s.w() + grow, rgb, alpha);
+                continue;
+            }
+            double hw = s.w() / 2 + grow, hd = s.d() / 2 + grow;
+            Vec3[] k = {b.toWorld(s.x() - hw, s.y() - hd), b.toWorld(s.x() + hw, s.y() - hd),
+                    b.toWorld(s.x() + hw, s.y() + hd), b.toWorld(s.x() - hw, s.y() + hd)};
+            for (int i = 0; i < 4; i++) {
+                Vec3 a = k[i], e = k[(i + 1) % 4];
+                gizmos.line(a.x(), a.z(), e.x(), e.z(), 0.1, rgb, alpha);
+            }
+        }
+        return true;
     }
 
     /** A short line along the ground the way {@code o} faces. */
@@ -863,6 +1135,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case ObjectTypes.MARKER -> o.str("name", "spot");
                 case ObjectTypes.VINES -> "Vines";
                 case ObjectTypes.SOUND -> "Sound: " + ObjectTypes.readable(o.str("sound", "?"));
+                case ObjectTypes.LIGHT -> "Light";
+                case ObjectTypes.RAYS -> "Light rays";
                 default -> ObjectTypes.get(o.type()) == null ? o.type() + "?" : null;
             };
             if (text == null) continue;
@@ -891,14 +1165,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.rect(0, 0, ui.width(), TOP_H, Theme.withAlpha(Theme.PANEL, 0.96f));
         ui.rect(0, TOP_H - 1, ui.width(), 1, Theme.PANEL_EDGE);
         float x = 8;
-        Tool[] tools = Tool.values();
-        for (int i = 0; i < tools.length; i++) {
-            String label = (i + 1) + " " + tools[i].label;
+        List<Tool> tools = tools();
+        for (int i = 0; i < tools.size(); i++) {
+            String label = (i + 1) % 10 + " " + tools.get(i).label;
             float bw = ui.body.width(label) + 22;
-            if (ui.button(label, x, 6, bw, TOP_H - 12, tools[i] == tool, true)) setTool(tools[i]);
+            if (ui.button(label, x, 6, bw, TOP_H - 12, tools.get(i) == tool, true)) setTool(tools.get(i));
             x += bw + 4;
         }
-        String[] right = {"Undo", "Redo", "Save", "Play (F5)", "Menu"};
+        if (outside != null) x = floorButtons(ui, x + 8);
+        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
         float rx = ui.width() - 8;
         float[] widths = new float[right.length];
         for (int i = right.length - 1; i >= 0; i--) {
@@ -906,7 +1181,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             rx -= widths[i] + 4;
         }
         float nameX = x + 10, nameW = rx - nameX - 6;
-        String title = level.name() + (dirty ? " *" : "");
+        String title = outside != null ? "Inside the " + insideLabel().toLowerCase() + (outside.dirty ? " *" : "")
+                : level.name() + (dirty ? " *" : "");
         while (title.length() > 4 && ui.body.width(title) > nameW) title = title.substring(0, title.length() - 3) + "…";
         if (nameW > 40) ui.text(ui.body, title, nameX, (TOP_H - ui.body.lineHeight()) / 2, Theme.ACCENT);
         float bx = rx + 4;
@@ -922,12 +1198,117 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case 1 -> redo();
                     case 2 -> save();
                     case 3 -> playTest(cursor != null ? cursor : focus);
-                    case 4 -> leave();
+                    case 4 -> leave();         // (inside: back outside)
                     default -> { }
                 }
             }
             bx += widths[i] + 4;
         }
+    }
+
+    /**
+     * Inside a building: which floor this is, a floor down and up, a new
+     * floor on top (its walls as this one's) and this one taken away (the
+     * top floor, pressed twice). Returns where they end.
+     */
+    private float floorButtons(Ui ui, float x) {
+        float h = TOP_H - 12;
+        if (ui.button("<", x, 6, 30, h, false, floorIndex > 0)) floor(floorIndex - 1);
+        x += 34;
+        String name = level.name() + " (" + (floorIndex + 1) + "/" + floors.size() + ")";
+        float nw = ui.body.width(name) + 16;
+        ui.text(ui.body, name, x + 8, (TOP_H - ui.body.lineHeight()) / 2, Theme.TITLE);
+        x += nw;
+        if (ui.button(">", x, 6, 30, h, false, floorIndex < floors.size() - 1)) floor(floorIndex + 1);
+        x += 34;
+        float aw = ui.body.width("+ Floor") + 18;
+        if (ui.button("+ Floor", x, 6, aw, h, false, true)) addFloor();
+        x += aw + 4;
+        float dw = ui.body.width("- Floor") + 18;
+        if (ui.button("- Floor", x, 6, dw, h, false, floors.size() > 1 && floorIndex == floors.size() - 1)) {
+            removeFloor();
+        }
+        return x + dw + 4;
+    }
+
+    /** Edit the inside of building {@code o}: its floors as the level has them, else as its kind comes. */
+    private void editInside(LevelObject o) {
+        List<Level> fl = level.interior(o.id());
+        if (fl == null || fl.isEmpty()) {
+            List<Level> made = Interiors.make(o.str("kind", ""));
+            if (made.isEmpty()) made = List.of(Interiors.emptyFloor(0));
+            level.setInterior(o.id(), made);
+            fl = level.interior(o.id());
+            changed();
+        }
+        view.setGhost(null);
+        Sounds.play(SoundKeys.ui("playtest"));
+        game.switchTo(new CreativeScene(game, this, o.id(), fl, 0));
+    }
+
+    /** Floor {@code n} of this building's inside, the camera where it is. */
+    private void floor(int n) {
+        if (outside == null || n < 0 || n >= floors.size() || n == floorIndex) return;
+        CreativeScene next = new CreativeScene(game, outside, insideOf, floors, n);
+        next.focus = focus;
+        next.camera.setDesiredYaw(camera.yaw());
+        next.camera.setDesiredDistance(camera.distance());
+        next.tool = tools().contains(tool) ? tool : Tool.PLACE;
+        game.switchTo(next);
+    }
+
+    /**
+     * A new floor on top: its walls and floors as the top one's, and a
+     * stairwell down over each staircase up there - then edit it.
+     */
+    private void addFloor() {
+        Level top = floors.get(floors.size() - 1);
+        Level f = Interiors.emptyFloor(floors.size());
+        boolean stairs = false;
+        for (LevelObject o : top.objects()) {
+            boolean shell = o.type().equals(ObjectTypes.WALL) || o.type().equals(ObjectTypes.FLOOR);
+            boolean up = o.type().equals(ObjectTypes.STAIRS) && !o.str("way", "up").equals("down");
+            if (shell) f.add(o.copy(f.nextId()));
+            if (up) {
+                LevelObject down = o.copy(f.nextId());
+                down.set("way", "down");
+                f.add(down);
+                stairs = true;
+            }
+        }
+        floors.add(f);
+        changed();
+        game.toast(stairs ? "Added " + f.name().toLowerCase() + ", reached by the stairs below"
+                : "Added " + f.name().toLowerCase() + ": put Stairs up on the floor below to reach it", Theme.HINT);
+        floor(floors.size() - 1);
+    }
+
+    /** Take away this floor - the top one - when pressed twice. */
+    private void removeFloor() {
+        if (floors.size() < 2 || floorIndex != floors.size() - 1) return;
+        if (time - removeFloorAt > 3) {
+            removeFloorAt = time;
+            game.toast("Press - Floor again to take away " + level.name().toLowerCase() + " and all on it",
+                    Theme.WARNING);
+            return;
+        }
+        floors.remove(floorIndex);
+        changed();
+        CreativeScene below = new CreativeScene(game, outside, insideOf, floors, floorIndex - 1);
+        below.focus = focus;
+        game.switchTo(below);
+    }
+
+    /** Back out to the level the building stands in, the building selected. */
+    private void goOutside() {
+        if (outside == null) return;
+        widgets.stopTyping();
+        Sounds.play(SoundKeys.ui("playtest"));
+        LevelObject b = outside.level.byId(insideOf);
+        outside.selection.clear();
+        if (b != null) outside.selection.add(b);
+        outside.view.objectsChanged();
+        game.switchTo(outside);
     }
 
     private void help(Ui ui) {
@@ -940,8 +1321,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case PAINT -> "Hold the left button: paint · Shift: back to grass · [ ]: brush size (or Shift+wheel) · "
                     + "Shift+[ ]: strength";
             case SCATTER -> "Hold the left button: scatter · Shift: pull up · [ ]: brush size (or Shift+wheel)";
+            case WATER -> "Hold the left button: water · Shift: dry it up · [ ]: brush size (or Shift+wheel) · "
+                    + "the water lies level from where you press, or follows the ground down";
             case SKY -> "Pick what to colour, then click a swatch · the fog and the backdrops show as you change them";
+            case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
+                    + "and light rays · Run the time to watch a day go by";
             case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
+            case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
+                    + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -967,8 +1354,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SCULPT -> sculptPanel(ui, px, py, pw);
             case PAINT -> paintPanel(ui, px, py, pw);
             case SCATTER -> scatterPanel(ui, px, py, pw);
+            case WATER -> waterPanel(ui, px, py, pw);
             case SKY -> skyPanel(ui, px, py, pw);
+            case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
+            case LIFE -> lifePanel(ui, px, py, pw);
         }
     }
 
@@ -1073,14 +1463,103 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Paint the ground", x, y);
-        for (int i = 0; i < MATERIALS.length; i++) {
-            if (ui.button(MATERIALS[i], x, y, w, 30, material == i, true)) material = i;
-            y += 36;
+        String[] tabs = {"Ground", "Biome"};
+        float tw = (w - 4) / 2, bw = (w - 6) / 2;
+        for (int i = 0; i < tabs.length; i++) {
+            if (ui.button(tabs[i], x + i * (tw + 4), y, tw, 28, paintTab == i, true)) paintTab = i;
         }
-        brushSliders(ui, x, y + 14, w, "Strength");
-        y += 104;
-        ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen.",
-                x, y, w, Theme.HINT);
+        y += 38;
+        if (paintTab == 0) {
+            for (int i = 0; i < MATERIALS.length; i++) {
+                if (ui.button(MATERIALS[i], x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, material == i, true)) {
+                    material = i;
+                }
+            }
+            y += (MATERIALS.length + 1) / 2 * 34;
+            brushSliders(ui, x, y + 10, w, "Strength");
+            y += 100;
+            ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen.",
+                    x, y, w, Theme.HINT);
+            return;
+        }
+        Biome[] all = Biome.values();
+        for (int i = 0; i < all.length; i++) {
+            if (ui.button(all[i].label(), x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, biome == all[i], true)) {
+                biome = all[i];
+            }
+        }
+        y += (all.length + 1) / 2 * 34 + 4;
+        sowBiome = widgets.toggle(ui, "Sow its plants", sowBiome, x, y, w);
+        y += 40;
+        brushSliders(ui, x, y + 10, w, "Strength");
+        y += 100;
+        ui.paragraph(ui.small, biomeHint(biome) + " Shift paints back to grass (and sows nothing).", x, y, w,
+                Theme.HINT);
+    }
+
+    /** What the biome brush lays down for {@code b}, in a sentence. */
+    private String biomeHint(Biome b) {
+        List<String> grows = new ArrayList<>();
+        for (SceneryProfile.Kind k : new SceneryProfile.Kind[] {SceneryProfile.Kind.TUFT, SceneryProfile.Kind.TREE,
+                SceneryProfile.Kind.ROCK}) {
+            for (String n : Scatter.biomeSet(sprites, b, k).sprites()) {
+                if (grows.size() < 6) grows.add(ObjectTypes.readable(n).toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        String ground = b.ground() < 0 ? "grass" : MATERIALS[b.ground() + 1].toLowerCase(java.util.Locale.ROOT);
+        String accent = MATERIALS[b.accent() + 1].toLowerCase(java.util.Locale.ROOT);
+        return "Paints " + ground + " with patches of " + accent
+                + (grows.isEmpty() ? "." : "; sows " + String.join(", ", grows) + ".")
+                + " Its water: " + b.water().label().toLowerCase(java.util.Locale.ROOT) + " (the Water tool, 9).";
+    }
+
+    private void waterPanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Water", x, y);
+        WaterMap.Kind[] kinds = WaterMap.Kind.values();
+        float bw = (w - 6) / 2;
+        for (int i = 0; i < kinds.length; i++) {
+            if (ui.button(kinds[i].label(), x + (i % 2) * (bw + 6), y + (i / 2) * 34, bw, 30, waterKind == kinds[i],
+                    true)) {
+                waterKind = kinds[i];
+            }
+        }
+        y += (kinds.length + 1) / 2 * 34 + 4;
+        radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y + 10, w);
+        waterDepth = widgets.slider(ui, "w-depth", "Depth (m)", waterDepth, 0.1, 4, "%.2f", x, y + 50, w);
+        y += 96;
+        waterLevel = widgets.toggle(ui, "Lies level", waterLevel, x, y, w);
+        y += 38;
+        waterFlows = widgets.toggle(ui, "Flows", waterFlows, x, y, w);
+        y += 40;
+        if (waterFlows) {
+            waterSpeed = widgets.slider(ui, "w-speed", "Current (m/s)", waterSpeed, 0.1, WaterMap.MAX_FLOW, "%.1f", x,
+                    y + 10, w);
+            y += 52;
+        }
+        // the sea
+        WaterMap water = level.water();
+        boolean sea = !Double.isNaN(water.seaLevel());
+        boolean seaNow = widgets.toggle(ui, "The sea", sea, x, y, w);
+        y += 40;
+        if (seaNow != sea) {
+            undo.before(level, Undo.Part.WATER, seaNow ? "The sea" : "No sea");
+            water.setSeaLevel(seaNow ? -0.5 : Double.NaN);
+            dirty = true;
+        }
+        if (seaNow) {
+            double at = widgets.stepper(ui, "Sea level (m)", water.seaLevel(), 0.25, -20, 40, "%.2f", x, y, w);
+            if (at != water.seaLevel()) {
+                undo.before(level, Undo.Part.WATER, "Sea level");
+                water.setSeaLevel(at);
+                dirty = true;
+            }
+            y += 44;
+        }
+        ui.paragraph(ui.small, "Sculpt a hollow (3), then fill it from its bottom: the water lies level at the "
+                + "depth above where you press. Turn \"Lies level\" off for a stream down a slope; \"Flows\" makes "
+                + "it run the way the brush moves. The sea fills everything below its level, out to the horizon. She wades in the "
+                + "shallows and cannot go deeper than " + String.format(java.util.Locale.ROOT, "%.1f", WaterMap.TOO_DEEP)
+                + " m.", x, y, w, Theme.HINT);
     }
 
     private void scatterPanel(Ui ui, float x, float y, float w) {
@@ -1207,6 +1686,222 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!widgets.dragging() || !key.equals(propSnapshot)) undo.before(level, Undo.Part.SKY, label);
         propSnapshot = widgets.dragging() ? key : null;
         level.setSky(s);
+        dirty = true;
+    }
+
+    /** The hour the editor shows: the level's start, or where the time has run to. */
+    private double shownHour() {
+        return runTime ? runHour : level.sky().air().startHour();
+    }
+
+    private void timePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Time and weather", x, y);
+        String[] tabs = {"Time", "Planet", "Weather"};
+        float bw = (w - 8) / 3;
+        for (int i = 0; i < tabs.length; i++) {
+            if (ui.button(tabs[i], x + i * (bw + 4), y, bw, 28, timeTab == i, true)) timeTab = i;
+        }
+        y += 40;
+        Atmosphere a = level.sky().air(), n = a;
+        switch (timeTab) {
+            case 0 -> {
+                ui.text(ui.body, "It is " + DayCycle.clock(shownHour()) + (runTime ? ", the time running" : ""), x, y,
+                        Theme.TITLE);
+                y += 30;
+                n = n.withStartHour(widgets.slider(ui, "t-start", "Starts at", a.startHour(), 0, 23.99,
+                        "%.1f", x, y + 10, w));
+                y += 48;
+                float qb = (w - 12) / 4;
+                String[] names = {"Dawn", "Noon", "Dusk", "Night"};
+                double[] hours = {6.3, 12, 18.0, 0};
+                for (int i = 0; i < names.length; i++) {
+                    if (ui.button(names[i], x + i * (qb + 4), y, qb, 26)) {
+                        n = n.withStartHour(hours[i]);
+                        runTime = false;
+                    }
+                }
+                y += 36;
+                n = n.withDayMinutes(widgets.slider(ui, "t-day", "Day (min)", a.dayMinutes(), 0,
+                        Atmosphere.MAX_DAY_MINUTES, "%.0f", x, y + 10, w));
+                y += 48;
+                y += ui.paragraph(ui.small, a.timeRuns() ? "A whole day and night, in real minutes. The sun rises "
+                        + "at 06:00 and sets at 18:00. Playing, hold N to run the time fast." : "0: the time stands "
+                        + "still, always this hour.", x, y, w, Theme.HINT) + 10;
+                boolean run = widgets.toggle(ui, "Run it here", runTime, x, y, w);
+                if (run && !runTime) runHour = a.startHour();
+                runTime = run;
+                y += 38;
+            }
+            case 1 -> {
+                n = n.withPlanet(widgets.toggle(ui, "The planet", a.planet(), x, y, w));
+                y += 38;
+                double az = widgets.slider(ui, "t-paz", "Where (°)", a.planetAzimuth(), 0, 359, "%.0f",
+                        x, y + 10, w);
+                y += 44;
+                double el = widgets.slider(ui, "t-pel", "Height (°)", a.planetElevation(), -10, 80, "%.0f", x,
+                        y + 10, w);
+                y += 44;
+                n = n.withPlanetAt(az, el);
+                n = n.withPlanetSize(widgets.slider(ui, "t-psize", "Size (°)", a.planetSize(), 2, 60, "%.0f",
+                        x, y + 10, w));
+                y += 44;
+                n = n.withRings(widgets.toggle(ui, "Rings", a.rings(), x, y, w));
+                y += 34;
+                n = n.withPlanetSeed((int) widgets.stepper(ui, "Bands", a.planetSeed(), 1, 1, 99, "%.0f", x, y, w));
+                y += 38;
+                ui.paragraph(ui.small, "Where: degrees round from north (90 east). The world is the planet's moon, so the planet never moves: only its lit side "
+                        + "turns with the sun - a crescent by day, full at midnight, lighting the night.", x, y, w,
+                        Theme.HINT);
+            }
+            default -> {
+                n = n.withClouds(widgets.slider(ui, "t-clouds", "Clouds", a.clouds(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withStars(widgets.slider(ui, "t-stars", "Stars", a.stars(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withAurora(widgets.slider(ui, "t-aurora", "Aurora", a.aurora(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withMist(widgets.slider(ui, "t-mist", "Mist", a.mist(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                n = n.withMistHeight(widgets.slider(ui, "t-misth", "Mist up to (m)", a.mistHeight(), 0.3, 30,
+                        "%.1f", x, y + 10, w));
+                y += 44;
+                n = n.withRays(widgets.slider(ui, "t-rays", "Light rays", a.rays(), 0, 1, "%.2f", x, y + 10, w));
+                y += 44;
+                ui.paragraph(ui.small, "The mist lies thickest at dawn and by night; the light rays slant through the "
+                        + "trees while the sun is low.", x, y, w, Theme.HINT);
+            }
+        }
+        if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
+    }
+
+    /** Which page of the Life tool shows: the critters and the bushes, or the animals. */
+    private boolean lifeAnimals;
+
+    /**
+     * The Life tool: how thick each of the little creatures lives in the
+     * level (their biomes and hours still say where and when), how many are
+     * about round the view now, how fast the foraging bushes grow back and
+     * how much a picking gives - and, on its other page, how thick each of
+     * the animals that come by on their own lives - kept with the level
+     * ({@link Life}).
+     */
+    private void lifePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Life", x, y);
+        float hw = (w - 6) / 2;
+        if (ui.button("Critters, bushes", x, y, hw, 26, !lifeAnimals, true)) lifeAnimals = false;
+        if (ui.button("Animals", x + hw + 6, y, hw, 26, lifeAnimals, true)) lifeAnimals = true;
+        y += 34;
+        if (lifeAnimals) {
+            animalsPage(ui, x, y, w);
+            return;
+        }
+        Life life = level.life();
+        y += ui.paragraph(ui.small, "They come and go round the player by their biome and hour. How many of each:",
+                x, y, w, Theme.HINT) + 4;
+        for (CritterKind k : CritterKind.values()) {
+            double d = widgets.slider(ui, "life-" + k.key(), k.label(), life.density(k), 0, Life.MOST, "%.1f×",
+                    x, y + 10, w);
+            double snapped = Math.round(d * 20) / 20.0;
+            if (snapped != life.density(k)) lifeEdit(l -> l.setDensity(k, snapped), k.label());
+            y += 40;
+        }
+        StringJoiner about = new StringJoiner(" · ");
+        for (CritterKind k : CritterKind.values()) {
+            int n = view.world().critters().count(k);
+            if (n > 0) about.add(n + " " + k.label().toLowerCase());
+        }
+        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none (try the night, or water)"
+                : about), x, y, w, Theme.ITEM) + 8;
+        y = heading(ui, "Foraging", x, y);
+        double regrow = widgets.slider(ui, "life-regrow", "Grows back", life.regrow(), 0.05, 4, "%.2f× time",
+                x, y + 10, w);
+        double rs = Math.round(regrow * 20) / 20.0;
+        if (rs != life.regrow()) lifeEdit(l -> l.setRegrow(rs), "Regrow time");
+        y += 40;
+        double yield = widgets.slider(ui, "life-yield", "Pickings", life.yield(), 0, 5, "%.1f×", x, y + 10, w);
+        double ys = Math.round(yield * 10) / 10.0;
+        if (ys != life.yield()) lifeEdit(l -> l.setYield(ys), "Pickings");
+        y += 40;
+        int bushes = 0;
+        for (LevelObject o : level.objects()) {
+            ScenerySprites.Sprite sp = o.type().equals(ObjectTypes.SCENERY) ? sprites.sprite(o.str("sprite", "")) : null;
+            if (sp != null && sp.profile().forages()) bushes++;
+        }
+        y += ui.paragraph(ui.small, (bushes == 1 ? "1 foraging bush" : bushes + " foraging bushes")
+                + " here (Scatter or a biome's paint sows more)", x, y, w, Theme.HINT) + 8;
+        if (ui.button("Place a swarm of critters", x, y, w, 28)) placeLife(ObjectTypes.CRITTERS);
+        y += 34;
+        if (ui.button("Back to as it comes", x, y, w, 28, false, !life.isDefault())) {
+            lifeEdit(l -> {
+                for (CritterKind k : CritterKind.values()) l.setDensity(k, 1);
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
+                l.setRegrow(1);
+                l.setYield(1);
+            }, "Life as it comes");
+        }
+    }
+
+    /** The Life tool's animals: how thick each kind that comes by lives here, two columns of them. */
+    private void animalsPage(Ui ui, float x, float y, float w) {
+        Life life = level.life();
+        y += ui.paragraph(ui.small, "They come and go round the player by biome. How many of each:",
+                x, y, w, Theme.HINT) + 12;
+        float cw = (w - 12) / 2;
+        AnimalKind[] kinds = AnimalKind.values();
+        for (int i = 0; i < kinds.length; i++) {
+            AnimalKind k = kinds[i];
+            float cx = x + (i % 2) * (cw + 12), cy = y + (i / 2) * 38;
+            double d = widgets.slider(ui, "life-" + k.key(), k.label(), life.density(k), 0, Life.MOST, "%.1f×",
+                    cx, cy, cw, true);
+            double snapped = Math.round(d * 20) / 20.0;
+            if (snapped != life.density(k)) lifeEdit(l -> l.setDensity(k, snapped), k.label());
+        }
+        y += ((kinds.length + 1) / 2) * 38 - 4;
+        StringJoiner about = new StringJoiner(" · ");
+        for (AnimalKind k : kinds) {
+            int n = view.world().animals().count(k);
+            if (n > 0) about.add(n + " " + (n == 1 ? k.singular() : k.label()).toLowerCase());
+        }
+        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none here (try another biome)"
+                : about), x, y, w, Theme.ITEM) + 8;
+        if (ui.button("Place a herd", x, y, (w - 6) / 2, 28)) placeLife(ObjectTypes.ANIMALS);
+        if (ui.button("All off", x + (w - 6) / 2 + 6, y, (w - 6) / 2, 28)) {
+            lifeEdit(l -> {
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 0);
+            }, "No animals");
+        }
+        y += 34;
+        boolean asTheyCome = true;
+        for (AnimalKind k : kinds) asTheyCome &= life.density(k) == 1;
+        if (ui.button("Back to as they come", x, y, w, 28, false, !asTheyCome)) {
+            lifeEdit(l -> {
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
+            }, "Animals as they come");
+        }
+    }
+
+    /** Off to the Place tool's Life, the first entry of {@code type} chosen. */
+    private void placeLife(String type) {
+        setTool(Tool.PLACE);
+        category = Category.LIFE;
+        paletteScroll = 0;
+        for (int i : entriesOf(Category.LIFE)) {
+            if (palette.get(i).type().equals(type)) {
+                choose(i);
+                break;
+            }
+        }
+    }
+
+    /** Change the level's life - one undo step for a whole drag of a slider. */
+    private void lifeEdit(java.util.function.Consumer<Life> change, String label) {
+        String key = "life:" + label;
+        if (!widgets.dragging() || !key.equals(propSnapshot)) undo.before(level, Undo.Part.SKY, label);
+        propSnapshot = widgets.dragging() ? key : null;
+        Life next = level.life().copy();
+        change.accept(next);
+        level.setLife(next);
+        view.world().setLife(next);
         dirty = true;
     }
 
@@ -1358,6 +2053,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         py = heading(ui, ObjectTypes.label(o), px, py);
         ui.text(ui.small, o.type() + " #" + o.id(), px, py - 6, Theme.ITEM_DISABLED);
         py += 18;
+        if (hasInside(o)) {
+            List<Level> fl = level.interior(o.id());
+            String label = fl == null ? "Edit inside (as it comes)" : "Edit inside (" + fl.size()
+                    + (fl.size() == 1 ? " floor)" : " floors)");
+            if (ui.button(label, px, py, pw, 30, false, true)) editInside(o);
+            py += 40;
+        }
         properties(ui, o, true, px, py, pw);
     }
 
@@ -1429,6 +2131,74 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             y += r;
         }
+        if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+    }
+
+    /** Whether {@code o} is a building with an inside to edit. */
+    private static boolean hasInside(LevelObject o) {
+        if (!o.type().equals(ObjectTypes.BUILDING)) return false;
+        BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+        return p != null && p.interior();
+    }
+
+    /** What {@code o} - a building, a piece of furniture, a room's piece - is made of, or null. */
+    private static BuildingProfile profileOf(LevelObject o) {
+        Room.Spec room = ObjectTypes.roomSpec(o);
+        if (room != null) return Room.profile(room);
+        return o.type().equals(ObjectTypes.BUILDING) ? BuildingCatalog.get().profile(o.str("kind", "")) : null;
+    }
+
+    /**
+     * A building's look, part by part, as walls are done in the Sims: the
+     * part, any of the 128 colours for it (and the shades it is drawn in),
+     * its pattern - or all of it back as it comes.
+     */
+    private void lookPanel(Ui ui, LevelObject o, float x, float y, float w) {
+        BuildingCatalog catalog = BuildingCatalog.get();
+        BuildingProfile p = profileOf(o);
+        if (p == null || p.parts().isEmpty()) return;
+        y = heading(ui, "Look", x, y);
+        List<String> names = new ArrayList<>();
+        for (BuildingProfile.Part part : p.parts()) names.add(part.label());
+        lookPart = Math.max(0, Math.min(names.size() - 1, lookPart));
+        lookPart = widgets.choice(ui, "Part", names, lookPart, x, y, w, 0.3f);
+        y += Widgets.ROW + 8;
+        BuildingProfile.Part part = p.parts().get(lookPart);
+        BuildingLook look = BuildingLook.of(o.props().get("look"));
+        int colour = look.colour(part);
+        int[] shades = pixelPalette == null ? null : BuildingLook.ramp(colour, pixelPalette);
+        int cols = 16;
+        float size = Math.min(16, w / cols);
+        int picked = widgets.swatches(ui, colours, shades == null ? colour : shades[3], x, y, cols, size);
+        if (picked >= 0) edit(o, "Colour", () -> setLook(o, p, look.copy().setColour(part.key(), picked)));
+        y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
+        if (shades != null) {
+            ui.text(ui.small, "Shades", x, y + 2, Theme.ITEM);
+            float sx = x + w * 0.3f, sw = (w * 0.7f) / 6;
+            for (int i = 0; i < 6; i++) {
+                int c = shades[i];
+                ui.rect(sx + i * sw, y, sw - 2, 16, Theme.rgb((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 1f));
+            }
+            y += 24;
+        }
+        List<BuildingCatalog.Texture> textures = catalog.textures();
+        if (!textures.isEmpty()) {
+            List<String> labels = new ArrayList<>();
+            for (BuildingCatalog.Texture t : textures) labels.add(t.label());
+            int at = catalog.textureIndex(look.texture(part));
+            int ni = widgets.choice(ui, "Pattern", labels, at, x, y, w, 0.3f);
+            if (ni != at) edit(o, "Pattern", () -> setLook(o, p, look.copy().setTexture(part.key(), textures.get(ni).name())));
+            y += Widgets.ROW + 8;
+        }
+        if (ui.button("As it comes", x, y, w, 28, false, o.props().get("look") != null)) {
+            edit(o, "Look", () -> o.set("look", null));
+        }
+    }
+
+    /** {@code o}'s look set to {@code look} (only what differs from how {@code p} comes is kept). */
+    private static void setLook(LevelObject o, BuildingProfile p, BuildingLook look) {
+        Map<String, Object> props = look.toProps(p);
+        o.set("look", props.isEmpty() ? null : props);
     }
 
     private String itemRarity(LevelObject o) {
@@ -1550,10 +2320,59 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "paint" -> {
-                // paint <0 grass .. 4 meadow> x z radius
+                // paint <0 grass .. 12 crystal> x z radius
                 undo.before(level, Undo.Part.GROUND, "Paint");
                 level.ground().paint(Integer.parseInt(a[0]) - 1, Double.parseDouble(a[1]), Double.parseDouble(a[2]),
                         Double.parseDouble(a[3]), 1);
+                dirty = true;
+            }
+            case "biome" -> {
+                // biome <key> x z radius [sow 0|1]
+                Biome b = Biome.byKey(a[0]);
+                if (b == null) return false;
+                double x = Double.parseDouble(a[1]), z = Double.parseDouble(a[2]), r = Double.parseDouble(a[3]);
+                boolean sow = a.length <= 4 || !a[4].equals("0");
+                undo.before(level, sow ? Undo.Part.ALL : Undo.Part.GROUND, b.label());
+                level.ground().paint(b::groundAt, x, z, r, 1);
+                if (sow) sowBiome(b, x, z, r, 6);
+                dirty = true;
+            }
+            case "sow" -> {
+                // sow <biome> x z radius [dabs] [tuft|tree|rock|bushes]: its plants, trees, rocks and foraging
+                // bushes (or only those), the ground as it is
+                Biome b = Biome.byKey(a[0]);
+                if (b == null) return false;
+                undo.before(level, Undo.Part.OBJECTS, "Sow");
+                double sx = Double.parseDouble(a[1]), sz = Double.parseDouble(a[2]), sr = Double.parseDouble(a[3]);
+                int dabs = a.length > 4 ? Integer.parseInt(a[4]) : 1;
+                if (a.length > 5 && a[5].equals("bushes")) {
+                    Scatter.Set bushes = Scatter.bushSet(sprites, b);
+                    for (int t = 0; t < dabs; t++) {
+                        Scatter.sow(level, view.terrain(), sprites, bushes, sx, sz, sr, 0.6, Math.PI * sr * sr * 0.2,
+                                random);
+                    }
+                    changed();
+                } else {
+                    sowBiome(b, sx, sz, sr, dabs, a.length > 5 ? SceneryProfile.Kind.byKey(a[5]) : null);
+                }
+            }
+            case "waterdepth" -> waterDepth = Double.parseDouble(a[0]);
+            case "water" -> {
+                // water <clear|swamp|sea|crystal> x z radius [surface|auto] [flowx flowz]
+                // water erase x z radius;  water sea <surface|off>
+                undo.before(level, Undo.Part.WATER, "Water");
+                String k = a[0].toLowerCase(java.util.Locale.ROOT);
+                if (k.equals("sea") && a.length == 2) {
+                    level.water().setSeaLevel(a[1].equalsIgnoreCase("off") ? Double.NaN : Double.parseDouble(a[1]));
+                } else if (k.equals("erase")) {
+                    level.water().erase(Double.parseDouble(a[1]), Double.parseDouble(a[2]), Double.parseDouble(a[3]));
+                } else {
+                    double x = Double.parseDouble(a[1]), z = Double.parseDouble(a[2]);
+                    double surface = a.length > 4 && !a[4].equals("auto") ? Double.parseDouble(a[4])
+                            : view.terrain().height(x, z) + waterDepth;
+                    level.water().paint(WaterMap.Kind.byKey(k), surface, x, z, Double.parseDouble(a[3]),
+                            a.length > 6 ? Double.parseDouble(a[5]) : 0, a.length > 6 ? Double.parseDouble(a[6]) : 0);
+                }
                 dirty = true;
             }
             case "scatter" -> {
@@ -1608,9 +2427,83 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 level.setSky(s.withBackdrops(next));
                 dirty = true;
             }
+            case "time" -> {
+                // time <hour> | time day <minutes> | time run on|off
+                String[] t = argument.trim().split("\\s+");
+                Atmosphere air = level.sky().air();
+                switch (t[0]) {
+                    case "day" -> level.setSky(level.sky().withAir(air.withDayMinutes(Double.parseDouble(t[1]))));
+                    case "run" -> {
+                        runTime = t.length < 2 || !t[1].equals("off");
+                        runHour = air.startHour();
+                    }
+                    default -> level.setSky(level.sky().withAir(air.withStartHour(Double.parseDouble(t[0]))));
+                }
+            }
+            case "weather" -> {
+                // weather <clouds|stars|aurora|mist|misth|rays|planet|rings|planetat|planetsize> <value...>
+                String[] t = argument.trim().split("\\s+");
+                Atmosphere w = level.sky().air();
+                double v = t.length > 1 && !t[1].equals("on") && !t[1].equals("off") ? Double.parseDouble(t[1]) : 0;
+                boolean on = t.length < 2 || !t[1].equals("off");
+                w = switch (t[0]) {
+                    case "clouds" -> w.withClouds(v);
+                    case "stars" -> w.withStars(v);
+                    case "aurora" -> w.withAurora(v);
+                    case "mist" -> w.withMist(v);
+                    case "misth" -> w.withMistHeight(v);
+                    case "rays" -> w.withRays(v);
+                    case "planet" -> w.withPlanet(on);
+                    case "rings" -> w.withRings(on);
+                    case "planetat" -> w.withPlanetAt(v, Double.parseDouble(t[2]));
+                    case "planetsize" -> w.withPlanetSize(v);
+                    default -> w;
+                };
+                level.setSky(level.sky().withAir(w));
+                dirty = true;
+            }
+            // the level's life: life <firefly|cricket|frog|dragonfly|rabbit|...|iguana|animals> <0-3>,
+            // life regrow <x>, life yield <x>, life reset, lifepage animals|critters
+            case "life" -> {
+                String[] w = argument.trim().split("\\s+");
+                if (w[0].equals("reset")) {
+                    level.setLife(new Life());
+                } else if (w.length >= 2) {
+                    Life l = level.life().copy();
+                    double v = Double.parseDouble(w[1]);
+                    CritterKind k = CritterKind.byKey(w[0]);
+                    AnimalKind ak = AnimalKind.byKey(w[0]);
+                    if (k != null) l.setDensity(k, v);
+                    else if (ak != null) l.setDensity(ak, v);
+                    else if (w[0].equals("animals")) {
+                        for (AnimalKind each : AnimalKind.values()) l.setDensity(each, v);
+                    } else if (w[0].equals("regrow")) l.setRegrow(v);
+                    else if (w[0].equals("yield")) l.setYield(v);
+                    else return false;
+                    level.setLife(l);
+                } else {
+                    return false;
+                }
+                view.world().setLife(level.life());
+                dirty = true;
+            }
+            case "lifepage" -> lifeAnimals = argument.trim().equals("animals");
             case "name" -> level.setName(argument);
             case "size" -> resize(Double.parseDouble(argument.trim()));
             case "save" -> save();
+            // look <part> <#rrggbb|-> [pattern]: the selected buildings' part (the template's while placing)
+            case "dress" -> {
+                List<LevelObject> targets = tool == Tool.PLACE && template != null ? List.of(template) : selection;
+                for (LevelObject o : targets) {
+                    BuildingProfile p = profileOf(o);
+                    if (p == null || p.part(a[0]) == null) continue;
+                    BuildingLook look = BuildingLook.of(o.props().get("look"));
+                    if (a.length > 1 && !a[1].equals("-")) look.setColour(a[0], BuildingLook.parseColour(a[1], 0xC0C0C0));
+                    if (a.length > 2) look.setTexture(a[0], a[2]);
+                    edit(o, "Look", () -> setLook(o, p, look));
+                    for (int i = 0; i < p.parts().size(); i++) if (p.parts().get(i).key().equals(a[0])) lookPart = i;
+                }
+            }
             case "undo" -> undo();
             case "redo" -> redo();
             case "ui" -> hideUi = argument.trim().equals("off");
@@ -1618,6 +2511,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "playtest" -> playTest(a.length >= 2 ? new Vec3(Double.parseDouble(a[0]), 0,
                     Double.parseDouble(a[1])) : null);
             case "leave" -> toMenu();
+            // inside: edit the inside of the selected building; floor <n>: that floor (1 the ground); outside: back
+            case "inside" -> {
+                if (selection.size() == 1 && hasInside(selection.get(0))) editInside(selection.get(0));
+                else return false;
+            }
+            case "floor" -> floor(Integer.parseInt(argument.trim()) - 1);
+            case "addfloor" -> addFloor();
+            case "outside" -> goOutside();
             default -> {
                 return false;
             }

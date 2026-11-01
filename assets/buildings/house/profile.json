@@ -1,0 +1,120 @@
+{
+ "key": "house",
+ "label": "Town house",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 378,
+   "height": 336,
+   "anchorX": 189.0,
+   "anchorY": 311.7070710964507,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 378,
+   "height": 444,
+   "anchorX": 189.0,
+   "anchorY": 307.438039547099,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 378,
+   "height": 378,
+   "anchorX": 189.0,
+   "anchorY": 188.02627441047994,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -12.660173924605289,
+  "step": 0.09968640885515975
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#e4dac4",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#e4dac4",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "beams",
+   "label": "Beams",
+   "colour": "#4a3020",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#a84a30",
+   "texture": "clay_tiles",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#4a3020",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#6a3c22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "shutters",
+   "label": "Shutters",
+   "colour": "#3c5c8a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#9a4a36",
+   "texture": "brick",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   10.0,
+   7.5
+  ]
+ ],
+ "door": [
+  0.0,
+  -4.75
+ ],
+ "interior": true,
+ "anim": null
+}

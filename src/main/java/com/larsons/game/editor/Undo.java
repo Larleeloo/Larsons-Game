@@ -1,5 +1,6 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.ambient.Life;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelObject;
 import com.larsons.game.world.Sky;
@@ -23,11 +24,11 @@ final class Undo {
     static final int DEPTH = 60;
 
     /** What a change touches. */
-    enum Part { OBJECTS, HEIGHTS, GROUND, SKY, ALL }
+    enum Part { OBJECTS, HEIGHTS, GROUND, WATER, SKY, ALL }
 
     /** What a part of the level was, before a change: what is not kept is null. */
-    private record State(String label, double size, List<LevelObject> objects, float[] heights, byte[] ground,
-                         Sky sky, String name, String music) {}
+    private record State(String label, double size, List<LevelObject> objects, float[] heights, byte[][] ground,
+                         byte[] water, double sea, Sky sky, String name, String music, Life life) {}
 
     private final Deque<State> undo = new ArrayDeque<>(), redo = new ArrayDeque<>();
 
@@ -43,10 +44,12 @@ final class Undo {
         return new State(label, level.size(),
                 all || part == Part.OBJECTS ? level.copyObjects() : null,
                 all || part == Part.HEIGHTS ? level.heights().heights() : null,
-                all || part == Part.GROUND ? level.ground().rgba() : null,
+                all || part == Part.GROUND ? level.ground().snapshot() : null,
+                all || part == Part.WATER ? level.water().bytes() : null, level.water().seaLevel(),
                 all || part == Part.SKY ? level.sky() : null,
                 all ? level.name() : null,
-                all || part == Part.SKY ? level.music() : null);
+                all || part == Part.SKY ? level.music() : null,
+                all || part == Part.SKY ? level.life().copy() : null);
     }
 
     boolean canUndo() { return !undo.isEmpty(); }
@@ -73,14 +76,19 @@ final class Undo {
         State s = from.pop();
         to.push(capture(level, s.heights() != null && s.ground() != null && s.objects() != null ? Part.ALL
                 : s.objects() != null ? Part.OBJECTS : s.heights() != null ? Part.HEIGHTS
-                : s.ground() != null ? Part.GROUND : Part.SKY, s.label()));
+                : s.ground() != null ? Part.GROUND : s.water() != null ? Part.WATER : Part.SKY, s.label()));
         if (s.size() != level.size()) level.resetSize(s.size());
         if (s.objects() != null) level.restoreObjects(s.objects());
         if (s.heights() != null) level.heights().setHeights(s.heights());
-        if (s.ground() != null) level.ground().setRgba(s.ground());
+        if (s.ground() != null) level.ground().restore(s.ground());
+        if (s.water() != null) {
+            level.water().setBytes(s.water());
+            level.water().setSeaLevel(s.sea());
+        }
         if (s.sky() != null) level.setSky(s.sky());
         if (s.name() != null) level.setName(s.name());
         if (s.music() != null) level.setMusic(s.music());
+        if (s.life() != null) level.setLife(s.life().copy());
         return s.label();
     }
 }

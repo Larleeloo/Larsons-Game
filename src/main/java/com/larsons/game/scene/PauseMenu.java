@@ -46,6 +46,7 @@ final class PauseMenu {
             {"I", "the inventory (click to move items, right-click: hotbar)"},
             {"F1 – F4", "laugh, cry, surprise, anger"},
             {"E / G", "pick up, or open / close the chest / drop what you hold"},
+            {"E by a horse", "saddle / ride / get off; riding: Shift canter, Ctrl gallop"},
             {"Right drag / arrows", "orbit the camera (wheel while dragging: zoom)"},
             {"+ -", "zoom"},
             {"Tab / O", "camera height: side → 45° → top-down / automatic on hills, or fixed"},

@@ -1,0 +1,62 @@
+{
+ "key": "chair",
+ "label": "Chair",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 46,
+   "height": 66,
+   "anchorX": 23.0,
+   "anchorY": 61.66666666666667,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 46,
+   "height": 74,
+   "anchorX": 23.0,
+   "anchorY": 57.39026449627747,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 46,
+   "height": 46,
+   "anchorX": 23.0,
+   "anchorY": 22.082455001620964,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -1.2520104166195722,
+  "step": 0.009858349737161987
+ },
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a4c2c",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "seat",
+   "label": "Seat",
+   "colour": "#9a6a3a",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.506,
+   0.506
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

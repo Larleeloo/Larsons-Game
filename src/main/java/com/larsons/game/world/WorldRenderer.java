@@ -1,8 +1,15 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.Animal;
+import com.larsons.game.ambient.Critter;
+import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.BuildingRenderer;
 import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
+import com.larsons.game.gfx.SceneLight;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
@@ -20,6 +27,7 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.lwjgl.opengl.GL33C.*;
 
@@ -81,6 +89,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     private final VoidRenderer voidRenderer;
     private final TerrainRenderer terrain;
+    private final WaterRenderer water;
     private final SceneryRenderer scenery;
     private final Batch batch;
     private final SpriteLibrary sprites;
@@ -89,7 +98,20 @@ public final class WorldRenderer implements AutoCloseable {
     private final ItemRenderer itemRenderer;
     private final Texture shadow;
     private final Texture glow;
+    private final Texture ray;
+    /** A soft-edged square, black: the shadow a building's walls cast round them. */
+    private final Texture blockShadow;
+    /** The buildings' drawing (null: none to draw). */
+    private BuildingRenderer buildings;
+    /** The buildings drawn lit up (the editor's selection). */
+    private Set<Integer> highlight = Set.of();
+    /** The light the frame being drawn is lit with, made afresh every frame. */
+    private final SceneLight sceneLight = new SceneLight();
+    /** The time of day's light the last frame was drawn in. */
+    private DayCycle.Daylight daylight;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
+    private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
+    private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
@@ -114,6 +136,9 @@ public final class WorldRenderer implements AutoCloseable {
         this.itemRenderer = new ItemRenderer(batch, sprites, items);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
+        this.ray = Texture.upload(LightRays.pixels(), true);
+        this.blockShadow = Texture.upload(blockShadowPixels(64), false);
+        this.water = new WaterRenderer();
         this.combat = new CombatRenderer(sprites, objects);
     }
 
@@ -132,6 +157,33 @@ public final class WorldRenderer implements AutoCloseable {
             }
         }
         return PixelData.of(argb, n, n);
+    }
+
+    /** Draw buildings with {@code r} from now on (it is closed with this). */
+    public void useBuildings(BuildingRenderer r) {
+        buildings = r;
+    }
+
+    /** Draw the buildings that are the level objects {@code ids} lit up (null: none) - the editor's selection. */
+    public void highlightBuildings(Set<Integer> ids) {
+        highlight = ids == null ? Set.of() : ids;
+    }
+
+    /** A square, black, solid in its middle and fading out over its outer quarter each way. */
+    static PixelData blockShadowPixels(int n) {
+        int[] argb = new int[n * n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                double ex = Math.min(x + 0.5, n - x - 0.5) / (n * 0.25), ey = Math.min(y + 0.5, n - y - 0.5) / (n * 0.25);
+                double a = smooth(Math.min(1, ex)) * smooth(Math.min(1, ey));
+                argb[y * n + x] = ((int) Math.round(a * 255) << 24);
+            }
+        }
+        return PixelData.of(argb, n, n);
+    }
+
+    private static double smooth(double t) {
+        return t * t * (3 - 2 * t);
     }
 
     /** A soft round blob, black, alpha falling off to nothing at the rim. */
@@ -157,17 +209,37 @@ public final class WorldRenderer implements AutoCloseable {
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
         Sky sky = world.sky();
-        float[] fog = sky == Sky.DEFAULT ? VoidRenderer.HORIZON : sky.horizonColour();
-        float fogFar = (float) sky.fog();
+        DayCycle.Daylight light = world.clock().daylight(sky);
+        daylight = light;
+        boolean indoors = world.indoors();
+        float[] fog = indoors ? INDOOR_DARK.clone() : light.horizon();
+        float fogFar = indoors ? INDOOR_FOG : (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
-        voidRenderer.useGround(world.ground());
-        // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
-        float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
-        voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, world.time(), pixel);
-        if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar);
+        lightUp(world, camera, light);
+        if (indoors) {
+            // inside a building: no sky, no ground beyond its floors - the dark
+            glClearColor(INDOOR_DARK[0], INDOOR_DARK[1], INDOOR_DARK[2], 1f);
+            glDepthMask(true);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        } else {
+            voidRenderer.useGround(world.ground());
+            // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
+            float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+            voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
+            if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+        }
+        if (buildings != null) {
+            // the windows lit from dusk to dawn
+            double t = Math.max(0, Math.min(1, (0.55 - light.day()) / 0.4));
+            buildings.draw(world.buildings(), camera, camera.target(), viewProj, fog, fogFar, sceneLight, smooth(t),
+                    world.time(), highlight);
+        }
+        batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
+        scenery.bendAwayFrom(walkers(world));
+        scenery.showBare(world::picked);
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
@@ -179,7 +251,8 @@ public final class WorldRenderer implements AutoCloseable {
         batch.begin(viewProj, fog, 0, fogFar);
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
-        groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
+        shadowStrength = indoors ? 0.85f : (float) (0.55 + 0.45 * light.day());
+        if (!p.mounted()) groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time())) continue;
             Vec3 c = g.centre(world.time());
@@ -190,13 +263,31 @@ public final class WorldRenderer implements AutoCloseable {
         }
         for (Chest c : world.chests()) {
             groundShadow(c.position(), 0.75, 0.45f);
-            double light = c.light();
-            if (light > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * light));
+            double lit = c.light();
+            if (lit > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * lit));
         }
         combat.shadows(world, this::groundShadow);
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FIREFLY || c.alpha() < 0.05) continue;
+            Vec3 at = c.position();
+            double h = Math.max(0, at.y() - ground.height(at.x(), at.z()));
+            if (h > 3) continue;
+            double r = c.kind() == CritterKind.FROG ? 0.22 : c.kind() == CritterKind.CRICKET ? 0.12 : 0.16;
+            groundShadow(new Vec3(at.x(), 0, at.z()), r * (1 + 0.15 * h), (float) (c.alpha() * 0.4 / (1 + h)));
+        }
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() < 0.05 || a.swimming()) continue;
+            Vec3 at = a.position();
+            double h = Math.max(0, at.y() - ground.height(at.x(), at.z()));
+            if (h > 8) continue;
+            double r = a.radius() * (a.kind().flies() ? 0.6 : 1.05);
+            groundShadow(new Vec3(at.x(), 0, at.z()), r * (1 + 0.1 * h),
+                    (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
+        }
         for (Scenery.Placed s : world.scenery().shadowed()) {
             groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
         }
+        for (Building b : world.buildings()) buildingShadow(b);
         batch.end();
 
         // --- sprites, far to near (tested against the scenery, not written) --------
@@ -206,16 +297,27 @@ public final class WorldRenderer implements AutoCloseable {
         List<Double> dist = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
 
+        // riding, she is seen as her horse is - from its pivot, the way it faces - and drawn just
+        // over it (her sheets were cut against it), on its depth: with it, in the animals' pass
+        Animal steed = p.mounted() ? world.steed() : null;
         Vec3 pivot = p.feet().add(0, 0.9, 0);
+        if (steed != null) {
+            ObjectSprites.Entry horse = objects.entry(steed.sprite());
+            pivot = steed.position().add(0, horse == null ? 1.05 : horse.profile().pivotHeight(), 0);
+        }
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
         playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
                 p.handsEmpty(), p.stance()), world.wielded(), items);
         LayerStack.Result stack = playerStack;
-        draws.add(() -> {
+        Runnable her = () -> {
             batch.depthAnchor(p.ground());
             LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
-        });
-        dist.add(p.feet().sub(eye).dot(forward));
+        };
+        boolean[] drawnWithHorse = {false};
+        if (steed == null) {
+            draws.add(her);
+            dist.add(p.feet().sub(eye).dot(forward));
+        }
 
         // the dash's afterimages: the frames she leaves behind, fading where they were
         double now = world.time();
@@ -269,17 +371,310 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(g.centre(t).sub(eye).dot(forward));
         }
 
+        double shine = 1 - light.day();
+        if (shine > 0.05) {
+            for (Scenery.Placed gp : glowing(world, eye, GLOW_REACH)) {
+                draws.add(() -> {
+                    batch.depthAnchor(gp.position());
+                    sceneryGlow(gp, right, up, shine);
+                });
+                dist.add(glowCentre(gp).sub(eye).dot(forward));
+            }
+        }
+
+        for (World.LightSpot ls : world.lights()) {
+            if (!ls.glow()) continue;
+            draws.add(() -> {
+                batch.depthAnchor(ground.onGround(ls.at()));
+                lightGlow(ls, right, up);
+            });
+            dist.add(ls.at().sub(eye).dot(forward));
+        }
+
         combat.sprites(world, batch, camera, (d, draw) -> {
             draws.add(draw);
             dist.add(d);
         });
+
+        // the little creatures: the frogs, crickets and dragonflies drawn from their 24 views, the fireflies lights
+        Map<Critter, ObjectStack.Memory> memories = new IdentityHashMap<>();
+        for (Critter c : world.critters().live()) {
+            if (c.alpha() < 0.02) continue;
+            Vec3 at = c.position();
+            if (at.sub(eye).length() > CRITTER_REACH) continue;
+            if (c.kind() == CritterKind.FIREFLY) {
+                double lit = c.glow(t);
+                if (lit < 0.02) continue;
+                draws.add(() -> {
+                    batch.depthAnchor(at);
+                    fireflyGlow(at, c.rgb(), lit, right, up);
+                });
+                dist.add(at.sub(eye).dot(forward));
+                continue;
+            }
+            String id = c.kind().sprite();
+            ObjectSprites.Entry entry = objects.entry(id);
+            if (entry == null) continue;
+            com.larsons.game.sprite.SpriteProfile prof = entry.profile();
+            ObjectStack.Memory memory = critterMemory.get(c);
+            if (memory == null) memory = new ObjectStack.Memory();
+            memories.put(c, memory);
+            SpriteView cv = SpriteView.of(eye, at.add(0, prof.pivotHeight(), 0), c.heading(), camera.yaw());
+            ObjectStack.Result cr = ObjectStack.resolve(sprites, objects, id, c.state(), c.loops(), c.stateTime(),
+                    t, cv, 0, memory);
+            float alpha = (float) c.alpha();
+            draws.add(() -> {
+                batch.depthAnchor(at);
+                LayerStack.drawBillboard(batch, cr.layers(), cr.framing(), cr.view().elevation(), at, right, up,
+                        alpha);
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
+        critterMemory = memories;
+
+        // the animals: from their 24 views, flashing white as they are struck, fading as they come and go
+        Map<Animal, ObjectStack.Memory> animalMemories = new IdentityHashMap<>();
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() < 0.02) continue;
+            Vec3 at = a.position();
+            if (at.sub(eye).length() > ANIMAL_REACH) continue;
+            String id = a.sprite();
+            ObjectSprites.Entry entry = objects.entry(id);
+            if (entry == null) entry = objects.entry(id = a.kind().sprite());      // (no saddled sheets)
+            if (entry == null) continue;
+            com.larsons.game.sprite.SpriteProfile prof = entry.profile();
+            ObjectStack.Memory memory = animalMemory.get(a);
+            if (memory == null) memory = new ObjectStack.Memory();
+            animalMemories.put(a, memory);
+            SpriteView av = SpriteView.of(eye, at.add(0, prof.pivotHeight(), 0), a.heading(), camera.yaw());
+            ObjectStack.Result ar = ObjectStack.resolve(sprites, objects, id, a.sheet(), a.loops(), a.sheetTime(),
+                    t, av, 0, memory);
+            Runnable rider = a == steed ? her : null;
+            if (rider != null) drawnWithHorse[0] = true;
+            List<LayerStack.Layer> layers = ar.layers();
+            double flash = a.flash();
+            if (flash > 0) {
+                List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) {
+                    lit.add(l.withPalette(com.larsons.game.combat.CombatColours.flashed(l.palette(), flash)));
+                }
+                layers = lit;
+            }
+            List<LayerStack.Layer> draw = layers;
+            float alpha = (float) a.alpha();
+            // a swimmer's depth is the water's surface over it, so the water before it is not drawn over it
+            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()), 0) : at;
+            draws.add(() -> {
+                batch.depthAnchor(anchor);
+                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, right, up, alpha);
+                if (rider != null) rider.run();
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
+        animalMemory = animalMemories;
+        if (steed != null && !drawnWithHorse[0]) {
+            // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
+            draws.add(her);
+            dist.add(p.feet().sub(eye).dot(forward));
+        }
 
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+
+        // --- the water, over what stands and wades in it ------------------------------
+        water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
+
+        // --- light rays, added over it all (tested against the scenery and the ground) ----
+        List<LightRays.Shaft> shafts = LightRays.shafts(world, light, eye, world.time());
+        if (!shafts.isEmpty()) {
+            batch.begin(viewProj, fog, 0, fogFar);
+            float[] sun = light.sunColour();
+            for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
+            batch.end();
+        }
+        batch.useSceneLight(null);
         glDepthMask(true);
+    }
+
+    /** The time of day's light the last frame was drawn in (null before the first). */
+    public DayCycle.Daylight daylight() { return daylight; }
+
+    /** The light this frame is drawn in: the hour's, and the lights round the camera. */
+    public SceneLight sceneLight() { return sceneLight; }
+
+    /**
+     * Make this frame's {@link SceneLight}: lit as the hour is, in the mist
+     * as thick as it lies now, with the lights nearest the camera's target -
+     * an open chest's glow, the loot's beams, the lights placed in the world -
+     * which mostly show at night.
+     */
+    private void lightUp(World world, OrbitCamera camera, DayCycle.Daylight light) {
+        SceneLight l = sceneLight.clearLights();
+        boolean indoors = world.indoors();
+        float[] a = indoors ? indoorAmbient(light.day()) : light.ambient();
+        System.arraycopy(a, 0, l.ambient, 0, 3);
+        Vec3 eye = camera.eye();
+        l.camera[0] = (float) eye.x();
+        l.camera[1] = (float) eye.y();
+        l.camera[2] = (float) eye.z();
+        Atmosphere air = world.sky().air();
+        l.mist = indoors ? 0f : (float) (light.mist() * 0.32);
+        l.mistHeight = (float) air.mistHeight();
+        l.time = (float) world.time();
+        float[] h = light.horizon();
+        for (int i = 0; i < 3; i++) l.mistColour[i] = 0.62f * a[i] * 0.92f + 0.38f * h[i];
+        // (inside, the lamps and candles are lit all day)
+        double night = indoors ? 1 : 1 - 0.75 * light.day();
+        record Lamp(Vec3 at, double radius, int rgb, double strength) {}
+        List<Lamp> lamps = new ArrayList<>();
+        // a fire burning (a fireplace's), flickering in its bands
+        for (Building b : world.buildings()) {
+            if (!burns(b.profile())) continue;
+            double flicker = 0.9 + 0.07 * Math.sin(world.time() * 7.3 + b.id()) + 0.05 * Math.sin(world.time() * 13.1);
+            Vec3 front = com.larsons.game.sprite.SpriteView.headingVector(b.heading());
+            lamps.add(new Lamp(b.position().add(front.x() * 0.6, 0.5, front.z() * 0.6), 4.8, 0xFF8A40,
+                    0.8 * flicker));
+        }
+        for (Chest c : world.chests()) {
+            if (c.light() > 0) lamps.add(new Lamp(c.position().add(0, 0.7, 0), 3.6, 0xFFC468, 0.95 * c.light() * night));
+        }
+        for (World.GroundItem g : world.items()) {
+            if (!g.beam() || !g.landed(world.time())) continue;
+            lamps.add(new Lamp(g.position.add(0, 0.5, 0), 1.4, g.item.rarity().rgb(), 0.35 * night));
+        }
+        for (World.LightSpot s : world.lights()) lamps.add(new Lamp(s.at(), s.radius(), s.rgb(), s.strength() * night));
+        // a few of the fireflies nearest the camera light the grass round them as they blink
+        List<Critter> flies = new ArrayList<>();
+        Vec3 aim = camera.target();
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FIREFLY && c.glow(world.time()) > 0.4) flies.add(c);
+        }
+        flies.sort(Comparator.comparingDouble(c -> c.position().sub(aim).length()));
+        for (int i = 0; i < Math.min(FIREFLY_LAMPS, flies.size()); i++) {
+            Critter c = flies.get(i);
+            lamps.add(new Lamp(c.position(), 1.8, c.rgb(), 0.6 * c.glow(world.time())));
+        }
+        // the crystals' glow, and anything else of the scenery's that shines at night
+        double shine = 1 - light.day();
+        if (shine > 0.05) {
+            for (Scenery.Placed p : glowing(world, camera.target(), GLOW_REACH)) {
+                boolean tree = p.profile().kind() == com.larsons.game.sprite.SceneryProfile.Kind.TREE;
+                lamps.add(new Lamp(glowCentre(p), tree ? 4.0 : 2.4, p.profile().glow(), (tree ? 0.8 : 0.65) * shine));
+            }
+        }
+        Vec3 target = camera.target();
+        lamps.sort(Comparator.comparingDouble(m -> m.at().sub(target).length() - m.radius()));
+        for (Lamp m : lamps) {
+            if (!l.add(m.at().x(), m.at().y(), m.at().z(), m.radius(), m.rgb(), m.strength())) break;
+        }
+    }
+
+    /** Inside a building: the dark beyond its rooms, and how far off things fade into it. */
+    static final float[] INDOOR_DARK = {0.035f, 0.028f, 0.024f};
+    static final float INDOOR_FOG = 48f;
+
+    /** The light inside a building, all of it from outside but its lamps: dim and warm, a little more by day. */
+    static float[] indoorAmbient(double day) {
+        float base = (float) (0.46 + 0.2 * Math.max(0, Math.min(1, day)));
+        return new float[]{base, base * 0.95f, base * 0.87f};
+    }
+
+    /** Whether a kind of building has a part that is always lit (a fire). */
+    static boolean burns(BuildingProfile p) {
+        for (BuildingProfile.Part part : p.parts()) if (part.always()) return true;
+        return false;
+    }
+
+    /** How many fireflies light the ground round them at once (the scene's lights are few). */
+    static final int FIREFLY_LAMPS = 4;
+
+    /** How far from the eye a critter is still drawn, metres (past it, it is a speck). */
+    static final double CRITTER_REACH = 45;
+
+    /** How far from the eye an animal is still drawn, metres. */
+    static final double ANIMAL_REACH = 90;
+
+    /** A firefly: a bright point and a soft halo of its colour, as lit as its blink is. */
+    private void fireflyGlow(Vec3 at, int rgb, double lit, Vec3 right, Vec3 up) {
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        for (double[] k : new double[][]{{1.3, 0.16}, {0.5, 0.5}, {0.16, 1.0}}) {
+            double size = k[0];
+            Vec3 tl = at.sub(right.scale(size / 2)).add(up.scale(size / 2));
+            batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (k[1] * lit));
+        }
+    }
+
+    /** How near the camera's target scenery must be for its night glow to light the ground, metres. */
+    static final double GLOW_REACH = 45;
+
+    /** Everything of {@code world}'s scenery that glows, within {@code reach} of {@code near}. */
+    private static List<Scenery.Placed> glowing(World world, Vec3 near, double reach) {
+        List<Scenery.Placed> out = new ArrayList<>();
+        for (Map.Entry<com.larsons.game.sprite.ScenerySprites.Sprite, List<Scenery.Placed>> e
+                : world.scenery().bySprite().entrySet()) {
+            if (e.getKey().profile().glow() < 0) continue;
+            for (Scenery.Placed p : e.getValue()) {
+                if (Math.hypot(p.x() - near.x(), p.z() - near.z()) < reach) out.add(p);
+            }
+        }
+        return out;
+    }
+
+    /** Where a glowing piece of scenery's light comes from: low in it, as a crystal's heart. */
+    private static Vec3 glowCentre(Scenery.Placed p) {
+        return p.position().add(0, p.profile().frameWorldHeight() * 0.3, 0);
+    }
+
+    /** The feet of everyone walking about, whom the tall grass leans away from. */
+    private static List<Vec3> walkers(World world) {
+        List<Vec3> out = new ArrayList<>();
+        out.add(world.player().feet());
+        for (com.larsons.game.combat.Dummy d : world.dummies()) out.add(d.position());
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FROG && c.alpha() > 0.5) out.add(c.position());
+        }
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() > 0.5 && !a.flies() && !a.swimming()) out.add(a.position());
+        }
+        return out;
+    }
+
+    /** A glowing crystal's halo at night: a soft wash of its colour round it. */
+    private void sceneryGlow(Scenery.Placed p, Vec3 right, Vec3 up, double shine) {
+        int rgb = p.profile().glow();
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        double size = p.profile().frameWorldHeight() * 0.9;
+        Vec3 tl = glowCentre(p).sub(right.scale(size / 2)).add(up.scale(size / 2));
+        batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (0.32 * shine));
+    }
+
+    /** A placed light's own glow: a small bright spot where it is, and a soft halo round it. */
+    private void lightGlow(World.LightSpot ls, Vec3 right, Vec3 up) {
+        float r = ((ls.rgb() >> 16) & 255) / 255f, g = ((ls.rgb() >> 8) & 255) / 255f, b = (ls.rgb() & 255) / 255f;
+        double night = daylight == null ? 1 : 1 - 0.6 * daylight.day();
+        for (double[] k : new double[][]{{0.55, 0.35}, {0.16, 1.0}}) {
+            double size = k[0];
+            Vec3 tl = ls.at().sub(right.scale(size / 2)).add(up.scale(size / 2));
+            batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b,
+                    (float) (k[1] * Math.min(1.5, ls.strength()) * night));
+        }
+    }
+
+    /** One shaft of light: a ribbon down its length, turned to face the eye. */
+    private void rayQuad(LightRays.Shaft s, Vec3 eye, float[] sun) {
+        Vec3 along = s.bottom().sub(s.top());
+        Vec3 mid = s.top().add(along.scale(0.5));
+        Vec3 side = along.cross(eye.sub(mid));
+        if (side.length() < 1e-6) return;
+        side = side.normalize().scale(s.width() / 2);
+        Vec3 tl = s.top().sub(side), tr = s.top().add(side), br = s.bottom().add(side), bl = s.bottom().sub(side);
+        float k = (float) Math.min(1.2, s.strength());
+        batch.glow(ray, (float) tl.x(), (float) tl.y(), (float) tl.z(), (float) tr.x(), (float) tr.y(), (float) tr.z(),
+                (float) br.x(), (float) br.y(), (float) br.z(), (float) bl.x(), (float) bl.y(), (float) bl.z(),
+                0, 0, 1, 1, sun[0], sun[1] * 0.96f, sun[2] * 0.85f, 0.35f * k);
     }
 
     /** {@code palette} with every colour {@link #GHOST_RGB}, each entry's alpha kept: a layer as a flat silhouette. */
@@ -330,8 +725,11 @@ public final class WorldRenderer implements AutoCloseable {
         return camera.groundForward().scale(Math.cos(lean)).add(0, -Math.sin(lean), 0);
     }
 
+    /** How dark the shadows are this frame: fainter by night, when the light is weaker. */
+    private float shadowStrength = 1f;
+
     private void groundShadow(Vec3 at, double radius, float alpha) {
-        groundQuad(shadow, at, radius, 0, 0, 0, alpha);
+        groundQuad(shadow, at, radius, 0, 0, 0, alpha * shadowStrength);
     }
 
     /** Pieces a side a shadow on a slope is laid in, and how far over the ground they lie, metres. */
@@ -381,6 +779,39 @@ public final class WorldRenderer implements AutoCloseable {
         }
     }
 
+    /** How far past its walls a building's shadow reaches, metres. */
+    static final double BUILDING_SHADOW = 0.7;
+
+    /** The soft shadow round a building's footprint, each piece of it, lying on the ground. */
+    private void buildingShadow(Building b) {
+        float alpha = 0.32f * shadowStrength;
+        // a building's falls round it; a piece of furniture's, or a wall's, close about its foot
+        double margin = b.profile().room() != null ? 0.12 : b.profile().furniture() ? 0.2 : BUILDING_SHADOW;
+        if (b.profile().furniture() || b.profile().room() != null) alpha = 0.42f * shadowStrength;
+        for (BuildingProfile.Shape s : b.profile().footprint()) {
+            if (s.circle()) {
+                Vec3 c = b.toWorld(s.x(), s.y());
+                groundQuad(shadow, c, (s.w() + margin) * 1.25, 0, 0, 0, alpha);
+                continue;
+            }
+            double hw = s.w() / 2 + margin, hd = s.d() / 2 + margin;
+            int n = SLOPE_PIECES;
+            for (int j = 0; j < n; j++) {
+                for (int i = 0; i < n; i++) {
+                    double ax = s.x() - hw + 2 * hw * i / n, bx = s.x() - hw + 2 * hw * (i + 1) / n;
+                    double ay = s.y() - hd + 2 * hd * j / n, by = s.y() - hd + 2 * hd * (j + 1) / n;
+                    Vec3 p0 = b.toWorld(ax, ay), p1 = b.toWorld(bx, ay), p2 = b.toWorld(bx, by), p3 = b.toWorld(ax, by);
+                    piece(blockShadow, (float) p0.x(), lift(p0.x(), p0.z()), (float) p0.z(),
+                            (float) p1.x(), lift(p1.x(), p1.z()), (float) p1.z(),
+                            (float) p2.x(), lift(p2.x(), p2.z()), (float) p2.z(),
+                            (float) p3.x(), lift(p3.x(), p3.z()), (float) p3.z(),
+                            (float) i / n, (float) j / n, (float) (i + 1) / n, (float) (j + 1) / n, 0, 0, 0, alpha,
+                            false);
+                }
+            }
+        }
+    }
+
     /** One piece of a {@link #groundQuad}: laid over the ground, or as light. */
     private void piece(Texture tex, float x0, float y0, float z0, float x1, float y1, float z1,
                        float x2, float y2, float z2, float x3, float y3, float z3,
@@ -412,5 +843,9 @@ public final class WorldRenderer implements AutoCloseable {
         itemRenderer.close();
         shadow.close();
         glow.close();
+        ray.close();
+        blockShadow.close();
+        water.close();
+        if (buildings != null) buildings.close();
     }
 }

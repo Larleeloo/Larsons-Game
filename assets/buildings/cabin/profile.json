@@ -1,0 +1,120 @@
+{
+ "key": "cabin",
+ "label": "Log cabin",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 360,
+   "height": 184,
+   "anchorX": 180.0,
+   "anchorY": 159.65621481941287,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 360,
+   "height": 340,
+   "anchorX": 180.0,
+   "anchorY": 210.8820030967759,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 360,
+   "height": 360,
+   "anchorX": 180.0,
+   "anchorY": 179.77669529663686,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -7.924635841904983,
+  "step": 0.062398707416574675
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#8a5a34",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#8a5a34",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#6a5444",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "porch",
+   "label": "Porch",
+   "colour": "#7a5a3a",
+   "texture": "floorboards",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#4e3420",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#5e3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#867c70",
+   "texture": "fieldstone",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   7.5,
+   6.0
+  ],
+  [
+   "box",
+   4.713,
+   0.0,
+   1.125,
+   1.5
+  ]
+ ],
+ "door": [
+  -1.125,
+  -4.5
+ ],
+ "interior": true,
+ "anim": null
+}

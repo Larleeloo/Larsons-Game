@@ -1,0 +1,76 @@
+{
+ "key": "fireplace",
+ "label": "Fireplace",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 128,
+   "height": 166,
+   "anchorX": 64.0,
+   "anchorY": 161.40000000000003,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 128,
+   "height": 190,
+   "anchorX": 64.0,
+   "anchorY": 144.3390474732825,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 128,
+   "height": 128,
+   "anchorX": 64.0,
+   "anchorY": 63.15121685293565,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -3.17901770050125,
+  "step": 0.025031635437017717
+ },
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#8a8276",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "mantel",
+   "label": "Mantel",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "logs",
+   "label": "Logs",
+   "colour": "#5a3a22",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#f0a030",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.87,
+   0.77
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

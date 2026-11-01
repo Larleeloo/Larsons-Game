@@ -17,20 +17,29 @@ import java.util.List;
  * @param horizon   the sky at the horizon and the fog, {@code 0xRRGGBB}
  * @param fog       metres out the fog has hidden most of the ground (63 % of it)
  * @param backdrops the distant backgrounds, farthest first (each nearer one drawn over it)
+ * @param air       the time of day and the weather: the day and night, the planet, clouds, stars, mist
+ *                  ({@link Atmosphere}); the zenith and the horizon are the colours of the day, which
+ *                  the {@link DayCycle} turns to sunset and night
  */
-public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops) {
+public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops, Atmosphere air) {
 
     /** The most backdrops {@link VoidRenderer} draws. */
     public static final int MAX_BACKDROPS = 8;
     /** The nearest and farthest the fog may be, metres. */
     public static final double MIN_FOG = 20, MAX_FOG = 400;
 
-    /** The demo's sky: a soft blue, paler at the horizon, the fog 70 m out. */
-    public static final Sky DEFAULT = new Sky(0x5C78A3, 0xBDC9DB, 70, List.of());
+    /** The demo's sky: a soft blue, paler at the horizon, the fog 70 m out, under the demo's day ({@link Atmosphere#DEFAULT}). */
+    public static final Sky DEFAULT = new Sky(0x5C78A3, 0xBDC9DB, 70, List.of(), Atmosphere.DEFAULT);
 
     public Sky {
         fog = Math.max(MIN_FOG, Math.min(MAX_FOG, fog));
         backdrops = List.copyOf(backdrops.size() > MAX_BACKDROPS ? backdrops.subList(0, MAX_BACKDROPS) : backdrops);
+        if (air == null) air = Atmosphere.DEFAULT;
+    }
+
+    /** These colours and backdrops under the demo's day and weather. */
+    public Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops) {
+        this(zenith, horizon, fog, backdrops, Atmosphere.DEFAULT);
     }
 
     /** {@code rgb} as the GPU takes a colour: red, green, blue from 0 to 1. */
@@ -41,13 +50,15 @@ public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops)
     /** The horizon's colour, the fog's, for the GPU. */
     public float[] horizonColour() { return rgb(horizon); }
 
-    public Sky withZenith(int c) { return new Sky(c, horizon, fog, backdrops); }
+    public Sky withZenith(int c) { return new Sky(c, horizon, fog, backdrops, air); }
 
-    public Sky withHorizon(int c) { return new Sky(zenith, c, fog, backdrops); }
+    public Sky withHorizon(int c) { return new Sky(zenith, c, fog, backdrops, air); }
 
-    public Sky withFog(double metres) { return new Sky(zenith, horizon, metres, backdrops); }
+    public Sky withFog(double metres) { return new Sky(zenith, horizon, metres, backdrops, air); }
 
-    public Sky withBackdrops(List<Backdrop> b) { return new Sky(zenith, horizon, fog, b); }
+    public Sky withBackdrops(List<Backdrop> b) { return new Sky(zenith, horizon, fog, b, air); }
+
+    public Sky withAir(Atmosphere a) { return new Sky(zenith, horizon, fog, backdrops, a); }
 
     /**
      * Something far off round the horizon: a band of one kind of thing, in

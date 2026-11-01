@@ -40,9 +40,13 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         ITEMS("Weapons"),
         WEARABLES("Wearables"),
         LOOT("Chests"),
+        BUILDINGS("Buildings"),
+        INSIDE("Inside"),
+        LIFE("Life"),
         COMBAT("Training"),
         TERRAIN("Terrain"),
         SOUNDS("Sounds"),
+        LIGHTS("Light"),
         MARKERS("Markers");
 
         private final String label;

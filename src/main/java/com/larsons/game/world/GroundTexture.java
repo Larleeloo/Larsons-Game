@@ -2,13 +2,15 @@ package com.larsons.game.world;
 
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Shader;
-import com.larsons.game.gfx.Texture;
+import com.larsons.game.gfx.TextureArray;
 import com.larsons.game.sprite.ScenerySprites;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * What the ground looks like at any spot: the grass of {@code
@@ -39,8 +41,8 @@ import java.nio.file.Path;
  */
 public final class GroundTexture implements AutoCloseable {
 
-    /** The textures it binds, from the first unit {@link #bind} is given: grass, the four, the map. */
-    public static final int UNITS = 6;
+    /** The textures it binds, from the first unit {@link #bind} is given: the tiles, then the maps. */
+    public static final int UNITS = 2;
 
     /**
      * The uniforms and the function. {@code groundColour(xz)} is the ground's
@@ -48,13 +50,12 @@ public final class GroundTexture implements AutoCloseable {
      * {@code uGroundTile > 0} (there is grass).
      */
     public static final String GLSL = """
-            uniform sampler2D uGroundGrass;
-            uniform sampler2D uGroundDirt, uGroundForest, uGroundGravel, uGroundMeadow;
-            uniform sampler2D uGroundMap;
+            uniform sampler2DArray uGroundTiles;   // layer 0 the grass, then each material's tile
+            uniform sampler2DArray uGroundMaps;    // the weights, four materials a layer
             uniform float uGroundTile;    // metres a tile spans; 0: no grass
             uniform float uGroundTexel;   // metres a texel of the tiles spans
             uniform vec4 uGroundRect;     // the map's west/north corner (x, z) and its size each way
-            uniform vec4 uGroundHas;      // 1 for each of dirt, forest floor, gravel, meadow that loaded
+            uniform float uGroundHas[12]; // 1 for each material that loaded and is painted somewhere
 
             float groundHash(ivec2 p) {
                 uint h = uint(p.x) * 374761393u + uint(p.y) * 668265263u;
@@ -72,39 +73,48 @@ public final class GroundTexture implements AutoCloseable {
 
             vec3 groundColour(vec2 xz) {
                 vec2 uv = xz / uGroundTile;
-                vec3 c = texture(uGroundGrass, uv).rgb;
-                vec3 tiles[4] = vec3[4](texture(uGroundDirt, uv).rgb, texture(uGroundForest, uv).rgb,
-                                        texture(uGroundGravel, uv).rgb, texture(uGroundMeadow, uv).rgb);
-                // the map, read once for every block of 2 x 2 texels (with the true
-                // derivatives, so far away it is read from its mipmaps)
+                vec2 gx = dFdx(uv), gy = dFdy(uv);
+                vec3 c = textureGrad(uGroundTiles, vec3(uv, 0.0), gx, gy).rgb;
+                // the maps, read once for every block of 2 x 2 texels (with the true
+                // derivatives, so far away they are read from their mipmaps)
                 float blockSize = 2.0 * uGroundTexel;
                 vec2 block = floor(xz / blockSize);
                 vec2 at = (block + 0.5) * blockSize;
                 vec2 m = (at - uGroundRect.xy) / uGroundRect.zw;
                 vec2 mx = (xz - uGroundRect.xy) / uGroundRect.zw;
-                vec4 w = textureGrad(uGroundMap, m, dFdx(mx), dFdy(mx)) * uGroundHas;
-                w *= step(0.0, m.x) * step(m.x, 1.0) * step(0.0, m.y) * step(m.y, 1.0);
+                vec2 mgx = dFdx(mx), mgy = dFdy(mx);
+                float inside = step(0.0, m.x) * step(m.x, 1.0) * step(0.0, m.y) * step(m.y, 1.0);
+                vec4 w0 = textureGrad(uGroundMaps, vec3(m, 0.0), mgx, mgy) * inside;
+                vec4 w1 = textureGrad(uGroundMaps, vec3(m, 1.0), mgx, mgy) * inside;
+                vec4 w2 = textureGrad(uGroundMaps, vec3(m, 2.0), mgx, mgy) * inside;
+                float w[12] = float[12](w0.x, w0.y, w0.z, w0.w, w1.x, w1.y, w1.z, w1.w, w2.x, w2.y, w2.z, w2.w);
                 vec2 fw = fwidth(xz);
                 float far = clamp(max(fw.x, fw.y) / blockSize - 0.5, 0.0, 1.0);
                 float jag = (groundHash(ivec2(block)) - 0.5) * 0.22 * (1.0 - far);
                 float e = 0.02 + 0.2 * far;
-                // meadow, forest floor, gravel, then dirt over them all: the paths run through everything
-                int order[4] = int[4](3, 1, 2, 0);
-                for (int i = 0; i < 4; i++) {
+                // the biomes' ground, then the meadow, the forest floor, the gravel, and
+                // the dirt over them all: the paths run through everything
+                int order[12] = int[12](9, 8, 4, 5, 10, 7, 6, 11, 3, 1, 2, 0);
+                for (int i = 0; i < 12; i++) {
                     int k = order[i];
+                    float wk = w[k] * uGroundHas[k];
+                    if (wk <= 0.001) continue;
                     float wave = groundNoise(at * 1.7 + vec2(37.0, 11.0) * float(k + 1)) - 0.5;
-                    c = mix(c, tiles[k], smoothstep(0.5 - e, 0.5 + e, w[k] + 0.5 * wave + jag));
+                    float t = smoothstep(0.5 - e, 0.5 + e, wk + 0.5 * wave + jag);
+                    if (t <= 0.0) continue;
+                    c = mix(c, textureGrad(uGroundTiles, vec3(uv, float(k + 1)), gx, gy).rgb, t);
                 }
                 return c;
             }
             """;
 
-    private final Texture grass;
-    private final Texture[] tiles = new Texture[4];
-    /** The map last uploaded ({@link #use}), its version then, and its texture (null: all grass). */
+    private final TextureArray tiles;
+    private final boolean[] loaded = new boolean[GroundMap.MATERIALS];
+    /** The map last uploaded ({@link #use}), its groups' versions then, and its texture (null: all grass). */
     private GroundMap mapOf;
-    private int mapVersion;
-    private Texture map;
+    private final int[] mapVersions = new int[GroundMap.GROUPS];
+    private final boolean[] mapPainted = new boolean[GroundMap.GROUPS];
+    private TextureArray maps;
     private float mapWest = (float) GroundMap.origin(), mapSize = (float) GroundMap.SIZE;
     private final float tile, texel;
 
@@ -114,47 +124,79 @@ public final class GroundTexture implements AutoCloseable {
      * will not load) is no grass.
      */
     public GroundTexture(ScenerySprites.Ground ground, GroundMap map) {
-        Texture g = ground == null ? null : load(ground.texture());
-        grass = g;
-        tile = g == null ? 0 : (float) ground.tileWorldSize();
-        texel = g == null ? 0 : tile / g.width();
-        StringBuilder found = new StringBuilder();
-        if (g != null) {
-            for (int i = 0; i < tiles.length; i++) {
-                Path p = ground.tile(GroundMap.NAMES[i]);
-                tiles[i] = p == null ? null : load(p);
-                if (tiles[i] != null) found.append(", ").append(GroundMap.NAMES[i]);
-            }
-            System.out.println("[scenery] ground: " + g.width() + "x" + g.height() + " grass" + found
-                    + ", a tile every " + tile + " m");
+        PixelData g = ground == null ? null : load(ground.texture());
+        if (g == null) {
+            tiles = null;
+            tile = texel = 0;
+            use(map);
+            return;
         }
+        tile = (float) ground.tileWorldSize();
+        texel = tile / g.width();
+        int w = g.width(), h = g.height();
+        List<PixelData> layers = new ArrayList<>();
+        layers.add(g);
+        StringBuilder found = new StringBuilder();
+        for (int i = 0; i < GroundMap.MATERIALS; i++) {
+            Path p = ground.tile(GroundMap.NAMES[i]);
+            PixelData t = p == null ? null : load(p);
+            if (t != null && (t.width() != w || t.height() != h)) {
+                System.err.println("[scenery] " + p + " is " + t.width() + "x" + t.height() + ", not " + w + "x" + h
+                        + " as the grass is - left out");
+                t.free();
+                t = null;
+            }
+            loaded[i] = t != null;
+            if (t != null) found.append(", ").append(GroundMap.NAMES[i]);
+            layers.add(t != null ? t : load(ground.texture()));
+        }
+        tiles = TextureArray.tiled(layers);
+        System.out.println("[scenery] ground: " + w + "x" + h + " grass" + found + ", a tile every " + tile + " m");
         use(map);
     }
 
     /**
      * Draw the ground as {@code ground} maps it from now on (null: all
-     * grass): uploaded again only when it is another map, or has been
-     * painted on since ({@link GroundMap#version}). Must be called on the GL
-     * thread.
+     * grass): uploaded again only when it is another map, or a group of it
+     * has been painted on since ({@link GroundMap#version(int)}). Must be
+     * called on the GL thread.
      */
     public void use(GroundMap ground) {
-        if (ground == mapOf && (ground == null || ground.version() == mapVersion)) return;
-        mapOf = ground;
-        mapVersion = ground == null ? 0 : ground.version();
-        if (map != null) map.close();
-        map = grass == null || ground == null || ground.isEmpty() ? null
-                : Texture.data(ground.rgba(), ground.cells(), ground.cells());
-        if (ground != null) {
-            mapWest = (float) ground.west();
-            mapSize = (float) ground.size();
+        if (tiles == null) return;
+        boolean other = ground != mapOf;
+        if (!other && ground != null) {
+            boolean same = true;
+            for (int g = 0; g < GroundMap.GROUPS; g++) same &= ground.version(g) == mapVersions[g];
+            if (same) return;
+        } else if (!other) {
+            return;
         }
+        if (other && maps != null && (ground == null || maps.width() != ground.cells())) {
+            maps.close();
+            maps = null;
+        }
+        mapOf = ground;
+        java.util.Arrays.fill(mapPainted, false);
+        if (ground == null) return;
+        mapWest = (float) ground.west();
+        mapSize = (float) ground.size();
+        if (maps == null) maps = TextureArray.data(ground.cells(), ground.cells(), GroundMap.GROUPS);
+        boolean changed = false;
+        for (int g = 0; g < GroundMap.GROUPS; g++) {
+            mapPainted[g] = !ground.isEmpty(g);
+            if (!other && ground.version(g) == mapVersions[g]) continue;
+            mapVersions[g] = ground.version(g);
+            maps.update(g, mapPainted[g] ? ground.rgba(g) : null);
+            changed = true;
+        }
+        if (changed) maps.mipmaps();
     }
 
-    private static Texture load(Path file) {
+    private static PixelData load(Path file) {
         try {
             BufferedImage image = ImageIO.read(file.toFile());
             if (image == null) throw new IOException("not an image");
-            return Texture.tiled(PixelData.of(image));
+            return PixelData.of(image);
         } catch (IOException | RuntimeException e) {
             System.err.println("[scenery] cannot load " + file + ": " + e.getMessage());
             return null;
@@ -162,40 +204,34 @@ public final class GroundTexture implements AutoCloseable {
     }
 
     /** Whether there is grass (false: the caller draws its plain floor). */
-    public boolean grass() { return grass != null; }
+    public boolean grass() { return tiles != null; }
 
     /** Metres one tile spans (0 without grass). */
     public float tileWorldSize() { return tile; }
 
     /**
-     * Bind the textures to units {@code firstUnit} to {@code firstUnit + }
-     * {@value #UNITS}{@code - 1} and set {@link #GLSL}'s uniforms on {@code
-     * shader}, which must be in use.
+     * Bind the textures to units {@code firstUnit} and {@code firstUnit + 1}
+     * and set {@link #GLSL}'s uniforms on {@code shader}, which must be in
+     * use.
      */
     public void bind(Shader shader, int firstUnit) {
         shader.set("uGroundTile", tile);
         shader.set("uGroundTexel", texel);
-        String[] names = {"uGroundDirt", "uGroundForest", "uGroundGravel", "uGroundMeadow"};
-        shader.set("uGroundGrass", firstUnit);
-        for (int i = 0; i < 4; i++) shader.set(names[i], firstUnit + 1 + i);
-        shader.set("uGroundMap", firstUnit + 5);
-        if (grass == null) return;
-        grass.bind(firstUnit);
-        float[] has = new float[4];
-        for (int i = 0; i < 4; i++) {
-            Texture t = tiles[i] != null && map != null ? tiles[i] : grass;
-            has[i] = tiles[i] != null && map != null ? 1 : 0;
-            t.bind(firstUnit + 1 + i);
+        shader.set("uGroundTiles", firstUnit);
+        shader.set("uGroundMaps", firstUnit + 1);
+        if (tiles == null) return;
+        tiles.bind(firstUnit);
+        if (maps != null) maps.bind(firstUnit + 1);
+        else tiles.bind(firstUnit + 1);
+        for (int i = 0; i < GroundMap.MATERIALS; i++) {
+            shader.set("uGroundHas[" + i + "]", loaded[i] && maps != null && mapPainted[i / 4] ? 1f : 0f);
         }
-        (map != null ? map : grass).bind(firstUnit + 5);
-        shader.set("uGroundHas", has[0], has[1], has[2], has[3]);
         shader.set("uGroundRect", mapWest, mapWest, mapSize, mapSize);
     }
 
     @Override
     public void close() {
-        if (grass != null) grass.close();
-        for (Texture t : tiles) if (t != null) t.close();
-        if (map != null) map.close();
+        if (tiles != null) tiles.close();
+        if (maps != null) maps.close();
     }
 }

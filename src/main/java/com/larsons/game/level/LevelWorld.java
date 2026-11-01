@@ -88,9 +88,34 @@ public final class LevelWorld {
     public static void stage(World world, Level level, Terrain terrain) {
         world.setTerrain(terrain);
         world.setGround(level.ground());
+        world.setWater(level.water());
         world.setSky(level.sky());
+        world.setLife(level.life());
+        world.startDay();
         double h = level.half();
         world.setBounds(-h, h, -h, h);
+    }
+
+    /**
+     * Set {@code world} inside a building, on {@code floor}: flat ground, no
+     * water, nothing coming by, within the floor's edges - under the sky
+     * outside, its clock going on. Returns the floor's ground, to {@link
+     * #spawnAll} its objects on.
+     */
+    public static Terrain stageIndoors(World world, Level floor) {
+        return stageIndoors(world, floor, terrain(floor));
+    }
+
+    /** {@link #stageIndoors(World, Level)} on {@code terrain}, the floor's ground made already. */
+    public static Terrain stageIndoors(World world, Level floor, Terrain terrain) {
+        world.setTerrain(terrain);
+        world.setGround(com.larsons.game.world.GroundMap.NONE);
+        world.setWater(com.larsons.game.world.WaterMap.NONE);
+        world.setLife(Interiors.life());
+        world.setIndoors(true);
+        double h = floor.half();
+        world.setBounds(-h, h, -h, h);
+        return terrain;
     }
 
     /**
@@ -103,9 +128,14 @@ public final class LevelWorld {
                                 ScenerySprites sprites, CombatTuning tuning) {
         world.items().clear();
         world.chests().clear();
+        world.buildings().clear();
         world.dummies().clear();
         world.fliers().clear();
         world.soundSpots().clear();
+        world.lights().clear();
+        world.raySpots().clear();
+        world.critters().spots().clear();          // (those about stay while their spot is the same)
+        world.animals().herds().clear();           // (and a herd's, while it is the same)
         Build b = new Build(world, terrain, sprites, tuning);
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));
         world.player().setPosition(Vec3.ZERO);

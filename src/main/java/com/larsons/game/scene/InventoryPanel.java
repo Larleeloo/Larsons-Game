@@ -45,7 +45,11 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
  *       there (swapping with what is in it); click outside the panel to put
  *       it on the ground.</li>
  *   <li>Right-click (or Shift-click) moves an item between the hotbar and the
- *       rest of the inventory.</li>
+ *       rest of the inventory; right-clicking something picked from a bush
+ *       eats one of it ({@link World#eat}).</li>
+ *   <li>Pickings stack ({@link Inventory#amount}): the count is drawn on
+ *       the slot, a whole stack is lifted at once, and putting it on a
+ *       stack of the same tops that up.</li>
  *   <li>1 – 5 over a slot swaps it with that hotbar slot.</li>
  *   <li>"A–Z" and "Rarity", at the top, sort the rest of the inventory by
  *       name or rarest first ({@link Inventory#sort}); the hotbar stays.</li>
@@ -94,6 +98,7 @@ final class InventoryPanel {
     private final World world;
     private boolean open;
     private Item cursor;
+    private int cursorAmount;
     private int cursorFrom = -1;
     private int hovered = -1;
     private Texture background;
@@ -128,10 +133,15 @@ final class InventoryPanel {
         hovered = -1;
         if (cursor != null) {
             Inventory inv = inventory();
-            int back = cursorFrom >= 0 && inv.get(cursorFrom) == null ? cursorFrom : inv.add(cursor);
-            if (back >= 0) inv.set(back, cursor);
-            else world.dropItem(cursor);
+            if (cursorFrom >= 0 && inv.get(cursorFrom) == null) {
+                inv.set(cursorFrom, cursor, cursorAmount);
+            } else {
+                int left = cursorAmount;
+                while (left > 0 && inv.add(cursor) >= 0) left--;
+                if (left > 0) world.dropItem(cursor, left);
+            }
             cursor = null;
+            cursorAmount = 0;
             cursorFrom = -1;
             world.equipSelected();
         }
@@ -263,7 +273,7 @@ final class InventoryPanel {
             boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
             if (hot) hovered = s.slot();
             boolean sel = s.slot() == inv.selected();
-            slot(ui, s.x(), s.y(), s.r(), inv.get(s.slot()), hot, sel);
+            slot(ui, s.x(), s.y(), s.r(), inv.get(s.slot()), inv.amount(s.slot()), hot, sel);
             if (Inventory.isHotbar(s.slot())) {
                 ui.textCentered(ui.small, String.valueOf(s.slot() + 1), s.x(), s.y() + s.r() + 3,
                         sel ? SELECTED : Theme.HINT);
@@ -281,43 +291,97 @@ final class InventoryPanel {
             } else if (hovered >= 0) {
                 if (cursor == null) {
                     if (inv.get(hovered) != null) {
+                        cursorAmount = inv.amount(hovered);
                         cursor = inv.take(hovered);
                         cursorFrom = hovered;
                         Sounds.play(SoundKeys.ui("item_pick"));
                     }
+                } else if (cursor.equals(inv.get(hovered)) && cursor.def().stack() > 1) {
+                    // onto a stack of the same: topped up, what does not fit stays on the pointer
+                    cursorAmount = inv.merge(hovered, cursor, cursorAmount);
+                    if (cursorAmount <= 0) {
+                        cursor = null;
+                        cursorFrom = -1;
+                    }
+                    Sounds.play(SoundKeys.ui("item_place"));
                 } else {
-                    cursor = inv.set(hovered, cursor);
+                    int wasAmount = inv.amount(hovered);
+                    cursor = inv.set(hovered, cursor, cursorAmount);
+                    cursorAmount = cursor == null ? 0 : wasAmount;
                     cursorFrom = cursor == null ? -1 : hovered;
                     Sounds.play(SoundKeys.ui("item_place"));
                 }
                 world.equipSelected();
             } else if (!inside && cursor != null) {
-                Item d = world.dropItem(cursor);
+                Item d = world.dropItem(cursor, cursorAmount);
                 if (d != null) {
                     Sounds.play(SoundKeys.item(d.id(), "drop"));
                     game.saveWardrobe();
-                    game.toast("Dropped " + d.fullName(), Theme.HINT);
+                    game.toast("Dropped " + (cursorAmount > 1 ? cursorAmount + " " : "") + d.fullName(), Theme.HINT);
                 }
                 cursor = null;
+                cursorAmount = 0;
                 cursorFrom = -1;
             }
         }
         if (in.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)) {
             in.consumeMouse(GLFW_MOUSE_BUTTON_RIGHT);
-            if (hovered >= 0 && cursor == null) quickMove(hovered);
+            if (hovered >= 0 && cursor == null) {
+                Item there = inv.get(hovered);
+                if (there != null && there.def().isFood() && !shift) eat(hovered);
+                else quickMove(hovered);
+            }
         }
 
         // --- what is under the pointer, and what is on it ----------------------------
         if (hovered >= 0 && inv.get(hovered) != null && cursor == null) {
-            String hint = Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
-            tooltip(ui, inv.get(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
+            Item there = inv.get(hovered);
+            String hint = there.def().isFood() ? "Right-click: eat one · Shift-click: move"
+                    : Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
+            tooltip(ui, there, inv.amount(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
         }
         if (cursor != null) {
             float r = spots.get(0).r() * 0.9f;
             icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
+            count(ui, cursorAmount, (float) in.mouseX(), (float) in.mouseY(), r);
         }
-        ui.textCentered(ui.small, "Click: pick up / put down · Right-click: to / from the hotbar · "
+        ui.textCentered(ui.small, "Click: pick up / put down · Right-click: to / from the hotbar, or eat · "
                 + "Click outside: drop · A–Z / Rarity: sort · I or Esc: close", ui.width() / 2f, py + ph + 10, Theme.HINT);
+    }
+
+    /**
+     * Right-click on something picked: eat one of it ({@link World#eat}) -
+     * what it gives back shown in a toast, or that she has no need of it.
+     */
+    private void eat(int slot) {
+        World.Eaten e = world.eat(slot);
+        if (e == null) return;
+        if (!e.ate()) {
+            Sounds.play(SoundKeys.ui("error"));
+            game.toast("You are already full - no need for " + e.item().def().name().toLowerCase(), Theme.HINT);
+            return;
+        }
+        Sounds.play(SoundKeys.item(e.item().id(), "eat"));
+        game.toast("Ate " + e.item().def().name().toLowerCase() + ": " + gains(e), Theme.ACCENT);
+    }
+
+    /** What eating gave back, as "+20 health, +15 stamina". */
+    static String gains(World.Eaten e) {
+        List<String> parts = new ArrayList<>();
+        if (e.health() > 0) parts.add("+" + Math.round(e.health()) + " health");
+        if (e.stamina() > 0) parts.add("+" + Math.round(e.stamina()) + " stamina");
+        if (e.mana() > 0) parts.add("+" + Math.round(e.mana()) + " mana");
+        return String.join(", ", parts);
+    }
+
+    /** A stack's count in the lower corner of its diamond (nothing for one). */
+    private void count(Ui ui, int amount, float x, float y, float r) {
+        if (amount <= 1) return;
+        String n = String.valueOf(amount);
+        float tx = x + r * 0.32f, ty = y + r * 0.18f;
+        float w = ui.small.width(n);
+        ui.text(ui.small, n, tx - w / 2 + 1, ty + 1, Theme.rgb(0, 0, 0, 0.85f));
+        ui.text(ui.small, n, tx - w / 2, ty, Theme.TITLE);
     }
 
     /** Where the sort buttons go: in the title's band, either side of it, as {@code {x, y, w, h}} of the left one. */
@@ -370,7 +434,7 @@ final class InventoryPanel {
         for (int i = 0; i < Inventory.HOTBAR; i++) {
             boolean sel = i == inv.selected();
             float rr = sel ? r + 4 : r;
-            slot(ui, cx0 + i * step, cy, rr, inv.get(i), false, sel);
+            slot(ui, cx0 + i * step, cy, rr, inv.get(i), inv.amount(i), false, sel);
             ui.textCentered(ui.small, String.valueOf(i + 1), cx0 + i * step, cy + rr * 0.38f,
                     sel ? SELECTED : Theme.withAlpha(Theme.HINT, 0.9f));
         }
@@ -389,7 +453,7 @@ final class InventoryPanel {
      * white border (gold when selected), the item in it, turning while the
      * pointer is on it or it is selected.
      */
-    private void slot(Ui ui, float x, float y, float r, Item item, boolean hot, boolean selected) {
+    private void slot(Ui ui, float x, float y, float r, Item item, int amount, boolean hot, boolean selected) {
         ui.diamond(x, y, r, SLOT_FILL);
         if (item != null) {
             ui.diamond(x, y, r, item.rarity().colour(RARITY_FILL));
@@ -398,6 +462,7 @@ final class InventoryPanel {
         if (hot) ui.diamond(x, y, r, SLOT_HOVER);
         if (item != null) icon(ui, item, x, y, r, 1f, hot || selected);
         ui.diamondOutline(x, y, r, selected ? 3 : 2, selected ? SELECTED : BORDER);
+        if (item != null) count(ui, amount, x, y, r);
     }
 
     /**
@@ -440,12 +505,19 @@ final class InventoryPanel {
         b.rect(icon.sprite(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, alpha);
     }
 
-    /** The item's name in its rarity's colour, its rarity (and tier), its border's effect, and {@code hint}. */
-    private void tooltip(Ui ui, Item item, String hint, float x, float y) {
-        String title = item.fullName();
-        String rarity = item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
+    /**
+     * The item's name in its rarity's colour (and how many, for a stack), its
+     * rarity (and tier), its border's effect - or what eating it gives - and
+     * {@code hint}.
+     */
+    private void tooltip(Ui ui, Item item, int amount, String hint, float x, float y) {
+        String title = item.fullName() + (amount > 1 ? "  x" + amount : "");
+        String rarity = item.def().isFood() ? item.def().food().kind() + " - " + item.rarity().label()
+                : item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
         Border border = item.border();
-        String effect = border == null ? null : border.label() + " border: " + border.effect();
+        String effect = item.def().isFood() ? "Eat: " + item.def().food().effect()
+                : item.def().isTack() ? "Saddles a horse: walk up to one and press E"
+                : border == null ? null : border.label() + " border: " + border.effect();
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
         w += 20;
@@ -458,7 +530,7 @@ final class InventoryPanel {
         ui.text(ui.small, rarity, x + 10, y + 27, Theme.withAlpha(item.rarity().colour(1f), 0.8f));
         float hy = y + 49;
         if (effect != null) {
-            ui.text(ui.small, effect, x + 10, hy, border.colour(1f));
+            ui.text(ui.small, effect, x + 10, hy, border == null ? Theme.ACCENT : border.colour(1f));
             hy += 22;
         }
         ui.text(ui.small, hint, x + 10, hy, Theme.ITEM_DISABLED);

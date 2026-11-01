@@ -33,15 +33,26 @@ import java.util.function.Supplier;
  * @param carrySlot   which hand it goes in (a right-handed character's); null for a wearable
  * @param worldSize   metres across its world sprite is drawn
  * @param stance      the stance it is held in ({@link Stance#SWORD}: worn in the wardrobe)
+ * <p>A picking from a foraging bush - berries, a herb, a fruit, a flower -
+ * is neither: it has {@link Food} saying what eating it gives back, no carry
+ * slot, and lies in the inventory in stacks ({@link Pickings#ALL}).
+ *
  * @param wearable    where and how it is worn, or null for a weapon
+ * @param food        what eating it does, or null for anything not eaten
  */
 public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
-                      Supplier<BufferedImage> fallbackIcon, Stance stance, Wearable wearable) {
+                      Supplier<BufferedImage> fallbackIcon, Stance stance, Wearable wearable, Food food) {
 
     /** A weapon (or anything else that is not a wearable). */
     public ItemDef(String id, String name, Slot carrySlot, double worldSize,
                    Supplier<BufferedImage> fallbackIcon, Stance stance) {
-        this(id, name, carrySlot, worldSize, fallbackIcon, stance, null);
+        this(id, name, carrySlot, worldSize, fallbackIcon, stance, null, null);
+    }
+
+    /** A weapon or a wearable. */
+    public ItemDef(String id, String name, Slot carrySlot, double worldSize,
+                   Supplier<BufferedImage> fallbackIcon, Stance stance, Wearable wearable) {
+        this(id, name, carrySlot, worldSize, fallbackIcon, stance, wearable, null);
     }
 
     public static final ItemDef SWORD = new ItemDef("sword", "Sword", Slot.CARRY_RIGHT, 1.0,
@@ -76,12 +87,27 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return wearable != null;
     }
 
+    /** Whether it is tack - the saddle - for a horse, neither held nor worn nor eaten ({@link Tack}). */
+    public boolean isTack() {
+        return Tack.is(this);
+    }
+
+    /** Whether it is eaten: a picking from a foraging bush ({@link #food}). */
+    public boolean isFood() {
+        return food != null;
+    }
+
+    /** How many go in one inventory slot: a picking's stack, else one. */
+    public int stack() {
+        return food == null ? 1 : Math.max(1, food.stack());
+    }
+
     /**
      * Whether, picked up, it goes into the wardrobe's hand ({@link #carrySlot}):
-     * the sword - no stance of its own, and not a wearable.
+     * the sword - no stance of its own, not a wearable, not a picking, not tack.
      */
     public boolean inHand() {
-        return !held() && !isWearable();
+        return !held() && !isWearable() && !isFood() && !isTack();
     }
 
     /** The weapon of {@code stance}, or null (the sword stance's are worn, the free one has none). */
@@ -90,9 +116,12 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return null;
     }
 
-    /** A weapon or a wearable by its id, or null. */
+    /** A weapon, a wearable, a picking or tack by its id, or null. */
     public static ItemDef byId(String id) {
         for (ItemDef d : ALL) if (d.id.equals(id)) return d;
-        return Wearables.byId(id);
+        ItemDef w = Wearables.byId(id);
+        if (w != null) return w;
+        ItemDef p = Pickings.byId(id);
+        return p != null ? p : Tack.byId(id);
     }
 }

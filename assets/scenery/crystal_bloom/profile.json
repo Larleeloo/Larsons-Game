@@ -1,0 +1,23 @@
+{
+ "kind": "tuft",
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "frames": 24,
+ "fps": 12,
+ "frameWorldSize": 1.2,
+ "radius": 0,
+ "shadowRadius": 0.336,
+ "biomes": [
+  "crystal"
+ ],
+ "forage": {
+  "item": "crystal_bloom",
+  "count": [
+   1,
+   2
+  ],
+  "regrow": 420,
+  "picked": "crystal_bloom_picked"
+ },
+ "glow": "#FF8AD8"
+}

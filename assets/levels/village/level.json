@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "name": "Village",
+  "size": 128,
+  "sky": {
+    "zenith": "#5C78A3",
+    "horizon": "#BDC9DB",
+    "fog": 120,
+    "backdrops": [],
+    "time": {
+      "start": 16,
+      "day": 24
+    },
+    "planet": {
+      "show": true,
+      "azimuth": 200,
+      "elevation": 16,
+      "size": 26,
+      "rings": false,
+      "seed": 1
+    },
+    "clouds": 0.35,
+    "stars": 0.85,
+    "aurora": 0.35,
+    "mist": {
+      "thick": 0.25,
+      "height": 2.5
+    },
+    "rays": 0.6
+  },
+  "music": "shuffle",
+  "objects": [
+    {"id": 1, "type": "spawn", "x": 0, "z": 14, "yaw": 0},
+    {"id": 2, "type": "building", "x": 0, "z": -39.875, "yaw": 180, "kind": "keep"},
+    {"id": 3, "type": "building", "x": -14, "z": -24, "yaw": 315, "kind": "round_tower"},
+    {"id": 4, "type": "building", "x": 14, "z": -24, "yaw": 45, "kind": "round_tower"},
+    {"id": 5, "type": "building", "x": -14, "z": -52, "yaw": 225, "kind": "round_tower"},
+    {"id": 6, "type": "building", "x": 14, "z": -52, "yaw": 135, "kind": "round_tower"},
+    {"id": 7, "type": "building", "x": -7.5, "z": -24, "yaw": 180, "kind": "castle_wall"},
+    {"id": 8, "type": "building", "x": 0, "z": -24, "yaw": 180, "kind": "gatehouse"},
+    {"id": 9, "type": "building", "x": 7.5, "z": -24, "yaw": 180, "kind": "castle_wall"},
+    {"id": 10, "type": "building", "x": -7.5, "z": -52, "yaw": 0, "kind": "castle_wall"},
+    {"id": 11, "type": "building", "x": -14, "z": -30.5, "yaw": 90, "kind": "castle_wall"},
+    {"id": 12, "type": "building", "x": 14, "z": -30.5, "yaw": 270, "kind": "castle_wall"},
+    {"id": 13, "type": "building", "x": 0, "z": -52, "yaw": 0, "kind": "castle_wall"},
+    {"id": 14, "type": "building", "x": -14, "z": -38, "yaw": 90, "kind": "castle_wall"},
+    {"id": 15, "type": "building", "x": 14, "z": -38, "yaw": 270, "kind": "castle_wall"},
+    {"id": 16, "type": "building", "x": 7.5, "z": -52, "yaw": 0, "kind": "castle_wall"},
+    {"id": 17, "type": "building", "x": -14, "z": -45.5, "yaw": 90, "kind": "castle_wall"},
+    {"id": 18, "type": "building", "x": 14, "z": -45.5, "yaw": 270, "kind": "castle_wall"},
+    {"id": 19, "type": "building", "x": -15, "z": 2, "yaw": 270, "kind": "cottage"},
+    {"id": 20, "type": "building", "x": -15, "z": 16, "yaw": 270, "kind": "cottage", "look": {"walls":{"colour":"#e8c0b0"},"roof":{"colour":"#707888","texture":"slate"},"shutters":{"colour":"#8a3a3a"},"side_walls":{"colour":"#e8c0b0"}}},
+    {"id": 21, "type": "building", "x": 16, "z": 2, "yaw": 90, "kind": "house"},
+    {"id": 22, "type": "building", "x": 16, "z": 17, "yaw": 90, "kind": "house", "look": {"walls":{"colour":"#ecdc9c"},"roof":{"colour":"#5e7044","texture":"shingles"},"shutters":{"colour":"#3c6c4c"},"side_walls":{"colour":"#ecdc9c"}}},
+    {"id": 23, "type": "building", "x": -32, "z": 30, "yaw": 300, "kind": "cabin"},
+    {"id": 24, "type": "building", "x": 34, "z": -6, "yaw": 200, "kind": "windmill"},
+    {"id": 25, "type": "building", "x": -36, "z": -8, "yaw": 150, "kind": "watermill"},
+    {"id": 26, "type": "scenery", "x": -26, "z": -18, "yaw": 0, "sprite": "oak_tree"},
+    {"id": 27, "type": "scenery", "x": 24, "z": 30, "yaw": 0, "sprite": "oak_tree"},
+    {"id": 28, "type": "scenery", "x": 30, "z": 18, "yaw": 0, "sprite": "oak_tree"},
+    {"id": 29, "type": "scenery", "x": -28, "z": 8, "yaw": 0, "sprite": "birch_tree"},
+    {"id": 30, "type": "scenery", "x": 26, "z": -20, "yaw": 0, "sprite": "birch_tree"},
+    {"id": 31, "type": "scenery", "x": -40, "z": 20, "yaw": 0, "sprite": "pine_tree"},
+    {"id": 32, "type": "scenery", "x": 42, "z": 8, "yaw": 0, "sprite": "pine_tree"},
+    {"id": 33, "type": "animals", "x": 34, "z": 34, "yaw": 0, "kind": "cow", "count": 4, "radius": 8, "temperament": "own", "when": "its_time"},
+    {"id": 34, "type": "animals", "x": -6, "z": 30, "yaw": 0, "kind": "goose", "count": 4, "radius": 8, "temperament": "own", "when": "its_time"}
+  ]
+}

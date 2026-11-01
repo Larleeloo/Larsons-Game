@@ -6,13 +6,17 @@ import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Slot;
+import com.larsons.game.world.Biome;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.RideTrack;
 import com.larsons.game.world.World;
 
+import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.function.ToDoubleFunction;
 
@@ -27,7 +31,9 @@ import java.util.function.ToDoubleFunction;
  *       a <b>footstep</b> each time a foot comes down in a walk, a run, a
  *       sprint or a crouched walk, on the ground under her ({@code
  *       player/<body>/footstep_grass}, {@code _dirt}, {@code _gravel},
- *       {@code _forest}), quieter the more softly she goes; each hand's grip
+ *       {@code _forest}, {@code _sand}, {@code _mud}, {@code _snow}, {@code
+ *       _stone}, {@code _crystal}, and {@code _water} wading), quieter the
+ *       more softly she goes; each hand's grip
  *       as she climbs the vines; crouching and standing up; the heavy attack
  *       coming back;</li>
  *   <li><b>every chest</b>: {@code chest/<id>/idle}, {@code open}, {@code
@@ -43,7 +49,11 @@ import java.util.function.ToDoubleFunction;
  *   <li><b>the fighting</b> and what happens to her ({@link Combat#drainSounds}):
  *       the dice, blows, shots and spells, a landing, a hurt, where they
  *       happen;</li>
- *   <li><b>the breeze</b> over it all ({@code ambient/wind}).</li>
+ *   <li><b>the breeze</b> over it all ({@code ambient/wind}), and <b>the
+ *       biome's own</b> by day and by night ({@code ambient/plains} and
+ *       {@code ambient/crickets}, {@code ambient/marsh} and {@code
+ *       ambient/frogs} ... world/Biome), heard as much as the country round
+ *       her is that biome, so one fades into the next across its edge.</li>
  * </ul>
  *
  * <p>Other one-off events (picking an item up, the inventory, the menus) play
@@ -55,6 +65,12 @@ public final class WorldSounds {
     public static final double HALF_WIDTH = 4.0;
     /** How loud the breeze is under everything. */
     public static final double WIND = 0.55;
+    /** How loud a biome's own sound is where it is all round her. */
+    public static final double AMBIENCE = 0.6;
+    /** How far round her (metres) the country is listened to for its biome. */
+    public static final double BIOME_REACH = 7;
+    /** How fast one biome's sound fades into the next, of its full volume a second. */
+    public static final double BIOME_FADE = 0.4;
 
     private final AnimationSound player = new AnimationSound();
     private final Map<Chest, AnimationSound> chests = new IdentityHashMap<>();
@@ -65,6 +81,10 @@ public final class WorldSounds {
     private Map<World.GroundItem, Integer> loot = new IdentityHashMap<>();
     private final SoundEmitter wind = new SoundEmitter();
     private Map<World.SoundSpot, SoundEmitter> spots = new IdentityHashMap<>();
+    /** Each biome's sound playing and how far it has faded in, 0 - 1. */
+    private final Map<String, SoundEmitter> beds = new HashMap<>();
+    private final Map<String, Double> bedLevels = new HashMap<>();
+    private double lastTime = Double.NaN;
 
     /** The state the last footstep was counted in, and which half of its cycle that was. */
     private AnimState stepState;
@@ -77,7 +97,8 @@ public final class WorldSounds {
         Player p = world.player();
         String body = p.wardrobe().get(Slot.BODY);
         player.update(SoundKeys.player(body, p.state()), p.stateTime(), 1.0, 0.0);
-        steps(p, body, durations, world.scenery().ground());
+        steps(p, body, durations, world);
+        hooves(p);
         if (crouched != null && crouched != p.crouched()) {
             Sounds.play(SoundKeys.player(body, p.crouched() ? "crouch" : "stand"), 0.8);
         }
@@ -105,7 +126,49 @@ public final class WorldSounds {
             Sounds.play(s.key(), at[0] * s.volume(), at[1]);
         }
         wind.update(SoundKeys.ambient("wind"), WIND);
+        double dt = Double.isNaN(lastTime) ? 1 : Math.max(0, Math.min(1, world.time() - lastTime));
+        lastTime = world.time();
+        biomes(world, listener, dt);
         spots(world, listener, right);
+    }
+
+    /**
+     * How much of each biome's sound to hear at {@code at}, by day {@code day}
+     * (0 night - 1 noon): the share of the country round it that is each
+     * biome - the spot itself and eight round it - its day sound by day and
+     * its night sound by night.
+     */
+    public static Map<String, Double> biomeMix(World world, Vec3 at, double day) {
+        Map<String, Double> mix = new HashMap<>();
+        int n = 9;
+        for (int i = 0; i < n; i++) {
+            double a = i * Math.PI * 2 / (n - 1), r = i == 0 ? 0 : BIOME_REACH;
+            Biome b = world.biome(at.x() + Math.cos(a) * r, at.z() + Math.sin(a) * r);
+            mix.merge(SoundKeys.ambient(b.ambient()), day / n, Double::sum);
+            mix.merge(SoundKeys.ambient(b.ambientNight()), (1 - day) / n, Double::sum);
+        }
+        return mix;
+    }
+
+    /** The biomes' sounds, each faded towards how much of it there is round her. */
+    private void biomes(World world, Vec3 at, double dt) {
+        double day = world.clock().daylight(world.sky()).day();
+        Map<String, Double> want = biomeMix(world, at, day);
+        for (String k : want.keySet()) bedLevels.putIfAbsent(k, 0.0);
+        for (Iterator<Map.Entry<String, Double>> it = bedLevels.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<String, Double> e = it.next();
+            double target = want.getOrDefault(e.getKey(), 0.0), now = e.getValue();
+            now += Math.max(-BIOME_FADE * dt, Math.min(BIOME_FADE * dt, target - now));
+            SoundEmitter emitter = beds.computeIfAbsent(e.getKey(), k -> new SoundEmitter());
+            if (now <= 1e-3 && target <= 1e-3) {
+                emitter.stop();
+                beds.remove(e.getKey());
+                it.remove();
+                continue;
+            }
+            e.setValue(now);
+            emitter.update(e.getKey(), AMBIENCE * now);
+        }
     }
 
     /** The sounds placed in a level, each where it stands; one taken away falls silent. */
@@ -133,7 +196,7 @@ public final class WorldSounds {
      * time the time into it crosses a half. Climbing, each hand takes hold
      * the same way, forwards or backwards.
      */
-    private void steps(Player p, String body, ToDoubleFunction<AnimState> durations, GroundMap ground) {
+    private void steps(Player p, String body, ToDoubleFunction<AnimState> durations, World world) {
         AnimState s = p.state();
         boolean gait = s.loops() && s.speed() > 0;
         boolean climb = s == AnimState.CLIMB;
@@ -147,27 +210,66 @@ public final class WorldSounds {
         if (s != stepState) {
             stepState = s;
             stepHalf = half;
-            if (gait) footstep(p, body, s, ground);       // the first step, as the gait starts
+            if (gait) footstep(p, body, s, world);       // the first step, as the gait starts
             return;
         }
         if (half == stepHalf) return;
         stepHalf = half;
-        if (gait) footstep(p, body, s, ground);
+        if (gait) footstep(p, body, s, world);
         else Sounds.play(SoundKeys.player(body, "climb_grip"), 0.8);
     }
 
-    private static void footstep(Player p, String body, AnimState s, GroundMap ground) {
-        Vec3 at = p.ground();
-        double v = s.speed() < 1.0 ? 0.4 : s.speed() < 2.5 ? 0.62 : s.speed() < 5.0 ? 0.85 : 1.0;
-        Sounds.play(SoundKeys.footstep(body, surface(ground, at.x(), at.z())), v);
+    /**
+     * The hooves of the horse she rides: two steps a stride of its walk
+     * sheet, one a stride of its run sheet (a canter's, a gallop's beat) -
+     * counted on its clock as her footsteps are on hers.
+     */
+    private void hooves(Player p) {
+        String sheet = p.mounted() ? p.horseSheet() : "idle";
+        if (sheet.equals("idle")) {
+            hoofSheet = null;
+            return;
+        }
+        boolean run = sheet.equals("run");
+        int frames = p.rideTrack().frames(sheet);
+        double stride = frames > 0 ? frames / RideTrack.FPS : run ? 0.6 : 0.8;
+        double beat = Math.floor(p.horseTime() / stride * (run ? 1 : 2));
+        if (sheet.equals(hoofSheet) && beat == hoofBeat) return;
+        hoofSheet = sheet;
+        hoofBeat = beat;
+        Sounds.play(SoundKeys.creature("horse", run ? "gallop" : "hooves"), run ? 0.9 : 0.65);
     }
 
-    /** The footstep surface at {@code (x, z)}: the ground map's material, grass where it has none. */
+    /** The horse's sheet the last hoof beat was counted in, and which beat. */
+    private String hoofSheet;
+    private double hoofBeat;
+
+    private static void footstep(Player p, String body, AnimState s, World world) {
+        Vec3 at = p.ground();
+        double v = s.speed() < 1.0 ? 0.4 : s.speed() < 2.5 ? 0.62 : s.speed() < 5.0 ? 0.85 : 1.0;
+        String surface = world.water().depth(at.x(), at.z(), at.y()) > WADING ? "water"
+                : surface(world.scenery().ground(), at.x(), at.z());
+        Sounds.play(SoundKeys.footstep(body, surface), v);
+    }
+
+    /** How deep (metres) the water must be for a step to splash rather than fall on the ground under it. */
+    public static final double WADING = 0.04;
+
+    /**
+     * The footstep surface at {@code (x, z)}: the ground map's material -
+     * the jungle's floor sounds as the forest's, ash as sand, dry grass as
+     * grass - grass where it has none.
+     */
     public static String surface(GroundMap ground, double x, double z) {
         return switch (ground.material(x, z)) {
             case GroundMap.DIRT -> "dirt";
             case GroundMap.GRAVEL -> "gravel";
-            case GroundMap.FOREST -> "forest";
+            case GroundMap.FOREST, GroundMap.JUNGLE -> "forest";
+            case GroundMap.SAND, GroundMap.ASH -> "sand";
+            case GroundMap.MUD -> "mud";
+            case GroundMap.SNOW -> "snow";
+            case GroundMap.STONE -> "stone";
+            case GroundMap.CRYSTAL -> "crystal";
             default -> "grass";
         };
     }

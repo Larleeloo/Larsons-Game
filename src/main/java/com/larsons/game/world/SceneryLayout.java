@@ -163,9 +163,9 @@ public final class SceneryLayout {
         int tuftCount;
 
         Planter(ScenerySprites sprites, List<Clearing> clearings, long seed, Terrain terrain) {
-            trees = sprites.ofKind(Kind.TREE);
-            rocks = sprites.ofKind(Kind.ROCK);
-            tufts = sprites.ofKind(Kind.TUFT);
+            trees = sprites.meadow(Kind.TREE);
+            rocks = sprites.meadow(Kind.ROCK);
+            tufts = sprites.meadow(Kind.TUFT);
             this.clearings = List.copyOf(clearings);
             this.seed = seed;
             this.terrain = terrain;

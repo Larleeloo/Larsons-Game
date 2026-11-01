@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.gfx.SceneLight;
 import com.larsons.game.gfx.Shader;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
@@ -69,7 +70,7 @@ public final class TerrainRenderer implements AutoCloseable {
             uniform vec4 uWallOut[16];  // its outward normal (x, z), its bottom and top
             uniform int uWalls;
             out vec4 fragColor;
-            """ + GroundTexture.GLSL + """
+            """ + GroundTexture.GLSL + SceneLight.GLSL + """
 
             // the vines on a climbable wall, in blocks of four texels (they read from afar):
             // strands that wander down the face, leaves along them; alpha 0 where there are none
@@ -102,9 +103,9 @@ public final class TerrainRenderer implements AutoCloseable {
                 // (every texture read before anything branches: their mip levels need the neighbours)
                 vec3 grass = uGroundTile > 0.0 ? groundColour(vPos.xz) : vec3(0.60, 0.63, 0.68);
                 float tile = max(uGroundTile, 1.0);
-                vec3 rx = texture(uGroundGravel, vPos.zy / tile).rgb;
-                vec3 rz = texture(uGroundGravel, vPos.xy / tile).rgb;
-                vec3 rtop = texture(uGroundGravel, vPos.xz / tile).rgb;
+                vec3 rx = texture(uGroundTiles, vec3(vPos.zy / tile, 3.0)).rgb;
+                vec3 rz = texture(uGroundTiles, vec3(vPos.xy / tile, 3.0)).rgb;
+                vec3 rtop = texture(uGroundTiles, vec3(vPos.xz / tile, 3.0)).rgb;
 
                 // rock: the gravel seen from the side on a face, from above on a ledge, in strata
                 float side = abs(n.x) / max(1e-4, abs(n.x) + abs(n.z));
@@ -123,6 +124,8 @@ public final class TerrainRenderer implements AutoCloseable {
                 float shade = 0.55 + 0.45 * dot(n, uSun) / uSun.y;
                 shade = clamp(floor(shade / 0.06 + 0.5) * 0.06, 0.42, 1.2);
                 c *= mix(shade, max(shade, 0.9), v.a);          // the vines catch the light out on the face
+                c *= sceneLight(vPos);
+                c = mix(c, uMistColour, sceneMist(vPos));
 
                 float dist = length(vPos - uEye);
                 float fog = 1.0 - exp(-pow(dist / uFogDistance, 2.0));
@@ -241,6 +244,11 @@ public final class TerrainRenderer implements AutoCloseable {
      * the fog as the flat ground does. Leaves depth testing on.
      */
     public void draw(Terrain t, OrbitCamera camera, Mat4 viewProj, float[] fog, float fogDistance) {
+        draw(t, camera, viewProj, fog, fogDistance, SceneLight.NONE);
+    }
+
+    /** {@link #draw} lit by {@code light} and in its mist. */
+    public void draw(Terrain t, OrbitCamera camera, Mat4 viewProj, float[] fog, float fogDistance, SceneLight light) {
         if (t != terrain) upload(t);
         if (count == 0) return;
         glEnable(GL_DEPTH_TEST);
@@ -264,6 +272,7 @@ public final class TerrainRenderer implements AutoCloseable {
             shader.set("uWallOut[" + i + "]", (float) w.nx(), (float) w.nz(), (float) w.bottom(), (float) w.top());
         }
         shader.set("uWalls", n);
+        light.bind(shader);
         ground.bind(shader, 0);
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);

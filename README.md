@@ -26,6 +26,11 @@ ticked off as it lands.
 - [Fighting](#fighting)
 - [Sound](#sound)
 - [The scenery](#the-scenery)
+- [Biomes and water](#biomes-and-water)
+- [Day and night](#day-and-night)
+- [Life: critters and foraging](#life-critters-and-foraging)
+- [Animals](#animals)
+- [Buildings](#buildings) (and [going inside](#going-inside))
 - [Creative Mode](#creative-mode)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
@@ -125,15 +130,17 @@ window could even open).
 | **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword with the sword and shield - or, with no shield worn, the sword alone; an empty slot, empty hands |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot; **A–Z** / **Rarity** sort it |
 | **F1 – F4** | laugh, cry, surprise, anger |
-| **E** / **G** | pick up the item you are standing by (she reaches for it), or open / shut the chest / drop what you are holding |
+| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, pick a bush, go in at a door, up or down the stairs or out - whichever is nearest; by a horse, **saddle** it (with a saddle on her) or **ride** it, and on it, **get off** ([Riding](#riding)) / drop what you are holding |
+| **W A S D**, **Shift**, **Ctrl** (riding) | steer the horse - it turns no faster than a horse can - at a walk, a canter or a gallop |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
 | **Tab** / **O** | camera height preset: side → 45° → top-down / the [automatic camera height](#the-automatic-camera-height) on the hills, or fixed |
-| **[ / ]** | loop the previous / next of all 129 states in place |
+| **[ / ]** | loop the previous / next of all 131 states in place |
 | **Backspace** | stop looping |
 | **, / .** | turn the character 45° |
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
+| **N** (held) | time-lapse: the day runs sixty times as fast while it is held ([Day and night](#day-and-night)) |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F11** | full screen, with the display switched to its fastest refresh rate - or back to the window ([frame rate](#120-frames-a-second)) |
 | **F12** | screenshot (to `screenshots/`) |
@@ -149,12 +156,13 @@ Drop sprite sheets on the window at any time to import them.
   ray-casts the ground plane per pixel, so it has no edge and a clean horizon
   at any zoom; oaks, grass tufts and rocks stand on it (see below).
 - **The character**, standing in the middle as a stack of sprite layers, in
-  **129 animation states**, each from **8 directions × 3 heights**: idle, walk,
+  **131 animation states**, each from **8 directions × 3 heights**: idle, walk,
   run, sprint, jump and attack; crouching (an idle, a walk and a fast walk);
   the dash and the combat roll (played with whatever she holds); the bow,
   crossbow, staff and wand **aimed up** at what flies; climbing;
   reaching down to pick something up, standing or crouched; four emotes -
-  laughing, crying, surprise and anger; the sword's spin attack and parry and
+  laughing, crying, surprise and anger; riding a horse, at a walk and at a
+  gallop; the sword's spin attack and parry and
   the shield held ready and bashed; the sword held alone, with no shield (11
   more: `blade_*`); and the weapons' stances below. The
   HUD names the exact sheet each layer is drawing (and, where a set has no
@@ -933,13 +941,13 @@ own volume:
 
 | Category | What is in it |
 |---|---|
-| **Footsteps & movement** | a footstep each time a foot comes down - on the ground under it (grass, a dirt path, gravel or the forest floor), quieter the softer she goes - jumping, landing (louder the farther she fell), a hard landing, rolling out of a fall, crouching and standing, the dash and the combat roll, stepping over a ledge, each hand taking hold of the vines, letting go |
+| **Footsteps & movement** | a footstep each time a foot comes down - on the ground under it (grass, a dirt path, gravel, the forest floor, sand, mud, snow, stone or crystal) or a splash wading through water, quieter the softer she goes - jumping, landing (louder the farther she fell), a hard landing, rolling out of a fall, crouching and standing, the dash and the combat roll, stepping over a ledge, each hand taking hold of the vines, letting go |
 | **Voices** | each body's laugh, cry, surprise and anger, being hurt, knocked out, and out of breath |
 | **Weapons** | every swing, chop, smash, thrust, shot and cast of all eight weapons, the parry, taking each weapon in hand, the heavy attack ready again |
 | **Hits & magic** | the dice, a blow landing, arrows and bolts striking or sticking, spells cast, hitting, bursting on the ground or fizzling, venom, being struck, blocking, parrying, dodging |
-| **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up |
+| **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up; the critters' chirps, croaks and plops; every animal's calls, cries when hurt, warnings and wingbeats |
 | **World & loot** | the chests (shut and humming, thrown open, standing open, closing), the loot thrown out and landing, and its rarity ringing out from Uncommon to Mythic, picking things up and dropping them |
-| **Ambient** | the breeze over everything (and a stream and crickets, ready for the places that need them) |
+| **Ambient** | the breeze over everything, and each biome's own by day and by night - the plains' birdsong and crickets, the marsh's insects and frogs, the mountain wind, the jungle by day and by night, the savannah's cicadas, the sea, a stream, the waste's hollow wind, the crystals' chimes - fading into each other across the biomes' edges (and any of them placed as a sound in a level) |
 | **Music** | the songs, each looping where it plays: the main menu's |
 | **Interface** | menus, the inventory, the wardrobe, the lock-on, screenshots, cutscene lines, and the level editor's tools |
 
@@ -979,7 +987,7 @@ assets/sounds/
   soundpack.json          volume, pitch, pitch variation, per-sound overrides
   player/                 footstep_grass.mp3 ... jump.mp3, land.mp3, dash.mp3, roll.mp3, climb_grip.mp3,
                           attack.mp3, axe_attack.mp3, bow_fire.mp3, wand_attack.mp3 ... (both bodies)
-  player/feminine/        her voice: emote_laugh.mp3, hurt.mp3 ... and any of her 129 animations of her own
+  player/feminine/        her voice: emote_laugh.mp3, hurt.mp3 ... and any of her 131 animations of her own
   player/masculine/       ... and his
   chests/                 idle.mp3, open.mp3, opened.mp3, close.mp3 (every chest; chests/<chest>/ for one's own)
   items/                  pickup.mp3, drop.mp3, equip.mp3, and items/<item>/equip.mp3 for each weapon
@@ -1129,6 +1137,405 @@ every run, clear of the spawn, the chest and the weapons. **P** (or Pause →
 Settings → Scenery) hides it all. The folder's format is in
 [assets/scenery/README.md](assets/scenery/README.md).
 
+## Biomes and water
+
+The moon is more than a meadow. There are **nine biomes**, each with ground,
+plants, trees, rocks, water and sounds of its own, all painted in Creative
+Mode with the biome brush, and a **Biome tour** level in `assets/levels/`
+(Dev tab, **Play** or **Edit**) that has every one of them:
+
+<p align="center">
+  <img src="docs/screenshots/biome-tour.png" width="98%" alt="The Biome tour level from above: snowy mountains, jungle, the crystal biome, marsh, plains, savannah, waste and a sea bay, a river running through">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-jungle.png" width="49%" alt="The jungle: giant trees with hanging vines, palms and ferns by the river">
+  <img src="docs/screenshots/biome-shore.png" width="49%" alt="The ocean shore: a sea bay, palms on the sand, the river running in, acacias on the savannah behind">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-crystal.png" width="49%" alt="The crystal biome: iridescent ground, crystal trees and spires, a crystal stream flowing to the river">
+  <img src="docs/screenshots/biome-marsh.png" width="49%" alt="The marsh: mud and meadow, weeping willows, reeds, mossy logs and swamp pools">
+</p>
+<p align="center">
+  <img src="docs/screenshots/biome-crystal-night.png" width="49%" alt="The crystal biome at night, its trees and crystals glowing and lighting the ground">
+  <img src="docs/screenshots/creative-biome.png" width="49%" alt="Creative Mode's Paint tool on its Biome page: the nine biomes, Sow its plants, and what the marsh lays down">
+</p>
+
+| Biome | Ground | What grows there | Water | Its sound by day / by night |
+|---|---|---|---|---|
+| **Plains** | grass, flower meadow | the meadow's grass, tall grass, ferns, wildflowers; oak, birch, pine, autumn trees; rocks, mossy logs | clear | birdsong / crickets |
+| **Marsh** | mud, meadow | reeds, wildflowers; weeping willows; mossy logs, river stones | swamp, with lily pads | insects over the water / frogs |
+| **Mountains** | stone, snow | snowy pines; snow boulders | clear | high wind |
+| **Jungle** | jungle floor, forest floor | ferns, wildflowers; jungle giants with hanging vines, palms; mossy logs | swamp | birds and insects / the jungle at night |
+| **Savannah** | dry grass, red earth | dry grass, tall dry grass; acacias; termite mounds | clear | cicadas / crickets |
+| **Ocean shore** | sand, gravel | beach grass; palms; beach rocks | the sea, its waves running up the beach | waves |
+| **River** | gravel, sand | reeds; willows; river stones | clear, flowing | the stream |
+| **Waste** | ash, stone | thorn bushes; dead trees; ash spires | swamp | a hollow wind |
+| **Crystal** | iridescent crystal, stone | crystal grass; crystal trees, clusters and spires, iridescent rocks - **glowing at night** | crystal water, shimmering violet and mint | chimes and hum |
+
+- **Water** is painted (Creative Mode's Water tool): ponds and lakes lying
+  level in a hollow, streams and rivers following the ground down and
+  flowing - their ripples drift with the current - swamp water with lily
+  pads, crystal water, and **the sea**, which fills everything below its level
+  (and runs on to the horizon when it is above the land round the level).
+  It is pixel art like the rest: banded by depth, the sky in it at a glancing
+  angle, the sun glittering, a ragged line of foam at the shore. She **wades**
+  through the shallows - slower the deeper it is - and cannot walk in deeper
+  than 1.05 m.
+- **Tall grass** bends aside as she walks through it, and springs back.
+- **The crystals glow at night**, lighting the ground round them in their
+  own colours.
+- **Her footsteps** sound of what she walks on - grass, dirt, gravel, forest
+  floor, sand (and ash), mud, snow, stone, crystal - and splash in water.
+- **Each biome's sound** is heard as much as the country round her is that
+  biome, so one fades into the next as she crosses from one to another, and
+  changes with the day.
+
+All of it was modelled and drawn by the scripts in 3D-Modeling's `scenery/`
+(the trees in `tree_species.py`, the rocks in `rock_sprites.py`, the plants in
+`grass_tuft_sprites.py`, the ground in `ground_textures.py`), in the same
+128-colour palette; a sprite's `profile.json` names the biomes it grows in
+([assets/scenery/README.md](assets/scenery/README.md)).
+
+## Day and night
+
+The world is a moon of a gas giant, and it keeps one face to it: the planet
+hangs in the same place in the sky all day and all night, banded and huge, and
+the sun goes round it. The sun rises in the east at 06:00, stands in the south
+at noon and sets in the west at 18:00. The planet is lit on its side towards
+the sun, so it is a thin crescent near the sun by day and **full at
+midnight**, when it lights the night.
+
+<p align="center">
+  <img src="docs/screenshots/day-and-night.png" width="98%" alt="The meadow at dawn, noon, sunset and midnight under the gas giant">
+</p>
+<p align="center">
+  <img src="docs/screenshots/light-rays.png" width="49%" alt="Morning mist and light rays slanting through the trees">
+  <img src="docs/screenshots/night-lights.png" width="49%" alt="The open chest and its loot lighting the ground at night">
+</p>
+<p align="center">
+  <img src="docs/screenshots/creative-time.png" width="60%" alt="Creative Mode's Time tool at nine in the evening, two lights placed">
+</p>
+
+- **The light** is white by day, gold low in the morning and evening, rose at
+  the sunset and blue by night - warmer under a full planet. Every sprite, the
+  ground, the hills and the scenery are lit by it.
+- **The sky** shades from the horizon up, glows round the sun at dawn and
+  dusk, and has drifting pixel clouds lit by the sun (pink at sunset, grey
+  under the planet), stars that wheel round the pole through the night, and an
+  aurora.
+- **Mist** lies on the ground, thickest at dawn and thinning as it rises,
+  drifting in banks.
+- **Light rays** slant down through the trees' crowns and the mist while the
+  sun is low, in the morning and the evening.
+- **Lights of their own** - an open chest's warm glow, the loot's rarity
+  colours, lanterns and crystals placed in a level - light what is round them
+  at night, in pixel-hard bands as the art is shaded.
+
+A day lasts 24 minutes (an hour a minute); hold **N** for the time-lapse.
+In a demo script, `time 6:30` sets the hour and `timelapse on|off|<speed>`
+runs it fast. Each level sets its own start hour, the day's length (0: the
+time stands still), the planet - where it hangs, how big, its bands, rings -
+and its clouds, stars, aurora, mist and light rays, with Creative Mode's
+**Time** tool.
+
+## Life: critters and foraging
+
+The world has little creatures living in it, come and gone round the player
+by where she is and the hour, and bushes to pick food from.
+
+<p align="center">
+  <img src="docs/screenshots/life-fireflies.png" width="49%" alt="Fireflies over the marsh at night, a frog by the path">
+  <img src="docs/screenshots/life-crystal-night.png" width="49%" alt="The crystal biome at night: a crystal bloom glowing, a frog and a cricket">
+</p>
+<p align="center">
+  <img src="docs/screenshots/life-forage.png" width="49%" alt="A sage bush to pick: E Pick sage">
+  <img src="docs/screenshots/creative-life.png" width="49%" alt="Creative Mode's Life tool">
+</p>
+
+- **Fireflies** blink over the meadows, the marsh and the river after dark
+  (blue and violet in the crystal biome), and light the grass round them.
+- **Crickets** sit in the grass and chirp, mostly at night, and hop away from
+  her feet.
+- **Frogs** keep to the water's edge, croak, and hop off - into the water
+  with a plop - when she comes near.
+- **Dragonflies** dart and hover over water by day.
+
+Each kind has a weight for every biome, keeps near water or not, and has its
+hour (`ambient/CritterKind`); `ambient/Critters` brings them in round her as
+the place and the time call for them and lets them go as she moves on. They
+are drawn from 3D-Modeling's 24-view sprites (`creatures/critters.py`), at
+about twice life size so they read at the camera's distance, and each makes
+its sound where it is (Pause → Sounds → Creatures).
+
+**Foraging bushes** - wild berries, bilberries, sage, sunfruit, thornberries,
+sea buckthorn and the crystal bloom, each in its own biomes - stand among the
+plants. Walk up to one and press **E**: she reaches in and what is on it goes
+into the inventory, and the bush is bare until it grows back (four to seven
+minutes). Pickings **stack** (20 to a slot, the count on the slot). Eat one by
+clicking with it in hand on the hotbar, or right-clicking it in the inventory:
+berries give back health, sage stamina, the crystal bloom mana, the rest a
+mix - only what she has spent; nothing is eaten when she is full.
+
+In Creative Mode the **Life** tool (key 0) sets how thick each kind lives in
+the level (0 to 3 times), how fast the bushes grow back and how much they give;
+**Place → Life** has the bushes, the pickings and **swarms** - fireflies over a
+pond, frogs at its edge - that live where they are put, at their hour, always,
+by day or by night. Scatter has a "*Biome*: bushes" set for each biome, and a
+biome's paint sows a few. In a level file:
+
+```json
+"life": {"critters": {"firefly": 2, "frog": 0.5}, "regrow": 0.5, "yield": 1}
+```
+
+## Animals
+
+Sixteen animals live in the world, come and gone round the player by biome as
+the critters are: **horses, cows, bears, sheep, pigs, dogs, foxes, cats,
+rabbits, squirrels, ducks, geese, swans, butterflies, bees and iguanas**.
+
+<p align="center">
+  <img src="docs/screenshots/animals-lineup.png" width="98%" alt="All sixteen animals">
+</p>
+<p align="center">
+  <img src="docs/screenshots/animals-plains.png" width="49%" alt="Horses, cows, sheep and rabbits on the plains">
+  <img src="docs/screenshots/animals-marsh.png" width="49%" alt="Pigs, a fox, a goose and a duck in the marsh">
+</p>
+<p align="center">
+  <img src="docs/screenshots/animals-goose-warns.png" width="49%" alt="A goose, locked on, wings up, warning her off">
+  <img src="docs/screenshots/animals-goose-pecks.png" width="49%" alt="The goose pecks her: Pecked! -3">
+</p>
+
+Each is drawn the way the player is: pre-rendered in Blender from eight
+directions and three camera heights (3D-Modeling's `creatures/animals.py`),
+with its own sheets - standing, walking, running and eating, the rabbit's and
+the squirrel's hops, and the birds' swimming, flying and wings-up hissing
+attack.
+Ducks, geese and swans swim, sunk to their waterline, and take off when
+startled; butterflies and bees flit about the flowers by day.
+
+Every kind has a **nature** (`ambient/Temperament`), and a herd placed in a
+level can be given another:
+
+| Nature | What it does | Whose it is |
+|---|---|---|
+| **Tame** | never runs off, never fights | (a farm's own, placed) |
+| **Calm** | minds its own business, runs when hit | horses, cows, pigs, bears, butterflies |
+| **Skittish** | runs (or flies) off when she comes near | rabbits, squirrels, foxes, sheep, ducks, iguanas |
+| **Friendly** | comes up to her and follows her a while | dogs, cats |
+| **Defensive** | warns her off when she comes near (a "!" over it, its hiss or growl), goes for her if she stays or hits it | geese, swans, bees |
+| **Hostile** | goes for her on sight | (placed: a hostile bear, an angry swarm) |
+
+They are hit, locked on to and shown with a health bar as the dummies are, and
+their blows are dodged, parried and blocked as the flying dummy's are. Hit a
+bee and the bees round it come too. Whatever its nature, an animal beaten -
+its health gone - **runs off**: it is not killed, it flees, fades and is gone
+until the herd is next made up. The bigger ones (a horse, a cow, a bear) are
+in her way, as the dummies are; she rolls through them.
+
+Each makes its sounds where it is (Pause → Sounds → Creatures): the horse's
+neigh and snort, the cow's moo, the bear's growl and roar, the goose's honk,
+hiss and wingbeats, and the rest.
+
+In Creative Mode the **Life** tool's **Animals** page sets how thick each kind
+lives in the level (0 to 3 times) and says how many are about. **Place → Life
+→ Animals** puts down a **herd**: a kind, how many, how far they wander, their
+nature (their own, or any of the six) and when they are out (their time,
+always, by day, by night). In a level file:
+
+```json
+"life": {"animals": {"bear": 0, "horse": 2}}
+{"type": "animals", "x": 4, "z": 40, "kind": "horse", "count": 4, "radius": 8, "temperament": "tame", "when": "always"}
+```
+
+<p align="center">
+  <img src="docs/screenshots/creative-animals.png" width="49%" alt="Creative Mode: Life, the Animals page">
+  <img src="docs/screenshots/creative-herd.png" width="49%" alt="A herd of four horses placed and selected">
+</p>
+
+### Riding
+
+A horse can be ridden with a **saddle** (`world/Tack`): an Uncommon item found
+in the chests, kept in the inventory out of the hotbar's way. Walk up to a
+horse with one and press **E** - *Saddle the horse* - and it has the saddle on
+(its own sheets, `horse_saddled`: the red pad, the leather seat, the stirrups,
+the bridle and the reins). A saddled horse waits for her: it never runs from
+her, stays within a few metres of where she left it, and is never sent away
+with the animals that come and go, however far she goes.
+
+**E** by it - *Ride the horse* - and she hops up into the saddle. On it:
+
+<p align="center">
+  <img src="docs/screenshots/riding-walk.png" width="49%" alt="Riding at a walk in the laced dress, its skirt over the horse's side">
+  <img src="docs/screenshots/riding-gallop.png" width="49%" alt="At the gallop, up in the stirrups, the cape streaming back">
+</p>
+
+| | |
+|---|---|
+| **W A S D** | steer: it turns toward the way you push, no faster than a horse can (wider at a gallop), slowing round a sharp turn and turning near on the spot to go back |
+| (nothing) / **Shift** / **Ctrl** | a walk (1.9 m/s) / a canter (6 m/s) / a gallop (9.5 m/s); it gathers itself up over a second or so and pulls up quicker |
+| **E** | get off, to its left - or its right, or behind it, wherever there is ground to stand on |
+
+It goes up what she could walk up and never off a ledge or into deep water;
+uphill and through water it is slower. The trees, the rocks, the buildings
+and the other animals keep it out by its body, not her feet.
+
+She sits it in two states of her own, **ride** (at a stand and a walk: the
+reins low in both hands, the heels down in the stirrups, the hips going with
+its back) and **ride_run** (the canter and the gallop: up in the stirrups,
+leant over its neck). They are rendered in Blender sitting the saddled horse
+itself - it hides her far leg, and her skirt and her cape fall over its back
+and its sides - and played frame for frame with its sheet: its clock is hers,
+and her sprite stands where its `ride.json` says the seat is in that frame,
+so she rises and falls with it. Its hooves sound under her, a step at a walk
+and a stride at a canter.
+
+In Creative Mode, a herd of horses can be placed **saddled** (Place → Life →
+*Saddled horse*, or the herd's *Saddled* switch), and the saddle placed as an
+item (Place → Life → *Saddle*):
+
+```json
+{"type": "animals", "x": 4, "z": 40, "kind": "horse", "count": 1, "radius": 2, "when": "always", "saddled": true}
+{"type": "item", "x": 2, "z": 38, "item": "saddle"}
+```
+
+<p align="center">
+  <img src="docs/screenshots/riding-side.png" width="49%" alt="Sitting the walk, from the side: the cape over its rump">
+  <img src="docs/screenshots/creative-saddled-horse.png" width="49%" alt="Creative Mode: a saddled horse and a saddle placed, the herd's Saddled switch on">
+</p>
+
+## Buildings
+
+Twelve buildings stand in the world as the player does: drawn from eight
+directions and three camera heights, pre-rendered in Blender (3D-Modeling's
+`buildings/buildings.py`, each one built in code from its kit). The homes and
+mills: a **cottage**, a **town house**, a **log cabin**, a **windmill** (its
+sails turning) and a **watermill** (its wheel turning). The castle's pieces: a
+**keep**, a length of **castle wall**, a **gatehouse** (its portcullis up), a
+**round tower**, a **square tower**, a **turret** and a **spire**.
+
+<p align="center">
+  <img src="docs/screenshots/buildings-homes.png" width="49%" alt="The cottage, town house, log cabin, windmill and watermill">
+  <img src="docs/screenshots/buildings-castle-pieces.png" width="49%" alt="The keep, castle wall, gatehouse, round and square towers, turret and spire">
+</p>
+<p align="center">
+  <img src="docs/screenshots/buildings-village.png" width="49%" alt="The sample village: two cottages and two town houses, each dressed differently, a small castle behind">
+  <img src="docs/screenshots/buildings-castle.png" width="49%" alt="The small castle: keep, curtain walls, four round towers and the gatehouse">
+</p>
+
+**Place → Buildings → Small castle** puts a whole castle down at once - a keep
+in a square of curtain walls, a round tower at each corner with its door to the
+courtyard and the gatehouse in the front wall - and each piece is then a
+building of its own, to move, turn, dress or take away (`building/Prefab`).
+
+**Any colour and any pattern, part by part**, as walls are done in the Sims.
+A building's views are not pictures: every pixel keeps which **part** it shows
+(the walls, the side walls, the roof, the trim, the door, the shutters, the
+windows, the foundation, the chimney, the beams, the logs, the sails...), how it
+is **shaded** (light, mid, shadow, an outline or an inner line), **where on the
+part** it is and **how deep** it is. The game colours each part with any of the
+128 colours - drawn in six shades of the palette, dark to light, as the rest
+of the pixel art is - and lays any of 20 **patterns** over it: brick, stone
+blocks, fieldstone, cobbles, flagstones, plaster, clapboard, logs, timber,
+boards, floorboards, thatch, slate, clay tiles, shingles, window panes, metal,
+woven reeds, checker and smooth. No rendering again: a new look is a click.
+
+<p align="center">
+  <img src="docs/screenshots/creative-building-look.png" width="49%" alt="Creative Mode: a cottage selected, its Look section with the part, the 128 colours, its shades and its pattern">
+  <img src="docs/screenshots/buildings-night.png" width="49%" alt="The village at night, its windows lit">
+</p>
+
+In Creative Mode, select a building (or choose one to place) and its **Look**
+section has the **Part**, the 128 swatches, the **Shades** it will be drawn
+in, its **Pattern** and **As it comes** (every part back as the building
+comes).
+
+**Solid, and sorted pixel by pixel.** Each pixel is written at the depth of the
+point of the building it shows, so she goes behind the corner of a house and
+walks in front of the rest of it, a roof hides her when the camera looks over
+it, and the trees, the items and the animals sort against it the same way. Its
+footprint is solid: she walks round it, and the animals go round it. On a slope
+it is set into the hill down to its lowest corner, never standing off the
+ground; a soft shadow lies round its walls. **At night** its windows are lit
+from inside, warm, from dusk to dawn.
+
+In a level file a building is its kind and the parts changed from how it comes:
+
+```json
+{"type": "building", "x": -15, "z": 16, "yaw": 270, "kind": "cottage",
+ "look": {"walls": {"colour": "#e8c0b0"}, "roof": {"colour": "#707888", "texture": "slate"}}}
+```
+
+`assets/levels/village` is a sample to play and to open in the editor: the two
+cottages and the two town houses dressed differently, the log cabin, both mills
+and the small castle; `assets/levels/building_lineup` has all twelve in two
+rows. A new building is a class in 3D-Modeling's
+`buildings.py`, rendered (`passes`) and written into `assets/buildings/`
+(`draw`): the palette lists it from its folder.
+
+### Going inside
+
+Every home, mill and castle piece with a door can be **gone into**: walk up to
+its door and **E** (*Go into the cottage*). Inside she is in its rooms - lit by
+their candles, lanterns and the fire in the hearth, dim and warm, a little
+lighter by day with the daylight in the windows - with the walls between the
+camera and her **cut down to a stub**, as in the Sims, so the room she is in is
+seen into from above like a dolls' house. **E** at a staircase's foot goes up a
+floor, at a stairwell's top down one, and at the **door out** back outside, to
+the building's door, the world outside just as she left it. A floor she goes
+back to is as she left it too: what she dropped, the chests she opened.
+
+<p align="center">
+  <img src="docs/screenshots/inside-door.png" width="49%" alt="She stands at a cottage's door: E Go into the cottage">
+  <img src="docs/screenshots/inside-cottage.png" width="49%" alt="Inside the cottage: the bed, the fire, the table and chairs, a cat, the front wall cut away">
+</p>
+<p align="center">
+  <img src="docs/screenshots/inside-keep-hall.png" width="49%" alt="The keep's great hall: flagstones, stone walls, the long tables, two dogs">
+  <img src="docs/screenshots/inside-upstairs.png" width="49%" alt="The town house's second floor: the bedroom wall with its doorway, the beds, a bookshelf">
+</p>
+
+Each kind comes **furnished** (`level/Interiors`): the cottage one room with a
+bed, a fireplace, a table and chairs and a cat; the log cabin with a dog; the
+town house its kitchen downstairs and its bedrooms up; the keep its great hall,
+its chambers and its armoury on three floors (chests to open up there); the
+mills, the towers, the gatehouse, the spire and the turret theirs. Twelve
+pieces of **furniture** are drawn as the buildings are, from eight directions
+and three heights, at twice the detail: a bed, a table, a chair, a bench, a
+stool, a bookshelf, a cupboard, a wardrobe, a fireplace (its fire always
+burning, lighting the room), a counter, a barrel and a crate - each dressed
+part by part (a bed's frame, blanket and sheets) as a building is.
+
+The rooms are built of **pieces** (`building/Room`): a **wall** as long and as
+high as it is set, plain or with a **doorway**, a **window** or an **archway**
+in it, its two sides each their own colour and pattern and its trim another; a
+**floor**; **stairs up** and **stairs down**; and the **door out**. They are
+drawn as boxes, not views (`building/RoomRenderer`), in the same 128 colours
+and patterns, outlined and shaded as the pixel art is.
+
+<p align="center">
+  <img src="docs/screenshots/creative-edit-inside.png" width="49%" alt="Creative Mode inside the town house's second floor: the floors along the top, a bed selected and its blanket coloured blue">
+  <img src="docs/screenshots/inside-tower-night.png" width="49%" alt="A round tower's ground floor at night, lit by its lantern">
+</p>
+
+**In Creative Mode**, select a building and **Edit inside**: its floors open in
+the editor - the walls, floors, stairs, furniture, chests, lights, animals,
+anything from the palette - with **Place → Inside** holding the room pieces and
+the furniture. Along the top: the floor shown, **<** and **>** (or
+Shift+PgUp / PgDn) to go between floors, **+ Floor** (a floor on top, with the
+top one's walls and a stairwell over each staircase) and **- Floor** (the top
+one, pressed twice); **Play (F5)** starts her right there, inside; **Outside**
+(or Esc) goes back out. It is all saved with the level, under the building's
+number:
+
+```json
+"interiors": {"20": [{"name": "Ground floor", "objects": [
+    {"id": 1, "type": "floor", "x": 0, "z": 0, "yaw": 0, "width": 8.2, "depth": 6.2},
+    {"id": 2, "type": "wall", "x": 0, "z": -3, "yaw": 180, "length": 8.2, "height": 3, "opening": "window"},
+    {"id": 9, "type": "exit", "x": -1.2, "z": 3, "yaw": 0},
+    {"id": 14, "type": "building", "x": -2.6, "z": -2.0, "yaw": 180, "kind": "bed"}, ...]}]}
+```
+
+A building whose inside has not been edited is as its kind comes.
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas
@@ -1149,17 +1556,19 @@ editable), and every saved level with **Edit**, **Play**, **Copy** and
 
 The editor shows the level as it will be played - the ground, the scenery, the
 items turning, the dummies, the chests - with what you are about to place
-standing under the pointer. Seven tools, on the number keys:
+standing under the pointer. Nine tools, on the number keys:
 
 | Tool | What it does |
 |---|---|
-| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the training and flying dummies, climbing vines, sounds, the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
+| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the **buildings** (and the small castle, all its pieces at once; each dressed part by part in its **Look** section), the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
 | **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind) |
 | **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it |
-| **4 Paint** | dirt, forest floor, gravel or flower meadow over the grass; Shift paints back to grass |
-| **5 Scatter** | grass, trees or rocks - one sprite or a kind mixed - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep. Shift pulls up what you are sowing |
+| **4 Paint** | **Ground**: any of the twelve grounds - dirt, forest floor, gravel, flower meadow, sand, mud, snow, stone, jungle floor, dry grass, ash, crystal - over the grass. **Biome**: one of the nine biomes - its ground with patches of its second ground worked through it, and (**Sow its plants**, on by default) its plants, trees and rocks sown as you paint. Shift paints back to grass |
+| **5 Scatter** | grass, trees or rocks - one sprite, the meadow's mixed, or a biome's plants, trees or rocks - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep, nothing in water but reeds. Shift pulls up what you are sowing |
 | **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range |
-| **7 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
+| **7 Time** | the time of day and the weather: the hour the level starts at (Dawn, Noon, Dusk, Night), how many minutes a day lasts (0: the time stands still) and **Run it here** to watch the day go by in the editor; the planet - where it hangs, how high, how big, its bands, rings or not -; and how cloudy, starry and misty it is, the aurora, how high the mist reaches and the light rays |
+| **8 Level** | its name, its size (64, 128, 192 or 256 m a side), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
+| **9 Water** | clear, swamp, sea or crystal water, how deep, and either **lying level** from where you press (a pond: sculpt a hollow, fill it from its bottom) or following the ground down (a stream); **Flows** makes it run the way the brush moves, at the current you set. **The sea**, on or off, and its level. Shift dries it up |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
@@ -1181,6 +1590,11 @@ assets/levels/<level>/
   level.json    its name, size, sky and backdrops, music, and every object - one a line
   height.png    the sculpted ground, 16-bit grey: a height every 0.5 m (value / 256 - 128 m)
   ground.png    the paint, a pixel every 0.25 m: red dirt, green forest floor, blue gravel, alpha meadow
+  ground2.png   the same for sand, mud, snow, stone (only when any is painted)
+  ground3.png   the same for jungle floor, dry grass, ash, crystal
+  water.png     the painted water, a pixel every 0.5 m: its surface's height in red and green (16 bits,
+                value / 256 - 128 m), its kind (1 clear, 2 swamp, 3 sea, 4 crystal) and the way it flows
+                (sixteenths of a turn, << 3) in blue, how fast in alpha (of 3 m/s)
 ```
 
 ```json
@@ -1188,18 +1602,23 @@ assets/levels/<level>/
   "format": 1,
   "name": "Lakeside",
   "size": 128,
-  "sky": {"zenith": "#4A6FA5", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
+  "sky": {"zenith": "#4A6FA5", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...],
+          "time": {"start": 10, "day": 24},
+          "planet": {"show": true, "azimuth": 200, "elevation": 16, "size": 26, "rings": false, "seed": 1},
+          "clouds": 0.35, "stars": 0.85, "aurora": 0.35, "mist": {"thick": 0.25, "height": 2.5}, "rays": 0.6},
+  "sea": -1.5,
   "objects": [
     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
     {"id": 3, "type": "item", "x": 1.4, "z": -2.2, "yaw": 0, "item": "sword", "tier": "iron"},
     {"id": 4, "type": "dummy", "x": 3, "z": -2, "yaw": 200, "health": 100},
-    {"id": 5, "type": "sound", "x": -12, "z": 8, "yaw": 0, "sound": "ambient/stream"}
+    {"id": 5, "type": "sound", "x": -12, "z": 8, "yaw": 0, "sound": "ambient/stream"},
+    {"id": 6, "type": "light", "x": 4, "z": 9, "yaw": 0, "colour": "lantern", "radius": 5, "strength": 1}
   ]
 }
 ```
 
-The images are left out while the ground is flat and all grass. Keys and kinds
+A level without `time`, `planet` and the rest gets the demo's day. The images are left out while the ground is flat and all grass. Keys and kinds
 of object this game does not know are read and written back as they were, so
 a level made by a newer game loses nothing in an older editor.
 
@@ -1343,6 +1762,15 @@ src/main/java/com/larsons/game/
                             and its distant backgrounds), Sky, GroundMap and GroundTexture (what the ground is),
                             WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items),
                             Terrain and TerrainRenderer (the highlands' heightmap, its rock and vines)
+  ambient/                  the life in the world: Critters, CritterKind and Critter (the little creatures),
+                            Animals, AnimalKind, Animal and Temperament (the sixteen animals), Life (how thick
+                            each lives in a level)
+  building/                 BuildingCatalog (every kind, from assets/buildings), BuildingProfile (a kind: its
+                            parts, views, footprint, door), BuildingLook (a building's colours and patterns, and
+                            the six shades of a colour), Building (one standing: its footprint, its own metres),
+                            BuildingRenderer (its views coloured, patterned and sorted pixel by pixel), Prefab
+                            (sets of buildings: the small castle), Room (the pieces rooms are built of: walls,
+                            floors, stairs, the door out; the walls cut away) and RoomRenderer (drawn as boxes)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
@@ -1350,15 +1778,17 @@ src/main/java/com/larsons/game/
                             SoundsPanel, DebugCode, DemoLevel (the demo as a level)
   level/                    Creative Mode's levels: Level, LevelObject, ObjectType and ObjectTypes (every kind
                             of thing, by key), HeightField (the sculpted ground), LevelWorld (a level played),
-                            LevelIO (its folder)
+                            LevelIO (its folder), Interiors (each kind of building's floors as it comes)
   editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
   tools/                    SampleSprites
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
-                            the attack dummy and the flying dummy; items/<id>/spin_px128/: the turning items; combat/: the
+                            the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
+assets/buildings/           the buildings and the furniture: a folder each (profile.json and its 24 views, a mill's
+                            turning part beside them) and textures/ (the 20 patterns and textures.json)
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
@@ -1468,7 +1898,29 @@ more than 30 times a second, background work watched until it is done (and let
 go if it breaks), a failed step held on screen, a closed window not taken for
 a failure, the bar weighted by last time's timings and the file they are kept
 in, the sprite index's running count and its listing finding the same sheets
-as parsing every name, and the sound effects counted as they decode.
+as parsing every name, and the sound effects counted as they decode; and the
+day (`world/DayCycleTest`): the sun's round, the planet's place and phase, the
+light from noon to the planet-lit night, the stars, the sunset's warm horizon,
+the clock, the time-lapse and the still day, the mist and the light rays by
+the hour, lights falling off in bands, and a level's time, weather, lights and
+rays saved and played back; and the biomes and water (`world/WaterAndBiomeTest`,
+`editor/BiomeScatterTest`): painted water's surface, kind and current, the sea
+below its level and a pool above it, the water's bytes, the water's mesh
+running on from cell to cell and slanting where the paint stops, a biome read
+from the ground and the water, the biome brush's mix, the twelve grounds in
+three groups and their snapshots, a level's water, sea and grounds saved and
+read back (and their files gone when dry), how deep she stands, what she hears
+by day and by night, tall grass leaning away from her, each ground's
+footstep, each biome's sets, and nothing but reeds sown in a pond; and the
+buildings and their insides (`building/BuildingTest`, `building/InteriorTest`):
+a kind's profile, its own metres, its footprint and the click on it, a
+colour's six shades, a look kept in its level, the small castle; a doorway
+walked through and a wall and a window not, the walls on the eye's side cut
+down and the far ones left standing, a wall's two sides and trim, the twelve
+pieces of furniture, every kind's inside as it comes - a door out on the
+ground floor, stairs between its floors, nothing in the way of a door or a
+staircase, no furniture in a wall or another piece - a building's floors saved
+with its level, and going in and out again to the outdoors as she left it.
 
 The game can also drive itself, for smoke tests and screenshots on a headless
 machine:
@@ -1486,10 +1938,13 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
-`chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
-by dummy n, facing it), `dummy add <x> <z>`, `goto <place|spawn>` (the
+`chest` (open or shut it), `chest goto`, `door` (go through the door, stairs or door out she is at),
+`enter` (into the nearest building with an inside, wherever it is), `upstairs` / `downstairs` (by the
+nearest stairs), `outside`, `dummy goto [n] [metres] [front|back|left|right]` (stand
+by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the
 highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
-(dive at her now / stand under flier n / lock on to it), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
+(dive at her now / stand under flier n / lock on to it), `animal <kind> [nature] [metres]` (one put that
+far in front of her, facing her), `animal goto|lock <kind>` (stand by / lock on to the nearest), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
 that high, rolling out of it), `climb [down|top]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
 `debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
@@ -1500,15 +1955,22 @@ the item's own colours) and
 
 `scene` also takes `creative` (a new level), `edit:<folder>` and
 `play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
-<place|select|sculpt|paint|scatter|sky|level>`, `entry <sprite|item|kind|label>`
+<place|select|sculpt|paint|scatter|sky|time|level|water|life>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
-`turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
-<strength> [seconds] [height]`, `paint <0 grass … 4 meadow> <x> <z> <radius>`,
+`turn <degrees>`, `dress <part> <#rrggbb|-> [pattern]` (the selected buildings' part, or the one being
+placed), `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
+<strength> [seconds] [height]`, `paint <0 grass … 12 crystal> <x> <z> <radius>`,
+`biome <plains|marsh|mountains|jungle|savannah|ocean|river|waste|crystal> <x> <z> <radius> [0]` (its
+ground, and its plants sown unless 0), `sow <biome> <x> <z> <radius> [dabs] [tuft|tree|rock]`, `water
+<clear|swamp|sea|crystal> <x> <z> <radius> [surface|auto] [flowx flowz]` (`auto`: the ground there and
+the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|off>`,
 `scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
-`sky fog <m>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
+`sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
 height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
-on|off`, `fog game|thin`, `playtest [x z]` and `leave`.
+on|off`, `fog game|thin`, `life <critter|animal|regrow|yield|animals> <n>`, `life reset`, `lifepage
+critters|animals`, `playtest [x z]`, `leave`, and for a building's inside `inside` (edit the selected
+building's), `floor <n>` (1: the ground floor), `addfloor` and `outside`.
 
 ---
 

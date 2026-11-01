@@ -1,0 +1,91 @@
+{
+ "key": "round_tower",
+ "label": "Round tower",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 188,
+   "height": 370,
+   "anchorX": 94.0,
+   "anchorY": 346.3333333333333,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 188,
+   "height": 392,
+   "anchorX": 94.0,
+   "anchorY": 308.9415339933796,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 188,
+   "height": 188,
+   "anchorX": 94.0,
+   "anchorY": 93.66666666666666,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -13.40368839833525,
+  "step": 0.10554085353019882
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#9c978c",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "battlements",
+   "label": "Battlements",
+   "colour": "#a8a398",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Stone trim",
+   "colour": "#bcb5a6",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Plinth",
+   "colour": "#86827a",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "slits",
+   "label": "Arrow slits",
+   "colour": "#1e1e26",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#5e3a22",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   3.125
+  ]
+ ],
+ "door": [
+  0.0,
+  -4.0
+ ],
+ "interior": true,
+ "anim": null
+}

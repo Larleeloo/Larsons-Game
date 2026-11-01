@@ -3,6 +3,7 @@ package com.larsons.game.audio;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Pickings;
 import com.larsons.game.world.Rarity;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.Set;
  *   ui/inventory_open              -&gt; ui/inventory_open.mp3
  *   combat/attack_dummy/hit        -&gt; combat/attack_dummy/hit.mp3
  *   combat/dice_roll               -&gt; combat/dice_roll.mp3
+ *   creature/frog/croak            -&gt; creatures/frog/croak.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
  *   music/dream_on                 -&gt; music/dream_on.mp3       (a song)
@@ -62,6 +64,7 @@ public final class SoundKeys {
     public static final String COMBAT = "combat";
     public static final String WORLD = "world";
     public static final String AMBIENT = "ambient";
+    public static final String CREATURES = "creatures";
     public static final String MUSIC = "music";
     /** Where a key from an unrecognised namespace lands. */
     public static final String OTHER = "other";
@@ -72,7 +75,8 @@ public final class SoundKeys {
     public static final String DEFAULT_BODY = "feminine";
 
     /** The kinds of ground a footstep can fall on (after {@code world/GroundMap}'s materials, grass for the rest). */
-    public static final List<String> SURFACES = List.of("grass", "dirt", "gravel", "forest");
+    public static final List<String> SURFACES = List.of("grass", "dirt", "gravel", "forest", "sand", "mud", "snow",
+            "stone", "water", "crystal");
 
     /**
      * A body's sounds that are not animations: the footsteps on each
@@ -81,7 +85,8 @@ public final class SoundKeys {
      * wall; and its voice - hurt, knocked out, out of breath.
      */
     public static final List<String> PLAYER_SOUNDS = List.of("footstep_grass", "footstep_dirt", "footstep_gravel",
-            "footstep_forest", "land", "hard_landing", "landing_roll", "crouch", "stand", "climb_grip",
+            "footstep_forest", "footstep_sand", "footstep_mud", "footstep_snow", "footstep_stone", "footstep_water",
+            "footstep_crystal", "land", "hard_landing", "landing_roll", "crouch", "stand", "climb_grip",
             "climb_top", "let_go", "hurt", "knocked_out", "out_of_breath");
 
     /** The voice among {@link #PLAYER_SOUNDS} (the rest are movement). */
@@ -143,13 +148,58 @@ public final class SoundKeys {
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
-     * its rarity, Uncommon and up, rung out.
+     * its rarity, Uncommon and up, rung out; picking a bush; a building's
+     * door as she goes in and out, and the stairs inside; saddling a horse,
+     * getting up on it and down off it.
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
-            "loot_epic", "loot_legendary", "loot_mythic");
+            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
+            "saddle_on", "mount", "dismount");
 
-    /** The place itself, each a loop: the meadow's breeze, a stream, crickets (for sound objects in a level). */
-    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets");
+    /**
+     * The little creatures that live in the world (ambient/CritterKind) and
+     * their sounds, each heard where it is: a frog's croak and the plop of it
+     * diving into water, a cricket's chirp, a dragonfly's wings as it darts
+     * by. Fireflies make none.
+     */
+    public static final Map<String, List<String>> CRITTER_SOUNDS = orderedMap(
+            "frog", List.of("croak", "plop"),
+            "cricket", List.of("chirp"),
+            "dragonfly", List.of("buzz"));
+
+    /**
+     * The animals (ambient/AnimalKind) and their sounds, each heard where it
+     * is: its call now and then, its cry when it is hit, a defensive one's
+     * warning (a goose's hiss, a swarm's angry buzz), a bird's wings taking
+     * off, a bee's sting - and the hooves of the horse she rides, a step at
+     * a walk and a stride at a canter or a gallop.
+     */
+    public static final Map<String, List<String>> ANIMAL_SOUNDS = orderedMap(
+            "horse", List.of("neigh", "snort", "hooves", "gallop"),
+            "cow", List.of("moo", "bellow"),
+            "bear", List.of("growl", "roar"),
+            "sheep", List.of("baa", "bleat"),
+            "pig", List.of("oink", "squeal"),
+            "dog", List.of("bark", "whine", "growl"),
+            "fox", List.of("yip", "yelp"),
+            "cat", List.of("meow", "yowl", "hiss"),
+            "rabbit", List.of("thump", "squeak"),
+            "squirrel", List.of("chatter", "squeak"),
+            "duck", List.of("quack", "squawk", "flap"),
+            "goose", List.of("honk", "squawk", "hiss", "flap"),
+            "swan", List.of("trumpet", "squawk", "hiss", "flap"),
+            "bee", List.of("buzz", "swarm", "sting"),
+            "iguana", List.of("hiss"));
+
+    /**
+     * The place itself, each a loop: the breeze over everything; each
+     * biome's by day and by night (world/Biome - the plains' birdsong and
+     * crickets, the marsh's frogs, the sea ...), heard where it is and
+     * fading into the next across its edge; and any of them placed as a
+     * sound object in a level.
+     */
+    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
+            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal");
 
     /**
      * The places that play a song of their own, and the song each plays until
@@ -234,6 +284,9 @@ public final class SoundKeys {
         for (String flier : FLIERS_IN_GAME) out.add(COMBAT + "/" + flier);
         out.add(COMBAT);
         out.add(WORLD);
+        out.add(CREATURES);
+        for (String c : CRITTER_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
+        for (String c : ANIMAL_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         out.add(AMBIENT);
         out.add(MUSIC);
         return out;
@@ -338,6 +391,7 @@ public final class SoundKeys {
             case "world" -> WORLD;
             case "ambient" -> AMBIENT;
             case "music" -> MUSIC;
+            case "creature" -> CREATURES;
             default -> null;
         };
     }
@@ -374,6 +428,7 @@ public final class SoundKeys {
                 yield VOICE_SOUNDS.contains(last) ? SoundCategory.VOICES : SoundCategory.MOVEMENT;
             }
             case "chest", "world" -> SoundCategory.WORLD;
+            case "creature" -> SoundCategory.CREATURES;
             case "item" -> last.equals("equip") ? SoundCategory.WEAPONS : SoundCategory.WORLD;
             case "ui" -> SoundCategory.INTERFACE;
             case "ambient" -> SoundCategory.AMBIENT;
@@ -416,7 +471,8 @@ public final class SoundKeys {
     public static List<Entry> all() {
         List<Entry> out = new ArrayList<>();
         // --- the menu's rows
-        for (String s : List.of("footstep_grass", "footstep_dirt", "footstep_gravel", "footstep_forest")) {
+        for (String surface : SURFACES) {
+            String s = "footstep_" + surface;
             out.add(row(SoundCategory.MOVEMENT, "player/" + s, playerName(s), s));
         }
         out.add(row(SoundCategory.MOVEMENT, "player/jump", "Jump", "jump"));
@@ -464,12 +520,23 @@ public final class SoundKeys {
                         state));
             }
         }
+        for (Map.Entry<String, List<String>> c : CRITTER_SOUNDS.entrySet()) {
+            for (String s : c.getValue()) {
+                out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), critterName(c.getKey(), s), s));
+            }
+        }
+        for (Map.Entry<String, List<String>> c : ANIMAL_SOUNDS.entrySet()) {
+            for (String s : c.getValue()) {
+                out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), animalName(c.getKey(), s), s));
+            }
+        }
         for (String state : CHEST_STATES) {
             out.add(row(SoundCategory.WORLD, "chest/" + state, "Chest: " + chestName(state), state));
         }
         for (String s : WORLD_SOUNDS) out.add(row(SoundCategory.WORLD, world(s), worldName(s), s));
         out.add(row(SoundCategory.WORLD, "item/pickup", "Picking something up", "pickup"));
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
+        out.add(row(SoundCategory.WORLD, "item/eat", "Eating something picked", "eat"));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
         for (String s : MUSIC_PLACES.keySet().stream().sorted().toList()) {
             out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
@@ -505,6 +572,7 @@ public final class SoundKeys {
                         state));
             }
         }
+        for (ItemDef d : Pickings.ALL) out.add(own(item(d.id(), "eat"), d.name() + " eaten", "eat"));
         // each body's voice is listed above: its own row would be the same row twice
         Set<String> seen = new HashSet<>();
         out.removeIf(e -> !seen.add(e.key()));
@@ -557,6 +625,12 @@ public final class SoundKeys {
             case "footstep_dirt" -> "Footstep on a dirt path";
             case "footstep_gravel" -> "Footstep on gravel";
             case "footstep_forest" -> "Footstep on the forest floor";
+            case "footstep_sand" -> "Footstep on sand (and ash)";
+            case "footstep_mud" -> "Footstep in mud";
+            case "footstep_snow" -> "Footstep in snow";
+            case "footstep_stone" -> "Footstep on bare rock";
+            case "footstep_water" -> "Wading through water";
+            case "footstep_crystal" -> "Footstep on crystal";
             case "land" -> "Landing";
             case "hard_landing" -> "Hard landing (hurt)";
             case "landing_roll" -> "Rolling out of a fall";
@@ -605,6 +679,53 @@ public final class SoundKeys {
         };
     }
 
+    private static String critterName(String critter, String sound) {
+        return switch (critter + "/" + sound) {
+            case "frog/croak" -> "Frog: croaking";
+            case "frog/plop" -> "Frog: diving into water";
+            case "cricket/chirp" -> "Cricket: chirping";
+            case "dragonfly/buzz" -> "Dragonfly: wings darting by";
+            default -> critter + ": " + sound;
+        };
+    }
+
+    private static String animalName(String animal, String sound) {
+        String what = switch (sound) {
+            case "neigh" -> "neighing";
+            case "snort" -> "snorting, hit";
+            case "hooves" -> "hooves at a walk, ridden (each step)";
+            case "gallop" -> "hooves at a canter or gallop, ridden (each stride)";
+            case "moo" -> "mooing";
+            case "bellow" -> "bellowing, hit";
+            case "growl" -> "growling";
+            case "roar" -> "roaring";
+            case "baa" -> "baaing";
+            case "bleat" -> "bleating, hit";
+            case "oink" -> "oinking";
+            case "squeal" -> "squealing, hit";
+            case "bark" -> "barking";
+            case "whine" -> "whining, hit";
+            case "yip" -> "yipping";
+            case "yelp" -> "yelping, hit";
+            case "meow" -> "meowing";
+            case "yowl" -> "yowling, hit";
+            case "hiss" -> "hissing";
+            case "thump" -> "thumping a foot";
+            case "squeak" -> "squeaking, hit";
+            case "chatter" -> "chattering";
+            case "quack" -> "quacking";
+            case "squawk" -> "squawking, hit";
+            case "flap" -> "wings, taking off";
+            case "honk" -> "honking";
+            case "trumpet" -> "trumpeting";
+            case "buzz" -> "buzzing";
+            case "swarm" -> "an angry swarm";
+            case "sting" -> "stinging";
+            default -> sound;
+        };
+        return Character.toUpperCase(animal.charAt(0)) + animal.substring(1) + ": " + what;
+    }
+
     private static String chestName(String state) {
         return switch (state) {
             case "idle" -> "shut, smoke swirling (held)";
@@ -619,6 +740,13 @@ public final class SoundKeys {
         return switch (s) {
             case "loot_throw" -> "Loot thrown out of a chest";
             case "loot_land" -> "Loot landing";
+            case "forage_pick" -> "Picking from a bush";
+            case "door_open" -> "A door opening (going in or out)";
+            case "door_close" -> "A door shutting behind her";
+            case "stairs" -> "Going up or down the stairs";
+            case "saddle_on" -> "Saddling a horse";
+            case "mount" -> "Getting up on a horse";
+            case "dismount" -> "Getting down off a horse";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")
@@ -629,9 +757,19 @@ public final class SoundKeys {
 
     private static String ambientName(String s) {
         return switch (s) {
-            case "wind" -> "Breeze over the meadow (held)";
-            case "stream" -> "A stream (held; for sound objects)";
-            case "crickets" -> "Crickets (held; for sound objects)";
+            case "wind" -> "Breeze over everything (held)";
+            case "stream" -> "A river or stream (held)";
+            case "crickets" -> "Crickets: the plains and savannah at night (held)";
+            case "plains" -> "The plains by day: birdsong (held)";
+            case "marsh" -> "The marsh by day: insects over the water (held)";
+            case "frogs" -> "The marsh at night: frogs (held)";
+            case "mountains" -> "The mountains: high wind (held)";
+            case "jungle" -> "The jungle by day: birds and insects (held)";
+            case "jungle_night" -> "The jungle at night (held)";
+            case "savannah" -> "The savannah by day: dry heat, cicadas (held)";
+            case "ocean" -> "The sea: waves on the shore (held)";
+            case "waste" -> "The waste: a hollow wind (held)";
+            case "crystal" -> "The crystal biome: chimes and hum (held)";
             default -> s;
         };
     }
@@ -732,6 +870,11 @@ public final class SoundKeys {
         return r == null || r == Rarity.COMMON ? null : world("loot_" + r.key());
     }
 
+    /** A creature's sound, heard where it is, e.g. {@code creature/frog/croak}. */
+    public static String creature(String kind, String sound) {
+        return "creature/" + kind + "/" + sound;
+    }
+
     /** A sound of the place, e.g. {@code ambient/wind}. */
     public static String ambient(String name) {
         return "ambient/" + name;
@@ -766,6 +909,14 @@ public final class SoundKeys {
             case "ambient", "music" -> true;
             default -> false;
         };
+    }
+
+    /** A map in the order its pairs are given. */
+    @SuppressWarnings("unchecked")
+    private static <V> Map<String, V> orderedMap(Object... pairs) {
+        Map<String, V> m = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < pairs.length; i += 2) m.put((String) pairs[i], (V) pairs[i + 1]);
+        return java.util.Collections.unmodifiableMap(m);
     }
 
     /** Join key segments {@code [from, to)} with {@code sep}. */

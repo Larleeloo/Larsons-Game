@@ -1,0 +1,109 @@
+{
+ "key": "windmill",
+ "label": "Windmill",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "elevations": {
+  "side": {
+   "width": 384,
+   "height": 512,
+   "anchorX": 192.0,
+   "anchorY": 488.0244188995419,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 384,
+   "height": 500,
+   "anchorX": 192.0,
+   "anchorY": 420.0139850779804,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 384,
+   "height": 384,
+   "anchorX": 192.0,
+   "anchorY": 191.3433728254724,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -18.61976979990922,
+  "step": 0.14661236062920646
+ },
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Tower",
+   "colour": "#e2d8c0",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Cap",
+   "colour": "#5a4a40",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#4e3420",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#6a3c22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#8a867e",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "sail_frame",
+   "label": "Sail frames",
+   "colour": "#6a4a2e",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "sails",
+   "label": "Sails",
+   "colour": "#e8e0cc",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   3.375
+  ]
+ ],
+ "door": [
+  0.0,
+  -4.375
+ ],
+ "interior": true,
+ "anim": {
+  "frames": 8,
+  "degrees": 90.0,
+  "speed": 40.0
+ }
+}

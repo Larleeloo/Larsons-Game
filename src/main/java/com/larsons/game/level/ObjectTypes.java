@@ -1,6 +1,17 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.AnimalKind;
+import com.larsons.game.ambient.Animals;
+import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.ambient.Critters;
+import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingCatalog;
+import com.larsons.game.building.BuildingLook;
+import com.larsons.game.building.BuildingProfile;
+import com.larsons.game.building.Prefab;
+import com.larsons.game.building.Room;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.level.ObjectType.Category;
@@ -10,6 +21,8 @@ import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.Item;
+import com.larsons.game.world.Pickings;
+import com.larsons.game.world.Tack;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
@@ -36,7 +49,38 @@ import java.util.Map;
 public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
-            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound";
+            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
+            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit";
+
+    /** The colours a placed light can be, by name, and what they are. */
+    public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
+
+    private static Map<String, Integer> lightColours() {
+        Map<String, Integer> m = new LinkedHashMap<>();
+        m.put("lantern", 0xFFC468);
+        m.put("candle", 0xFFA448);
+        m.put("fire", 0xFF7A30);
+        m.put("moonlight", 0x9CB8FF);
+        m.put("crystal", 0x7FE8FF);
+        m.put("magic", 0xC890FF);
+        m.put("fairy", 0x9CFF8A);
+        m.put("rose", 0xFF8AB0);
+        m.put("white", 0xFFFFFF);
+        return Collections.unmodifiableMap(m);
+    }
+
+    /** The colour named {@code name} ({@link #LIGHT_COLOURS}), a {@code #RRGGBB}, or the lantern's. */
+    public static int lightColour(String name) {
+        Integer c = LIGHT_COLOURS.get(name);
+        if (c != null) return c;
+        String h = name == null ? "" : name.startsWith("#") ? name.substring(1) : name;
+        try {
+            return h.length() == 6 ? Integer.parseInt(h, 16) : 0xFFC468;
+        } catch (NumberFormatException e) {
+            return 0xFFC468;
+        }
+    }
 
     /** The chest's sprites (assets/sprites/objects/). */
     public static final String CHEST_SPRITE = "ornate_chest";
@@ -78,6 +122,209 @@ public final class ObjectTypes {
                 0xB48CFF, false,
                 (o, b) -> b.world().soundSpots().add(new World.SoundSpot(o.str("sound", SoundKeys.ambient("stream")),
                         b.onGround(o).add(0, 1, 0)))));
+        register(new ObjectType(LIGHT, "Light", Category.LIGHTS,
+                List.of(Prop.choice("colour", "Colour", "lantern", o -> List.copyOf(LIGHT_COLOURS.keySet())),
+                        Prop.number("radius", "Reach (m)", 5, 0.5, 30, 0.5),
+                        Prop.number("strength", "Strength", 1, 0.1, 2, 0.1),
+                        Prop.number("height", "Height (m)", 1.2, 0, 12, 0.1),
+                        Prop.toggle("glow", "Shows a glow", true)), 0.4, 1.4, 0xFFC468, false,
+                (o, b) -> b.world().lights().add(new World.LightSpot(b.onGround(o).add(0, o.num("height", 1.2), 0),
+                        o.num("radius", 5), lightColour(o.str("colour", "lantern")), o.num("strength", 1),
+                        o.bool("glow", true)))));
+        register(new ObjectType(RAYS, "Light rays", Category.LIGHTS,
+                List.of(Prop.number("count", "Shafts", 4, 1, 16, 1),
+                        Prop.number("spread", "Spread (m)", 1.5, 0.2, 8, 0.1),
+                        Prop.number("height", "From (m up)", 6, 1, 30, 0.5),
+                        Prop.number("strength", "Strength", 1, 0.1, 2, 0.1)), 0.6, 2.0, 0xFFF0B0, false,
+                (o, b) -> b.world().raySpots().add(new World.RaySpot(b.onGround(o), (int) o.num("count", 4),
+                        o.num("spread", 1.5), o.num("height", 6), o.num("strength", 1)))));
+        // a swarm of the little creatures living round a spot - fireflies over a pond, frogs at its edge -
+        // as well as those that come by on their own (the Level tool's Life page says how many of those)
+        register(new ObjectType(CRITTERS, "Critters", Category.LIFE,
+                List.of(Prop.choice("kind", "Kind", CritterKind.FIREFLY.key(), o -> critterKinds()),
+                        Prop.number("count", "How many", 8, 1, 40, 1),
+                        Prop.number("radius", "Within (m)", 4, 0.5, 30, 0.5),
+                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes())),
+                0.5, 0.8, 0xD8FF5A, false,
+                (o, b) -> {
+                    CritterKind k = CritterKind.byKey(o.str("kind", CritterKind.FIREFLY.key()));
+                    if (k == null) return;
+                    b.world().critters().spots().add(new Critters.Spot(k, b.onGround(o),
+                            (int) Math.round(o.num("count", 8)), o.num("radius", 4),
+                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
+                }));
+    }
+
+    /** What a herd's temperament can be: "own" (its kind's), or one of them all. */
+    public static final String OWN = "own";
+
+    static {
+        // a herd of animals living round a spot - cows in a field, geese by a pond, a bear's den - as well as
+        // those that come by on their own (the Level tool's Life page says how many of those)
+        register(new ObjectType(ANIMALS, "Animals", Category.LIFE,
+                List.of(Prop.choice("kind", "Kind", AnimalKind.COW.key(), o -> animalKinds()),
+                        Prop.number("count", "How many", 3, 1, 30, 1),
+                        Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
+                        Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
+                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes()),
+                        Prop.toggle("saddled", "Saddled", false)),
+                0.6, 1.2, 0xE8B070, false,
+                (o, b) -> {
+                    AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
+                    if (k == null) return;
+                    b.world().animals().herds().add(new Animals.Herd(k, b.onGround(o),
+                            (int) Math.round(o.num("count", 3)), o.num("radius", 8),
+                            Temperament.byKey(o.str("temperament", OWN)),
+                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key())),
+                            k == AnimalKind.HORSE && o.bool("saddled", false)));
+                }));
+    }
+
+    static {
+        // a house, a mill, a castle's keep, a length of its wall: coloured and patterned part by part (its look)
+        register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
+                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys())),
+                3, 5, 0xC8A27A, false,
+                (o, b) -> {
+                    Building building = building(o, b.terrain());
+                    if (building != null) b.world().addBuilding(building);
+                }));
+        // a set of buildings placed together (a small castle): each piece is a building of its own once placed
+        register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
+                List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
+    }
+
+    static {
+        // what rooms are built of, inside a building: walls, floors, stairs, the door out (Room)
+        register(new ObjectType(WALL, "Wall", Category.INSIDE,
+                List.of(Prop.number("length", "Length (m)", 4, 0.5, 24, 0.25),
+                        Prop.number("height", "Height (m)", Room.STOREY, 1, 8, 0.25),
+                        Prop.choice("opening", "Opening", "none", o -> openings())), 1, Room.STOREY, 0xD8C8A0, false,
+                ObjectTypes::spawnRoom));
+        register(new ObjectType(FLOOR, "Floor", Category.INSIDE,
+                List.of(Prop.number("width", "Width (m)", 4, 0.5, 40, 0.5),
+                        Prop.number("depth", "Depth (m)", 4, 0.5, 40, 0.5)), 1, 0.1, 0x9A6A40, false,
+                ObjectTypes::spawnRoom));
+        register(new ObjectType(STAIRS, "Stairs", Category.INSIDE,
+                List.of(Prop.choice("way", "Going", "up", o -> List.of("up", "down"))), 1.6, Room.STOREY, 0xB08050,
+                false, ObjectTypes::spawnRoom));
+        register(new ObjectType(EXIT, "Door out", Category.INSIDE, List.of(), 0.9, Room.EXIT_H, 0x7AA0D0, false,
+                ObjectTypes::spawnRoom));
+    }
+
+    /** Whether objects of {@code type} stand in the world as {@link Building}s: buildings, furniture, the rooms' pieces. */
+    public static boolean builds(String type) {
+        return type.equals(BUILDING) || type.equals(WALL) || type.equals(FLOOR) || type.equals(STAIRS)
+                || type.equals(EXIT);
+    }
+
+    static List<String> openings() {
+        List<String> out = new ArrayList<>();
+        for (Room.Opening o : Room.Opening.values()) out.add(o.key());
+        return out;
+    }
+
+    private static void spawnRoom(LevelObject o, LevelWorld.Build b) {
+        b.world().addBuilding(room(o, b.terrain()));
+    }
+
+    /** The shape of a room's piece {@code o} ({@link #WALL}, {@link #FLOOR}, {@link #STAIRS}, {@link #EXIT}), or null. */
+    public static Room.Spec roomSpec(LevelObject o) {
+        return switch (o.type()) {
+            case WALL -> Room.wall(o.num("length", 4), o.num("height", Room.STOREY),
+                    Room.Opening.byKey(o.str("opening", "none")));
+            case FLOOR -> Room.floor(o.num("width", 4), o.num("depth", 4));
+            case STAIRS -> Room.stairs(!o.str("way", "up").equals("down"));
+            case EXIT -> Room.exit();
+            default -> null;
+        };
+    }
+
+    /** A room's piece as it stands on {@code terrain}. */
+    public static Building room(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        Room.Spec spec = roomSpec(o);
+        return new Building(o.id(), Room.profile(spec), new Vec3(o.x(), terrain.height(o.x(), o.z()) + o.lift(), o.z()),
+                o.yaw(), BuildingLook.of(o.props().get("look")), null);
+    }
+
+    /** What {@code o} stands as in the world, if it {@link #builds}: a building, a piece of furniture, a room's piece. */
+    public static Building built(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        if (o.type().equals(BUILDING)) return building(o, terrain);
+        return roomSpec(o) == null ? null : room(o, terrain);
+    }
+
+    /** A {@link #BUILDING} as it stands on {@code terrain}, or null when its kind is not there. */
+    public static Building building(LevelObject o, com.larsons.game.world.Terrain terrain) {
+        BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+        if (p == null) return null;
+        // on a slope it is set down to the lowest of its corners - dug into the hill, never standing off it
+        Building at = new Building(o.id(), p, new Vec3(o.x(), 0, o.z()), o.yaw(), null, null);
+        double y = terrain.height(o.x(), o.z());
+        for (BuildingProfile.Shape s : p.footprint()) {
+            double hw = s.circle() ? s.w() * 0.7 : s.w() / 2, hd = s.circle() ? s.w() * 0.7 : s.d() / 2;
+            for (int i = 0; i < 4; i++) {
+                Vec3 c = at.toWorld(s.x() + (i % 2 == 0 ? -hw : hw), s.y() + (i < 2 ? -hd : hd));
+                y = Math.min(y, terrain.height(c.x(), c.z()));
+            }
+        }
+        y = Math.max(y, terrain.height(o.x(), o.z()) - 1.5);
+        return new Building(o.id(), p, new Vec3(o.x(), y + o.lift(), o.z()), o.yaw(),
+                BuildingLook.of(o.props().get("look")), o.str("interior", null));
+    }
+
+    static List<String> prefabKeys() {
+        List<String> out = new ArrayList<>();
+        for (Prefab p : Prefab.ALL) out.add(p.key());
+        return out;
+    }
+
+    /**
+     * What placing {@code o} puts in the level: {@code o} itself, or - a
+     * {@link #PREFAB} - its buildings, each a {@link #BUILDING} of its own
+     * where it stands in the set, numbered from {@code firstId}.
+     */
+    public static List<LevelObject> expand(LevelObject o, int firstId) {
+        if (!o.type().equals(PREFAB)) return List.of(o);
+        Prefab set = Prefab.byKey(o.str("set", ""));
+        if (set == null) return List.of();
+        Vec3 h = com.larsons.game.sprite.SpriteView.headingVector(o.yaw());
+        double hx = h.x(), hz = h.z();
+        List<LevelObject> out = new ArrayList<>();
+        int id = firstId;
+        for (Prefab.Piece p : set.pieces()) {
+            // the set's own metres to the world's, as a building's are (Building#toWorld)
+            double x = o.x() + p.x() * hz - p.y() * hx, z = o.z() - p.x() * hx - p.y() * hz;
+            double fx = p.faceX() * hz - p.faceY() * hx, fz = -p.faceX() * hx - p.faceY() * hz;
+            LevelObject piece = new LevelObject(id++, BUILDING, x, z, o.lift(),
+                    com.larsons.game.sprite.SpriteView.headingOf(fx, fz), Map.of("kind", p.kind()));
+            out.add(piece.turnTo(piece.yaw()));
+        }
+        return out;
+    }
+
+    static List<String> animalKinds() {
+        List<String> out = new ArrayList<>();
+        for (AnimalKind k : AnimalKind.values()) out.add(k.key());
+        return out;
+    }
+
+    static List<String> temperaments() {
+        List<String> out = new ArrayList<>();
+        out.add(OWN);
+        for (Temperament t : Temperament.values()) out.add(t.key());
+        return out;
+    }
+
+    static List<String> critterKinds() {
+        List<String> out = new ArrayList<>();
+        for (CritterKind k : CritterKind.values()) out.add(k.key());
+        return out;
+    }
+
+    static List<String> critterTimes() {
+        List<String> out = new ArrayList<>();
+        for (Critters.When w : Critters.When.values()) out.add(w.key());
+        return out;
     }
 
     private static ScenerySprites scenerySprites = ScenerySprites.NONE;
@@ -106,7 +353,7 @@ public final class ObjectTypes {
 
     static List<String> sceneryNames() {
         List<String> out = new ArrayList<>();
-        for (ScenerySprites.Sprite s : scenerySprites.sprites()) out.add(s.name());
+        for (ScenerySprites.Sprite s : scenerySprites.placeable()) out.add(s.name());
         return out;
     }
 
@@ -114,13 +361,14 @@ public final class ObjectTypes {
         List<String> out = new ArrayList<>();
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         for (ItemDef d : Wearables.ALL) out.add(d.id());
+        for (ItemDef d : Pickings.ALL) out.add(d.id());
+        for (ItemDef d : Tack.ALL) out.add(d.id());
         return out;
     }
 
-    /** The weapon or wearable called {@code id}, or null. */
+    /** The weapon, wearable or picking called {@code id}, or null. */
     public static ItemDef itemDef(String id) {
-        for (ItemDef d : ItemDef.ALL) if (d.id().equals(id)) return d;
-        return Wearables.byId(id);
+        return ItemDef.byId(id);
     }
 
     static List<String> tiersOf(LevelObject o) {
@@ -159,8 +407,13 @@ public final class ObjectTypes {
         for (SceneryProfile.Kind k : List.of(SceneryProfile.Kind.TREE, SceneryProfile.Kind.ROCK,
                 SceneryProfile.Kind.TUFT)) {
             for (ScenerySprites.Sprite s : scenerySprites.ofKind(k)) {
+                if (s.profile().forages()) continue;        // (with the life)
                 out.add(new Entry(readable(s.name()), Category.SCENERY, SCENERY, Map.of("sprite", s.name())));
             }
+        }
+        // the life: the foraging bushes, what they give, the little creatures
+        for (ScenerySprites.Sprite s : scenerySprites.forage()) {
+            out.add(new Entry(readable(s.name()), Category.LIFE, SCENERY, Map.of("sprite", s.name())));
         }
         for (ItemDef d : ItemDef.ALL) {
             Tier.Row row = Tier.row(d.id());
@@ -170,11 +423,50 @@ public final class ObjectTypes {
         for (ItemDef d : Wearables.ALL) {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
+        for (ItemDef d : Pickings.ALL) {
+            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        }
+        for (CritterKind k : CritterKind.values()) {
+            out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",
+                    (double) (k == CritterKind.FIREFLY ? 14 : 6), "radius", 4.0, "when", Critters.When.ITS_TIME.key())));
+        }
+        for (AnimalKind k : AnimalKind.values()) {
+            int n = Math.max(1, Math.min(4, k.herd()));
+            out.add(new Entry(k.label(), Category.LIFE, ANIMALS, Map.of("kind", k.key(), "count", (double) n,
+                    "radius", k.flies() ? 4.0 : 8.0, "temperament", OWN, "when", Critters.When.ITS_TIME.key())));
+        }
+        // a horse waiting with its saddle on, to ride; and the saddle, for her to saddle one with
+        out.add(new Entry("Saddled horse", Category.LIFE, ANIMALS, Map.of("kind", AnimalKind.HORSE.key(), "count",
+                1.0, "radius", 2.0, "temperament", OWN, "when", Critters.When.ALWAYS.key(), "saddled", true)));
+        for (ItemDef d : Tack.ALL) out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        // the rooms' pieces: walls with each opening, a floor, stairs up and down, the door out
+        for (Room.Opening op : Room.Opening.values()) {
+            out.add(new Entry(op == Room.Opening.NONE ? "Wall" : "Wall: " + op.label().toLowerCase(), Category.INSIDE,
+                    WALL, Map.of("length", 4.0, "height", Room.STOREY, "opening", op.key())));
+        }
+        out.add(new Entry("Floor", Category.INSIDE, FLOOR, Map.of("width", 4.0, "depth", 4.0)));
+        out.add(new Entry("Stairs up", Category.INSIDE, STAIRS, Map.of("way", "up")));
+        out.add(new Entry("Stairs down", Category.INSIDE, STAIRS, Map.of("way", "down")));
+        out.add(new Entry("Door out", Category.INSIDE, EXIT, Map.of()));
+        BuildingCatalog buildings = BuildingCatalog.get();
+        for (String key : buildings.keys()) {
+            BuildingProfile p = buildings.profile(key);
+            out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : Category.BUILDINGS, BUILDING,
+                    Map.of("kind", key)));
+        }
+        for (Prefab p : Prefab.ALL) {
+            boolean all = true;
+            for (Prefab.Piece piece : p.pieces()) all &= buildings.profile(piece.kind()) != null;
+            if (all) out.add(new Entry(p.label(), Category.BUILDINGS, PREFAB, Map.of("set", p.key())));
+        }
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
         for (ObjectType t : TYPES.values()) {
-            if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)) continue;
+            if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
+                    || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
+                    || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
+                    || t.key().equals(STAIRS) || t.key().equals(EXIT)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
@@ -200,7 +492,27 @@ public final class ObjectTypes {
                 yield item == null ? "Item " + o.str("item", "?") + " (unknown)" : item.name();
             }
             case MARKER -> "Spot \"" + o.str("name", "spot") + "\"";
+            case BUILDING -> {
+                BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                yield p == null ? "Building " + o.str("kind", "?") + " (missing)" : p.label();
+            }
+            case PREFAB -> {
+                Prefab p = Prefab.byKey(o.str("set", ""));
+                yield p == null ? "Set " + o.str("set", "?") + " (unknown)" : p.label();
+            }
+            case WALL, FLOOR, STAIRS -> Room.profile(roomSpec(o)).label();
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
+            case CRITTERS -> {
+                CritterKind k = CritterKind.byKey(o.str("kind", ""));
+                yield (k == null ? "Critters" : k.label()) + " (" + (int) Math.round(o.num("count", 8)) + ")";
+            }
+            case ANIMALS -> {
+                AnimalKind k = AnimalKind.byKey(o.str("kind", ""));
+                Temperament n = Temperament.byKey(o.str("temperament", OWN));
+                yield (k == null ? "Animals" : k.label()) + " (" + (int) Math.round(o.num("count", 3)) + ")"
+                        + (n == null || k != null && n == k.temperament() ? "" : ", " + n.label().toLowerCase())
+                        + (k == AnimalKind.HORSE && o.bool("saddled", false) ? ", saddled" : "");
+            }
             default -> t.label();
         };
     }
@@ -221,7 +533,28 @@ public final class ObjectTypes {
                 return new Scenery.Placed(s, 0, 0, 0, false, 0).footprint() + 0.15;
             }
         }
+        if (o.type().equals(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            if (p != null) return p.reach();
+        }
+        if (o.type().equals(PREFAB)) {
+            Prefab p = Prefab.byKey(o.str("set", ""));
+            if (p != null) return p.reach(BuildingCatalog.get());
+        }
+        Room.Spec room = roomSpec(o);
+        if (room != null) return Room.profile(room).reach();
         ObjectType t = get(o.type());
         return t == null ? 0.5 : t.radius();
+    }
+
+    /** How tall {@code o} stands, about, if it is a building (else -1). */
+    public static double buildingHeight(LevelObject o) {
+        if (o.type().equals(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            return p == null ? -1 : p.height();
+        }
+        Room.Spec room = roomSpec(o);
+        if (room != null) return room.height();
+        return o.type().equals(PREFAB) ? 12 : -1;
     }
 }

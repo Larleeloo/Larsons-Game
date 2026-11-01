@@ -1,0 +1,61 @@
+{
+ "key": "barrel",
+ "label": "Barrel",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 46,
+   "height": 58,
+   "anchorX": 23.0,
+   "anchorY": 53.45333333333334,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 46,
+   "height": 66,
+   "anchorX": 23.0,
+   "anchorY": 49.8764655474602,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 46,
+   "height": 46,
+   "anchorX": 23.0,
+   "anchorY": 22.184000000000005,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -1.0915266007525972,
+  "step": 0.008594697643721238
+ },
+ "parts": [
+  {
+   "key": "staves",
+   "label": "Staves",
+   "colour": "#8a5a30",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "hoops",
+   "label": "Hoops",
+   "colour": "#5a5a60",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.352
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

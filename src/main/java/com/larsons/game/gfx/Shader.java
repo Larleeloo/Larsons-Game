@@ -80,12 +80,32 @@ public final class Shader implements AutoCloseable {
         glUniform2f(location(uniform), x, y);
     }
 
+    /** An {@code ivec2}. */
+    public void set2i(String uniform, int x, int y) {
+        glUniform2i(location(uniform), x, y);
+    }
+
     public void set(String uniform, float x, float y, float z) {
         glUniform3f(location(uniform), x, y, z);
     }
 
     public void set(String uniform, float x, float y, float z, float w) {
         glUniform4f(location(uniform), x, y, z, w);
+    }
+
+    /** A {@code vec3} array uniform, {@code xyz} three floats an element. */
+    public void set3v(String uniform, float[] xyz) {
+        glUniform3fv(location(uniform), xyz);
+    }
+
+    /** An {@code int} array uniform. */
+    public void set1iv(String uniform, int[] v) {
+        glUniform1iv(location(uniform), v);
+    }
+
+    /** A {@code float} array uniform. */
+    public void set1fv(String uniform, float[] v) {
+        glUniform1fv(location(uniform), v);
     }
 
     @Override

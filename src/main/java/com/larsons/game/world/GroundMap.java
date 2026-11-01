@@ -1,11 +1,17 @@
 package com.larsons.game.world;
 
 /**
- * What the ground is made of, where: how much of each of the four ground
- * textures beside the grass covers each spot - {@link #DIRT} on the paths,
- * {@link #FOREST} (the forest floor) under the groves, {@link #GRAVEL} round
- * the rock beds, {@link #MEADOW} (grass thick with flowers) in open patches -
- * and the grass everywhere else.
+ * What the ground is made of, where: how much of each of the ground textures
+ * beside the grass covers each spot - {@link #DIRT} on the paths, {@link
+ * #FOREST} (the forest floor) under the groves, {@link #GRAVEL} round the
+ * rock beds, {@link #MEADOW} (grass thick with flowers) in open patches, and
+ * the biomes' ground: {@link #SAND}, {@link #MUD}, {@link #SNOW}, {@link
+ * #STONE}, the {@link #JUNGLE} floor, {@link #DRY_GRASS}, {@link #ASH} and
+ * {@link #CRYSTAL} - and the grass everywhere else.
+ *
+ * <p>The weights are kept four materials to a group ({@link #GROUPS}), one
+ * RGBA texture each on the GPU and one image each in a level's folder; a
+ * group nothing of has been painted takes no memory.
  *
  * <p>A square grid of {@value #CELL} m cells - {@value #SIZE} metres a side
  * centred on the spawn for the demo, a level's own size for a level - four weights a cell from 0 to 1, painted with soft
@@ -19,9 +25,22 @@ package com.larsons.game.world;
  */
 public final class GroundMap {
 
-    public static final int DIRT = 0, FOREST = 1, GRAVEL = 2, MEADOW = 3;
+    public static final int DIRT = 0, FOREST = 1, GRAVEL = 2, MEADOW = 3, SAND = 4, MUD = 5, SNOW = 6, STONE = 7,
+            JUNGLE = 8, DRY_GRASS = 9, ASH = 10, CRYSTAL = 11;
+    /** How many materials there are beside the grass. */
+    public static final int MATERIALS = 12;
+    /** How many groups of four they are kept in. */
+    public static final int GROUPS = MATERIALS / 4;
     /** The materials' names, as their textures are called in {@code assets/scenery/ground/}. */
-    public static final String[] NAMES = {"dirt", "forest_floor", "gravel", "meadow"};
+    public static final String[] NAMES = {"dirt", "forest_floor", "gravel", "meadow", "sand", "mud", "snow",
+            "stone", "jungle_floor", "dry_grass", "ash", "crystal"};
+    /**
+     * Which lies over which where two meet, the bottom first: the biomes'
+     * ground, then the meadow, the forest floor, the gravel and the paths'
+     * dirt over everything.
+     */
+    public static final int[] ORDER = {DRY_GRASS, JUNGLE, SAND, MUD, ASH, STONE, SNOW, CRYSTAL, MEADOW, FOREST,
+            GRAVEL, DIRT};
     /** Metres the demo's map spans each way, centred on the origin. */
     public static final double SIZE = 128;
     /** Metres a cell. */
@@ -36,9 +55,11 @@ public final class GroundMap {
 
     private final int cells;
     private final double origin;
-    private final float[] w;
-    private boolean empty = true;
+    /** The weights, a group of four materials an array (null: nothing of them painted), four a cell. */
+    private final float[][] w = new float[GROUPS][];
+    private final boolean[] empty = {true, true, true};
     private int version;
+    private final int[] groupVersion = new int[GROUPS];
 
     /** The demo's map: {@value #SIZE} m a side, all grass. */
     public GroundMap() {
@@ -49,7 +70,12 @@ public final class GroundMap {
     public GroundMap(double size) {
         cells = Math.max(1, (int) Math.round(size / CELL));
         origin = -cells * CELL / 2;
-        w = new float[cells * cells * 4];
+        w[0] = new float[cells * cells * 4];
+    }
+
+    private float[] group(int g) {
+        if (w[g] == null) w[g] = new float[cells * cells * 4];
+        return w[g];
     }
 
     /** The west and north edge of the demo's grid, metres (x, z of cell 0's corner). */
@@ -70,6 +96,9 @@ public final class GroundMap {
      */
     public int version() { return version; }
 
+    /** How many times group {@code g} has been changed: its texture is uploaded again when this changes. */
+    public int version(int g) { return groupVersion[g]; }
+
     /** Cover a round patch of {@code radius} metres round {@code (x, z)} with {@code material}. */
     public GroundMap disc(int material, double x, double z, double radius) {
         return stroke(material, x, z, x, z, radius);
@@ -81,10 +110,13 @@ public final class GroundMap {
      * of path, its ends round.
      */
     public GroundMap stroke(int material, double x0, double z0, double x1, double z1, double halfWidth) {
+        int g = material / 4, ch = material % 4;
+        float[] a = this == NONE ? null : group(g);
+        groupVersion[g]++;
         return shape(x0, z0, x1, z1, halfWidth, (i, v) -> {
-            if (v > w[i + material]) {
-                w[i + material] = (float) v;
-                empty = false;
+            if (v > a[i + ch]) {
+                a[i + ch] = (float) v;
+                empty[g] = false;
             }
         });
     }
@@ -97,18 +129,43 @@ public final class GroundMap {
      * the way a stroke goes at once.
      */
     public GroundMap paint(int material, double x, double z, double radius, double strength) {
+        return paint((px, pz) -> material, x, z, radius, strength);
+    }
+
+    /** What a brush paints where: the material at {@code (x, z)}, or -1 for grass. */
+    @FunctionalInterface
+    public interface Pattern {
+        int at(double x, double z);
+    }
+
+    /**
+     * {@link #paint(int, double, double, double, double)} with a material of
+     * its own at each spot, as {@code pattern} says - the biome brush's mix
+     * of a ground and patches of another.
+     */
+    public GroundMap paint(Pattern pattern, double x, double z, double radius, double strength) {
         double k = Math.max(0, Math.min(1, strength));
-        return shape(x, z, x, z, radius, (i, v) -> {
+        shape(x, z, x, z, radius, (i, v) -> {
+            int cell = i / 4;
+            int material = pattern.at(origin + (cell % cells + 0.5) * CELL, origin + (cell / cells + 0.5) * CELL);
+            if (material >= 0) group(material / 4);
             double a = v * k;
-            for (int m = 0; m < 4; m++) {
-                float old = w[i + m];
-                float now = (float) (m == material ? Math.min(1, old + a) : Math.max(0, old - a));
-                if (now != old) {
-                    w[i + m] = now;
-                    if (now > 0) empty = false;
+            for (int g = 0; g < GROUPS; g++) {
+                float[] arr = w[g];
+                if (arr == null) continue;
+                for (int c = 0; c < 4; c++) {
+                    int m = g * 4 + c;
+                    float old = arr[i + c];
+                    float now = (float) (m == material ? Math.min(1, old + a) : Math.max(0, old - a));
+                    if (now != old) {
+                        arr[i + c] = now;
+                        if (now > 0) empty[g] = false;
+                    }
                 }
             }
         });
+        for (int g = 0; g < GROUPS; g++) if (w[g] != null) groupVersion[g]++;
+        return this;
     }
 
     private interface Cell {
@@ -154,61 +211,114 @@ public final class GroundMap {
 
     private double at(int material, int c, int r) {
         if (c < 0 || r < 0 || c >= cells || r >= cells) return 0;
-        return w[(r * cells + c) * 4 + material];
+        float[] a = w[material / 4];
+        return a == null ? 0 : a[(r * cells + c) * 4 + material % 4];
     }
 
-    /** The material that shows at {@code (x, z)} before the shader's roughening: the last over 0.5, or -1 for grass. */
+    /** The material that shows at {@code (x, z)} before the shader's roughening: the top one over 0.5, or -1 for grass. */
     public int material(double x, double z) {
         int shown = -1;
-        for (int m : new int[]{MEADOW, FOREST, GRAVEL, DIRT}) if (weight(m, x, z) > 0.5) shown = m;
+        for (int m : ORDER) if (w[m / 4] != null && weight(m, x, z) > 0.5) shown = m;
         return shown;
     }
 
     /** Whether nothing but grass has been painted. */
-    public boolean isEmpty() { return empty; }
+    public boolean isEmpty() {
+        for (boolean e : empty) if (!e) return false;
+        return true;
+    }
 
-    /** The weights as RGBA bytes, row by row from the north-west corner (z rows, x columns), for the GPU. */
+    /** Whether nothing of group {@code g}'s four materials has been painted. */
+    public boolean isEmpty(int g) { return empty[g]; }
+
+    /** The first four materials' weights as RGBA bytes ({@link #rgba(int)} of group 0). */
     public byte[] rgba() {
-        byte[] out = new byte[w.length];
-        for (int i = 0; i < w.length; i++) out[i] = (byte) Math.round(w[i] * 255);
+        return rgba(0);
+    }
+
+    /**
+     * Group {@code g}'s weights as RGBA bytes - red its first material, green
+     * its second, blue its third, alpha its fourth -, row by row from the
+     * north-west corner (z rows, x columns), for the GPU and a level's file.
+     */
+    public byte[] rgba(int g) {
+        byte[] out = new byte[cells * cells * 4];
+        float[] a = w[g];
+        if (a != null) for (int i = 0; i < out.length; i++) out[i] = (byte) Math.round(a[i] * 255);
         return out;
     }
 
-    /** Set every weight from {@code rgba} - {@link #rgba()}'s bytes, as a level's file keeps them. */
+    /** Set the first four materials' weights from {@code rgba} ({@link #setRgba(int, byte[])} of group 0). */
     public GroundMap setRgba(byte[] rgba) {
-        if (rgba.length != w.length) throw new IllegalArgumentException(rgba.length + " bytes for " + w.length);
-        empty = true;
-        for (int i = 0; i < w.length; i++) {
-            w[i] = (rgba[i] & 0xFF) / 255f;
-            if (w[i] > 0) empty = false;
-        }
+        return setRgba(0, rgba);
+    }
+
+    /** Set group {@code g}'s weights from {@code rgba} - {@link #rgba(int)}'s bytes; null: none of them. */
+    public GroundMap setRgba(int g, byte[] rgba) {
+        empty[g] = true;
         version++;
+        groupVersion[g]++;
+        if (rgba == null) {
+            if (g == 0) java.util.Arrays.fill(w[0], 0);
+            else w[g] = null;
+            return this;
+        }
+        float[] a = group(g);
+        if (rgba.length != a.length) throw new IllegalArgumentException(rgba.length + " bytes for " + a.length);
+        for (int i = 0; i < a.length; i++) {
+            a[i] = (rgba[i] & 0xFF) / 255f;
+            if (a[i] > 0) empty[g] = false;
+        }
+        return this;
+    }
+
+    /** Every group's bytes (null for one never painted), to put back with {@link #restore}: an undo step. */
+    public byte[][] snapshot() {
+        byte[][] out = new byte[GROUPS][];
+        for (int g = 0; g < GROUPS; g++) out[g] = w[g] == null || empty[g] && g > 0 ? null : rgba(g);
+        return out;
+    }
+
+    /** Put back what {@link #snapshot} kept. */
+    public GroundMap restore(byte[][] groups) {
+        for (int g = 0; g < GROUPS; g++) setRgba(g, groups[g]);
         return this;
     }
 
     /** A copy to paint on without changing this one. */
     public GroundMap copy() {
-        GroundMap g = new GroundMap(size());
-        System.arraycopy(w, 0, g.w, 0, w.length);
-        g.empty = empty;
-        return g;
+        GroundMap m = new GroundMap(size());
+        for (int g = 0; g < GROUPS; g++) {
+            if (w[g] != null) m.w[g] = w[g].clone();
+            m.empty[g] = empty[g];
+        }
+        return m;
     }
 
     /** {@code other}'s weights, put over the middle of this map (what lies outside either is left out). */
     public GroundMap copyFrom(GroundMap other) {
-        java.util.Arrays.fill(w, 0);
         int shift = (int) Math.round((other.origin - origin) / CELL);
-        empty = true;
-        for (int r = 0; r < other.cells; r++) {
-            int rr = r + shift;
-            if (rr < 0 || rr >= cells) continue;
-            for (int c = 0; c < other.cells; c++) {
-                int cc = c + shift;
-                if (cc < 0 || cc >= cells) continue;
-                for (int m = 0; m < 4; m++) {
-                    float v = other.w[(r * other.cells + c) * 4 + m];
-                    w[(rr * cells + cc) * 4 + m] = v;
-                    if (v > 0) empty = false;
+        for (int g = 0; g < GROUPS; g++) {
+            empty[g] = true;
+            groupVersion[g]++;
+            if (other.w[g] == null) {
+                if (g == 0) java.util.Arrays.fill(w[0], 0);
+                else w[g] = null;
+                continue;
+            }
+            float[] a = group(g), b = other.w[g];
+            java.util.Arrays.fill(a, 0);
+            for (int r = 0; r < other.cells; r++) {
+                int rr = r + shift;
+                if (rr < 0 || rr >= cells) continue;
+                for (int c = 0; c < other.cells; c++) {
+                    int cc = c + shift;
+                    if (cc < 0 || cc >= cells) continue;
+                    for (int m = 0; m < 4; m++) {
+                        float v = b[(r * other.cells + c) * 4 + m];
+                        a[(rr * cells + cc) * 4 + m] = v;
+                        if (v > 0) empty[g] = false;
+                    }
                 }
             }
         }

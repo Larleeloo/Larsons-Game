@@ -1,7 +1,9 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.Songs;
 import com.larsons.game.world.GroundMap;
+import com.larsons.game.world.WaterMap;
 import com.larsons.game.world.Sky;
 
 import java.util.ArrayList;
@@ -38,10 +40,14 @@ public final class Level {
     private double size;
     private Sky sky = Sky.DEFAULT;
     private String music = Songs.SHUFFLE;
+    private Life life = new Life();
     private HeightField heights;
     private GroundMap ground;
+    private WaterMap water;
     private final List<LevelObject> objects = new ArrayList<>();
     private final Map<String, Object> extra = new LinkedHashMap<>();
+    /** The floors inside its buildings, by the building's number: the ground floor first. */
+    private final Map<Integer, List<Level>> interiors = new LinkedHashMap<>();
     private int nextId = 1;
 
     /** An empty level called {@code name}, {@code size} metres a side: flat grass under the demo's sky. */
@@ -50,6 +56,7 @@ public final class Level {
         this.size = size;
         heights = new HeightField(size);
         ground = new GroundMap(size);
+        water = new WaterMap(size);
     }
 
     /** A new level as the editor starts one: empty but for the player's spawn in the middle. */
@@ -80,9 +87,11 @@ public final class Level {
         if (newSize == size) return;
         HeightField h = new HeightField(newSize).copyFrom(heights);
         GroundMap g = new GroundMap(newSize).copyFrom(ground);
+        WaterMap w = new WaterMap(newSize).copyFrom(water);
         size = newSize;
         heights = h;
         ground = g;
+        water = w;
         double half = newSize / 2;
         objects.removeIf(o -> Math.abs(o.x()) > half || Math.abs(o.z()) > half);
     }
@@ -92,6 +101,7 @@ public final class Level {
         size = newSize;
         heights = new HeightField(newSize);
         ground = new GroundMap(newSize);
+        water = new WaterMap(newSize);
     }
 
     public Sky sky() { return sky; }
@@ -112,6 +122,17 @@ public final class Level {
         this.music = music == null || music.isBlank() ? Songs.NONE : music.trim();
     }
 
+    /**
+     * The level's say over the life in it - how thick each of the little
+     * creatures lives in it, how fast the foraging bushes grow back and how
+     * much they give ({@link Life}); the Level tool's Life page.
+     */
+    public Life life() { return life; }
+
+    public void setLife(Life life) {
+        this.life = life == null ? new Life() : life;
+    }
+
     public HeightField heights() { return heights; }
 
     public void setHeights(HeightField h) {
@@ -124,11 +145,38 @@ public final class Level {
         ground = g;
     }
 
+    /** Its ponds, rivers and streams, and its sea. */
+    public WaterMap water() { return water; }
+
+    public void setWater(WaterMap w) {
+        water = w;
+    }
+
     /** Everything placed in it, in the order it was placed. */
     public List<LevelObject> objects() { return objects; }
 
     /** What a newer game wrote at the top of the file that this one does not know, kept to be written back. */
     public Map<String, Object> extra() { return extra; }
+
+    /** How big a floor of a building's inside is, metres a side. */
+    public static final double INTERIOR_SIZE = 64;
+
+    /**
+     * The floors inside building {@code id} (the ground floor first, each a
+     * level of its own: its rooms, furniture, lights, chests...), or null
+     * when none have been made for it - it is then as its kind comes ({@link
+     * Interiors#make}).
+     */
+    public List<Level> interior(int id) { return interiors.get(id); }
+
+    /** Set the floors inside building {@code id} (null: back to as its kind comes). */
+    public void setInterior(int id, List<Level> floors) {
+        if (floors == null) interiors.remove(id);
+        else interiors.put(id, new ArrayList<>(floors));
+    }
+
+    /** Every building's floors, by the building's number. */
+    public Map<Integer, List<Level>> interiors() { return interiors; }
 
     /** The number the next object placed gets. */
     public int nextId() { return nextId; }

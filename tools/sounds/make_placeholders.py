@@ -449,6 +449,53 @@ def _(k):
     return out
 
 
+@sound("player/footstep_sand", 0.4)
+def _(k):
+    d = 0.2
+    return 0.5 * thump(k, d, 85, 0.7, 0.05, 0.6, 400) + 0.7 * rustle(k, d, 2600, 9000, 0.6) * env(d, 0.006, 0.12)
+
+
+@sound("player/footstep_mud", 0.45)
+def _(k):
+    d = 0.3
+    body = thump(k, d, 70, 0.6, 0.08, 0.9, 300)
+    squelch = sweep(k.noise(d), glide(d, [(0, 700), (0.4, 260), (1, 180)]), 6.0) * env(d, 0.01, 0.2)
+    pop = place(silence(d), osc(glide(0.04, [(0, 380), (1, 620)])) * bell(0.04, 0.3, 1.0) * 0.4, 0.17)
+    return body + 0.8 * squelch + pop
+
+
+@sound("player/footstep_snow", 0.42)
+def _(k):
+    d = 0.24
+    return 0.45 * thump(k, d, 80, 0.7, 0.05, 0.5, 350) + crunch(k, d, 900, 700, 4200, 0.045)
+
+
+@sound("player/footstep_stone", 0.45)
+def _(k):
+    d = 0.14
+    return 0.6 * thump(k, d, 120, 0.7, 0.03, 0.4, 1200) + 0.5 * wood(k.uniform(900, 1300), d, 0.03, k) \
+        + 0.15 * crunch(k, d, 160, 2500, 8000, 0.02)
+
+
+@sound("player/footstep_water", 0.42)
+def _(k):
+    d = 0.42
+    splash = bp(k.noise(d), 500, 4200) * env(d, 0.004, 0.3)
+    out = 0.3 * thump(k, d, 70, 0.6, 0.06, 0.6, 400) + splash
+    for _ in range(6):                          # drops falling back
+        f = k.uniform(700, 1600)
+        place(out, chirp(f, f * k.uniform(1.6, 2.4), k.uniform(0.012, 0.025)) * 0.35, k.uniform(0.06, 0.3))
+    return out
+
+
+@sound("player/footstep_crystal", 0.4)
+def _(k):
+    d = 0.5
+    out = 0.45 * thump(k, d, 110, 0.7, 0.03, 0.3, 900) + 0.12 * crunch(k, d, 200, 3000, 9000, 0.02)
+    f = k.uniform(1700, 2300)
+    return out + 0.35 * modal(d, [(f, 1, 0.35), (f * 2.41, 0.5, 0.22), (f * 3.9, 0.25, 0.12)])
+
+
 @sound("player/jump", 0.4)
 def _(k):
     d = 0.3
@@ -1082,6 +1129,155 @@ def _(k):
     return out
 
 
+def bird(k, f, d, notes=3):
+    """A small bird's phrase: a few quick whistled notes, each gliding."""
+    out = silence(d)
+    t = 0.0
+    for _ in range(notes):
+        n = k.uniform(0.05, 0.12)
+        f0 = f * k.uniform(0.85, 1.2)
+        place(out, chirp(f0, f0 * k.uniform(0.7, 1.4), n), t, k.uniform(0.6, 1.0))
+        t += n + k.uniform(0.02, 0.07)
+    return out
+
+
+def croak(k, f, d):
+    """A frog: a buzzing pulse train through a low formant, falling a little."""
+    rate = glide(d, [(0, f), (1, f * 0.85)])
+    phase = np.cumsum(rate) / SR
+    pulses = (np.diff(np.floor(phase), prepend=0) > 0).astype(float)
+    x = resonator(signal.lfilter([1], [1, -0.9], pulses), f * 4.2, 260) + 0.5 * resonator(pulses, f * 9, 500)
+    return x * bell(d, 0.3, 1.4)
+
+
+@sound("ambient/plains", 0.2)
+def _(k):
+    d = 12.0
+    out = 0.12 * k.periodic(d, band_shape(150, 900, -4))
+    for _ in range(14):
+        f = k.uniform(2600, 4800)
+        place(out, bird(k, f, 0.6, int(k.uniform(2, 6))), k.uniform(0, d), k.uniform(0.25, 0.8), wrap=True)
+    return out
+
+
+@sound("ambient/marsh", 0.2)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    out = 0.35 * k.periodic(d, band_shape(80, 500, -5))                   # water lapping
+    buzz = osc(410 + 9 * np.sin(2 * np.pi * t / d * 3)) * (0.5 + 0.5 * np.sin(2 * np.pi * t / d * 2 + 1)) ** 2
+    out += 0.12 * buzz + 0.06 * osc(660 + 6 * np.sin(2 * np.pi * t / d * 5)) * (0.5 + 0.5 * np.sin(2 * np.pi * t / d))
+    for _ in range(10):                                                   # a bloop, a dragonfly
+        place(out, chirp(k.uniform(180, 320), k.uniform(400, 700), 0.08) * 0.4, k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/frogs", 0.22)
+def _(k):
+    d = 8.0
+    out = 0.04 * k.periodic(d, band_shape(2500, 7000))
+    for f, every, start in ((95.0, 1.3, 0.2), (130.0, 1.9, 0.9), (75.0, 2.6, 1.6)):
+        t = start
+        while t < d:
+            place(out, croak(k, f, k.uniform(0.18, 0.32)), t, k.uniform(0.6, 1.0), wrap=True)
+            t += every * k.uniform(0.8, 1.2)
+    return out
+
+
+@sound("ambient/mountains", 0.22)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(200, 1400, -3))
+    gust = 0.4 + 0.45 * np.sin(2 * np.pi * t / d + 0.3) ** 2 + 0.15 * np.sin(2 * np.pi * 4 * t / d)
+    whistle = k.periodic(d, lambda f: np.exp(-((f - 950) / 60) ** 2) + 0.6 * np.exp(-((f - 1420) / 50) ** 2))
+    return low * gust + 0.4 * whistle * gust ** 2
+
+
+@sound("ambient/jungle", 0.2)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    out = 0.08 * k.periodic(d, band_shape(3000, 9000)) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 3))
+    for _ in range(22):
+        f = k.uniform(1500, 5200)
+        place(out, bird(k, f, 0.8, int(k.uniform(2, 7))), k.uniform(0, d), k.uniform(0.2, 0.7), wrap=True)
+    for _ in range(4):                                                    # a whooping call far off
+        f = k.uniform(500, 800)
+        call = silence(1.2)
+        for i in range(4):
+            place(call, chirp(f, f * 1.6, 0.18), i * 0.24, 0.8 - i * 0.12)
+        place(out, call, k.uniform(0, d), 0.3, wrap=True)
+    return out
+
+
+@sound("ambient/jungle_night", 0.2)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    trill = osc(5200, d) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 22 * t))) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 2))
+    out = 0.1 * trill + 0.05 * k.periodic(d, band_shape(1500, 6000))
+    for f, every in ((110.0, 2.2), (160.0, 3.1)):
+        tt = k.uniform(0, 1)
+        while tt < d:
+            place(out, croak(k, f, 0.22), tt, 0.5, wrap=True)
+            tt += every * k.uniform(0.8, 1.2)
+    for at in (2.0, 7.0):                                                 # an owl
+        for i, f in enumerate((420.0, 380.0)):
+            place(out, osc(glide(0.35, [(0, f), (0.3, f * 1.05), (1, f * 0.92)])) * bell(0.35, 0.3, 1.2) * 0.35,
+                  at + i * 0.45, wrap=True)
+    return out
+
+
+@sound("ambient/savannah", 0.18)
+def _(k):
+    d = 9.0
+    t = t_of(d)
+    cicada = bp(k.periodic(d, band_shape(4000, 7500)), 4000, 7500) * (0.5 + 0.5 * np.sin(2 * np.pi * 47 * t)) ** 2
+    swell = 0.4 + 0.6 * np.sin(np.pi * t / d * 2) ** 2
+    out = 0.5 * cicada * swell + 0.35 * k.periodic(d, band_shape(150, 900, -4))
+    for _ in range(5):
+        place(out, bird(k, k.uniform(2000, 3200), 0.5, 2), k.uniform(0, d), 0.25, wrap=True)
+    return out
+
+
+@sound("ambient/ocean", 0.25)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    out = silence(d)
+    for i, at in enumerate((0.0, 4.1, 8.3)):                              # three waves to a loop
+        crash = np.clip((t - at) % d, 0, None)
+        level = np.where(crash < 3.6, np.sin(np.pi * np.minimum(crash / 3.6, 1)) ** 1.5, 0)
+        out += level * (0.9 - 0.1 * i)
+    wash = k.periodic(d, band_shape(250, 4000, -2))
+    hiss = k.periodic(d, band_shape(3000, 9000))
+    return wash * (0.25 + out) + 0.3 * hiss * out
+
+
+@sound("ambient/waste", 0.22)
+def _(k):
+    d = 10.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(60, 450, -4))
+    moan = k.periodic(d, lambda f: np.exp(-((f - 310) / 25) ** 2) + 0.7 * np.exp(-((f - 465) / 25) ** 2))
+    swell = 0.5 + 0.5 * np.sin(2 * np.pi * t / d * 2 + 1.2)
+    return low * (0.6 + 0.4 * swell) + 0.5 * moan * swell ** 2
+
+
+@sound("ambient/crystal", 0.2)
+def _(k):
+    d = 12.0
+    t = t_of(d)
+    hum = sum(a * osc(f, d) for f, a in ((220.0, 0.5), (221.0 + 1 / d, 0.5), (330.0, 0.3), (440.0 + 2 / d, 0.15)))
+    out = 0.25 * hum * (0.7 + 0.3 * np.sin(2 * np.pi * t / d))
+    notes = [1318.5, 1568.0, 1760.0, 2093.0, 2349.3, 2637.0]
+    for _ in range(18):
+        f = notes[int(k.uniform(0, len(notes)))]
+        place(out, chime([f], 2.0, decay=1.4, bright=0.5), k.uniform(0, d), k.uniform(0.15, 0.45), wrap=True)
+    return out
+
+
 # Interface ----------------------------------------------------------------------------
 
 @sound("ui/click", 0.32)
@@ -1244,6 +1440,458 @@ def _(k):
 def _(k):
     d = 0.5
     return 0.6 * whoosh(k, d, 400, 2400, 3000, 1.3, 0.6) + chime([659.25, 987.77], d, 0.09, 0.4, 0.3)
+
+
+# The little creatures (ambient/Critters) and foraging -----------------------------------
+
+@sound("creatures/frog/croak", 0.4)
+def _(k):
+    d = 0.42
+    out = silence(d)
+    place(out, croak(k, 105, 0.3), 0.0)
+    place(out, croak(k, 98, 0.1) * 0.6, 0.31)
+    return out
+
+
+@sound("creatures/frog/plop", 0.4)
+def _(k):
+    d = 0.3
+    t = t_of(d)
+    drop = osc(glide(d, [(0, 320), (0.25, 880), (1, 1100)])) * env(d, 0.003, 0.09)
+    splash = bp(k.noise(d), 900, 5000) * env(d, 0.001, 0.12) * 0.35
+    return drop + splash + 0.3 * thump(k, d, 140, 0.5, 0.04, 0.3, 600)
+
+
+@sound("creatures/cricket/chirp", 0.3)
+def _(k):
+    d = 0.24
+    out = silence(d)
+    f = k.uniform(4400, 4900)
+    for p in range(4):
+        place(out, osc(f, 0.016) * bell(0.016, 0.3, 1.0), p * 0.034)
+    return out
+
+
+@sound("creatures/dragonfly/buzz", 0.3)
+def _(k):
+    d = 0.7
+    t = t_of(d)
+    beat = 0.5 + 0.5 * np.sin(2 * np.pi * 32 * t) ** 2          # four wings, about 30 beats a second
+    wings = bp(k.noise(d), 140, 900) * beat
+    whine = osc(glide(d, [(0, 190), (0.5, 230), (1, 170)])) * 0.25
+    return (wings + whine) * bell(d, 0.45, 1.3)
+
+
+# The animals (ambient/Animals): calls, cries when hit, warnings, wings ------------------------
+
+def nasal(k, d, f0s, formants, rough=0.0):
+    """A buzzy, reedy voice - a duck's, a goose's: a pulse train at the pitch curve through a few formants."""
+    rate = glide(d, f0s) * (1 + 0.01 * lp(k.noise(d), 40) / 0.3)
+    phase = np.cumsum(rate) / SR
+    pulses = (np.diff(np.floor(phase), prepend=0) > 0).astype(float)
+    src = signal.lfilter([1], [1, -0.7], pulses) * (1 + rough * np.sin(np.pi * phase))
+    out = np.zeros(n_of(d))
+    for f, bw, lvl in formants:
+        out += lvl * resonator(src, f, bw)
+    return out
+
+
+def animal(k, d, f0s, vowel, scale, **kw):
+    """A voiced call: syllable() without the breath before it."""
+    return syllable(k, d, f0s, vowel, scale, h=0, **kw)
+
+
+def hiss(k, d, lo=1800, hi=9000, peak=0.2):
+    return bp(k.noise(d), lo, hi) * bell(d, peak, 1.2)
+
+
+def flaps(k, n, gap, d=0.12, lo=250, hi=2200):
+    out = silence(gap * n + d)
+    for i in range(n):
+        place(out, bp(k.noise(d), lo, hi) * bell(d, 0.3, 1.5) * (1 - 0.12 * i), i * gap)
+    return out
+
+
+def squeak(k, d=0.12, f=2600):
+    return osc(glide(d, [(0, f * 0.9), (0.3, f * 1.15), (1, f * 0.75)])) * bell(d, 0.25, 1.4)
+
+
+@sound("creatures/horse/neigh", 0.42)
+def _(k):
+    d = 1.15
+    out = silence(d + 0.25)
+    place(out, animal(k, d, [(0, 520), (0.12, 820), (0.45, 660), (1, 360)], "e", 1.15, vib=0.07, vib_rate=11,
+                      rough=0.25, breath=0.12), 0)
+    place(out, bp(k.noise(0.25), 200, 1400) * bell(0.25, 0.2) * 0.5, d - 0.05)
+    return out
+
+
+@sound("creatures/horse/snort", 0.4)
+def _(k):
+    d = 0.42
+    flutter = 1 + 0.7 * np.sin(2 * np.pi * 34 * t_of(d))
+    return bp(k.noise(d), 180, 1500) * flutter * env(d, 0.01, 0.35)
+
+
+def clop(k, bright=1.0):
+    """One hoof on the ground: a hard knock with a hollow wooden ring and a little grit."""
+    d = 0.13
+    out = thump(k, d, k.uniform(140, 175), 0.5, 0.035, 0.35, 1400) * 0.8
+    out = out + wood(k.uniform(700, 900) * bright, d, 0.025, k) * 0.45
+    return out + crunch(k, d, 160, 1800, 6000, 0.02) * 0.15
+
+
+@sound("creatures/horse/hooves", 0.42)
+def _(k):
+    # a walk's step: one hoof and then the next, close behind it
+    out = silence(0.32)
+    place(out, clop(k), 0.0)
+    place(out, clop(k, 0.92) * 0.8, 0.11 + k.uniform(-0.01, 0.01))
+    return out
+
+
+@sound("creatures/horse/gallop", 0.46)
+def _(k):
+    # a stride of the canter, ba-da-dum: three beats, the last the heaviest
+    out = silence(0.42)
+    for i, (at, g) in enumerate(((0.0, 0.7), (0.085, 0.8), (0.17, 1.0))):
+        place(out, clop(k, 0.95 + 0.04 * i) * g, at + k.uniform(-0.008, 0.008))
+    place(out, thump(k, 0.2, 70, 0.6, 0.08, 0.3, 400) * 0.5, 0.17)
+    return out
+
+
+@sound("creatures/cow/moo", 0.42)
+def _(k):
+    d = 1.5
+    out = silence(d)
+    place(out, animal(k, 0.25, [(0, 105), (1, 115)], "m", 0.75, rough=0.1), 0)
+    place(out, animal(k, d - 0.2, [(0, 118), (0.3, 150), (0.8, 138), (1, 98)], "o", 0.72, rough=0.15), 0.18)
+    return out
+
+
+@sound("creatures/cow/bellow", 0.45)
+def _(k):
+    d = 0.95
+    return animal(k, d, [(0, 150), (0.4, 175), (1, 105)], "a", 0.74, rough=0.5, breath=0.2)
+
+
+@sound("creatures/bear/growl", 0.42)
+def _(k):
+    d = 1.1
+    return animal(k, d, [(0, 62), (0.5, 72), (1, 58)], "uh", 0.6, rough=0.95, breath=0.35) \
+        + 0.3 * lp(k.noise(d), 300) * bell(d, 0.4)
+
+
+@sound("creatures/bear/roar", 0.48)
+def _(k):
+    d = 1.25
+    return animal(k, d, [(0, 90), (0.25, 160), (0.7, 130), (1, 75)], "a", 0.62, rough=1.0, breath=0.4) \
+        + 0.35 * bp(k.noise(d), 150, 1200) * bell(d, 0.3)
+
+
+@sound("creatures/sheep/baa", 0.4)
+def _(k):
+    d = 0.85
+    return animal(k, d, [(0, 250), (0.2, 285), (1, 230)], "e", 1.15, vib=0.08, vib_rate=7.5, rough=0.2)
+
+
+@sound("creatures/sheep/bleat", 0.42)
+def _(k):
+    d = 0.5
+    return animal(k, d, [(0, 320), (0.3, 370), (1, 300)], "a", 1.2, vib=0.11, vib_rate=9, rough=0.3)
+
+
+@sound("creatures/pig/oink", 0.4)
+def _(k):
+    out = silence(0.5)
+    for i, f in enumerate((175, 160)):
+        place(out, nasal(k, 0.13, [(0, f), (1, f * 0.8)], [(450, 120, 1.0), (1100, 160, 0.5), (2600, 300, 0.2)],
+                         rough=0.6), i * 0.24)
+    return out
+
+
+@sound("creatures/pig/squeal", 0.38)
+def _(k):
+    d = 0.7
+    return animal(k, d, [(0, 850), (0.3, 1250), (1, 950)], "i", 1.45, rough=0.35, vib=0.03, vib_rate=13)
+
+
+@sound("creatures/dog/bark", 0.45)
+def _(k):
+    out = silence(0.5)
+    for i in range(2):
+        place(out, animal(k, 0.13, [(0, 400), (0.3, 520), (1, 320)], "a", 1.05, rough=0.55, breath=0.2), i * 0.27)
+    return out
+
+
+@sound("creatures/dog/whine", 0.36)
+def _(k):
+    d = 0.85
+    return animal(k, d, [(0, 680), (0.45, 920), (1, 580)], "i", 1.3, vib=0.03, breath=0.15)
+
+
+@sound("creatures/dog/growl", 0.4)
+def _(k):
+    d = 0.95
+    return animal(k, d, [(0, 105), (0.5, 118), (1, 100)], "uh", 0.85, rough=0.95, breath=0.3)
+
+
+@sound("creatures/fox/yip", 0.4)
+def _(k):
+    out = silence(0.55)
+    for i in range(3):
+        place(out, animal(k, 0.09, [(0, 700), (0.4, 980), (1, 620)], "a", 1.35, breath=0.1), i * 0.16)
+    return out
+
+
+@sound("creatures/fox/yelp", 0.42)
+def _(k):
+    d = 0.28
+    return animal(k, d, [(0, 1150), (1, 680)], "a", 1.4, rough=0.3)
+
+
+@sound("creatures/cat/meow", 0.38)
+def _(k):
+    d = 0.75
+    out = silence(d)
+    place(out, animal(k, 0.25, [(0, 520), (1, 640)], "i", 1.35), 0)
+    place(out, animal(k, 0.55, [(0, 660), (0.3, 700), (1, 460)], "a", 1.3, vib=0.02), 0.18)
+    return out
+
+
+@sound("creatures/cat/yowl", 0.4)
+def _(k):
+    d = 1.0
+    return animal(k, d, [(0, 600), (0.5, 860), (1, 500)], "a", 1.35, vib=0.05, vib_rate=6, rough=0.25)
+
+
+@sound("creatures/cat/hiss", 0.32)
+def _(k):
+    return hiss(k, 0.75, 2500, 9500, 0.12)
+
+
+@sound("creatures/rabbit/thump", 0.42)
+def _(k):
+    out = silence(0.4)
+    for i in range(2):
+        place(out, thump(k, 0.14, 75, 0.5, 0.05, 0.25, 400), i * 0.2)
+    return out
+
+
+@sound("creatures/rabbit/squeak", 0.3)
+def _(k):
+    return squeak(k, 0.16, 2300)
+
+
+@sound("creatures/squirrel/chatter", 0.3)
+def _(k):
+    d = 0.6
+    out = silence(d)
+    for i in range(10):
+        f = k.uniform(2200, 3600)
+        place(out, osc(glide(0.025, [(0, f), (1, f * 0.8)])) * bell(0.025, 0.3, 1.0) * (0.6 + 0.4 * (i % 2)),
+              i * 0.055)
+    return out
+
+
+@sound("creatures/squirrel/squeak", 0.3)
+def _(k):
+    return squeak(k, 0.12, 3000)
+
+
+@sound("creatures/duck/quack", 0.4)
+def _(k):
+    out = silence(0.55)
+    for i in range(2):
+        place(out, nasal(k, 0.17, [(0, 300), (0.3, 320), (1, 250)], [(950, 160, 1.0), (1700, 200, 0.6),
+                                                                      (2900, 300, 0.3)], rough=0.4)
+              * bell(0.17, 0.2, 1.0), i * 0.26)
+    return out
+
+
+@sound("creatures/duck/squawk", 0.4)
+def _(k):
+    d = 0.32
+    return nasal(k, d, [(0, 420), (0.3, 520), (1, 380)], [(1100, 180, 1.0), (2000, 250, 0.6), (3200, 300, 0.3)],
+                 rough=0.9) * bell(d, 0.15, 1.0)
+
+
+@sound("creatures/duck/flap", 0.36)
+def _(k):
+    return flaps(k, 5, 0.11, 0.1, 300, 2600)
+
+
+@sound("creatures/goose/honk", 0.42)
+def _(k):
+    out = silence(0.75)
+    for i in range(2):
+        place(out, nasal(k, 0.26, [(0, 400), (0.25, 470), (1, 390)], [(700, 140, 1.0), (1300, 180, 0.7),
+                                                                      (2600, 260, 0.3)], rough=0.5)
+              * bell(0.26, 0.2, 1.0), i * 0.36)
+    return out
+
+
+@sound("creatures/goose/squawk", 0.42)
+def _(k):
+    d = 0.38
+    return nasal(k, d, [(0, 560), (0.3, 640), (1, 470)], [(900, 180, 1.0), (1700, 220, 0.6), (3000, 300, 0.3)],
+                 rough=0.9) * bell(d, 0.15, 1.0)
+
+
+@sound("creatures/goose/hiss", 0.36)
+def _(k):
+    return hiss(k, 0.9, 1800, 7500, 0.15)
+
+
+@sound("creatures/goose/flap", 0.4)
+def _(k):
+    return flaps(k, 5, 0.15, 0.13, 200, 2000)
+
+
+@sound("creatures/swan/trumpet", 0.4)
+def _(k):
+    d = 0.55
+    return nasal(k, d, [(0, 290), (0.3, 340), (1, 270)], [(600, 120, 1.0), (1150, 160, 0.6), (2400, 240, 0.25)],
+                 rough=0.35) * bell(d, 0.2, 1.0)
+
+
+@sound("creatures/swan/squawk", 0.42)
+def _(k):
+    d = 0.42
+    return nasal(k, d, [(0, 480), (0.3, 560), (1, 400)], [(800, 160, 1.0), (1500, 220, 0.6), (2800, 300, 0.3)],
+                 rough=0.9) * bell(d, 0.15, 1.0)
+
+
+@sound("creatures/swan/hiss", 0.4)
+def _(k):
+    return hiss(k, 1.1, 1500, 7000, 0.12)
+
+
+@sound("creatures/swan/flap", 0.42)
+def _(k):
+    return flaps(k, 5, 0.19, 0.16, 150, 1600)
+
+
+@sound("creatures/bee/buzz", 0.26)
+def _(k):
+    d = 1.0
+    f = glide(d, [(0, 215), (0.5, 240), (1, 205)])
+    tone = signal.sawtooth(2 * np.pi * np.cumsum(f) / SR) * 0.4
+    return (lp(tone, 1800) + 0.25 * bp(k.noise(d), 150, 1200)) * bell(d, 0.45, 1.3)
+
+
+@sound("creatures/bee/swarm", 0.34)
+def _(k):
+    d = 1.6
+    out = np.zeros(n_of(d))
+    for i in range(5):
+        f = glide(d, [(0, k.uniform(220, 290)), (0.5, k.uniform(260, 320)), (1, k.uniform(220, 290))])
+        out += signal.sawtooth(2 * np.pi * np.cumsum(f) / SR) * 0.3
+    return (lp(out, 2200) + 0.3 * bp(k.noise(d), 150, 1500)) * bell(d, 0.3, 1.2)
+
+
+@sound("creatures/bee/sting", 0.36)
+def _(k):
+    d = 0.16
+    return osc(glide(d, [(0, 380), (1, 1500)])) * bell(d, 0.7, 1.2) + 0.3 * crunch(k, d, 300, 2500, 7000, 0.03)
+
+
+@sound("creatures/iguana/hiss", 0.32)
+def _(k):
+    return hiss(k, 0.55, 1500, 6500, 0.15)
+
+
+@sound("world/forage_pick", 0.38)
+def _(k):
+    d = 0.45
+    out = rustle(k, d, 1500, 7000, 0.45) * bell(d, 0.3, 1.2) * 0.8
+    for at in (0.12, 0.24):                                       # a stalk or two snapping
+        place(out, wood(k.uniform(1800, 2600), 0.05, 0.02, k) * 0.5, at + k.uniform(-0.02, 0.02))
+    return out
+
+
+@sound("world/door_open", 0.4)
+def _(k):
+    d = 0.75
+    out = silence(d)
+    place(out, wood(k.uniform(1400, 1700), 0.06, 0.02, k) * 0.6, 0.0)          # the latch
+    f = glide(0.55, [(0, 170), (0.35, 240), (0.7, 205), (1, 230)])             # the hinge creaking round
+    creak = signal.sawtooth(2 * np.pi * np.cumsum(f) / SR) * (0.6 + 0.4 * lp(np.abs(k.noise(0.55)), 40))
+    place(out, bp(creak, 350, 2600) * bell(0.55, 0.3, 1.2) * 0.35, 0.08)
+    place(out, crunch(k, 0.5, 90, 2500, 7000, 0.04) * 0.25, 0.1)
+    return out
+
+
+@sound("world/door_close", 0.42)
+def _(k):
+    d = 0.4
+    out = silence(d)
+    place(out, thump(k, 0.22, 85, 0.7, 0.1, 0.5, 700), 0.0)                  # the door into its frame
+    place(out, wood(k.uniform(900, 1100), 0.12, 0.05, k) * 0.7, 0.0)
+    place(out, wood(k.uniform(1600, 1900), 0.05, 0.015, k) * 0.45, 0.07)      # and the latch
+    return out
+
+
+def leather(k, d, lo=300, hi=2400):
+    """Leather creaking: a slow, rough stretch."""
+    return creak(k, d, 120, 210, 0.6) * 0.5 + bp(k.noise(d), lo, hi) * bell(d, 0.5, 1.4) * 0.25
+
+
+@sound("world/saddle_on", 0.4)
+def _(k):
+    # the saddle swung up and down on its back, the girth pulled, a buckle
+    d = 1.0
+    out = silence(d)
+    place(out, whoosh(k, 0.3, 300, 900, 500, 1.4, 0.5, 1.5) * 0.4, 0.0)
+    place(out, thump(k, 0.18, 85, 0.6, 0.08, 0.6, 700) * 0.8, 0.26)
+    place(out, leather(k, 0.4) * 0.8, 0.36)
+    place(out, metal(k.uniform(2200, 2600), 0.25, 0.4, 0.5, k) * 0.35, 0.8)
+    return out
+
+
+@sound("world/mount", 0.4)
+def _(k):
+    # a foot in the stirrup, up, and down into the saddle: leather creaking under her
+    d = 0.75
+    out = silence(d)
+    place(out, metal(k.uniform(1800, 2100), 0.15, 0.25, 0.4, k) * 0.25, 0.0)
+    place(out, whoosh(k, 0.35, 250, 700, 400, 1.4, 0.45, 1.5) * 0.35, 0.08)
+    place(out, thump(k, 0.16, 90, 0.6, 0.07, 0.4, 600) * 0.6, 0.42)
+    place(out, leather(k, 0.3) * 0.9, 0.44)
+    return out
+
+
+@sound("world/dismount", 0.42)
+def _(k):
+    # off the saddle - its leather - and her feet down on the ground
+    d = 0.6
+    out = silence(d)
+    place(out, leather(k, 0.22) * 0.7, 0.0)
+    place(out, whoosh(k, 0.25, 300, 650, 350, 1.4, 0.45, 1.5) * 0.3, 0.06)
+    place(out, thump(k, 0.16, 95, 0.6, 0.07, 0.8, 800), 0.34)
+    place(out, thump(k, 0.14, 100, 0.6, 0.06, 0.8, 800) * 0.7, 0.39)
+    return out
+
+
+@sound("world/stairs", 0.38)
+def _(k):
+    d = 0.9
+    out = silence(d)
+    for i in range(4):                                            # four steps on wooden treads
+        at = 0.02 + i * 0.21 + k.uniform(-0.015, 0.015)
+        place(out, thump(k, 0.12, k.uniform(95, 120), 0.6, 0.06, 0.5, 900) * (0.9 - 0.1 * i), at)
+        place(out, wood(k.uniform(500, 700), 0.08, 0.03, k) * 0.35, at + 0.004)
+    return out
+
+
+@sound("items/eat", 0.4)
+def _(k):
+    d = 0.6
+    out = silence(d)
+    for i, at in enumerate((0.0, 0.2, 0.38)):                     # three bites
+        place(out, crunch(k, 0.12, 260, 1200, 6000, 0.04) * (1 - 0.2 * i), at)
+        place(out, thump(k, 0.08, 120, 0.5, 0.03, 0.4, 500) * 0.4, at)
+    return out
 
 
 # --- writing -------------------------------------------------------------------------------

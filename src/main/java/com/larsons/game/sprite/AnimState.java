@@ -194,7 +194,13 @@ public enum AnimState {
     // hanging by her hands, and stepping down over it to hang by them (the same move the
     // other way round)
     LEDGE_UP("ledge_up", "Ledge, step up", false, 36, Stance.FREE, 0, "climb"),
-    LEDGE_DOWN("ledge_down", "Ledge, step down", false, 36, Stance.FREE, 0, "climb");
+    LEDGE_DOWN("ledge_down", "Ledge, step down", false, 36, Stance.FREE, 0, "climb"),
+    // --- riding the saddled horse (feminine_model_ride.py), the reins in both hands: sitting
+    // its walk (played at a stand and a walk, one stride a loop), and up in the stirrups at
+    // the gallop - drawn over the horse, her sprite's ground {@code RideTrack.SEAT_Z} below
+    // its seat
+    RIDE("ride", "Ride", true, 24, Stance.FREE, 0, "crouch_idle"),
+    RIDE_RUN("ride_run", "Ride, gallop", true, 18, Stance.FREE, 0, "ride");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

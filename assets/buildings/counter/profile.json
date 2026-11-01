@@ -1,0 +1,62 @@
+{
+ "key": "counter",
+ "label": "Counter",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 130,
+   "height": 66,
+   "anchorX": 65.0,
+   "anchorY": 61.66666666666667,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 130,
+   "height": 134,
+   "anchorX": 65.0,
+   "anchorY": 87.626539572406,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 130,
+   "height": 130,
+   "anchorX": 65.0,
+   "anchorY": 64.01333333333334,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -1.7330832801789384,
+  "step": 0.013646325040779042
+ },
+ "parts": [
+  {
+   "key": "body",
+   "label": "Body",
+   "colour": "#7a4c2c",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "top",
+   "label": "Top",
+   "colour": "#a07040",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.2,
+   0.66
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

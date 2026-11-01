@@ -45,9 +45,19 @@ final class Widgets {
     /** A slider from {@code min} to {@code max}; the value as it is dragged (or as it was). */
     double slider(Ui ui, String id, String label, double value, double min, double max, String format,
                   float x, float y, float w) {
+        return slider(ui, id, label, value, min, max, format, x, y, w, false);
+    }
+
+    /**
+     * A slider; {@code stacked}, its label over its left end, its value over its right, the bar the
+     * whole width (for a narrow column).
+     */
+    double slider(Ui ui, String id, String label, double value, double min, double max, String format,
+                  float x, float y, float w, boolean stacked) {
         Input in = ui.input();
-        float lw = w * 0.42f, bx = x + lw, bw = w - lw;
-        label(ui, label, x, y);
+        float lw = stacked ? 0 : w * 0.42f, bx = x + lw, bw = w - lw;
+        if (stacked) ui.text(ui.small, label, x, y - 10, Theme.ITEM);
+        else label(ui, label, x, y);
         float t = (float) ((value - min) / (max - min));
         t = Math.max(0, Math.min(1, t));
         ui.rect(bx, y + ROW / 2 - 3, bw, 6, Theme.BUTTON);

@@ -1,0 +1,62 @@
+{
+ "key": "crate",
+ "label": "Crate",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 60,
+   "height": 44,
+   "anchorX": 30.0,
+   "anchorY": 40.546666666666674,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 60,
+   "height": 72,
+   "anchorX": 30.0,
+   "anchorY": 48.32283594428424,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 60,
+   "height": 60,
+   "anchorX": 30.0,
+   "anchorY": 29.549502610950913,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -0.9622203894596788,
+  "step": 0.0075765384996825105
+ },
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#7a5030",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.704,
+   0.704
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -15,7 +15,11 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.building.Building;
+import com.larsons.game.building.Room;
+import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
+import com.larsons.game.level.LevelObject;
 import com.larsons.game.level.LevelWorld;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
@@ -28,11 +32,13 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Chest;
+import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.RideTrack;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Terrain;
@@ -148,8 +154,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public static final double MUSIC_VOLUME = 0.7;
     /** Back to the editor, or null: the level is not being play-tested. */
     private final Runnable back;
-    /** The demo's scenery or the level's, as it is when shown. */
-    private final Scenery scenery;
+    /** The scenery of where she is - the demo's, the level's, a floor of a building's - as it is when shown. */
+    private Scenery scenery;
+    /** Where she is inside a building, or null: outdoors. */
+    private Inside inside;
+    /** The floors of the buildings she has been in, as she left them: by the building, then by the floor. */
+    private final java.util.Map<Integer, java.util.Map<Integer, Left>> visited = new java.util.HashMap<>();
+    /** The insides made, as each kind comes, for the buildings the level has none set for. */
+    private final java.util.Map<Integer, List<Level>> madeInsides = new java.util.HashMap<>();
+    /** The fade through black as she goes through a door, 1 – 0. */
+    private double fade;
     /** When the heavy attack's "ready in" was last said (so held-down presses are not a pile of toasts). */
     private double heavyToast = Double.NEGATIVE_INFINITY;
     private boolean turntable;
@@ -160,10 +174,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private boolean scriptDraw, scriptBlock;
     /** A scripted roll: the dodge key held until the dash has turned into the roll. */
     private boolean scriptRoll;
+    /** A scripted run set the clock's speed (the N key leaves it alone). */
+    private boolean scriptedTimeLapse;
 
     public DemoScene(Game game) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = null;
         this.back = null;
         this.scenery = game.demoScenery();
@@ -197,6 +214,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(shownScenery());
+        world.startDay();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
 
@@ -210,6 +228,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back) {
         this.game = game;
         this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
@@ -308,6 +327,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void update(double dt) {
         frameDt = dt;
+        fade = Math.max(0, fade - dt * 2.8);
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         if (pause.open()) {
@@ -406,12 +426,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             setClassic(!game.settings().classicAnimations);
         }
 
+        // --- the time of day: N held runs it fast ---------------------------------------------
+        if (!scriptedTimeLapse) world.clock().setSpeed(in.down(GLFW_KEY_N) && !inventory.open() ? DayCycle.TIME_LAPSE : 1);
+        if (in.pressed(GLFW_KEY_N) && !inventory.open() && !world.sky().air().timeRuns()) {
+            game.toast("The time stands still here", Theme.HINT);
+        }
+
         // --- items, the chest -----------------------------------------------------------
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
         if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
         Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
+        intent = eatInstead(intent);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
             Sounds.play(SoundKeys.ui("error"), 0.6);
@@ -551,16 +578,320 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
     }
 
-    /** E: open or shut the chest she stands by, else pick up what lies by her - whichever is nearer. */
-    private void use() {
+    /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
+    private enum Use { NOTHING, CHEST, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+
+    /** The saddled horse's sheets, where its {@code ride.json} is. */
+    private static final String RIDE_SHEETS = "horse_saddled";
+
+    private Use usable() {
+        Player.Riding riding = world.player().riding();
+        if (riding == Player.Riding.RIDING) return Use.DISMOUNT;        // on a horse: only getting off it
+        if (riding != Player.Riding.NO) return Use.NOTHING;
+        Vec3 me = world.player().ground();
+        // a horse by her: get on it - or, with a saddle on her, saddle it - before what lies about
+        if (world.reachableHorse() != null) return Use.MOUNT;
+        if (world.saddleable() != null) return Use.SADDLE;
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
-        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
-                < g.position.horizontalDistance(world.player().ground()))) {
-            toggleChest(c);
-        } else {
-            pickUp();
+        Scenery.Placed b = world.reachableBush();
+        Building d = usableDoor();
+        double dc = c == null ? Double.MAX_VALUE : c.position().horizontalDistance(me);
+        double dg = g == null ? Double.MAX_VALUE : g.position.horizontalDistance(me);
+        double db = b == null ? Double.MAX_VALUE : Math.hypot(b.x() - me.x(), b.z() - me.z());
+        double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
+        if (d != null && dd < dc && dd < dg && dd < db) return Use.DOOR;
+        if (c != null && dc < dg && dc <= db) return Use.CHEST;
+        if (g != null && dg <= db) return Use.ITEM;
+        return b != null ? Use.BUSH : Use.NOTHING;
+    }
+
+    /**
+     * E: open or shut the chest she stands by, pick up what lies by her, pick a bush, go through a door -
+     * whichever is nearest; by a horse, saddle it or get on it; on one, get off.
+     */
+    private void use() {
+        switch (usable()) {
+            case CHEST -> toggleChest(world.reachableChest());
+            case ITEM -> pickUp();
+            case BUSH -> forage(world.reachableBush());
+            case DOOR -> goThrough(usableDoor());
+            case SADDLE -> saddleHorse();
+            case MOUNT -> world.mount(world.reachableHorse());
+            case DISMOUNT -> {
+                if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
+            }
+            default -> { }
         }
+    }
+
+    /** E by a horse with a saddle on her: it is saddled, and hers to ride. */
+    private void saddleHorse() {
+        if (!world.saddle(world.saddleable())) return;
+        game.toast("Saddled the horse — press E to ride it (Shift canter, Ctrl gallop, E to get off)",
+                Theme.ACCENT);
+    }
+
+    // --- inside buildings ------------------------------------------------------------------
+
+    /** Inside a building: which, its floors, the floor she is on, and the outdoors as she left it. */
+    private static final class Inside {
+        final Building building;
+        final List<Level> floors;
+        final World.Place outdoors;
+        final Scenery outdoorScenery;
+        /** The camera's height outside, put back as she comes out. */
+        final double outdoorPitch;
+        int floor;
+
+        Inside(Building building, List<Level> floors, World.Place outdoors, Scenery outdoorScenery,
+               double outdoorPitch) {
+            this.building = building;
+            this.floors = floors;
+            this.outdoors = outdoors;
+            this.outdoorScenery = outdoorScenery;
+            this.outdoorPitch = outdoorPitch;
+        }
+    }
+
+    /** How high the camera looks down from inside a building, radians. */
+    static final double INDOOR_PITCH = Math.toRadians(38);
+
+    /** A floor as she left it, and its scenery. */
+    private record Left(World.Place place, Scenery scenery) {}
+
+    /** The door she can go through from where she stands - one that leads somewhere - or null. */
+    private Building usableDoor() {
+        Building d = world.reachableDoor();
+        if (d == null) return null;
+        Room.Spec r = d.profile().room();
+        if (r == null) return level == null || floorsOf(d).isEmpty() ? null : d;
+        if (inside == null) return null;
+        if (r.piece() == Room.Piece.STAIRS) {
+            int next = inside.floor + (r.up() ? 1 : -1);
+            return next >= 0 && next < inside.floors.size() ? d : null;
+        }
+        return d;
+    }
+
+    /** What going through {@code d} is called. */
+    private static String doorText(Building d) {
+        Room.Spec r = d.profile().room();
+        if (r == null) return "Go into the " + d.profile().label().toLowerCase();
+        if (r.piece() == Room.Piece.EXIT) return "Go outside";
+        return r.up() ? "Go upstairs" : "Go downstairs";
+    }
+
+    /** The floors inside {@code b}: as the level has them, or as its kind comes. */
+    private List<Level> floorsOf(Building b) {
+        List<Level> f = level == null ? null : level.interior(b.id());
+        if (f != null && !f.isEmpty()) return f;
+        return madeInsides.computeIfAbsent(b.id(), id -> Interiors.make(b.key()));
+    }
+
+    /** Through {@code d}: into its building, out of the one she is in, up or down its stairs. */
+    private void goThrough(Building d) {
+        if (d == null) return;
+        Room.Spec r = d.profile().room();
+        if (r == null) goIn(d);
+        else if (r.piece() == Room.Piece.EXIT) goOut();
+        else if (r.piece() == Room.Piece.STAIRS) climb(r.up(), d.position());
+    }
+
+    /** Into {@code b}: the outdoors kept as it is, and she comes in at its ground floor's door out. */
+    private void goIn(Building b) {
+        List<Level> floors = floorsOf(b);
+        if (inside != null || floors.isEmpty()) return;
+        Sounds.play(SoundKeys.world("door_open"));
+        inside = new Inside(b, floors, world.leave(), scenery, camera.basePitch());
+        // looked down into from higher, the walls before her cut away, as a dolls' house is
+        camera.setDesiredPitch(Math.max(camera.basePitch(), INDOOR_PITCH));
+        showFloor(0, null, false);
+    }
+
+    /** Out of the building she is in, at its door, facing away from it - the floor kept as she left it. */
+    private void goOut() {
+        if (inside == null) return;
+        keepFloor();
+        world.enter(inside.outdoors);
+        scenery = inside.outdoorScenery;
+        world.setScenery(shownScenery());
+        Building b = inside.building;
+        camera.setDesiredPitch(inside.outdoorPitch);
+        inside = null;
+        Player p = world.player();
+        p.setPosition(world.terrain().onGround(b.door()));
+        p.snapHeading(b.heading());
+        arrived();
+        Sounds.play(SoundKeys.world("door_close"));
+    }
+
+    /** Up ({@code up}) or down a floor, from the stairs at {@code from}. */
+    private void climb(boolean up, Vec3 from) {
+        if (inside == null) return;
+        int next = inside.floor + (up ? 1 : -1);
+        if (next < 0 || next >= inside.floors.size()) return;
+        Sounds.play(SoundKeys.world("stairs"));
+        keepFloor();
+        showFloor(next, from, up);
+    }
+
+    /** The floor she is on, kept as she leaves it - what she dropped, the chests she opened. */
+    private void keepFloor() {
+        visited.computeIfAbsent(inside.building.id(), k -> new java.util.HashMap<>())
+                .put(inside.floor, new Left(world.leave(), scenery));
+    }
+
+    /**
+     * Floor {@code n} of the building she is in - as she left it, or built
+     * from its level - and she on it: at the stairs going the other way
+     * nearest {@code from} (she came up: at a stairwell's top; down: at a
+     * staircase's foot), or - {@code from} null - at its door out.
+     */
+    private void showFloor(int n, Vec3 from, boolean wentUp) {
+        java.util.Map<Integer, Left> kept = visited.get(inside.building.id());
+        Left left = kept == null ? null : kept.remove(n);
+        Level floor = inside.floors.get(n);
+        if (left != null) {
+            world.enter(left.place());
+            scenery = left.scenery();
+        } else {
+            Terrain t = LevelWorld.stageIndoors(world, floor);
+            LevelWorld.spawnAll(world, floor.objects(), floor, t, game.scenerySprites(), world.combat().tuning());
+            scenery = world.scenery();
+        }
+        world.setScenery(shownScenery());
+        inside.floor = n;
+        Building by = null;
+        double best = Double.MAX_VALUE;
+        for (Building b : world.buildings()) {
+            Room.Spec r = b.profile().room();
+            if (r == null) continue;
+            boolean fits = from == null ? r.piece() == Room.Piece.EXIT
+                    : r.piece() == Room.Piece.STAIRS && r.up() != wentUp;
+            if (!fits) continue;
+            double d = from == null ? 0 : b.position().horizontalDistance(from);
+            if (d < best) {
+                best = d;
+                by = b;
+            }
+        }
+        Player p = world.player();
+        Vec3 at;
+        double heading;
+        if (by != null) {
+            at = by.door();
+            heading = by.heading();
+        } else {
+            LevelObject s = floor.spawn();
+            at = s == null ? Vec3.ZERO : new Vec3(s.x(), 0, s.z());
+            heading = s == null ? 0 : s.yaw();
+        }
+        p.setPosition(world.terrain().onGround(at));
+        p.snapHeading(heading);
+        world.setSpawnPoint(world.terrain().onGround(at));
+        arrived();
+    }
+
+    /** She has come through a door: the screen fades in from black, the camera behind her, nothing locked on. */
+    private void arrived() {
+        fade = 1;
+        world.combat().lock(null);
+        camera.setDesiredYaw(world.player().heading());
+        camera.snapTo(pivot());
+    }
+
+    /** Whether she is inside a building. */
+    public boolean indoors() { return inside != null; }
+
+    /**
+     * Start inside building {@code buildingId}, on floor {@code floor}: at
+     * {@code at} (null: where she comes in), facing {@code heading} - the
+     * play-test of a building's inside from Creative Mode.
+     */
+    public void startInside(int buildingId, int floor, Vec3 at, double heading) {
+        Building b = world.building(buildingId);
+        if (b == null) return;
+        goIn(b);
+        if (inside == null) return;
+        if (floor > 0 && floor < inside.floors.size()) {
+            keepFloor();
+            showFloor(floor, null, false);
+        }
+        if (at != null) {
+            Player p = world.player();
+            p.setPosition(world.terrain().onGround(at));
+            p.snapHeading(heading);
+            arrived();
+        }
+        fade = 0;
+    }
+
+    /**
+     * Pick a foraging bush: she turns to it and reaches in, and as her hand
+     * closes what was on it is hers ({@link World#pick}) - onto its stacks in
+     * the inventory, the rest at her feet when there is no room.
+     */
+    private void forage(Scenery.Placed bush) {
+        if (bush == null) return;
+        Player p = world.player();
+        p.turnTo(SpriteView.headingOf(bush.x() - p.ground().x(), bush.z() - p.ground().z()));
+        p.pickUp(() -> {
+            if (world.picked(bush)) return;
+            List<Item> got = world.pick(bush);
+            if (!world.picked(bush)) return;
+            Vec3 at = new Vec3(bush.x(), bush.y() + 0.5, bush.z());
+            world.combat().sound(SoundKeys.world("forage_pick"), at, 1);
+            ItemDef d = ItemDef.byId(bush.profile().forage().item());
+            if (d == null) return;
+            String name = d.name().toLowerCase();
+            if (got.isEmpty()) {
+                game.toast("Your inventory is full - the " + name + " fell at your feet", Theme.WARNING);
+                return;
+            }
+            world.combat().say("+" + got.size() + " " + name, d.food().rgb(), p.feet(), 2.1, true);
+            game.toast("Picked " + got.size() + " " + name + " (" + d.food().effect()
+                    + (got.size() > 1 ? " each" : "") + ") - "
+                    + "eat from the hotbar (click) or the inventory (right-click)", Theme.ACCENT);
+        }, durations());
+    }
+
+    /** The last time she ate (a bite takes a moment). */
+    private double lastBite = -10;
+    /** How long a bite takes, seconds. */
+    static final double BITE = 0.6;
+
+    /**
+     * With something picked in hand, the attack eats one of it instead of
+     * swinging (her hands are empty): what it gives back rises from her, or
+     * she is told she is full.
+     */
+    private Player.Intent eatInstead(Player.Intent intent) {
+        if (!intent.attack()) return intent;
+        Player p = world.player();
+        Item held = p.inventory().held();
+        if (held == null || !held.def().isFood()) return intent;
+        if (world.time() - lastBite >= BITE) {
+            lastBite = world.time();
+            eatHeld();
+        }
+        return new Player.Intent(intent.moveX(), intent.moveZ(), intent.run(), intent.sprint(), intent.jump(),
+                false, false, intent.crouch(), intent.heavy(), intent.spin(), intent.parry(), intent.block(),
+                intent.bash(), intent.emote(), intent.dodge(), intent.dodgeHeld());
+    }
+
+    /** Eat one of what is in the selected hotbar slot. */
+    private void eatHeld() {
+        Player p = world.player();
+        World.Eaten e = world.eat(p.inventory().selected());
+        if (e == null) return;
+        if (!e.ate()) {
+            Sounds.play(SoundKeys.ui("error"), 0.6);
+            world.combat().say("Already full", 0xC8D2DC, p.feet(), 2.1, true);
+            return;
+        }
+        world.combat().sound(SoundKeys.item(e.item().id(), "eat"), p.feet(), 1);
+        world.combat().say(InventoryPanel.gains(e), e.item().def().food().rgb(), p.feet(), 2.1, false);
     }
 
     private void toggleChest(Chest c) {
@@ -642,6 +973,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));
                 return;
             }
+            if (d.isTack()) {
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + " — walk up to a horse and press E to saddle it", g.item.rarity().colour(1f));
+                return;
+            }
             var lib = game.sprites();
             var worn = world.player().wardrobe();
             var src = lib.source(worn.get(com.larsons.game.sprite.Slot.BODY), d.carrySlot(), d.id(),
@@ -675,6 +1011,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
+        if (fade > 0) ui.rect(0, 0, ui.width(), ui.height(), new float[]{0, 0, 0, (float) Math.min(1, fade * 1.4)});
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
         boolean hudShown = game.settings().showHud;
@@ -698,28 +1035,43 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
-                    + "Backspace live · , . turn · T turntable",
+            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
+                    + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
                     + "Alt/Z in the air: land in a roll · "
                     + "the hills are up the north path",
-            "Tab height · O auto height · Right-drag orbit · +/- zoom · H HUD · F9 classic/new animations · "
-                    + "F11 full screen · Esc menu"};
+            "Tab height · O auto height · Right-drag orbit · +/- zoom · N (held) time-lapse · H HUD · "
+                    + "F9 classic/new animations · F11 full screen · Esc menu"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
         String text, name = "";
         float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
-        Chest c = world.reachableChest();
-        World.GroundItem g = world.reachable();
-        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
-                < g.position.horizontalDistance(world.player().ground()))) {
-            text = "E   " + (c.isOpen() ? "Close the chest" : "Open the chest");
-        } else if (g != null) {
+        Use use = usable();
+        if (use == Use.DISMOUNT && world.player().speed() > 0.5) return;      // (only once it stands)
+        if (use == Use.MOUNT) {
+            text = "E   Ride the horse";
+        } else if (use == Use.SADDLE) {
+            text = "E   Saddle the horse";
+        } else if (use == Use.DISMOUNT) {
+            text = "E   Get off the horse";
+        } else if (use == Use.DOOR) {
+            text = "E   " + doorText(usableDoor());
+        } else if (use == Use.CHEST) {
+            text = "E   " + (world.reachableChest().isOpen() ? "Close the chest" : "Open the chest");
+        } else if (use == Use.ITEM) {
             // the item's name in its rarity's colour
+            World.GroundItem g = world.reachable();
             text = "E   Pick up ";
-            name = g.item.fullName() + (world.player().crouched() ? " (crouched)" : "");
+            name = (g.amount() > 1 ? g.amount() + " " : "") + g.item.fullName()
+                    + (world.player().crouched() ? " (crouched)" : "");
             edge = nameColour = g.item.rarity().colour(1f);
+        } else if (use == Use.BUSH) {
+            ItemDef d = ItemDef.byId(world.reachableBush().profile().forage().item());
+            text = "E   Pick ";
+            name = d == null ? "the bush" : d.name().toLowerCase();
+            if (d != null) edge = nameColour = Theme.rgb((d.food().rgb() >> 16) & 255, (d.food().rgb() >> 8) & 255,
+                    d.food().rgb() & 255, 1f);
         } else {
             return;
         }
@@ -771,9 +1123,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 ? Theme.WARNING : Theme.ITEM);
         y += lh;
         SpriteView v = r.view();
-        ui.text(ui.small, String.format("Camera  pitch %.0f°  yaw %.0f°  zoom %.1f m   →  %s sprites (%d°)",
+        ui.text(ui.small, String.format("Camera  pitch %.0f°  yaw %.0f°  zoom %.1f m   →  %s sprites (%d°)   ·   %s%s",
                         Math.toDegrees(camera.pitch()), Math.toDegrees(camera.yaw()) % 360, camera.distance(),
-                        v.elevation().label(), (int) v.elevation().renderAngle()),
+                        v.elevation().label(), (int) v.elevation().renderAngle(),
+                        DayCycle.clock(world.clock().hour()),
+                        world.clock().speed() > 1 ? " (time-lapse, N)" : world.sky().air().timeRuns() ? "" : " (time still)"),
                 x, y, Theme.ITEM);
         y += lh;
         ui.text(ui.small, String.format("Player  %s%s%s  frame %d/%d @ %.0f fps  facing %s   ·   %s animations (F9)",
@@ -845,6 +1199,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 parry, scriptBlock, false, emote);
     }
 
+    /** "6:30" or "6.5" as an hour of the day (6.5). */
+    static double hourOf(String text) {
+        int colon = text.indexOf(':');
+        if (colon < 0) return Double.parseDouble(text);
+        return Integer.parseInt(text.substring(0, colon).trim()) + Integer.parseInt(text.substring(colon + 1).trim()) / 60.0;
+    }
+
     /**
      * A scripted pick-up without walking there: into the inventory (the
      * sword into her hand too; a wearable into no hand - it is hers to wear),
@@ -853,7 +1214,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private boolean give(Item item) {
         Player p = world.player();
         ItemDef d = item.def();
-        if ((d.isWearable() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
+        if ((d.isWearable() || d.isTack() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
                 .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
                 .ifPresent(world.items()::remove);
@@ -1056,6 +1417,49 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     return false;
                 }
             }
+            // the animals: animal <kind> [temperament] [metres] (one put in front of her, facing her),
+            // animal goto <kind> (her put by the nearest), animal lock <kind> (locked on to the nearest)
+            case "animal" -> {
+                String[] a = argument.trim().split("\\s+");
+                if (a.length >= 2 && (a[0].equals("goto") || a[0].equals("lock"))) {
+                    com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(a[1]);
+                    if (k == null) return false;
+                    com.larsons.game.ambient.Animal best = null;
+                    double bd = Double.MAX_VALUE;
+                    for (com.larsons.game.ambient.Animal an : world.animals().live()) {
+                        double d = an.position().horizontalDistance(p.ground());
+                        if (an.kind() == k && an.alive() && d < bd) {
+                            bd = d;
+                            best = an;
+                        }
+                    }
+                    if (best == null) return false;
+                    if (a[0].equals("lock")) {
+                        world.combat().lock(best);
+                    } else {
+                        Vec3 at = world.terrain().onGround(best.position().add(2.2 + best.radius(), 0, 1.2));
+                        p.setPosition(at);
+                        p.snapHeading(SpriteView.headingOf(best.position().x() - at.x(), best.position().z() - at.z()));
+                        camera.snapTo(follow());
+                    }
+                } else {
+                    com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(a[0]);
+                    if (k == null) return false;
+                    com.larsons.game.ambient.Temperament t = a.length > 1
+                            ? com.larsons.game.ambient.Temperament.byKey(a[1]) : null;
+                    double m = a.length > 2 ? Double.parseDouble(a[2]) : 3;
+                    Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                    com.larsons.game.ambient.Animal an = world.addAnimal(k, at, t);
+                    an.faceTo(p.ground());
+                }
+            }
+            case "time" -> world.clock().setHour(hourOf(argument.trim()));
+            case "timelapse" -> {
+                String a = argument.trim();
+                scriptedTimeLapse = !a.equals("off");
+                world.clock().setSpeed(a.equals("off") ? 1 : a.equals("on") || a.isEmpty() ? DayCycle.TIME_LAPSE
+                        : Double.parseDouble(a));
+            }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
             case "stamina" -> p.setStamina(Double.parseDouble(argument.trim()));
             // fall <metres>: up in the air where she stands, falling (roll: fall 6 roll)
@@ -1084,6 +1488,72 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            // riding: a saddled horse put before her ("steed [metres]"), saddling the one by her, on, off
+            case "steed" -> {
+                double m = argument.isBlank() ? 3 : Double.parseDouble(argument.trim());
+                Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                com.larsons.game.ambient.Animal an = world.addAnimal(com.larsons.game.ambient.AnimalKind.HORSE, at,
+                        null);
+                an.setSaddled(true);
+                an.faceTo(at.add(SpriteView.headingVector(p.heading() + Math.PI / 2)));
+            }
+            case "saddle" -> saddleHorse();
+            case "ride", "mount" -> world.mount(world.reachableHorse());
+            case "getoff", "dismount" -> world.dismount();
+            case "door" -> goThrough(usableDoor());
+            case "enter" -> {
+                // into the nearest building with an inside, wherever it is
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    if (b.profile().room() != null || !b.profile().interior() || b.door() == null) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best != null) goIn(best);
+            }
+            case "outside" -> goOut();
+            case "upstairs", "downstairs" -> {
+                boolean up = command.equals("upstairs");
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    Room.Spec r = b.profile().room();
+                    if (r == null || r.piece() != Room.Piece.STAIRS || r.up() != up) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best != null) climb(up, best.position());
+            }
+            // the foraging bushes: forage (pick the one in reach), forage goto [n] (stand by the nth
+            // nearest with something on it), eat [slot] (eat from that slot, else what is in hand)
+            case "forage" -> {
+                String a = argument.trim();
+                if (a.startsWith("goto")) {
+                    String[] w = a.split("\\s+");
+                    int n = w.length > 1 ? Integer.parseInt(w[1]) - 1 : 0;
+                    Vec3 me = p.ground();
+                    List<Scenery.Placed> ripe = new ArrayList<>();
+                    for (Scenery.Placed b : world.bushes()) if (!world.picked(b)) ripe.add(b);
+                    ripe.sort(java.util.Comparator.comparingDouble(b -> Math.hypot(b.x() - me.x(), b.z() - me.z())));
+                    if (n < 0 || n >= ripe.size()) return false;
+                    Scenery.Placed b = ripe.get(n);
+                    Vec3 at = new Vec3(b.x() + 0.9, 0, b.z() + 0.6);
+                    p.setPosition(at);
+                    p.snapHeading(SpriteView.headingOf(b.x() - at.x(), b.z() - at.z()));
+                    camera.snapTo(follow());
+                } else {
+                    Scenery.Placed b = world.reachableBush();
+                    if (b == null) return false;
+                    forage(b);
+                }
+            }
+            case "eat" -> {
+                if (argument.isBlank()) {
+                    eatHeld();
+                } else {
+                    World.Eaten e = world.eat(Integer.parseInt(argument.trim()) - 1);
+                    if (e == null) return false;
+                }
+            }
             case "dropitem" -> drop();
             case "pause" -> pause.open(PauseMenu.Page.valueOf(
                     argument.isBlank() ? "MAIN" : argument.toUpperCase()));

@@ -1,0 +1,106 @@
+{
+ "tile": 64,
+ "texel": 0.0375,
+ "textures": [
+  {
+   "name": "smooth",
+   "label": "Smooth",
+   "suits": "any"
+  },
+  {
+   "name": "plaster",
+   "label": "Plaster",
+   "suits": "walls"
+  },
+  {
+   "name": "brick",
+   "label": "Brick",
+   "suits": "walls, chimneys"
+  },
+  {
+   "name": "stone_blocks",
+   "label": "Stone blocks",
+   "suits": "walls, castles"
+  },
+  {
+   "name": "fieldstone",
+   "label": "Fieldstone",
+   "suits": "walls, foundations, cottages"
+  },
+  {
+   "name": "cobble",
+   "label": "Cobbles",
+   "suits": "floors, paths"
+  },
+  {
+   "name": "clapboard",
+   "label": "Clapboard",
+   "suits": "walls"
+  },
+  {
+   "name": "boards",
+   "label": "Boards",
+   "suits": "walls, doors, barns"
+  },
+  {
+   "name": "logs",
+   "label": "Logs",
+   "suits": "cabins"
+  },
+  {
+   "name": "timber",
+   "label": "Timber",
+   "suits": "trim, beams, doors"
+  },
+  {
+   "name": "thatch",
+   "label": "Thatch",
+   "suits": "roofs"
+  },
+  {
+   "name": "shingles",
+   "label": "Shingles",
+   "suits": "roofs"
+  },
+  {
+   "name": "slate",
+   "label": "Slate",
+   "suits": "roofs, castles"
+  },
+  {
+   "name": "clay_tiles",
+   "label": "Clay tiles",
+   "suits": "roofs"
+  },
+  {
+   "name": "floorboards",
+   "label": "Floorboards",
+   "suits": "floors"
+  },
+  {
+   "name": "flagstones",
+   "label": "Flagstones",
+   "suits": "floors, castles"
+  },
+  {
+   "name": "checker",
+   "label": "Checker tiles",
+   "suits": "floors"
+  },
+  {
+   "name": "woven",
+   "label": "Woven",
+   "suits": "rugs, carpets"
+  },
+  {
+   "name": "panes",
+   "label": "Panes",
+   "suits": "windows"
+  },
+  {
+   "name": "metal",
+   "label": "Metal",
+   "suits": "bands, portcullis"
+  }
+ ]
+}
