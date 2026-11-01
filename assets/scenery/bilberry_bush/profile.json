@@ -1,0 +1,23 @@
+{
+ "kind": "tuft",
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "frames": 24,
+ "fps": 12,
+ "frameWorldSize": 1.2,
+ "radius": 0,
+ "shadowRadius": 0.336,
+ "biomes": [
+  "mountains",
+  "marsh"
+ ],
+ "forage": {
+  "item": "bilberries",
+  "count": [
+   2,
+   4
+  ],
+  "regrow": 240,
+  "picked": "bilberry_bush_picked"
+ }
+}

@@ -1,5 +1,6 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.Songs;
 
 import com.larsons.game.util.Json;
@@ -50,6 +51,7 @@ import java.util.stream.Stream;
  *   "size": 128,
  *   "sky": {"zenith": "#5C78A3", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
  *   "music": "dream_on",
+ *   "life": {"critters": {"firefly": 2, "frog": 0}, "regrow": 0.5, "yield": 1},
  *   "objects": [
  *     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
  *     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
@@ -69,7 +71,7 @@ public final class LevelIO {
     /** A height's 16-bit value is {@code (metres + OFFSET) * SCALE}. */
     static final double OFFSET = 128, SCALE = 256;
 
-    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "objects");
+    private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "life", "objects");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
@@ -152,6 +154,7 @@ public final class LevelIO {
         if (sky instanceof Map<?, ?>) level.setSky(sky(Json.asObject(sky)));
         level.setMusic(Json.str(j, "music", Songs.SHUFFLE));          // a level saved before music: shuffled
         if (j.get("sea") instanceof Number n) level.water().setSeaLevel(n.doubleValue());
+        if (j.get("life") != null) level.setLife(Life.fromJson(j.get("life")));
         int highest = 0;
         Object objs = j.get("objects");
         if (objs instanceof List<?> list) {
@@ -374,6 +377,7 @@ public final class LevelIO {
         head.put("sky", sky(level.sky()));
         head.put("music", level.music());
         if (!Double.isNaN(level.water().seaLevel())) head.put("sea", round(level.water().seaLevel()));
+        if (!level.life().isDefault()) head.put("life", tidy(level.life().toJson()));
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         String text = Json.stringify(head);
         StringBuilder sb = new StringBuilder(text.substring(0, text.lastIndexOf('}')).stripTrailing());

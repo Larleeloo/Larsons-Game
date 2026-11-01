@@ -55,6 +55,16 @@ import java.util.Map;
  *       walks through it.</li>
  * </ul>
  *
+ * <p>And two of the foraging bushes':
+ * <ul>
+ *   <li>{@code forage} - what picking it gives: {@code {"item": "wild_berries",
+ *       "count": [2, 4], "regrow": 240, "picked": "berry_bush_picked"}} - the
+ *       picking ({@code world/Pickings}), how many at a time, the seconds it
+ *       takes to grow them back, and the sprite it shows meanwhile.</li>
+ *   <li>{@code variantOf} - on that picked sprite: the bush it is a look of,
+ *       so the editor does not offer it alone.</li>
+ * </ul>
+ *
  * <p>Anything the file leaves out keeps its kind's default (the sizes the
  * 3D-Modeling scripts draw at); a file with no {@code kind} is taken to be
  * the kind its folder's name suggests ({@code oak_tree}, {@code grass_tuft_a},
@@ -62,7 +72,7 @@ import java.util.Map;
  */
 public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps,
                              double frameWorldSize, double radius, double shadowRadius, boolean facesCamera,
-                             List<String> biomes, int glow, boolean bend) {
+                             List<String> biomes, int glow, boolean bend, Forage forage, String variantOf) {
 
     public SceneryProfile {
         biomes = biomes == null ? List.of() : List.copyOf(biomes);
@@ -73,6 +83,35 @@ public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int fra
                           double radius, double shadowRadius, boolean facesCamera) {
         this(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius, facesCamera, List.of(),
                 -1, false);
+    }
+
+    /** A profile with nothing to pick. */
+    public SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps, double frameWorldSize,
+                          double radius, double shadowRadius, boolean facesCamera, List<String> biomes, int glow,
+                          boolean bend) {
+        this(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius, facesCamera, biomes,
+                glow, bend, null, null);
+    }
+
+    /**
+     * What a foraging bush gives when picked.
+     *
+     * @param item   the picking's id ({@code world/Pickings})
+     * @param least  how few at a picking
+     * @param most   how many
+     * @param regrow seconds until it has them again
+     * @param picked the sprite it shows meanwhile (null: its own)
+     */
+    public record Forage(String item, int least, int most, double regrow, String picked) {}
+
+    /** Whether it is a foraging bush. */
+    public boolean forages() {
+        return forage != null;
+    }
+
+    /** Whether it is only a look of another sprite (a picked bush), not offered alone. */
+    public boolean isVariant() {
+        return variantOf != null && !variantOf.isBlank();
     }
 
     public static final String FILE_NAME = "profile.json";
@@ -166,14 +205,29 @@ public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int fra
             }
         }
         boolean bend = Boolean.TRUE.equals(j.get("bend"));
+        Forage forage = null;
+        if (j.get("forage") instanceof Map<?, ?> f && f.get("item") instanceof String item && !item.isBlank()) {
+            int least = 1, most = 1;
+            if (f.get("count") instanceof List<?> c && c.size() >= 2 && c.get(0) instanceof Number a
+                    && c.get(1) instanceof Number b) {
+                least = Math.max(1, a.intValue());
+                most = Math.max(least, b.intValue());
+            } else if (f.get("count") instanceof Number n) {
+                least = most = Math.max(1, n.intValue());
+            }
+            double regrow = f.get("regrow") instanceof Number n ? Math.max(1, n.doubleValue()) : 240;
+            Object picked = f.get("picked");
+            forage = new Forage(item.trim(), least, most, regrow, picked instanceof String ps && !ps.isBlank() ? ps : null);
+        }
+        String variantOf = Json.str(j, "variantOf", null);
         return new SceneryProfile(kind, fw, fh, frames, fps > 0 ? fps : d.fps, size > 0 ? size : d.frameWorldSize,
-                radius, shadow, facesCamera, biomes, glow, bend);
+                radius, shadow, facesCamera, biomes, glow, bend, forage, variantOf);
     }
 
     /** The same profile with {@code frames} frames (the catalogue fills in "every cell of the sheet"). */
     public SceneryProfile withFrames(int frames) {
         return new SceneryProfile(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius,
-                facesCamera, biomes, glow, bend);
+                facesCamera, biomes, glow, bend, forage, variantOf);
     }
 
     /** Metres one frame stands tall: {@link #frameWorldSize()} across, in the frame's own proportions. */

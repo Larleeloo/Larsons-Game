@@ -1,11 +1,14 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.Critters;
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.combat.Target;
+import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.Slot;
 
 import com.larsons.game.math.Vec3;
@@ -87,6 +90,8 @@ public final class World {
         private final Chest source;
         private final Vec3 from;
         private final double thrownAt;
+        /** How many of it lie here: a dropped stack of pickings is one heap. */
+        int amount = 1;
 
         GroundItem(Item item, Vec3 position, double phase) {
             this(item, position, phase, null, null, 0);
@@ -101,6 +106,9 @@ public final class World {
             this.from = from;
             this.thrownAt = thrownAt;
         }
+
+        /** How many of it lie here (a dropped stack of berries: all of it). */
+        public int amount() { return amount; }
 
         /**
          * How high the item's centre floats at time {@code t}: a slow bob,
@@ -185,6 +193,12 @@ public final class World {
     private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
     private final List<LightSpot> lights = new ArrayList<>();
     private final List<RaySpot> raySpots = new ArrayList<>();
+    private final Critters critters = new Critters();
+    /** The foraging bushes standing in it, and when each one picked has its pickings again. */
+    private List<Scenery.Placed> bushes = List.of();
+    private final Map<Scenery.Placed, Double> picked = new IdentityHashMap<>();
+    /** Where the little creatures live round when nobody is playing (the editor's view); null: round her. */
+    private Vec3 focus;
     /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
     private double[] bounds;
     private double time;
@@ -231,6 +245,7 @@ public final class World {
     public void seed(long seed) {
         random = new Random(seed);
         combat.seed(seed);
+        critters.seed(seed);
     }
 
     /** The fighting: the dice, the damage, the shots in flight, her mana. */
@@ -268,7 +283,14 @@ public final class World {
 
     /** Plant {@code scenery} (null: none) - drawn from the next frame, in her way from the next tick. */
     public void setScenery(Scenery scenery) {
-        this.scenery = scenery == null ? Scenery.NONE : scenery;
+        Scenery next = scenery == null ? Scenery.NONE : scenery;
+        if (next == this.scenery) return;           // (the demo hands it over every frame)
+        this.scenery = next;
+        List<Scenery.Placed> b = new ArrayList<>();
+        for (Scenery.Placed p : next.placed()) if (p.profile().forages()) b.add(p);
+        bushes = List.copyOf(b);
+        // a bush picked stays picked while the scenery is only hidden (P), and is forgotten with it
+        if (next != Scenery.NONE) picked.keySet().retainAll(new java.util.HashSet<>(bushes));
     }
 
     /**
@@ -377,6 +399,37 @@ public final class World {
         if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
         combat.tick(dt, this);
         happened();
+        live(dt, player.ground(), player.ground());
+    }
+
+    /**
+     * The life in it: the little creatures round {@code focus} (shy of {@code
+     * shy}, her feet, when she is there), the picked bushes growing back.
+     */
+    private void live(double dt, Vec3 focus, Vec3 shy) {
+        picked.values().removeIf(until -> until <= time);
+        double day = DayCycle.of(sky, clock.hour()).day();
+        critters.tick(dt, time, day, focus, shy, place(), (key, at, volume) -> combat.sound(key, at, volume));
+    }
+
+    /** What the little creatures need to know of the place: the ground, the water, the biomes. */
+    private Critters.Place place() {
+        return new Critters.Place() {
+            @Override
+            public double ground(double x, double z) {
+                return terrain.height(x, z);
+            }
+
+            @Override
+            public double water(double x, double z, double groundY) {
+                return water.depth(x, z, groundY);
+            }
+
+            @Override
+            public com.larsons.game.world.Biome biome(double x, double z) {
+                return World.this.biome(x, z);
+            }
+        };
     }
 
     /** What a flier's dive did to her, said over her - and heard. */
@@ -483,6 +536,114 @@ public final class World {
         time += dt;
         for (Chest c : chests) c.tick(dt, s -> 0);
         for (Dummy d : dummies) d.tick(dt);
+        live(dt, focus != null ? focus : player.ground(), null);
+    }
+
+    // --- life: the little creatures, the foraging bushes, eating ------------------
+
+    /** The little creatures living in it: crickets, frogs, fireflies, dragonflies. */
+    public Critters critters() { return critters; }
+
+    /** The level's say over its life: how thick each kind lives, how fast the bushes grow back. */
+    public Life life() { return critters.life(); }
+
+    public void setLife(Life life) {
+        critters.setLife(life);
+    }
+
+    /** Where the little creatures live round when nobody is playing - the editor's view (null: round her). */
+    public void setFocus(Vec3 at) {
+        focus = at;
+    }
+
+    /** How near she must be to a foraging bush to pick it, metres. */
+    public static final double FORAGE_REACH = 1.4;
+
+    /** The foraging bushes standing in it. */
+    public List<Scenery.Placed> bushes() { return bushes; }
+
+    /** Whether {@code bush} has been picked and has not grown its pickings back yet. */
+    public boolean picked(Scenery.Placed bush) {
+        Double until = picked.get(bush);
+        return until != null && until > time;
+    }
+
+    /** Seconds until {@code bush} has its pickings again (0: it has them). */
+    public double regrowsIn(Scenery.Placed bush) {
+        Double until = picked.get(bush);
+        return until == null ? 0 : Math.max(0, until - time);
+    }
+
+    /** The nearest bush within her reach with something on it, or null. */
+    public Scenery.Placed reachableBush() {
+        Scenery.Placed best = null;
+        double bestD = FORAGE_REACH;
+        Vec3 at = player.ground();
+        for (Scenery.Placed b : bushes) {
+            if (Math.abs(b.y() - at.y()) > 1.5 || picked(b)) continue;
+            double d = Math.hypot(b.x() - at.x(), b.z() - at.z()) - 0.3 * b.profile().frameWorldSize() / 1.2;
+            if (d <= bestD) {
+                best = b;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Pick {@code bush}: what is on it - its picking, between as few and as
+     * many as its profile says, times the level's yield - into her inventory
+     * (onto the stacks there first, out of the hotbar's way), and it is bare
+     * until it grows them back. Returns what she got (nothing from a bush
+     * already picked); what had no room is put on the ground at her feet.
+     */
+    public List<Item> pick(Scenery.Placed bush) {
+        if (bush == null || !bush.profile().forages() || picked(bush)) return List.of();
+        SceneryProfile.Forage f = bush.profile().forage();
+        ItemDef def = ItemDef.byId(f.item());
+        if (def == null) return List.of();
+        int n = f.least() + (f.most() > f.least() ? random.nextInt(f.most() - f.least() + 1) : 0);
+        n = Math.max(1, (int) Math.round(n * life().yield()));
+        List<Item> got = new ArrayList<>();
+        Item item = Item.of(def);
+        int left = 0;
+        for (int i = 0; i < n; i++) {
+            if (player.inventory().stow(item) >= 0) got.add(item);
+            else left++;
+        }
+        if (left > 0) spawn(item, player.ground(), left);
+        picked.put(bush, time + f.regrow() * life().regrow());
+        return got;
+    }
+
+    /** What eating something gave back: health, stamina, mana (all 0: she had no need of it, and did not eat it). */
+    public record Eaten(Item item, double health, double stamina, double mana) {
+        public boolean ate() {
+            return health > 0 || stamina > 0 || mana > 0;
+        }
+    }
+
+    /**
+     * Eat one of what is in inventory slot {@code slot}: what it gives back
+     * that she has spent - her health, her stamina, her mana - and one fewer
+     * in the slot. Nothing is eaten when she is full of all it would give.
+     * Null when the slot holds nothing to eat.
+     */
+    public Eaten eat(int slot) {
+        Item item = player.inventory().get(slot);
+        if (item == null || !item.def().isFood()) return null;
+        Food f = item.def().food();
+        double h = Math.min(f.health(), Player.MAX_HEALTH - player.health());
+        double s = Math.min(f.stamina(), Player.MAX_STAMINA - player.stamina());
+        double m = Math.min(f.mana(), combat.maxMana() - combat.mana());
+        Eaten e = new Eaten(item, Math.max(0, h), Math.max(0, s), Math.max(0, m));
+        if (!e.ate()) return e;
+        player.inventory().takeOne(slot);
+        if (player.health() > 0) player.setHealth(player.health() + e.health());
+        player.setStamina(player.stamina() + e.stamina());
+        combat.setMana(combat.mana() + e.mana());
+        equipSelected();
+        return e;
     }
 
     public Chest addChest(Chest chest) {
@@ -510,7 +671,15 @@ public final class World {
     }
 
     public void spawn(Item item, Vec3 at) {
-        items.add(new GroundItem(item, terrain.onGround(at), items.size() * 1.7));
+        spawn(item, at, 1);
+    }
+
+    /** Put {@code amount} of {@code item} - a heap of berries is one - on the ground at {@code at}. */
+    public GroundItem spawn(Item item, Vec3 at, int amount) {
+        GroundItem g = new GroundItem(item, terrain.onGround(at), items.size() * 1.7);
+        g.amount = Math.max(1, amount);
+        items.add(g);
+        return g;
     }
 
     /** The nearest item within reach of the player that has landed, or {@code null}. */
@@ -540,6 +709,16 @@ public final class World {
      * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
+        if (item.def.isFood()) {
+            // a heap of pickings: as many as there is room for, onto their stacks; the rest stays
+            int took = 0;
+            while (item.amount > 0 && player.inventory().stow(item.item) >= 0) {
+                item.amount--;
+                took++;
+            }
+            if (item.amount <= 0) items.remove(item);
+            return took > 0;
+        }
         int slot = item.def.isWearable() ? player.inventory().stow(item.item) : player.inventory().add(item.item);
         if (slot < 0) return false;
         items.remove(item);
@@ -607,8 +786,9 @@ public final class World {
     public Item dropSlot(int slot) {
         Item item = player.inventory().get(slot);
         if (item == null) return null;
+        int amount = player.inventory().amount(slot);
         player.inventory().take(slot);
-        return dropItem(item);
+        return dropItem(item, amount);
     }
 
     /**
@@ -619,6 +799,11 @@ public final class World {
      * Returns it, or null for no item.
      */
     public Item dropItem(Item item) {
+        return dropItem(item, 1);
+    }
+
+    /** {@link #dropItem(Item)}, {@code amount} of it - a stack of pickings - lying as one heap. */
+    public Item dropItem(Item item, int amount) {
         if (item == null) return null;
         ItemDef def = item.def();
         if (def.inHand() && !player.inventory().contains(def)) {
@@ -628,7 +813,7 @@ public final class World {
         }
         Wearables.takeOff(player.wardrobe(), player.inventory(), def);
         equipSelected();
-        spawnAhead(item);
+        spawnAhead(item, amount);
         return item;
     }
 
@@ -666,9 +851,9 @@ public final class World {
         return n;
     }
 
-    private void spawnAhead(Item item) {
+    private void spawnAhead(Item item, int amount) {
         Vec3 ahead = SpriteView.headingVector(player.heading()).scale(1.1);
-        spawn(item, player.ground().add(ahead));
+        spawn(item, player.ground().add(ahead), amount);
     }
 
     /**

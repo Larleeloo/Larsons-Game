@@ -1,0 +1,23 @@
+{
+ "kind": "tuft",
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "frames": 24,
+ "fps": 12,
+ "frameWorldSize": 1.2,
+ "radius": 0,
+ "shadowRadius": 0.336,
+ "biomes": [
+  "plains",
+  "savannah"
+ ],
+ "forage": {
+  "item": "sage",
+  "count": [
+   1,
+   3
+  ],
+  "regrow": 300,
+  "picked": "sage_bush_picked"
+ }
+}

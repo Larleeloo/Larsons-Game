@@ -3,6 +3,7 @@ package com.larsons.game.audio;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Pickings;
 import com.larsons.game.world.Rarity;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.Set;
  *   ui/inventory_open              -&gt; ui/inventory_open.mp3
  *   combat/attack_dummy/hit        -&gt; combat/attack_dummy/hit.mp3
  *   combat/dice_roll               -&gt; combat/dice_roll.mp3
+ *   creature/frog/croak            -&gt; creatures/frog/croak.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
  *   music/dream_on                 -&gt; music/dream_on.mp3       (a song)
@@ -62,6 +64,7 @@ public final class SoundKeys {
     public static final String COMBAT = "combat";
     public static final String WORLD = "world";
     public static final String AMBIENT = "ambient";
+    public static final String CREATURES = "creatures";
     public static final String MUSIC = "music";
     /** Where a key from an unrecognised namespace lands. */
     public static final String OTHER = "other";
@@ -148,7 +151,18 @@ public final class SoundKeys {
      * its rarity, Uncommon and up, rung out.
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
-            "loot_epic", "loot_legendary", "loot_mythic");
+            "loot_epic", "loot_legendary", "loot_mythic", "forage_pick");
+
+    /**
+     * The little creatures that live in the world (ambient/CritterKind) and
+     * their sounds, each heard where it is: a frog's croak and the plop of it
+     * diving into water, a cricket's chirp, a dragonfly's wings as it darts
+     * by. Fireflies make none.
+     */
+    public static final Map<String, List<String>> CRITTER_SOUNDS = orderedMap(
+            "frog", List.of("croak", "plop"),
+            "cricket", List.of("chirp"),
+            "dragonfly", List.of("buzz"));
 
     /**
      * The place itself, each a loop: the breeze over everything; each
@@ -243,6 +257,8 @@ public final class SoundKeys {
         for (String flier : FLIERS_IN_GAME) out.add(COMBAT + "/" + flier);
         out.add(COMBAT);
         out.add(WORLD);
+        out.add(CREATURES);
+        for (String c : CRITTER_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         out.add(AMBIENT);
         out.add(MUSIC);
         return out;
@@ -347,6 +363,7 @@ public final class SoundKeys {
             case "world" -> WORLD;
             case "ambient" -> AMBIENT;
             case "music" -> MUSIC;
+            case "creature" -> CREATURES;
             default -> null;
         };
     }
@@ -383,6 +400,7 @@ public final class SoundKeys {
                 yield VOICE_SOUNDS.contains(last) ? SoundCategory.VOICES : SoundCategory.MOVEMENT;
             }
             case "chest", "world" -> SoundCategory.WORLD;
+            case "creature" -> SoundCategory.CREATURES;
             case "item" -> last.equals("equip") ? SoundCategory.WEAPONS : SoundCategory.WORLD;
             case "ui" -> SoundCategory.INTERFACE;
             case "ambient" -> SoundCategory.AMBIENT;
@@ -474,12 +492,18 @@ public final class SoundKeys {
                         state));
             }
         }
+        for (Map.Entry<String, List<String>> c : CRITTER_SOUNDS.entrySet()) {
+            for (String s : c.getValue()) {
+                out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), critterName(c.getKey(), s), s));
+            }
+        }
         for (String state : CHEST_STATES) {
             out.add(row(SoundCategory.WORLD, "chest/" + state, "Chest: " + chestName(state), state));
         }
         for (String s : WORLD_SOUNDS) out.add(row(SoundCategory.WORLD, world(s), worldName(s), s));
         out.add(row(SoundCategory.WORLD, "item/pickup", "Picking something up", "pickup"));
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
+        out.add(row(SoundCategory.WORLD, "item/eat", "Eating something picked", "eat"));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
         for (String s : MUSIC_PLACES.keySet().stream().sorted().toList()) {
             out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
@@ -515,6 +539,7 @@ public final class SoundKeys {
                         state));
             }
         }
+        for (ItemDef d : Pickings.ALL) out.add(own(item(d.id(), "eat"), d.name() + " eaten", "eat"));
         // each body's voice is listed above: its own row would be the same row twice
         Set<String> seen = new HashSet<>();
         out.removeIf(e -> !seen.add(e.key()));
@@ -621,6 +646,16 @@ public final class SoundKeys {
         };
     }
 
+    private static String critterName(String critter, String sound) {
+        return switch (critter + "/" + sound) {
+            case "frog/croak" -> "Frog: croaking";
+            case "frog/plop" -> "Frog: diving into water";
+            case "cricket/chirp" -> "Cricket: chirping";
+            case "dragonfly/buzz" -> "Dragonfly: wings darting by";
+            default -> critter + ": " + sound;
+        };
+    }
+
     private static String chestName(String state) {
         return switch (state) {
             case "idle" -> "shut, smoke swirling (held)";
@@ -635,6 +670,7 @@ public final class SoundKeys {
         return switch (s) {
             case "loot_throw" -> "Loot thrown out of a chest";
             case "loot_land" -> "Loot landing";
+            case "forage_pick" -> "Picking from a bush";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")
@@ -758,6 +794,11 @@ public final class SoundKeys {
         return r == null || r == Rarity.COMMON ? null : world("loot_" + r.key());
     }
 
+    /** A creature's sound, heard where it is, e.g. {@code creature/frog/croak}. */
+    public static String creature(String kind, String sound) {
+        return "creature/" + kind + "/" + sound;
+    }
+
     /** A sound of the place, e.g. {@code ambient/wind}. */
     public static String ambient(String name) {
         return "ambient/" + name;
@@ -792,6 +833,14 @@ public final class SoundKeys {
             case "ambient", "music" -> true;
             default -> false;
         };
+    }
+
+    /** A map in the order its pairs are given. */
+    @SuppressWarnings("unchecked")
+    private static <V> Map<String, V> orderedMap(Object... pairs) {
+        Map<String, V> m = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < pairs.length; i += 2) m.put((String) pairs[i], (V) pairs[i + 1]);
+        return java.util.Collections.unmodifiableMap(m);
     }
 
     /** Join key segments {@code [from, to)} with {@code sep}. */

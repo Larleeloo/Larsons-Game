@@ -1,5 +1,7 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.Critter;
+import com.larsons.game.ambient.CritterKind;
 import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
@@ -97,6 +99,7 @@ public final class WorldRenderer implements AutoCloseable {
     /** The time of day's light the last frame was drawn in. */
     private DayCycle.Daylight daylight;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
+    private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
@@ -182,6 +185,7 @@ public final class WorldRenderer implements AutoCloseable {
         batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
+        scenery.showBare(world::picked);
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
@@ -209,6 +213,14 @@ public final class WorldRenderer implements AutoCloseable {
             if (lit > 0) groundQuad(glow, c.position(), 1.9, 1f, 0.82f, 0.5f, (float) (0.42 * lit));
         }
         combat.shadows(world, this::groundShadow);
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FIREFLY || c.alpha() < 0.05) continue;
+            Vec3 at = c.position();
+            double h = Math.max(0, at.y() - ground.height(at.x(), at.z()));
+            if (h > 3) continue;
+            double r = c.kind() == CritterKind.FROG ? 0.22 : c.kind() == CritterKind.CRICKET ? 0.12 : 0.16;
+            groundShadow(new Vec3(at.x(), 0, at.z()), r * (1 + 0.15 * h), (float) (c.alpha() * 0.4 / (1 + h)));
+        }
         for (Scenery.Placed s : world.scenery().shadowed()) {
             groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
         }
@@ -309,6 +321,42 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(d);
         });
 
+        // the little creatures: the frogs, crickets and dragonflies drawn from their 24 views, the fireflies lights
+        Map<Critter, ObjectStack.Memory> memories = new IdentityHashMap<>();
+        for (Critter c : world.critters().live()) {
+            if (c.alpha() < 0.02) continue;
+            Vec3 at = c.position();
+            if (at.sub(eye).length() > CRITTER_REACH) continue;
+            if (c.kind() == CritterKind.FIREFLY) {
+                double lit = c.glow(t);
+                if (lit < 0.02) continue;
+                draws.add(() -> {
+                    batch.depthAnchor(at);
+                    fireflyGlow(at, c.rgb(), lit, right, up);
+                });
+                dist.add(at.sub(eye).dot(forward));
+                continue;
+            }
+            String id = c.kind().sprite();
+            ObjectSprites.Entry entry = objects.entry(id);
+            if (entry == null) continue;
+            com.larsons.game.sprite.SpriteProfile prof = entry.profile();
+            ObjectStack.Memory memory = critterMemory.get(c);
+            if (memory == null) memory = new ObjectStack.Memory();
+            memories.put(c, memory);
+            SpriteView cv = SpriteView.of(eye, at.add(0, prof.pivotHeight(), 0), c.heading(), camera.yaw());
+            ObjectStack.Result cr = ObjectStack.resolve(sprites, objects, id, c.state(), c.loops(), c.stateTime(),
+                    t, cv, 0, memory);
+            float alpha = (float) c.alpha();
+            draws.add(() -> {
+                batch.depthAnchor(at);
+                LayerStack.drawBillboard(batch, cr.layers(), cr.framing(), cr.view().elevation(), at, right, up,
+                        alpha);
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
+        critterMemory = memories;
+
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
@@ -367,6 +415,17 @@ public final class WorldRenderer implements AutoCloseable {
             lamps.add(new Lamp(g.position.add(0, 0.5, 0), 1.4, g.item.rarity().rgb(), 0.35 * night));
         }
         for (World.LightSpot s : world.lights()) lamps.add(new Lamp(s.at(), s.radius(), s.rgb(), s.strength() * night));
+        // a few of the fireflies nearest the camera light the grass round them as they blink
+        List<Critter> flies = new ArrayList<>();
+        Vec3 aim = camera.target();
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FIREFLY && c.glow(world.time()) > 0.4) flies.add(c);
+        }
+        flies.sort(Comparator.comparingDouble(c -> c.position().sub(aim).length()));
+        for (int i = 0; i < Math.min(FIREFLY_LAMPS, flies.size()); i++) {
+            Critter c = flies.get(i);
+            lamps.add(new Lamp(c.position(), 1.8, c.rgb(), 0.6 * c.glow(world.time())));
+        }
         // the crystals' glow, and anything else of the scenery's that shines at night
         double shine = 1 - light.day();
         if (shine > 0.05) {
@@ -379,6 +438,22 @@ public final class WorldRenderer implements AutoCloseable {
         lamps.sort(Comparator.comparingDouble(m -> m.at().sub(target).length() - m.radius()));
         for (Lamp m : lamps) {
             if (!l.add(m.at().x(), m.at().y(), m.at().z(), m.radius(), m.rgb(), m.strength())) break;
+        }
+    }
+
+    /** How many fireflies light the ground round them at once (the scene's lights are few). */
+    static final int FIREFLY_LAMPS = 4;
+
+    /** How far from the eye a critter is still drawn, metres (past it, it is a speck). */
+    static final double CRITTER_REACH = 45;
+
+    /** A firefly: a bright point and a soft halo of its colour, as lit as its blink is. */
+    private void fireflyGlow(Vec3 at, int rgb, double lit, Vec3 right, Vec3 up) {
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        for (double[] k : new double[][]{{1.3, 0.16}, {0.5, 0.5}, {0.16, 1.0}}) {
+            double size = k[0];
+            Vec3 tl = at.sub(right.scale(size / 2)).add(up.scale(size / 2));
+            batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (k[1] * lit));
         }
     }
 
@@ -408,6 +483,9 @@ public final class WorldRenderer implements AutoCloseable {
         List<Vec3> out = new ArrayList<>();
         out.add(world.player().feet());
         for (com.larsons.game.combat.Dummy d : world.dummies()) out.add(d.position());
+        for (Critter c : world.critters().live()) {
+            if (c.kind() == CritterKind.FROG && c.alpha() > 0.5) out.add(c.position());
+        }
         return out;
     }
 

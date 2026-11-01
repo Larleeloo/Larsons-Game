@@ -38,6 +38,9 @@ import static org.lwjgl.opengl.GL33C.*;
  * plants are. They take the batch's fog, like the sprites. Tall grass (a
  * profile that {@link SceneryProfile#bend}s) leans away from whoever walks
  * through it, its cards' tops pushed aside and down ({@link #bendAwayFrom}).
+ * A foraging bush that has been picked bare ({@link #showBare}) is drawn
+ * from its picked sheet ({@link SceneryProfile.Forage#picked}) until it
+ * grows its pickings back.
  *
  * <p>Every sheet is uploaded once, when the game starts (all of them together
  * are a few megabytes), as a {@link Texture#cutout} - nearest-neighbour, the
@@ -54,8 +57,11 @@ public final class SceneryRenderer implements AutoCloseable {
     public static final double BEND_REACH = 0.85;
 
     private final Map<String, Texture> sheets = new TreeMap<>();
+    private final Map<String, ScenerySprites.Sprite> byName = new TreeMap<>();
     /** Who the tall grass bends away from this frame: their feet. */
     private List<Vec3> walkers = List.of();
+    /** Which foraging bushes are bare this frame (picked, growing back). */
+    private java.util.function.Predicate<Scenery.Placed> bare = p -> false;
 
     /** Upload every sheet of {@code sprites}. Must be made on the GL thread. */
     public SceneryRenderer(ScenerySprites sprites) {
@@ -67,6 +73,7 @@ public final class SceneryRenderer implements AutoCloseable {
         int done = 0;
         for (ScenerySprites.Sprite s : sprites.sprites()) {
             progress.accept(s.name(), done++);
+            byName.put(s.name(), s);
             try {
                 BufferedImage image = ImageIO.read(s.sheet().toFile());
                 if (image == null) throw new IOException("not an image");
@@ -86,6 +93,11 @@ public final class SceneryRenderer implements AutoCloseable {
      */
     public void bendAwayFrom(List<Vec3> feet) {
         walkers = feet == null ? List.of() : feet;
+    }
+
+    /** Which foraging bushes are picked bare - drawn from their picked sheet ({@code World#picked}). */
+    public void showBare(java.util.function.Predicate<Scenery.Placed> picked) {
+        bare = picked == null ? p -> false : picked;
     }
 
     /** Whether there is any scenery to draw. */
@@ -113,13 +125,23 @@ public final class SceneryRenderer implements AutoCloseable {
             Texture sheet = sheets.get(e.getKey().name());
             if (sheet == null) continue;
             boolean facing = e.getKey().profile().facesCamera(), bends = e.getKey().profile().bend();
+            SceneryProfile.Forage forage = e.getKey().profile().forage();
+            ScenerySprites.Sprite bareSprite = forage == null || forage.picked() == null ? null
+                    : byName.get(forage.picked());
+            Texture bareSheet = bareSprite == null ? null : sheets.get(bareSprite.name());
             for (Scenery.Placed p : e.getValue()) {
+                Texture t = sheet;
+                ScenerySprites.Sprite frames = p.sprite();
+                if (bareSheet != null && bare.test(p)) {
+                    t = bareSheet;
+                    frames = bareSprite;
+                }
                 if (facing) {
                     batch.depthAnchor(p.position());
-                    facingCamera(batch, sheet, p, time, right, up);
+                    facingCamera(batch, t, frames, p, time, right, up);
                 } else {
                     batch.depthAnchor(null);
-                    cross(batch, sheet, p, time, bends ? lean(p, walkers) : null);
+                    cross(batch, t, frames, p, time, bends ? lean(p, walkers) : null);
                 }
             }
         }
@@ -129,9 +151,10 @@ public final class SceneryRenderer implements AutoCloseable {
     }
 
     /** One card facing the camera, its bottom edge's middle on the spot, leaning back with the view. */
-    private static void facingCamera(Batch batch, Texture sheet, Scenery.Placed p, double time, Vec3 right, Vec3 up) {
+    private static void facingCamera(Batch batch, Texture sheet, ScenerySprites.Sprite frames, Scenery.Placed p,
+                                     double time, Vec3 right, Vec3 up) {
         SceneryProfile profile = p.profile();
-        float[] uv = p.sprite().uv(p.frame(time));
+        float[] uv = frames.uv(frames.frameAt(time + p.phase()));
         float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
         double w = profile.frameWorldSize(), h = profile.frameWorldHeight();
         Vec3 topLeft = p.position().sub(right.scale(w / 2)).add(up.scale(h));
@@ -166,9 +189,10 @@ public final class SceneryRenderer implements AutoCloseable {
     }
 
     /** One cross: a card along its yaw and one at right angles to it, the same frame on both, leaning by {@code lean}. */
-    private static void cross(Batch batch, Texture sheet, Scenery.Placed p, double time, double[] lean) {
+    private static void cross(Batch batch, Texture sheet, ScenerySprites.Sprite frames, Scenery.Placed p,
+                              double time, double[] lean) {
         SceneryProfile profile = p.profile();
-        float[] uv = p.sprite().uv(p.frame(time));
+        float[] uv = frames.uv(frames.frameAt(time + p.phase()));
         float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
         double half = profile.frameWorldSize() / 2;
         float h = (float) profile.frameWorldHeight();

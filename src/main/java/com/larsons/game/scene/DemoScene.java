@@ -422,6 +422,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         // --- the character (still while the inventory is open) ----------------------------
         Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
+        intent = eatInstead(intent);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
             Sounds.play(SoundKeys.ui("error"), 0.6);
@@ -561,16 +562,97 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
     }
 
-    /** E: open or shut the chest she stands by, else pick up what lies by her - whichever is nearer. */
-    private void use() {
+    /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick. */
+    private enum Use { NOTHING, CHEST, ITEM, BUSH }
+
+    private Use usable() {
+        Vec3 me = world.player().ground();
         Chest c = world.reachableChest();
         World.GroundItem g = world.reachable();
-        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
-                < g.position.horizontalDistance(world.player().ground()))) {
-            toggleChest(c);
-        } else {
-            pickUp();
+        Scenery.Placed b = world.reachableBush();
+        double dc = c == null ? Double.MAX_VALUE : c.position().horizontalDistance(me);
+        double dg = g == null ? Double.MAX_VALUE : g.position.horizontalDistance(me);
+        double db = b == null ? Double.MAX_VALUE : Math.hypot(b.x() - me.x(), b.z() - me.z());
+        if (c != null && dc < dg && dc <= db) return Use.CHEST;
+        if (g != null && dg <= db) return Use.ITEM;
+        return b != null ? Use.BUSH : Use.NOTHING;
+    }
+
+    /** E: open or shut the chest she stands by, pick up what lies by her, or pick a bush - whichever is nearest. */
+    private void use() {
+        switch (usable()) {
+            case CHEST -> toggleChest(world.reachableChest());
+            case ITEM -> pickUp();
+            case BUSH -> forage(world.reachableBush());
+            default -> { }
         }
+    }
+
+    /**
+     * Pick a foraging bush: she turns to it and reaches in, and as her hand
+     * closes what was on it is hers ({@link World#pick}) - onto its stacks in
+     * the inventory, the rest at her feet when there is no room.
+     */
+    private void forage(Scenery.Placed bush) {
+        if (bush == null) return;
+        Player p = world.player();
+        p.turnTo(SpriteView.headingOf(bush.x() - p.ground().x(), bush.z() - p.ground().z()));
+        p.pickUp(() -> {
+            if (world.picked(bush)) return;
+            List<Item> got = world.pick(bush);
+            if (!world.picked(bush)) return;
+            Vec3 at = new Vec3(bush.x(), bush.y() + 0.5, bush.z());
+            world.combat().sound(SoundKeys.world("forage_pick"), at, 1);
+            ItemDef d = ItemDef.byId(bush.profile().forage().item());
+            if (d == null) return;
+            String name = d.name().toLowerCase();
+            if (got.isEmpty()) {
+                game.toast("Your inventory is full - the " + name + " fell at your feet", Theme.WARNING);
+                return;
+            }
+            world.combat().say("+" + got.size() + " " + name, d.food().rgb(), p.feet(), 2.1, true);
+            game.toast("Picked " + got.size() + " " + name + " (" + d.food().effect()
+                    + (got.size() > 1 ? " each" : "") + ") - "
+                    + "eat from the hotbar (click) or the inventory (right-click)", Theme.ACCENT);
+        }, durations());
+    }
+
+    /** The last time she ate (a bite takes a moment). */
+    private double lastBite = -10;
+    /** How long a bite takes, seconds. */
+    static final double BITE = 0.6;
+
+    /**
+     * With something picked in hand, the attack eats one of it instead of
+     * swinging (her hands are empty): what it gives back rises from her, or
+     * she is told she is full.
+     */
+    private Player.Intent eatInstead(Player.Intent intent) {
+        if (!intent.attack()) return intent;
+        Player p = world.player();
+        Item held = p.inventory().held();
+        if (held == null || !held.def().isFood()) return intent;
+        if (world.time() - lastBite >= BITE) {
+            lastBite = world.time();
+            eatHeld();
+        }
+        return new Player.Intent(intent.moveX(), intent.moveZ(), intent.run(), intent.sprint(), intent.jump(),
+                false, false, intent.crouch(), intent.heavy(), intent.spin(), intent.parry(), intent.block(),
+                intent.bash(), intent.emote(), intent.dodge(), intent.dodgeHeld());
+    }
+
+    /** Eat one of what is in the selected hotbar slot. */
+    private void eatHeld() {
+        Player p = world.player();
+        World.Eaten e = world.eat(p.inventory().selected());
+        if (e == null) return;
+        if (!e.ate()) {
+            Sounds.play(SoundKeys.ui("error"), 0.6);
+            world.combat().say("Already full", 0xC8D2DC, p.feet(), 2.1, true);
+            return;
+        }
+        world.combat().sound(SoundKeys.item(e.item().id(), "eat"), p.feet(), 1);
+        world.combat().say(InventoryPanel.gains(e), e.item().def().food().rgb(), p.feet(), 2.1, false);
     }
 
     private void toggleChest(Chest c) {
@@ -708,8 +790,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open · G drop · I inventory · 1-5 or wheel hotbar · F1-F4 emote · [ ] preview · "
-                    + "Backspace live · , . turn · T turntable",
+            "E pick up / open / pick a bush · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
+                    + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
                     + "Alt/Z in the air: land in a roll · "
                     + "the hills are up the north path",
@@ -720,16 +802,22 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (inventory.open()) return;
         String text, name = "";
         float[] edge = Theme.ACCENT, nameColour = Theme.TITLE;
-        Chest c = world.reachableChest();
-        World.GroundItem g = world.reachable();
-        if (c != null && (g == null || c.position().horizontalDistance(world.player().ground())
-                < g.position.horizontalDistance(world.player().ground()))) {
-            text = "E   " + (c.isOpen() ? "Close the chest" : "Open the chest");
-        } else if (g != null) {
+        Use use = usable();
+        if (use == Use.CHEST) {
+            text = "E   " + (world.reachableChest().isOpen() ? "Close the chest" : "Open the chest");
+        } else if (use == Use.ITEM) {
             // the item's name in its rarity's colour
+            World.GroundItem g = world.reachable();
             text = "E   Pick up ";
-            name = g.item.fullName() + (world.player().crouched() ? " (crouched)" : "");
+            name = (g.amount() > 1 ? g.amount() + " " : "") + g.item.fullName()
+                    + (world.player().crouched() ? " (crouched)" : "");
             edge = nameColour = g.item.rarity().colour(1f);
+        } else if (use == Use.BUSH) {
+            ItemDef d = ItemDef.byId(world.reachableBush().profile().forage().item());
+            text = "E   Pick ";
+            name = d == null ? "the bush" : d.name().toLowerCase();
+            if (d != null) edge = nameColour = Theme.rgb((d.food().rgb() >> 16) & 255, (d.food().rgb() >> 8) & 255,
+                    d.food().rgb() & 255, 1f);
         } else {
             return;
         }
@@ -1110,6 +1198,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            // the foraging bushes: forage (pick the one in reach), forage goto [n] (stand by the nth
+            // nearest with something on it), eat [slot] (eat from that slot, else what is in hand)
+            case "forage" -> {
+                String a = argument.trim();
+                if (a.startsWith("goto")) {
+                    String[] w = a.split("\\s+");
+                    int n = w.length > 1 ? Integer.parseInt(w[1]) - 1 : 0;
+                    Vec3 me = p.ground();
+                    List<Scenery.Placed> ripe = new ArrayList<>();
+                    for (Scenery.Placed b : world.bushes()) if (!world.picked(b)) ripe.add(b);
+                    ripe.sort(java.util.Comparator.comparingDouble(b -> Math.hypot(b.x() - me.x(), b.z() - me.z())));
+                    if (n < 0 || n >= ripe.size()) return false;
+                    Scenery.Placed b = ripe.get(n);
+                    Vec3 at = new Vec3(b.x() + 0.9, 0, b.z() + 0.6);
+                    p.setPosition(at);
+                    p.snapHeading(SpriteView.headingOf(b.x() - at.x(), b.z() - at.z()));
+                    camera.snapTo(follow());
+                } else {
+                    Scenery.Placed b = world.reachableBush();
+                    if (b == null) return false;
+                    forage(b);
+                }
+            }
+            case "eat" -> {
+                if (argument.isBlank()) {
+                    eatHeld();
+                } else {
+                    World.Eaten e = world.eat(Integer.parseInt(argument.trim()) - 1);
+                    if (e == null) return false;
+                }
+            }
             case "dropitem" -> drop();
             case "pause" -> pause.open(PauseMenu.Page.valueOf(
                     argument.isBlank() ? "MAIN" : argument.toUpperCase()));

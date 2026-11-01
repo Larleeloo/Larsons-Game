@@ -90,6 +90,7 @@ public final class LevelWorld {
         world.setGround(level.ground());
         world.setWater(level.water());
         world.setSky(level.sky());
+        world.setLife(level.life());
         world.startDay();
         double h = level.half();
         world.setBounds(-h, h, -h, h);
@@ -110,6 +111,7 @@ public final class LevelWorld {
         world.soundSpots().clear();
         world.lights().clear();
         world.raySpots().clear();
+        world.critters().spots().clear();          // (those about stay while their spot is the same)
         Build b = new Build(world, terrain, sprites, tuning);
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));
         world.player().setPosition(Vec3.ZERO);

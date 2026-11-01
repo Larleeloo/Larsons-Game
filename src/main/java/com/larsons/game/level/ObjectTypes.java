@@ -1,5 +1,7 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.ambient.Critters;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
@@ -10,6 +12,7 @@ import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.Item;
+import com.larsons.game.world.Pickings;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
@@ -37,7 +40,7 @@ public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
-            RAYS = "rays";
+            RAYS = "rays", CRITTERS = "critters";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -124,6 +127,33 @@ public final class ObjectTypes {
                         Prop.number("strength", "Strength", 1, 0.1, 2, 0.1)), 0.6, 2.0, 0xFFF0B0, false,
                 (o, b) -> b.world().raySpots().add(new World.RaySpot(b.onGround(o), (int) o.num("count", 4),
                         o.num("spread", 1.5), o.num("height", 6), o.num("strength", 1)))));
+        // a swarm of the little creatures living round a spot - fireflies over a pond, frogs at its edge -
+        // as well as those that come by on their own (the Level tool's Life page says how many of those)
+        register(new ObjectType(CRITTERS, "Critters", Category.LIFE,
+                List.of(Prop.choice("kind", "Kind", CritterKind.FIREFLY.key(), o -> critterKinds()),
+                        Prop.number("count", "How many", 8, 1, 40, 1),
+                        Prop.number("radius", "Within (m)", 4, 0.5, 30, 0.5),
+                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes())),
+                0.5, 0.8, 0xD8FF5A, false,
+                (o, b) -> {
+                    CritterKind k = CritterKind.byKey(o.str("kind", CritterKind.FIREFLY.key()));
+                    if (k == null) return;
+                    b.world().critters().spots().add(new Critters.Spot(k, b.onGround(o),
+                            (int) Math.round(o.num("count", 8)), o.num("radius", 4),
+                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
+                }));
+    }
+
+    static List<String> critterKinds() {
+        List<String> out = new ArrayList<>();
+        for (CritterKind k : CritterKind.values()) out.add(k.key());
+        return out;
+    }
+
+    static List<String> critterTimes() {
+        List<String> out = new ArrayList<>();
+        for (Critters.When w : Critters.When.values()) out.add(w.key());
+        return out;
     }
 
     private static ScenerySprites scenerySprites = ScenerySprites.NONE;
@@ -152,7 +182,7 @@ public final class ObjectTypes {
 
     static List<String> sceneryNames() {
         List<String> out = new ArrayList<>();
-        for (ScenerySprites.Sprite s : scenerySprites.sprites()) out.add(s.name());
+        for (ScenerySprites.Sprite s : scenerySprites.placeable()) out.add(s.name());
         return out;
     }
 
@@ -160,13 +190,13 @@ public final class ObjectTypes {
         List<String> out = new ArrayList<>();
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         for (ItemDef d : Wearables.ALL) out.add(d.id());
+        for (ItemDef d : Pickings.ALL) out.add(d.id());
         return out;
     }
 
-    /** The weapon or wearable called {@code id}, or null. */
+    /** The weapon, wearable or picking called {@code id}, or null. */
     public static ItemDef itemDef(String id) {
-        for (ItemDef d : ItemDef.ALL) if (d.id().equals(id)) return d;
-        return Wearables.byId(id);
+        return ItemDef.byId(id);
     }
 
     static List<String> tiersOf(LevelObject o) {
@@ -205,8 +235,13 @@ public final class ObjectTypes {
         for (SceneryProfile.Kind k : List.of(SceneryProfile.Kind.TREE, SceneryProfile.Kind.ROCK,
                 SceneryProfile.Kind.TUFT)) {
             for (ScenerySprites.Sprite s : scenerySprites.ofKind(k)) {
+                if (s.profile().forages()) continue;        // (with the life)
                 out.add(new Entry(readable(s.name()), Category.SCENERY, SCENERY, Map.of("sprite", s.name())));
             }
+        }
+        // the life: the foraging bushes, what they give, the little creatures
+        for (ScenerySprites.Sprite s : scenerySprites.forage()) {
+            out.add(new Entry(readable(s.name()), Category.LIFE, SCENERY, Map.of("sprite", s.name())));
         }
         for (ItemDef d : ItemDef.ALL) {
             Tier.Row row = Tier.row(d.id());
@@ -216,11 +251,19 @@ public final class ObjectTypes {
         for (ItemDef d : Wearables.ALL) {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
+        for (ItemDef d : Pickings.ALL) {
+            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        }
+        for (CritterKind k : CritterKind.values()) {
+            out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",
+                    (double) (k == CritterKind.FIREFLY ? 14 : 6), "radius", 4.0, "when", Critters.When.ITS_TIME.key())));
+        }
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
         for (ObjectType t : TYPES.values()) {
-            if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)) continue;
+            if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
+                    || t.key().equals(CRITTERS)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
@@ -247,6 +290,10 @@ public final class ObjectTypes {
             }
             case MARKER -> "Spot \"" + o.str("name", "spot") + "\"";
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
+            case CRITTERS -> {
+                CritterKind k = CritterKind.byKey(o.str("kind", ""));
+                yield (k == null ? "Critters" : k.label()) + " (" + (int) Math.round(o.num("count", 8)) + ")";
+            }
             default -> t.label();
         };
     }

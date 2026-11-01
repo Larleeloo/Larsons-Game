@@ -1,5 +1,6 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.ambient.Life;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelObject;
 import com.larsons.game.world.Sky;
@@ -27,7 +28,7 @@ final class Undo {
 
     /** What a part of the level was, before a change: what is not kept is null. */
     private record State(String label, double size, List<LevelObject> objects, float[] heights, byte[][] ground,
-                         byte[] water, double sea, Sky sky, String name, String music) {}
+                         byte[] water, double sea, Sky sky, String name, String music, Life life) {}
 
     private final Deque<State> undo = new ArrayDeque<>(), redo = new ArrayDeque<>();
 
@@ -47,7 +48,8 @@ final class Undo {
                 all || part == Part.WATER ? level.water().bytes() : null, level.water().seaLevel(),
                 all || part == Part.SKY ? level.sky() : null,
                 all ? level.name() : null,
-                all || part == Part.SKY ? level.music() : null);
+                all || part == Part.SKY ? level.music() : null,
+                all || part == Part.SKY ? level.life().copy() : null);
     }
 
     boolean canUndo() { return !undo.isEmpty(); }
@@ -86,6 +88,7 @@ final class Undo {
         if (s.sky() != null) level.setSky(s.sky());
         if (s.name() != null) level.setName(s.name());
         if (s.music() != null) level.setMusic(s.music());
+        if (s.life() != null) level.setLife(s.life().copy());
         return s.label();
     }
 }

@@ -46,16 +46,23 @@ final class Scatter {
         mixes.put(SceneryProfile.Kind.ROCK, "Rocks (mixed)");
         for (Map.Entry<SceneryProfile.Kind, String> m : mixes.entrySet()) {
             List<String> names = new ArrayList<>();
-            for (ScenerySprites.Sprite s : sprites.meadow(m.getKey())) names.add(s.name());
+            for (ScenerySprites.Sprite s : sprites.meadow(m.getKey())) {
+                if (!s.profile().forages()) names.add(s.name());
+            }
             if (!names.isEmpty()) out.add(new Set(m.getValue(), names));
         }
+        List<String> bushes = new ArrayList<>();
+        for (ScenerySprites.Sprite s : sprites.forage()) bushes.add(s.name());
+        if (!bushes.isEmpty()) out.add(new Set("Foraging bushes (mixed)", bushes));
         for (Biome b : Biome.values()) {
             for (SceneryProfile.Kind k : mixes.keySet()) {
                 Set s = biomeSet(sprites, b, k);
                 if (!s.sprites().isEmpty()) out.add(s);
             }
+            Set bs = bushSet(sprites, b);
+            if (!bs.sprites().isEmpty()) out.add(bs);
         }
-        for (ScenerySprites.Sprite s : sprites.sprites()) {
+        for (ScenerySprites.Sprite s : sprites.placeable()) {
             out.add(new Set(ObjectTypes.readable(s.name()), List.of(s.name())));
         }
         return out;
@@ -68,6 +75,7 @@ final class Scatter {
     static Set biomeSet(ScenerySprites sprites, Biome biome, SceneryProfile.Kind kind) {
         List<String> names = new ArrayList<>();
         for (ScenerySprites.Sprite s : sprites.ofKind(kind)) {
+            if (s.profile().forages()) continue;         // (sown far thinner: bushSet)
             if (s.profile().grows(biome.key()) || biome == Biome.PLAINS && s.profile().biomes().isEmpty()) {
                 names.add(s.name());
             }
@@ -78,6 +86,21 @@ final class Scatter {
             case ROCK -> "rocks";
         };
         return new Set(biome.label() + ": " + what, names);
+    }
+
+    /** The foraging bushes that grow in {@code biome}: "Plains: bushes". */
+    static Set bushSet(ScenerySprites sprites, Biome biome) {
+        List<String> names = new ArrayList<>();
+        for (ScenerySprites.Sprite s : sprites.forage()) if (s.profile().grows(biome.key())) names.add(s.name());
+        return new Set(biome.label() + ": bushes", names);
+    }
+
+    /** How many foraging bushes a square metre is sown with at a density of 1: one every 30 m² or so. */
+    static final double BUSHES_PER_SQUARE_METRE = 0.035;
+
+    /** How many a square metre {@code s} is sown at, a density of 1: its kind's, a foraging bush's own. */
+    static double perSquareMetre(ScenerySprites.Sprite s) {
+        return s.profile().forages() ? BUSHES_PER_SQUARE_METRE : perSquareMetre(s.kind());
     }
 
     /** How many a square metre each kind is sown at a density of 1 (grass thick, trees far apart). */
@@ -108,7 +131,7 @@ final class Scatter {
         }
         ScenerySprites.Sprite first = sprites.sprite(set.sprites().get(0));
         if (first == null) return added;
-        double want = perSquareMetre(first.kind()) * density * amount;
+        double want = perSquareMetre(first) * density * amount;
         int tries = (int) Math.floor(want) + (random.nextDouble() < want - Math.floor(want) ? 1 : 0);
         for (int i = 0; i < tries * 3 && added.size() < tries; i++) {
             ScenerySprites.Sprite s = sprites.sprite(set.sprites().get(random.nextInt(set.sprites().size())));

@@ -1231,6 +1231,55 @@ time stands still), the planet - where it hangs, how big, its bands, rings -
 and its clouds, stars, aurora, mist and light rays, with Creative Mode's
 **Time** tool.
 
+## Life: critters and foraging
+
+The world has little creatures living in it, come and gone round the player
+by where she is and the hour, and bushes to pick food from.
+
+<p align="center">
+  <img src="docs/screenshots/life-fireflies.png" width="49%" alt="Fireflies over the marsh at night, a frog by the path">
+  <img src="docs/screenshots/life-crystal-night.png" width="49%" alt="The crystal biome at night: a crystal bloom glowing, a frog and a cricket">
+</p>
+<p align="center">
+  <img src="docs/screenshots/life-forage.png" width="49%" alt="A sage bush to pick: E Pick sage">
+  <img src="docs/screenshots/creative-life.png" width="49%" alt="Creative Mode's Life tool">
+</p>
+
+- **Fireflies** blink over the meadows, the marsh and the river after dark
+  (blue and violet in the crystal biome), and light the grass round them.
+- **Crickets** sit in the grass and chirp, mostly at night, and hop away from
+  her feet.
+- **Frogs** keep to the water's edge, croak, and hop off - into the water
+  with a plop - when she comes near.
+- **Dragonflies** dart and hover over water by day.
+
+Each kind has a weight for every biome, keeps near water or not, and has its
+hour (`ambient/CritterKind`); `ambient/Critters` brings them in round her as
+the place and the time call for them and lets them go as she moves on. They
+are drawn from 3D-Modeling's 24-view sprites (`creatures/critters.py`), at
+about twice life size so they read at the camera's distance, and each makes
+its sound where it is (Pause → Sounds → Creatures).
+
+**Foraging bushes** - wild berries, bilberries, sage, sunfruit, thornberries,
+sea buckthorn and the crystal bloom, each in its own biomes - stand among the
+plants. Walk up to one and press **E**: she reaches in and what is on it goes
+into the inventory, and the bush is bare until it grows back (four to seven
+minutes). Pickings **stack** (20 to a slot, the count on the slot). Eat one by
+clicking with it in hand on the hotbar, or right-clicking it in the inventory:
+berries give back health, sage stamina, the crystal bloom mana, the rest a
+mix - only what she has spent; nothing is eaten when she is full.
+
+In Creative Mode the **Life** tool (key 0) sets how thick each kind lives in
+the level (0 to 3 times), how fast the bushes grow back and how much they give;
+**Place → Life** has the bushes, the pickings and **swarms** - fireflies over a
+pond, frogs at its edge - that live where they are put, at their hour, always,
+by day or by night. Scatter has a "*Biome*: bushes" set for each biome, and a
+biome's paint sows a few. In a level file:
+
+```json
+"life": {"critters": {"firefly": 2, "frog": 0.5}, "regrow": 0.5, "yield": 1}
+```
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas

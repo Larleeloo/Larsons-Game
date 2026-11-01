@@ -58,4 +58,27 @@ class BiomeScatterTest {
                 Scatter.biomeSet(SPRITES, Biome.MARSH, SceneryProfile.Kind.TREE), 0, 0, 5, 1, 400, random);
         assertTrue(trees.isEmpty(), "no willow stands in the pond");
     }
+
+    @Test
+    void theForagingBushesAreSownApartAndThinly() {
+        SceneryProfile bushProfile = new SceneryProfile(SceneryProfile.Kind.TUFT, 64, 64, 1, 1, 1.2, 0, 0.5, false,
+                List.of("plains"), -1, false, new SceneryProfile.Forage("wild_berries", 2, 4, 240, "berry_bush_picked"),
+                null);
+        SceneryProfile bareProfile = new SceneryProfile(SceneryProfile.Kind.TUFT, 64, 64, 1, 1, 1.2, 0, 0.5, false,
+                List.of(), -1, false, null, "berry_bush");
+        ScenerySprites sprites = ScenerySprites.of(List.of(
+                sprite("grass_tuft_a", SceneryProfile.Kind.TUFT, List.of()),
+                ScenerySprites.describe("berry_bush", bushProfile, Path.of("b.png"), 64, 64),
+                ScenerySprites.describe("berry_bush_picked", bareProfile, Path.of("p.png"), 64, 64)), null);
+        assertEquals(List.of("grass_tuft_a"), Scatter.biomeSet(sprites, Biome.PLAINS, SceneryProfile.Kind.TUFT)
+                .sprites(), "not among the grass");
+        assertEquals(List.of("berry_bush"), Scatter.bushSet(sprites, Biome.PLAINS).sprites());
+        List<String> labels = Scatter.sets(sprites).stream().map(Scatter.Set::label).toList();
+        assertTrue(labels.contains("Plains: bushes"), labels.toString());
+        assertFalse(labels.contains("Berry bush picked"), "the bare look is not sown on its own");
+        Level level = Level.blank("Meadow", 64);
+        List<LevelObject> sown = Scatter.sow(level, Terrain.FLAT, sprites, Scatter.bushSet(sprites, Biome.PLAINS),
+                0, 0, 10, 1, Math.PI * 100, new Random(3));
+        assertTrue(sown.size() > 3 && sown.size() < 20, "about one every 30 square metres: " + sown.size());
+    }
 }

@@ -1,5 +1,6 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.Songs;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.WaterMap;
@@ -39,6 +40,7 @@ public final class Level {
     private double size;
     private Sky sky = Sky.DEFAULT;
     private String music = Songs.SHUFFLE;
+    private Life life = new Life();
     private HeightField heights;
     private GroundMap ground;
     private WaterMap water;
@@ -116,6 +118,17 @@ public final class Level {
     /** The level's music ({@link #music}); blank is none. */
     public void setMusic(String music) {
         this.music = music == null || music.isBlank() ? Songs.NONE : music.trim();
+    }
+
+    /**
+     * The level's say over the life in it - how thick each of the little
+     * creatures lives in it, how fast the foraging bushes grow back and how
+     * much they give ({@link Life}); the Level tool's Life page.
+     */
+    public Life life() { return life; }
+
+    public void setLife(Life life) {
+        this.life = life == null ? new Life() : life;
     }
 
     public HeightField heights() { return heights; }

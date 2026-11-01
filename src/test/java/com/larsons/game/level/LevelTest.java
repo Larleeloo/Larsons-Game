@@ -252,4 +252,29 @@ class LevelTest {
         LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
         assertTrue(w.soundSpots().isEmpty(), "taken away with the rest");
     }
+
+    @Test
+    void aLevelKeepsItsLifeAndItsSwarmsOfCritters(@TempDir Path root) throws IOException {
+        Level l = Level.blank("Pond", 64);
+        assertFalse(LevelIO.json(l).contains("\"life\""), "nothing to write while it is as it comes");
+        l.life().setDensity(com.larsons.game.ambient.CritterKind.FIREFLY, 2);
+        l.life().setYield(0.5);
+        l.add(ObjectTypes.CRITTERS, 3, -2, 0, Map.of("kind", "frog", "count", 5.0, "radius", 2.5, "when", "night"));
+        Path folder = root.resolve("pond");
+        LevelIO.save(l, folder);
+        Level back = LevelIO.load(folder);
+        assertEquals(2, back.life().density(com.larsons.game.ambient.CritterKind.FIREFLY), 1e-9);
+        assertEquals(0.5, back.life().yield(), 1e-9);
+        assertFalse(back.extra().containsKey("life"), "read as the level's own");
+        com.larsons.game.world.World w = new com.larsons.game.world.World(new com.larsons.game.sprite.Wardrobe());
+        LevelWorld.populate(w, back, com.larsons.game.sprite.ScenerySprites.NONE,
+                CombatTuning.defaults());
+        assertEquals(2, w.life().density(com.larsons.game.ambient.CritterKind.FIREFLY), 1e-9);
+        assertEquals(1, w.critters().spots().size());
+        com.larsons.game.ambient.Critters.Spot s = w.critters().spots().get(0);
+        assertEquals(com.larsons.game.ambient.CritterKind.FROG, s.kind());
+        assertEquals(5, s.count());
+        assertEquals(com.larsons.game.ambient.Critters.When.NIGHT, s.when());
+        assertEquals("Frogs (5)", ObjectTypes.label(back.objects().get(back.objects().size() - 1)));
+    }
 }

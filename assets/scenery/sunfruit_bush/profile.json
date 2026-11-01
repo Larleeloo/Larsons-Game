@@ -1,0 +1,22 @@
+{
+ "kind": "tuft",
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "frames": 24,
+ "fps": 12,
+ "frameWorldSize": 1.2,
+ "radius": 0,
+ "shadowRadius": 0.336,
+ "biomes": [
+  "jungle"
+ ],
+ "forage": {
+  "item": "sunfruit",
+  "count": [
+   1,
+   2
+  ],
+  "regrow": 360,
+  "picked": "sunfruit_bush_picked"
+ }
+}

@@ -420,6 +420,10 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   combat/flying_dummy/fall.mp3                   Flying dummy: knocked down                       combat/flying_dummy/fall
   combat/flying_dummy/down.mp3                   Flying dummy: hitting the ground                 combat/flying_dummy/down
   combat/flying_dummy/rise.mp3                   Flying dummy: back up                            combat/flying_dummy/rise
+  creatures/frog/croak.mp3                       Frog: croaking                                   creature/frog/croak
+  creatures/frog/plop.mp3                        Frog: diving into water                          creature/frog/plop
+  creatures/cricket/chirp.mp3                    Cricket: chirping                                creature/cricket/chirp
+  creatures/dragonfly/buzz.mp3                   Dragonfly: wings darting by                      creature/dragonfly/buzz
 
 
 WORLD & LOOT
@@ -437,8 +441,10 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/loot_epic.mp3                            Loot: an Epic find                               world/loot_epic
   world/loot_legendary.mp3                       Loot: a Legendary find                           world/loot_legendary
   world/loot_mythic.mp3                          Loot: a Mythic find                              world/loot_mythic
+  world/forage_pick.mp3                          Picking from a bush                              world/forage_pick
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
+  items/eat.mp3                                  Eating something picked                          item/eat
 
   One body's or one object's own (silent until given a file):
 
@@ -462,6 +468,13 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   items/mace/drop.mp3                            Mace dropped                                     item/mace/drop
   items/dagger/pickup.mp3                        Dagger picked up                                 item/dagger/pickup
   items/dagger/drop.mp3                          Dagger dropped                                   item/dagger/drop
+  items/wild_berries/eat.mp3                     Wild berries eaten                               item/wild_berries/eat
+  items/bilberries/eat.mp3                       Bilberries eaten                                 item/bilberries/eat
+  items/sage/eat.mp3                             Sage eaten                                       item/sage/eat
+  items/sunfruit/eat.mp3                         Sunfruit eaten                                   item/sunfruit/eat
+  items/thornberries/eat.mp3                     Thornberries eaten                               item/thornberries/eat
+  items/crystal_bloom/eat.mp3                    Crystal bloom eaten                              item/crystal_bloom/eat
+  items/sea_buckthorn/eat.mp3                    Sea buckthorn eaten                              item/sea_buckthorn/eat
 
 
 AMBIENT

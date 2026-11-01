@@ -24,8 +24,13 @@ import java.util.Objects;
  * contents - without the hotbar moving: the screen that shows it lays out
  * however many there are ({@code ui/InventoryPanel}).
  *
+ * <p>A slot holds one item - or, of a picking from a foraging bush (berries,
+ * herbs: {@link ItemDef#stack}), a <b>stack</b> of up to that many alike
+ * ({@link #amount}): picking more of it fills its stacks before it takes a
+ * new slot.
+ *
  * <p>Iterating gives the items carried, in slot order, skipping the empty
- * slots. The rest of the inventory can be sorted, by name or by rarity
+ * slots (a stack once). The rest of the inventory can be sorted, by name or by rarity
  * ({@link #sort}); the hotbar stays as it is.
  */
 public final class Inventory implements Iterable<Item> {
@@ -55,11 +60,13 @@ public final class Inventory implements Iterable<Item> {
     public static final int DEFAULT_SLOTS = 25;
 
     private Item[] slots;
+    private int[] amounts;
     private int selected;
 
     /** An empty inventory of {@code size} slots (at least the hotbar's). */
     public Inventory(int size) {
         slots = new Item[Math.max(HOTBAR, size)];
+        amounts = new int[slots.length];
     }
 
     /** How many slots there are, the hotbar's included. */
@@ -70,11 +77,53 @@ public final class Inventory implements Iterable<Item> {
         return i >= 0 && i < slots.length ? slots[i] : null;
     }
 
-    /** Put {@code item} (null: nothing) in slot {@code i}; returns what was there. */
+    /** Put {@code item} (null: nothing) in slot {@code i}, one of it; returns what was there. */
     public Item set(int i, Item item) {
+        return set(i, item, 1);
+    }
+
+    /** Put {@code amount} of {@code item} (null: nothing) in slot {@code i}; returns what was there. */
+    public Item set(int i, Item item, int amount) {
         Item was = slots[i];
         slots[i] = item;
+        amounts[i] = item == null ? 0 : Math.max(1, Math.min(amount, item.def().stack()));
         return was;
+    }
+
+    /** How many are in slot {@code i}: a stack's size, 1 for anything else, 0 when it is empty. */
+    public int amount(int i) {
+        return i >= 0 && i < slots.length && slots[i] != null ? amounts[i] : 0;
+    }
+
+    /** How many of {@code item} are carried, every stack of it together. */
+    public int total(Item item) {
+        int n = 0;
+        for (int i = 0; i < slots.length; i++) if (Objects.equals(slots[i], item)) n += amounts[i];
+        return n;
+    }
+
+    /**
+     * Take one from slot {@code i} - the slot is emptied when it was the last
+     * of its stack - and return it, or null when the slot is empty.
+     */
+    public Item takeOne(int i) {
+        Item item = get(i);
+        if (item == null) return null;
+        if (--amounts[i] <= 0) set(i, null);
+        return item;
+    }
+
+    /**
+     * Put {@code amount} of {@code item} onto the stack of it in slot {@code
+     * i}, as many as it has room for; returns how many did not fit (all of
+     * them when the slot holds something else).
+     */
+    public int merge(int i, Item item, int amount) {
+        if (slots[i] == null || !slots[i].equals(item)) return amount;
+        int room = item.def().stack() - amounts[i];
+        int put = Math.max(0, Math.min(room, amount));
+        amounts[i] += put;
+        return amount - put;
     }
 
     public static boolean isHotbar(int i) {
@@ -107,14 +156,20 @@ public final class Inventory implements Iterable<Item> {
     // --- adding and taking -----------------------------------------------------------
 
     /**
-     * Put {@code item} in the first empty slot - the hotbar first, then the
-     * rest - and return that slot, or -1 when every slot is full.
+     * Put {@code item} onto a stack of it with room (one of a picking), else
+     * in the first empty slot - the hotbar first, then the rest - and return
+     * that slot, or -1 when every slot is full.
      */
     public int add(Item item) {
         Objects.requireNonNull(item);
+        int onto = stackWithRoom(item);
+        if (onto >= 0) {
+            amounts[onto]++;
+            return onto;
+        }
         for (int i = 0; i < slots.length; i++) {
             if (slots[i] == null) {
-                slots[i] = item;
+                set(i, item);
                 return i;
             }
         }
@@ -122,19 +177,39 @@ public final class Inventory implements Iterable<Item> {
     }
 
     /**
-     * Put {@code item} in the first empty slot of the rest of the inventory,
-     * or in the hotbar's when that is full - out of the way of what is in
-     * hand - and return that slot, or -1 when every slot is full.
+     * Put {@code item} onto a stack of it with room, else in the first empty
+     * slot of the rest of the inventory, or in the hotbar's when that is
+     * full - out of the way of what is in hand - and return that slot, or -1
+     * when every slot is full.
      */
     public int stow(Item item) {
         Objects.requireNonNull(item);
+        int onto = stackWithRoom(item);
+        if (onto >= 0) {
+            amounts[onto]++;
+            return onto;
+        }
         for (int i = HOTBAR; i < slots.length; i++) {
             if (slots[i] == null) {
-                slots[i] = item;
+                set(i, item);
                 return i;
             }
         }
         return add(item);
+    }
+
+    /** Whether one more {@code item} would fit: on a stack of it, or in an empty slot. */
+    public boolean hasRoomFor(Item item) {
+        return stackWithRoom(item) >= 0 || count() < slots.length;
+    }
+
+    /** The first slot holding a stack of {@code item} with room on it, or -1 (and -1 for anything not stacked). */
+    private int stackWithRoom(Item item) {
+        if (item.def().stack() <= 1) return -1;
+        for (int i = 0; i < slots.length; i++) {
+            if (item.equals(slots[i]) && amounts[i] < item.def().stack()) return i;
+        }
+        return -1;
     }
 
     /**
@@ -143,12 +218,23 @@ public final class Inventory implements Iterable<Item> {
      * as it is.
      */
     public void sort(Order order) {
-        List<Item> rest = new ArrayList<>();
-        for (int i = HOTBAR; i < slots.length; i++) if (slots[i] != null) rest.add(slots[i]);
-        rest.sort(order.comparator());
+        List<Integer> rest = new ArrayList<>();
+        for (int i = HOTBAR; i < slots.length; i++) if (slots[i] != null) rest.add(i);
+        Comparator<Item> by = order.comparator();
+        rest.sort((a, b) -> {
+            int c = by.compare(slots[a], slots[b]);
+            return c != 0 ? c : Integer.compare(amounts[b], amounts[a]);
+        });
+        Item[] items = new Item[rest.size()];
+        int[] counts = new int[rest.size()];
+        for (int k = 0; k < rest.size(); k++) {
+            items[k] = slots[rest.get(k)];
+            counts[k] = amounts[rest.get(k)];
+        }
         for (int i = HOTBAR; i < slots.length; i++) {
             int k = i - HOTBAR;
-            slots[i] = k < rest.size() ? rest.get(k) : null;
+            slots[i] = k < items.length ? items[k] : null;
+            amounts[i] = k < items.length ? counts[k] : 0;
         }
     }
 
@@ -177,7 +263,7 @@ public final class Inventory implements Iterable<Item> {
     public boolean remove(Item item) {
         int i = indexOf(item);
         if (i < 0 || item == null) return false;
-        slots[i] = null;
+        set(i, null);
         return true;
     }
 
@@ -191,6 +277,9 @@ public final class Inventory implements Iterable<Item> {
         Item t = slots[a];
         slots[a] = slots[b];
         slots[b] = t;
+        int n = amounts[a];
+        amounts[a] = amounts[b];
+        amounts[b] = n;
     }
 
     /** How many items are carried. */
@@ -213,20 +302,31 @@ public final class Inventory implements Iterable<Item> {
     public List<Item> resize(int size) {
         size = Math.max(HOTBAR, size);
         List<Item> overflow = new ArrayList<>();
-        for (int i = size; i < slots.length; i++) if (slots[i] != null) overflow.add(slots[i]);
+        List<Integer> overflowAmounts = new ArrayList<>();
+        for (int i = size; i < slots.length; i++) {
+            if (slots[i] != null) {
+                overflow.add(slots[i]);
+                overflowAmounts.add(amounts[i]);
+            }
+        }
         Item[] next = Arrays.copyOf(slots, size);
-        for (Iterator<Item> it = overflow.iterator(); it.hasNext(); ) {
-            Item item = it.next();
+        int[] nextAmounts = Arrays.copyOf(amounts, size);
+        List<Item> spilled = new ArrayList<>();
+        for (int k = 0; k < overflow.size(); k++) {
+            boolean placed = false;
             for (int i = HOTBAR; i < size; i++) {
                 if (next[i] == null) {
-                    next[i] = item;
-                    it.remove();
+                    next[i] = overflow.get(k);
+                    nextAmounts[i] = overflowAmounts.get(k);
+                    placed = true;
                     break;
                 }
             }
+            if (!placed) for (int n = 0; n < overflowAmounts.get(k); n++) spilled.add(overflow.get(k));
         }
         slots = next;
-        return overflow;
+        amounts = nextAmounts;
+        return spilled;
     }
 
     /** The items carried, in slot order. */

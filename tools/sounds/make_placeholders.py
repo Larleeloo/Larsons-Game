@@ -1442,6 +1442,65 @@ def _(k):
     return 0.6 * whoosh(k, d, 400, 2400, 3000, 1.3, 0.6) + chime([659.25, 987.77], d, 0.09, 0.4, 0.3)
 
 
+# The little creatures (ambient/Critters) and foraging -----------------------------------
+
+@sound("creatures/frog/croak", 0.4)
+def _(k):
+    d = 0.42
+    out = silence(d)
+    place(out, croak(k, 105, 0.3), 0.0)
+    place(out, croak(k, 98, 0.1) * 0.6, 0.31)
+    return out
+
+
+@sound("creatures/frog/plop", 0.4)
+def _(k):
+    d = 0.3
+    t = t_of(d)
+    drop = osc(glide(d, [(0, 320), (0.25, 880), (1, 1100)])) * env(d, 0.003, 0.09)
+    splash = bp(k.noise(d), 900, 5000) * env(d, 0.001, 0.12) * 0.35
+    return drop + splash + 0.3 * thump(k, d, 140, 0.5, 0.04, 0.3, 600)
+
+
+@sound("creatures/cricket/chirp", 0.3)
+def _(k):
+    d = 0.24
+    out = silence(d)
+    f = k.uniform(4400, 4900)
+    for p in range(4):
+        place(out, osc(f, 0.016) * bell(0.016, 0.3, 1.0), p * 0.034)
+    return out
+
+
+@sound("creatures/dragonfly/buzz", 0.3)
+def _(k):
+    d = 0.7
+    t = t_of(d)
+    beat = 0.5 + 0.5 * np.sin(2 * np.pi * 32 * t) ** 2          # four wings, about 30 beats a second
+    wings = bp(k.noise(d), 140, 900) * beat
+    whine = osc(glide(d, [(0, 190), (0.5, 230), (1, 170)])) * 0.25
+    return (wings + whine) * bell(d, 0.45, 1.3)
+
+
+@sound("world/forage_pick", 0.38)
+def _(k):
+    d = 0.45
+    out = rustle(k, d, 1500, 7000, 0.45) * bell(d, 0.3, 1.2) * 0.8
+    for at in (0.12, 0.24):                                       # a stalk or two snapping
+        place(out, wood(k.uniform(1800, 2600), 0.05, 0.02, k) * 0.5, at + k.uniform(-0.02, 0.02))
+    return out
+
+
+@sound("items/eat", 0.4)
+def _(k):
+    d = 0.6
+    out = silence(d)
+    for i, at in enumerate((0.0, 0.2, 0.38)):                     # three bites
+        place(out, crunch(k, 0.12, 260, 1200, 6000, 0.04) * (1 - 0.2 * i), at)
+        place(out, thump(k, 0.08, 120, 0.5, 0.03, 0.4, 500) * 0.4, at)
+    return out
+
+
 # --- writing -------------------------------------------------------------------------------
 
 

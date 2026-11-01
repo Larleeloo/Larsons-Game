@@ -1,5 +1,7 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.ambient.CritterKind;
+import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.MusicPreview;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Songs;
@@ -43,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -87,7 +90,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life");
 
         final String label;
 
@@ -318,6 +321,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (thinFog) view.world().setSky(level.sky().withFog(Math.max(level.sky().fog(), camera.distance() * 2.6)));
         if (runTime) runHour = (runHour + dt * PREVIEW_HOURS) % 24;
         view.world().clock().setHour(shownHour());
+        view.world().setLife(level.life());
+        view.world().setFocus(view.terrain().onGround(focus));   // (the little creatures live round the view)
         view.world().idle(dt);
         camera.update(dt, focusPoint());
         camera.keepAbove(view.terrain(), 0.5);
@@ -340,7 +345,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (!ctrl) {
             int[] toolKeys = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
-                    GLFW_KEY_8, GLFW_KEY_9};
+                    GLFW_KEY_8, GLFW_KEY_9, GLFW_KEY_0};
             for (int i = 0; i < toolKeys.length; i++) if (in.pressed(toolKeys[i])) setTool(Tool.values()[i]);
             if (in.pressed(GLFW_KEY_H)) hideUi = !hideUi;
             if (in.pressed(GLFW_KEY_G)) {
@@ -718,6 +723,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
         }
+        // and a few of its foraging bushes among the plants
+        Scatter.Set bushes = Scatter.bushSet(sprites, b);
+        if ((only == null || only == SceneryProfile.Kind.TUFT) && !bushes.sprites().isEmpty()) {
+            for (int t = 0; t < times; t++) {
+                if (!Scatter.sow(level, view.terrain(), sprites, bushes, x, z, r, 0.6, area * 0.2, random).isEmpty()) {
+                    any = true;
+                }
+            }
+        }
         if (any) changed();
     }
 
@@ -1006,7 +1020,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float x = 8;
         Tool[] tools = Tool.values();
         for (int i = 0; i < tools.length; i++) {
-            String label = (i + 1) + " " + tools[i].label;
+            String label = (i + 1) % 10 + " " + tools[i].label;
             float bw = ui.body.width(label) + 22;
             if (ui.button(label, x, 6, bw, TOP_H - 12, tools[i] == tool, true)) setTool(tools[i]);
             x += bw + 4;
@@ -1059,6 +1073,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
                     + "and light rays · Run the time to watch a day go by";
             case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
+            case LIFE -> "How thick the little creatures live here, how fast the bushes grow back · Place → Life: "
+                    + "a swarm of them somewhere, a foraging bush";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1088,6 +1104,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SKY -> skyPanel(ui, px, py, pw);
             case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
+            case LIFE -> lifePanel(ui, px, py, pw);
         }
     }
 
@@ -1503,6 +1520,81 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
     }
 
+    /**
+     * The Life tool: how thick each of the little creatures lives in the
+     * level (their biomes and hours still say where and when), how many are
+     * about round the view now, how fast the foraging bushes grow back and
+     * how much a picking gives - kept with the level ({@link Life}).
+     */
+    private void lifePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Life", x, y);
+        Life life = level.life();
+        y += ui.paragraph(ui.small, "They come and go round the player by their biome and hour. How many of each:",
+                x, y, w, Theme.HINT) + 4;
+        for (CritterKind k : CritterKind.values()) {
+            double d = widgets.slider(ui, "life-" + k.key(), k.label(), life.density(k), 0, Life.MOST, "%.1f×",
+                    x, y + 10, w);
+            double snapped = Math.round(d * 20) / 20.0;
+            if (snapped != life.density(k)) lifeEdit(l -> l.setDensity(k, snapped), k.label());
+            y += 40;
+        }
+        StringJoiner about = new StringJoiner(" · ");
+        for (CritterKind k : CritterKind.values()) {
+            int n = view.world().critters().count(k);
+            if (n > 0) about.add(n + " " + k.label().toLowerCase());
+        }
+        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none (try the night, or water)"
+                : about), x, y, w, Theme.ITEM) + 8;
+        y = heading(ui, "Foraging", x, y);
+        double regrow = widgets.slider(ui, "life-regrow", "Grows back", life.regrow(), 0.05, 4, "%.2f× time",
+                x, y + 10, w);
+        double rs = Math.round(regrow * 20) / 20.0;
+        if (rs != life.regrow()) lifeEdit(l -> l.setRegrow(rs), "Regrow time");
+        y += 40;
+        double yield = widgets.slider(ui, "life-yield", "Pickings", life.yield(), 0, 5, "%.1f×", x, y + 10, w);
+        double ys = Math.round(yield * 10) / 10.0;
+        if (ys != life.yield()) lifeEdit(l -> l.setYield(ys), "Pickings");
+        y += 40;
+        int bushes = 0;
+        for (LevelObject o : level.objects()) {
+            ScenerySprites.Sprite sp = o.type().equals(ObjectTypes.SCENERY) ? sprites.sprite(o.str("sprite", "")) : null;
+            if (sp != null && sp.profile().forages()) bushes++;
+        }
+        y += ui.paragraph(ui.small, (bushes == 1 ? "1 foraging bush" : bushes + " foraging bushes")
+                + " here (Scatter or a biome's paint sows more)", x, y, w, Theme.HINT) + 8;
+        if (ui.button("Place a swarm of critters", x, y, w, 28)) {
+            setTool(Tool.PLACE);
+            category = Category.LIFE;
+            paletteScroll = 0;
+            for (int i : entriesOf(Category.LIFE)) {
+                if (palette.get(i).type().equals(ObjectTypes.CRITTERS)) {
+                    choose(i);
+                    break;
+                }
+            }
+        }
+        y += 34;
+        if (ui.button("Back to as it comes", x, y, w, 28, false, !life.isDefault())) {
+            lifeEdit(l -> {
+                for (CritterKind k : CritterKind.values()) l.setDensity(k, 1);
+                l.setRegrow(1);
+                l.setYield(1);
+            }, "Life as it comes");
+        }
+    }
+
+    /** Change the level's life - one undo step for a whole drag of a slider. */
+    private void lifeEdit(java.util.function.Consumer<Life> change, String label) {
+        String key = "life:" + label;
+        if (!widgets.dragging() || !key.equals(propSnapshot)) undo.before(level, Undo.Part.SKY, label);
+        propSnapshot = widgets.dragging() ? key : null;
+        Life next = level.life().copy();
+        change.accept(next);
+        level.setLife(next);
+        view.world().setLife(next);
+        dirty = true;
+    }
+
     private void levelPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Level", x, y);
         String name = widgets.text(ui, "level-name", "Name", level.name(), x, y, w);
@@ -1861,13 +1953,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 dirty = true;
             }
             case "sow" -> {
-                // sow <biome> x z radius [dabs] [tuft|tree|rock]: its plants, trees and rocks, the ground as it is
+                // sow <biome> x z radius [dabs] [tuft|tree|rock|bushes]: its plants, trees, rocks and foraging
+                // bushes (or only those), the ground as it is
                 Biome b = Biome.byKey(a[0]);
                 if (b == null) return false;
                 undo.before(level, Undo.Part.OBJECTS, "Sow");
-                sowBiome(b, Double.parseDouble(a[1]), Double.parseDouble(a[2]), Double.parseDouble(a[3]),
-                        a.length > 4 ? Integer.parseInt(a[4]) : 1,
-                        a.length > 5 ? SceneryProfile.Kind.byKey(a[5]) : null);
+                double sx = Double.parseDouble(a[1]), sz = Double.parseDouble(a[2]), sr = Double.parseDouble(a[3]);
+                int dabs = a.length > 4 ? Integer.parseInt(a[4]) : 1;
+                if (a.length > 5 && a[5].equals("bushes")) {
+                    Scatter.Set bushes = Scatter.bushSet(sprites, b);
+                    for (int t = 0; t < dabs; t++) {
+                        Scatter.sow(level, view.terrain(), sprites, bushes, sx, sz, sr, 0.6, Math.PI * sr * sr * 0.2,
+                                random);
+                    }
+                    changed();
+                } else {
+                    sowBiome(b, sx, sz, sr, dabs, a.length > 5 ? SceneryProfile.Kind.byKey(a[5]) : null);
+                }
             }
             case "waterdepth" -> waterDepth = Double.parseDouble(a[0]);
             case "water" -> {
@@ -1973,6 +2075,26 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     default -> w;
                 };
                 level.setSky(level.sky().withAir(w));
+                dirty = true;
+            }
+            // the level's life: life <firefly|cricket|frog|dragonfly> <0-3>, life regrow <x>, life yield <x>, life reset
+            case "life" -> {
+                String[] w = argument.trim().split("\\s+");
+                if (w[0].equals("reset")) {
+                    level.setLife(new Life());
+                } else if (w.length >= 2) {
+                    Life l = level.life().copy();
+                    double v = Double.parseDouble(w[1]);
+                    CritterKind k = CritterKind.byKey(w[0]);
+                    if (k != null) l.setDensity(k, v);
+                    else if (w[0].equals("regrow")) l.setRegrow(v);
+                    else if (w[0].equals("yield")) l.setYield(v);
+                    else return false;
+                    level.setLife(l);
+                } else {
+                    return false;
+                }
+                view.world().setLife(level.life());
                 dirty = true;
             }
             case "name" -> level.setName(argument);

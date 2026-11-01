@@ -277,24 +277,40 @@ public final class ScenerySprites {
         return null;
     }
 
-    /** The sprites of one kind, by folder name. */
+    /** The sprites that can be placed: all but the looks of another (a bush picked bare). */
+    public List<Sprite> placeable() {
+        List<Sprite> out = new ArrayList<>();
+        for (Sprite s : sprites) if (!s.profile().isVariant()) out.add(s);
+        return Collections.unmodifiableList(out);
+    }
+
+    /** The placeable sprites of one kind, by folder name. */
     public List<Sprite> ofKind(SceneryProfile.Kind kind) {
         List<Sprite> out = new ArrayList<>();
-        for (Sprite s : sprites) if (s.kind() == kind) out.add(s);
+        for (Sprite s : sprites) if (s.kind() == kind && !s.profile().isVariant()) out.add(s);
         return Collections.unmodifiableList(out);
     }
 
     /** The sprites of {@code kind} the demo's meadow is planted with: those of no biome of their own. */
     public List<Sprite> meadow(SceneryProfile.Kind kind) {
         List<Sprite> out = new ArrayList<>();
-        for (Sprite s : sprites) if (s.kind() == kind && s.profile().biomes().isEmpty()) out.add(s);
+        for (Sprite s : sprites) {
+            if (s.kind() == kind && s.profile().biomes().isEmpty() && !s.profile().isVariant()) out.add(s);
+        }
         return Collections.unmodifiableList(out);
     }
 
-    /** The sprites that grow in {@code biome} (a {@code world/Biome} key). */
+    /** The placeable sprites that grow in {@code biome} (a {@code world/Biome} key). */
     public List<Sprite> ofBiome(String biome) {
         List<Sprite> out = new ArrayList<>();
-        for (Sprite s : sprites) if (s.profile().grows(biome)) out.add(s);
+        for (Sprite s : sprites) if (s.profile().grows(biome) && !s.profile().isVariant()) out.add(s);
+        return Collections.unmodifiableList(out);
+    }
+
+    /** The foraging bushes ({@link SceneryProfile#forages}). */
+    public List<Sprite> forage() {
+        List<Sprite> out = new ArrayList<>();
+        for (Sprite s : sprites) if (s.profile().forages() && !s.profile().isVariant()) out.add(s);
         return Collections.unmodifiableList(out);
     }
 
