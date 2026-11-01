@@ -1633,6 +1633,25 @@
     {"id": 1600, "type": "critters", "x": -46, "z": 2, "yaw": 0, "kind": "frog", "when": "its_time", "radius": 4, "count": 6},
     {"id": 1601, "type": "critters", "x": -50, "z": 13, "yaw": 0, "kind": "frog", "when": "its_time", "radius": 4, "count": 6},
     {"id": 1602, "type": "critters", "x": 9, "z": 2, "yaw": 0, "kind": "dragonfly", "when": "its_time", "radius": 4, "count": 6},
-    {"id": 1603, "type": "critters", "x": -38, "z": 10, "yaw": 0, "kind": "dragonfly", "when": "its_time", "radius": 4, "count": 6}
+    {"id": 1603, "type": "critters", "x": -38, "z": 10, "yaw": 0, "kind": "dragonfly", "when": "its_time", "radius": 4, "count": 6},
+    {"id": 1604, "type": "animals", "x": -10, "z": 12, "yaw": 0, "kind": "cow", "count": 4, "radius": 7, "temperament": "own", "when": "its_time"},
+    {"id": 1605, "type": "animals", "x": 40, "z": 6, "yaw": 0, "kind": "horse", "count": 3, "radius": 9, "temperament": "own", "when": "its_time"},
+    {"id": 1606, "type": "animals", "x": 4, "z": 40, "yaw": 0, "kind": "horse", "count": 3, "radius": 8, "temperament": "own", "when": "its_time"},
+    {"id": 1607, "type": "animals", "x": -32, "z": -30, "yaw": 0, "kind": "sheep", "count": 5, "radius": 6, "temperament": "own", "when": "its_time"},
+    {"id": 1608, "type": "animals", "x": -34, "z": 14, "yaw": 0, "kind": "pig", "count": 3, "radius": 5, "temperament": "own", "when": "its_time"},
+    {"id": 1609, "type": "animals", "x": 3, "z": 3, "yaw": 0, "kind": "dog", "count": 1, "radius": 4, "temperament": "own", "when": "its_time"},
+    {"id": 1610, "type": "animals", "x": -3, "z": -2, "yaw": 0, "kind": "cat", "count": 1, "radius": 3, "temperament": "own", "when": "its_time"},
+    {"id": 1611, "type": "animals", "x": 6, "z": -8, "yaw": 0, "kind": "goose", "count": 4, "radius": 5, "temperament": "own", "when": "its_time"},
+    {"id": 1612, "type": "animals", "x": -46, "z": 2, "yaw": 0, "kind": "swan", "count": 2, "radius": 3, "temperament": "own", "when": "its_time"},
+    {"id": 1613, "type": "animals", "x": -40, "z": 10, "yaw": 0, "kind": "duck", "count": 4, "radius": 4, "temperament": "own", "when": "its_time"},
+    {"id": 1614, "type": "animals", "x": -46, "z": -46, "yaw": 0, "kind": "bear", "count": 1, "radius": 8, "temperament": "own", "when": "its_time"},
+    {"id": 1615, "type": "animals", "x": -14, "z": -6, "yaw": 0, "kind": "fox", "count": 1, "radius": 6, "temperament": "own", "when": "its_time"},
+    {"id": 1616, "type": "animals", "x": -4, "z": 18, "yaw": 0, "kind": "rabbit", "count": 3, "radius": 5, "temperament": "own", "when": "its_time"},
+    {"id": 1617, "type": "animals", "x": -12, "z": 0, "yaw": 0, "kind": "squirrel", "count": 2, "radius": 4, "temperament": "own", "when": "its_time"},
+    {"id": 1618, "type": "animals", "x": 2, "z": 8, "yaw": 0, "kind": "butterfly", "count": 4, "radius": 4, "temperament": "own", "when": "its_time"},
+    {"id": 1619, "type": "animals", "x": 0, "z": -40, "yaw": 0, "kind": "butterfly", "count": 4, "radius": 5, "temperament": "own", "when": "its_time"},
+    {"id": 1620, "type": "animals", "x": -6, "z": -4, "yaw": 0, "kind": "bee", "count": 4, "radius": 3, "temperament": "own", "when": "its_time"},
+    {"id": 1621, "type": "animals", "x": 2, "z": -46, "yaw": 0, "kind": "iguana", "count": 2, "radius": 5, "temperament": "own", "when": "its_time"},
+    {"id": 1622, "type": "animals", "x": 40, "z": 40, "yaw": 0, "kind": "iguana", "count": 2, "radius": 5, "temperament": "own", "when": "its_time"}
   ]
 }

@@ -1,5 +1,8 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.Animal;
+import com.larsons.game.ambient.AnimalKind;
+import com.larsons.game.ambient.Animals;
 import com.larsons.game.ambient.Critters;
 import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.SoundKeys;
@@ -194,6 +197,7 @@ public final class World {
     private final List<LightSpot> lights = new ArrayList<>();
     private final List<RaySpot> raySpots = new ArrayList<>();
     private final Critters critters = new Critters();
+    private final Animals animals = new Animals();
     /** The foraging bushes standing in it, and when each one picked has its pickings again. */
     private List<Scenery.Placed> bushes = List.of();
     private final Map<Scenery.Placed, Double> picked = new IdentityHashMap<>();
@@ -246,6 +250,7 @@ public final class World {
         random = new Random(seed);
         combat.seed(seed);
         critters.seed(seed);
+        animals.seed(seed + 1);
     }
 
     /** The fighting: the dice, the damage, the shots in flight, her mana. */
@@ -271,11 +276,36 @@ public final class World {
         return flier;
     }
 
-    /** Everything that can be hit: the dummies, the fliers. */
+    /** Everything that can be hit: the dummies, the fliers, the animals about. */
     public List<Target> targets() {
         List<Target> out = new ArrayList<>(dummies);
         out.addAll(fliers);
+        for (Animal a : animals.live()) if (a.alive()) out.add(a);
         return out;
+    }
+
+    /** The solid scenery by {@value #CELL} m square, for the animals to go round quickly. */
+    private final Map<Long, List<Scenery.Placed>> solidCells = new java.util.HashMap<>();
+    private static final double CELL = 4;
+
+    private static long cell(double x, double z) {
+        return ((long) Math.floor(x / CELL) << 32) ^ (Math.floorMod((long) Math.floor(z / CELL), 1L << 32));
+    }
+
+    /** Whether a tree's or a rock's trunk stands within {@code radius} of {@code (x, z)}. */
+    public boolean solidNear(double x, double z, double radius) {
+        long cx = (long) Math.floor(x / CELL), cz = (long) Math.floor(z / CELL);
+        for (long i = cx - 1; i <= cx + 1; i++) {
+            for (long j = cz - 1; j <= cz + 1; j++) {
+                List<Scenery.Placed> in = solidCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Scenery.Placed p : in) {
+                    double r = p.radius() + radius, dx = p.x() - x, dz = p.z() - z;
+                    if (dx * dx + dz * dz < r * r) return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** The trees, grass and rocks standing in the world ({@link Scenery#NONE} until it is given some). */
@@ -286,6 +316,10 @@ public final class World {
         Scenery next = scenery == null ? Scenery.NONE : scenery;
         if (next == this.scenery) return;           // (the demo hands it over every frame)
         this.scenery = next;
+        solidCells.clear();
+        for (Scenery.Placed p : next.solids()) {
+            solidCells.computeIfAbsent(cell(p.x(), p.z()), k -> new ArrayList<>()).add(p);
+        }
         List<Scenery.Placed> b = new ArrayList<>();
         for (Scenery.Placed p : next.placed()) if (p.profile().forages()) b.add(p);
         bushes = List.copyOf(b);
@@ -396,6 +430,15 @@ public final class World {
             if (Math.abs(s.y() - player.ground().y()) < 2) player.keepOut(s.position(), s.radius() + FEET);
         }
         for (FlyingDummy f : fliers) swooped(f, f.tick(dt, terrain, player));
+        // the bigger animals are in her way (she rolls through them), as the dummies are
+        if (!player.passesThrough()) {
+            for (Animal a : animals.live()) {
+                if (a.alive() && !a.flies() && !a.swimming() && a.radius() >= 0.3
+                        && Math.abs(a.position().y() - player.ground().y()) < 1.2) {
+                    player.keepOut(a.position(), a.radius() + FEET * 0.5);
+                }
+            }
+        }
         if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
         combat.tick(dt, this);
         happened();
@@ -409,12 +452,87 @@ public final class World {
     private void live(double dt, Vec3 focus, Vec3 shy) {
         picked.values().removeIf(until -> until <= time);
         double day = DayCycle.of(sky, clock.hour()).day();
-        critters.tick(dt, time, day, focus, shy, place(), (key, at, volume) -> combat.sound(key, at, volume));
+        Critters.Voice voice = (key, at, volume) -> combat.sound(key, at, volume);
+        critters.tick(dt, time, day, focus, shy, place(), voice);
+        for (Animals.Event e : animals.tick(dt, time, day, focus, shy == null ? null : quarry(), place(), voice)) {
+            met(e);
+        }
     }
 
-    /** What the little creatures need to know of the place: the ground, the water, the biomes. */
-    private Critters.Place place() {
-        return new Critters.Place() {
+    /** She, as the animals see her: where she is, whether she rolls, parries or blocks, what a blow takes. */
+    private Animals.Quarry quarry() {
+        return new Animals.Quarry() {
+            @Override
+            public Vec3 feet() { return player.feet(); }
+
+            @Override
+            public boolean dodging() { return player.invulnerable(); }
+
+            @Override
+            public boolean parrying() { return player.action() != null && player.action().key().contains("parry"); }
+
+            @Override
+            public boolean blocking() {
+                return player.stance().block() != null && player.state() == player.stance().block();
+            }
+
+            @Override
+            public double hurt(double damage) { return player.hurt(damage); }
+
+            @Override
+            public boolean down() { return player.health() <= 0; }
+        };
+    }
+
+    /** What an animal did to her (or had done to it), said over her and heard. */
+    private void met(Animals.Event e) {
+        Animal a = e.animal();
+        Vec3 at = player.ground();
+        switch (e.outcome()) {
+            case WARNED -> combat.say("!", 0xFFD27A, a.position(), a.height() + 0.25, false);
+            case STRUCK -> {
+                combat.say(struck(a.kind()) + " -" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", a.position());
+            }
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/parry", a.position());
+            }
+            case RAN_OFF -> combat.say("The " + a.kind().singular().toLowerCase(java.util.Locale.ROOT)
+                    + " runs off", 0xE8D8A8, a.position(), a.height() + 0.4, true);
+        }
+    }
+
+    /** What an animal's blow is called, over her: "Pecked!", "Stung!". */
+    static String struck(AnimalKind k) {
+        return switch (k) {
+            case GOOSE, DUCK -> "Pecked!";
+            case SWAN -> "Battered!";
+            case BEE -> "Stung!";
+            case BEAR -> "Mauled!";
+            case HORSE, COW, SHEEP -> "Kicked!";
+            case CAT -> "Scratched!";
+            case DOG, FOX, PIG, RABBIT, SQUIRREL, IGUANA -> "Bitten!";
+            case BUTTERFLY -> "Tickled!";
+        };
+    }
+
+    /** What the little creatures and the animals need to know of the place: the ground, the water, the biomes, the trees. */
+    private Animals.Place place() {
+        return new Animals.Place() {
+            @Override
+            public boolean blocked(double x, double z, double radius) {
+                return solidNear(x, z, radius);
+            }
+
             @Override
             public double ground(double x, double z) {
                 return terrain.height(x, z);
@@ -549,6 +667,15 @@ public final class World {
 
     public void setLife(Life life) {
         critters.setLife(life);
+        animals.setLife(life);
+    }
+
+    /** The animals living in it: those that come by, and the herds placed in it. */
+    public Animals animals() { return animals; }
+
+    /** Put an animal in at {@code at}, now: of its own nature, or {@code temperament}'s (a script, a test). */
+    public Animal addAnimal(AnimalKind kind, Vec3 at, com.larsons.game.ambient.Temperament temperament) {
+        return animals.add(kind, at, temperament, place());
     }
 
     /** Where the little creatures live round when nobody is playing - the editor's view (null: round her). */

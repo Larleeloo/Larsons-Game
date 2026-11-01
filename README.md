@@ -26,6 +26,10 @@ ticked off as it lands.
 - [Fighting](#fighting)
 - [Sound](#sound)
 - [The scenery](#the-scenery)
+- [Biomes and water](#biomes-and-water)
+- [Day and night](#day-and-night)
+- [Life: critters and foraging](#life-critters-and-foraging)
+- [Animals](#animals)
 - [Creative Mode](#creative-mode)
 - [GPU acceleration](#gpu-acceleration)
 - [Project layout](#project-layout)
@@ -938,7 +942,7 @@ own volume:
 | **Voices** | each body's laugh, cry, surprise and anger, being hurt, knocked out, and out of breath |
 | **Weapons** | every swing, chop, smash, thrust, shot and cast of all eight weapons, the parry, taking each weapon in hand, the heavy attack ready again |
 | **Hits & magic** | the dice, a blow landing, arrows and bolts striking or sticking, spells cast, hitting, bursting on the ground or fizzling, venom, being struck, blocking, parrying, dodging |
-| **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up |
+| **Creatures** | the training dummies struck, falling and rising; the flying dummies' wings on their rounds, the screech before a dive, the dive, struck, falling, hitting the ground and beating back up; the critters' chirps, croaks and plops; every animal's calls, cries when hurt, warnings and wingbeats |
 | **World & loot** | the chests (shut and humming, thrown open, standing open, closing), the loot thrown out and landing, and its rarity ringing out from Uncommon to Mythic, picking things up and dropping them |
 | **Ambient** | the breeze over everything, and each biome's own by day and by night - the plains' birdsong and crickets, the marsh's insects and frogs, the mountain wind, the jungle by day and by night, the savannah's cicadas, the sea, a stream, the waste's hollow wind, the crystals' chimes - fading into each other across the biomes' edges (and any of them placed as a sound in a level) |
 | **Music** | the songs, each looping where it plays: the main menu's |
@@ -1280,6 +1284,70 @@ biome's paint sows a few. In a level file:
 "life": {"critters": {"firefly": 2, "frog": 0.5}, "regrow": 0.5, "yield": 1}
 ```
 
+## Animals
+
+Sixteen animals live in the world, come and gone round the player by biome as
+the critters are: **horses, cows, bears, sheep, pigs, dogs, foxes, cats,
+rabbits, squirrels, ducks, geese, swans, butterflies, bees and iguanas**.
+
+<p align="center">
+  <img src="docs/screenshots/animals-lineup.png" width="98%" alt="All sixteen animals">
+</p>
+<p align="center">
+  <img src="docs/screenshots/animals-plains.png" width="49%" alt="Horses, cows, sheep and rabbits on the plains">
+  <img src="docs/screenshots/animals-marsh.png" width="49%" alt="Pigs, a fox, a goose and a duck in the marsh">
+</p>
+<p align="center">
+  <img src="docs/screenshots/animals-goose-warns.png" width="49%" alt="A goose, locked on, wings up, warning her off">
+  <img src="docs/screenshots/animals-goose-pecks.png" width="49%" alt="The goose pecks her: Pecked! -3">
+</p>
+
+Each is drawn the way the player is: pre-rendered in Blender from eight
+directions and three camera heights (3D-Modeling's `creatures/animals.py`),
+with its own sheets - standing, walking, running, eating, and for some
+hopping, swimming, flying and a blow (a peck, a bite, a sting, a swipe).
+Ducks, geese and swans swim, sunk to their waterline, and take off when
+startled; butterflies and bees flit about the flowers by day.
+
+Every kind has a **nature** (`ambient/Temperament`), and a herd placed in a
+level can be given another:
+
+| Nature | What it does | Whose it is |
+|---|---|---|
+| **Tame** | never runs off, never fights | (a farm's own, placed) |
+| **Calm** | minds its own business, runs when hit | horses, cows, pigs, bears, butterflies |
+| **Skittish** | runs (or flies) off when she comes near | rabbits, squirrels, foxes, sheep, ducks, iguanas |
+| **Friendly** | comes up to her and follows her a while | dogs, cats |
+| **Defensive** | warns her off when she comes near (a "!" over it, its hiss or growl), goes for her if she stays or hits it | geese, swans, bees |
+| **Hostile** | goes for her on sight | (placed: a hostile bear, an angry swarm) |
+
+They are hit, locked on to and shown with a health bar as the dummies are, and
+their blows are dodged, parried and blocked as the flying dummy's are. Hit a
+bee and the bees round it come too. Whatever its nature, an animal beaten -
+its health gone - **runs off**: it is not killed, it flees, fades and is gone
+until the herd is next made up. The bigger ones (a horse, a cow, a bear) are
+in her way, as the dummies are; she rolls through them.
+
+Each makes its sounds where it is (Pause → Sounds → Creatures): the horse's
+neigh and snort, the cow's moo, the bear's growl and roar, the goose's honk,
+hiss and wingbeats, and the rest.
+
+In Creative Mode the **Life** tool's **Animals** page sets how thick each kind
+lives in the level (0 to 3 times) and says how many are about. **Place → Life
+→ Animals** puts down a **herd**: a kind, how many, how far they wander, their
+nature (their own, or any of the six) and when they are out (their time,
+always, by day, by night). In a level file:
+
+```json
+"life": {"animals": {"bear": 0, "horse": 2}}
+{"type": "animals", "x": 4, "z": 40, "kind": "horse", "count": 4, "radius": 8, "temperament": "tame", "when": "always"}
+```
+
+<p align="center">
+  <img src="docs/screenshots/creative-animals.png" width="49%" alt="Creative Mode: Life, the Animals page">
+  <img src="docs/screenshots/creative-herd.png" width="49%" alt="A herd of four horses placed and selected">
+</p>
+
 ## Creative Mode
 
 Creative Mode is the game's level editor - the platform the game's real areas
@@ -1506,6 +1574,9 @@ src/main/java/com/larsons/game/
                             and its distant backgrounds), Sky, GroundMap and GroundTexture (what the ground is),
                             WorldRenderer, ItemRenderer, Wearable and Wearables (what is worn, as items),
                             Terrain and TerrainRenderer (the highlands' heightmap, its rock and vines)
+  ambient/                  the life in the world: Critters, CritterKind and Critter (the little creatures),
+                            Animals, AnimalKind, Animal and Temperament (the sixteen animals), Life (how thick
+                            each lives in a level)
   combat/                   Combat (the dice, swings, shots, mana, the borders' effects), CombatTuning, Move,
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
@@ -1519,7 +1590,7 @@ src/main/java/com/larsons/game/
   tools/                    SampleSprites
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
-                            the attack dummy and the flying dummy; items/<id>/spin_px128/: the turning items; combat/: the
+                            the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
                             dice, arrows, bolts, spells and sparks; tiers.json, pixel_palette.json
 assets/combat/              combat.json: the fighting's numbers
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
@@ -1665,7 +1736,8 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `chest` (open or shut it), `chest goto`, `dummy goto [n] [metres] [front|back|left|right]` (stand
 by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the
 highlands' `ramp`, `plateau`, `ledge`, `cliff`, `hill`, `hollow`), `lock [on|off|next]`, `flier swoop|under|lock [n]`
-(dive at her now / stand under flier n / lock on to it), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
+(dive at her now / stand under flier n / lock on to it), `animal <kind> [nature] [metres]` (one put that
+far in front of her, facing her), `animal goto|lock <kind>` (stand by / lock on to the nearest), `health <n>`, `stamina <n>`, `fall <metres> [roll]` (fall from
 that high, rolling out of it), `climb [down|top]`, `autocamera on|off`, `mana <n>`, `cooldown <seconds>` (the heavy attack's), `sort name|rarity`,
 `debug [on|off]` (the num-pad code), `clearground`, `pause`, `resume`, `hud`, `scenery` (or `props`), `style` (`rendered`, `px128`,
 `px64`), `wear <layer> [item]` (no item: take it off), `colour <layer> [option]`
@@ -1676,7 +1748,7 @@ the item's own colours) and
 
 `scene` also takes `creative` (a new level), `edit:<folder>` and
 `play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
-<place|select|sculpt|paint|scatter|sky|time|level|water>`, `entry <sprite|item|kind|label>`
+<place|select|sculpt|paint|scatter|sky|time|level|water|life>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
 `turn <degrees>`, `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
@@ -1688,7 +1760,8 @@ the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|
 `scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
 `sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
 height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
-on|off`, `fog game|thin`, `playtest [x z]` and `leave`.
+on|off`, `fog game|thin`, `life <critter|animal|regrow|yield|animals> <n>`, `life reset`, `lifepage
+critters|animals`, `playtest [x z]` and `leave`.
 
 ---
 

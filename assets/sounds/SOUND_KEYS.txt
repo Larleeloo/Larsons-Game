@@ -424,6 +424,43 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   creatures/frog/plop.mp3                        Frog: diving into water                          creature/frog/plop
   creatures/cricket/chirp.mp3                    Cricket: chirping                                creature/cricket/chirp
   creatures/dragonfly/buzz.mp3                   Dragonfly: wings darting by                      creature/dragonfly/buzz
+  creatures/horse/neigh.mp3                      Horse: neighing                                  creature/horse/neigh
+  creatures/horse/snort.mp3                      Horse: snorting, hit                             creature/horse/snort
+  creatures/cow/moo.mp3                          Cow: mooing                                      creature/cow/moo
+  creatures/cow/bellow.mp3                       Cow: bellowing, hit                              creature/cow/bellow
+  creatures/bear/growl.mp3                       Bear: growling                                   creature/bear/growl
+  creatures/bear/roar.mp3                        Bear: roaring                                    creature/bear/roar
+  creatures/sheep/baa.mp3                        Sheep: baaing                                    creature/sheep/baa
+  creatures/sheep/bleat.mp3                      Sheep: bleating, hit                             creature/sheep/bleat
+  creatures/pig/oink.mp3                         Pig: oinking                                     creature/pig/oink
+  creatures/pig/squeal.mp3                       Pig: squealing, hit                              creature/pig/squeal
+  creatures/dog/bark.mp3                         Dog: barking                                     creature/dog/bark
+  creatures/dog/whine.mp3                        Dog: whining, hit                                creature/dog/whine
+  creatures/dog/growl.mp3                        Dog: growling                                    creature/dog/growl
+  creatures/fox/yip.mp3                          Fox: yipping                                     creature/fox/yip
+  creatures/fox/yelp.mp3                         Fox: yelping, hit                                creature/fox/yelp
+  creatures/cat/meow.mp3                         Cat: meowing                                     creature/cat/meow
+  creatures/cat/yowl.mp3                         Cat: yowling, hit                                creature/cat/yowl
+  creatures/cat/hiss.mp3                         Cat: hissing                                     creature/cat/hiss
+  creatures/rabbit/thump.mp3                     Rabbit: thumping a foot                          creature/rabbit/thump
+  creatures/rabbit/squeak.mp3                    Rabbit: squeaking, hit                           creature/rabbit/squeak
+  creatures/squirrel/chatter.mp3                 Squirrel: chattering                             creature/squirrel/chatter
+  creatures/squirrel/squeak.mp3                  Squirrel: squeaking, hit                         creature/squirrel/squeak
+  creatures/duck/quack.mp3                       Duck: quacking                                   creature/duck/quack
+  creatures/duck/squawk.mp3                      Duck: squawking, hit                             creature/duck/squawk
+  creatures/duck/flap.mp3                        Duck: wings, taking off                          creature/duck/flap
+  creatures/goose/honk.mp3                       Goose: honking                                   creature/goose/honk
+  creatures/goose/squawk.mp3                     Goose: squawking, hit                            creature/goose/squawk
+  creatures/goose/hiss.mp3                       Goose: hissing                                   creature/goose/hiss
+  creatures/goose/flap.mp3                       Goose: wings, taking off                         creature/goose/flap
+  creatures/swan/trumpet.mp3                     Swan: trumpeting                                 creature/swan/trumpet
+  creatures/swan/squawk.mp3                      Swan: squawking, hit                             creature/swan/squawk
+  creatures/swan/hiss.mp3                        Swan: hissing                                    creature/swan/hiss
+  creatures/swan/flap.mp3                        Swan: wings, taking off                          creature/swan/flap
+  creatures/bee/buzz.mp3                         Bee: buzzing                                     creature/bee/buzz
+  creatures/bee/swarm.mp3                        Bee: an angry swarm                              creature/bee/swarm
+  creatures/bee/sting.mp3                        Bee: stinging                                    creature/bee/sting
+  creatures/iguana/hiss.mp3                      Iguana: hissing                                  creature/iguana/hiss
 
 
 WORLD & LOOT

@@ -1163,6 +1163,42 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     return false;
                 }
             }
+            // the animals: animal <kind> [temperament] [metres] (one put in front of her, facing her),
+            // animal goto <kind> (her put by the nearest), animal lock <kind> (locked on to the nearest)
+            case "animal" -> {
+                String[] a = argument.trim().split("\\s+");
+                if (a.length >= 2 && (a[0].equals("goto") || a[0].equals("lock"))) {
+                    com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(a[1]);
+                    if (k == null) return false;
+                    com.larsons.game.ambient.Animal best = null;
+                    double bd = Double.MAX_VALUE;
+                    for (com.larsons.game.ambient.Animal an : world.animals().live()) {
+                        double d = an.position().horizontalDistance(p.ground());
+                        if (an.kind() == k && an.alive() && d < bd) {
+                            bd = d;
+                            best = an;
+                        }
+                    }
+                    if (best == null) return false;
+                    if (a[0].equals("lock")) {
+                        world.combat().lock(best);
+                    } else {
+                        Vec3 at = world.terrain().onGround(best.position().add(2.2 + best.radius(), 0, 1.2));
+                        p.setPosition(at);
+                        p.snapHeading(SpriteView.headingOf(best.position().x() - at.x(), best.position().z() - at.z()));
+                        camera.snapTo(follow());
+                    }
+                } else {
+                    com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(a[0]);
+                    if (k == null) return false;
+                    com.larsons.game.ambient.Temperament t = a.length > 1
+                            ? com.larsons.game.ambient.Temperament.byKey(a[1]) : null;
+                    double m = a.length > 2 ? Double.parseDouble(a[2]) : 3;
+                    Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                    com.larsons.game.ambient.Animal an = world.addAnimal(k, at, t);
+                    an.faceTo(p.ground());
+                }
+            }
             case "time" -> world.clock().setHour(hourOf(argument.trim()));
             case "timelapse" -> {
                 String a = argument.trim();

@@ -1,5 +1,6 @@
 package com.larsons.game.editor;
 
+import com.larsons.game.ambient.AnimalKind;
 import com.larsons.game.ambient.CritterKind;
 import com.larsons.game.ambient.Life;
 import com.larsons.game.audio.MusicPreview;
@@ -1073,8 +1074,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
                     + "and light rays · Run the time to watch a day go by";
             case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
-            case LIFE -> "How thick the little creatures live here, how fast the bushes grow back · Place → Life: "
-                    + "a swarm of them somewhere, a foraging bush";
+            case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
+                    + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1520,14 +1521,27 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
     }
 
+    /** Which page of the Life tool shows: the critters and the bushes, or the animals. */
+    private boolean lifeAnimals;
+
     /**
      * The Life tool: how thick each of the little creatures lives in the
      * level (their biomes and hours still say where and when), how many are
      * about round the view now, how fast the foraging bushes grow back and
-     * how much a picking gives - kept with the level ({@link Life}).
+     * how much a picking gives - and, on its other page, how thick each of
+     * the animals that come by on their own lives - kept with the level
+     * ({@link Life}).
      */
     private void lifePanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Life", x, y);
+        float hw = (w - 6) / 2;
+        if (ui.button("Critters, bushes", x, y, hw, 26, !lifeAnimals, true)) lifeAnimals = false;
+        if (ui.button("Animals", x + hw + 6, y, hw, 26, lifeAnimals, true)) lifeAnimals = true;
+        y += 34;
+        if (lifeAnimals) {
+            animalsPage(ui, x, y, w);
+            return;
+        }
         Life life = level.life();
         y += ui.paragraph(ui.small, "They come and go round the player by their biome and hour. How many of each:",
                 x, y, w, Theme.HINT) + 4;
@@ -1562,24 +1576,67 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         y += ui.paragraph(ui.small, (bushes == 1 ? "1 foraging bush" : bushes + " foraging bushes")
                 + " here (Scatter or a biome's paint sows more)", x, y, w, Theme.HINT) + 8;
-        if (ui.button("Place a swarm of critters", x, y, w, 28)) {
-            setTool(Tool.PLACE);
-            category = Category.LIFE;
-            paletteScroll = 0;
-            for (int i : entriesOf(Category.LIFE)) {
-                if (palette.get(i).type().equals(ObjectTypes.CRITTERS)) {
-                    choose(i);
-                    break;
-                }
-            }
-        }
+        if (ui.button("Place a swarm of critters", x, y, w, 28)) placeLife(ObjectTypes.CRITTERS);
         y += 34;
         if (ui.button("Back to as it comes", x, y, w, 28, false, !life.isDefault())) {
             lifeEdit(l -> {
                 for (CritterKind k : CritterKind.values()) l.setDensity(k, 1);
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
                 l.setRegrow(1);
                 l.setYield(1);
             }, "Life as it comes");
+        }
+    }
+
+    /** The Life tool's animals: how thick each kind that comes by lives here, two columns of them. */
+    private void animalsPage(Ui ui, float x, float y, float w) {
+        Life life = level.life();
+        y += ui.paragraph(ui.small, "They come and go round the player by biome. How many of each:",
+                x, y, w, Theme.HINT) + 12;
+        float cw = (w - 12) / 2;
+        AnimalKind[] kinds = AnimalKind.values();
+        for (int i = 0; i < kinds.length; i++) {
+            AnimalKind k = kinds[i];
+            float cx = x + (i % 2) * (cw + 12), cy = y + (i / 2) * 38;
+            double d = widgets.slider(ui, "life-" + k.key(), k.label(), life.density(k), 0, Life.MOST, "%.1f×",
+                    cx, cy, cw, true);
+            double snapped = Math.round(d * 20) / 20.0;
+            if (snapped != life.density(k)) lifeEdit(l -> l.setDensity(k, snapped), k.label());
+        }
+        y += ((kinds.length + 1) / 2) * 38 - 4;
+        StringJoiner about = new StringJoiner(" · ");
+        for (AnimalKind k : kinds) {
+            int n = view.world().animals().count(k);
+            if (n > 0) about.add(n + " " + (n == 1 ? k.singular() : k.label()).toLowerCase());
+        }
+        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none here (try another biome)"
+                : about), x, y, w, Theme.ITEM) + 8;
+        if (ui.button("Place a herd", x, y, (w - 6) / 2, 28)) placeLife(ObjectTypes.ANIMALS);
+        if (ui.button("All off", x + (w - 6) / 2 + 6, y, (w - 6) / 2, 28)) {
+            lifeEdit(l -> {
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 0);
+            }, "No animals");
+        }
+        y += 34;
+        boolean asTheyCome = true;
+        for (AnimalKind k : kinds) asTheyCome &= life.density(k) == 1;
+        if (ui.button("Back to as they come", x, y, w, 28, false, !asTheyCome)) {
+            lifeEdit(l -> {
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
+            }, "Animals as they come");
+        }
+    }
+
+    /** Off to the Place tool's Life, the first entry of {@code type} chosen. */
+    private void placeLife(String type) {
+        setTool(Tool.PLACE);
+        category = Category.LIFE;
+        paletteScroll = 0;
+        for (int i : entriesOf(Category.LIFE)) {
+            if (palette.get(i).type().equals(type)) {
+                choose(i);
+                break;
+            }
         }
     }
 
@@ -2077,7 +2134,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 level.setSky(level.sky().withAir(w));
                 dirty = true;
             }
-            // the level's life: life <firefly|cricket|frog|dragonfly> <0-3>, life regrow <x>, life yield <x>, life reset
+            // the level's life: life <firefly|cricket|frog|dragonfly|rabbit|...|iguana|animals> <0-3>,
+            // life regrow <x>, life yield <x>, life reset, lifepage animals|critters
             case "life" -> {
                 String[] w = argument.trim().split("\\s+");
                 if (w[0].equals("reset")) {
@@ -2086,8 +2144,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     Life l = level.life().copy();
                     double v = Double.parseDouble(w[1]);
                     CritterKind k = CritterKind.byKey(w[0]);
+                    AnimalKind ak = AnimalKind.byKey(w[0]);
                     if (k != null) l.setDensity(k, v);
-                    else if (w[0].equals("regrow")) l.setRegrow(v);
+                    else if (ak != null) l.setDensity(ak, v);
+                    else if (w[0].equals("animals")) {
+                        for (AnimalKind each : AnimalKind.values()) l.setDensity(each, v);
+                    } else if (w[0].equals("regrow")) l.setRegrow(v);
                     else if (w[0].equals("yield")) l.setYield(v);
                     else return false;
                     level.setLife(l);
@@ -2097,6 +2159,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 view.world().setLife(level.life());
                 dirty = true;
             }
+            case "lifepage" -> lifeAnimals = argument.trim().equals("animals");
             case "name" -> level.setName(argument);
             case "size" -> resize(Double.parseDouble(argument.trim()));
             case "save" -> save();

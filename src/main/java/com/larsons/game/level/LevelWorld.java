@@ -112,6 +112,7 @@ public final class LevelWorld {
         world.lights().clear();
         world.raySpots().clear();
         world.critters().spots().clear();          // (those about stay while their spot is the same)
+        world.animals().herds().clear();           // (and a herd's, while it is the same)
         Build b = new Build(world, terrain, sprites, tuning);
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));
         world.player().setPosition(Vec3.ZERO);

@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.ambient.Animal;
 import com.larsons.game.ambient.Critter;
 import com.larsons.game.ambient.CritterKind;
 import com.larsons.game.combat.CombatRenderer;
@@ -100,6 +101,7 @@ public final class WorldRenderer implements AutoCloseable {
     private DayCycle.Daylight daylight;
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
     private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
+    private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
@@ -220,6 +222,15 @@ public final class WorldRenderer implements AutoCloseable {
             if (h > 3) continue;
             double r = c.kind() == CritterKind.FROG ? 0.22 : c.kind() == CritterKind.CRICKET ? 0.12 : 0.16;
             groundShadow(new Vec3(at.x(), 0, at.z()), r * (1 + 0.15 * h), (float) (c.alpha() * 0.4 / (1 + h)));
+        }
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() < 0.05 || a.swimming()) continue;
+            Vec3 at = a.position();
+            double h = Math.max(0, at.y() - ground.height(at.x(), at.z()));
+            if (h > 8) continue;
+            double r = a.radius() * (a.kind().flies() ? 0.6 : 1.05);
+            groundShadow(new Vec3(at.x(), 0, at.z()), r * (1 + 0.1 * h),
+                    (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
             groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
@@ -357,6 +368,43 @@ public final class WorldRenderer implements AutoCloseable {
         }
         critterMemory = memories;
 
+        // the animals: from their 24 views, flashing white as they are struck, fading as they come and go
+        Map<Animal, ObjectStack.Memory> animalMemories = new IdentityHashMap<>();
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() < 0.02) continue;
+            Vec3 at = a.position();
+            if (at.sub(eye).length() > ANIMAL_REACH) continue;
+            String id = a.kind().sprite();
+            ObjectSprites.Entry entry = objects.entry(id);
+            if (entry == null) continue;
+            com.larsons.game.sprite.SpriteProfile prof = entry.profile();
+            ObjectStack.Memory memory = animalMemory.get(a);
+            if (memory == null) memory = new ObjectStack.Memory();
+            animalMemories.put(a, memory);
+            SpriteView av = SpriteView.of(eye, at.add(0, prof.pivotHeight(), 0), a.heading(), camera.yaw());
+            ObjectStack.Result ar = ObjectStack.resolve(sprites, objects, id, a.sheet(), a.loops(), a.sheetTime(),
+                    t, av, 0, memory);
+            List<LayerStack.Layer> layers = ar.layers();
+            double flash = a.flash();
+            if (flash > 0) {
+                List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) {
+                    lit.add(l.withPalette(com.larsons.game.combat.CombatColours.flashed(l.palette(), flash)));
+                }
+                layers = lit;
+            }
+            List<LayerStack.Layer> draw = layers;
+            float alpha = (float) a.alpha();
+            // a swimmer's depth is the water's surface over it, so the water before it is not drawn over it
+            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()), 0) : at;
+            draws.add(() -> {
+                batch.depthAnchor(anchor);
+                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, right, up, alpha);
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
+        animalMemory = animalMemories;
+
         Integer[] order = new Integer[draws.size()];
         for (int i = 0; i < order.length; i++) order[i] = i;
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
@@ -447,6 +495,9 @@ public final class WorldRenderer implements AutoCloseable {
     /** How far from the eye a critter is still drawn, metres (past it, it is a speck). */
     static final double CRITTER_REACH = 45;
 
+    /** How far from the eye an animal is still drawn, metres. */
+    static final double ANIMAL_REACH = 90;
+
     /** A firefly: a bright point and a soft halo of its colour, as lit as its blink is. */
     private void fireflyGlow(Vec3 at, int rgb, double lit, Vec3 right, Vec3 up) {
         float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
@@ -485,6 +536,9 @@ public final class WorldRenderer implements AutoCloseable {
         for (com.larsons.game.combat.Dummy d : world.dummies()) out.add(d.position());
         for (Critter c : world.critters().live()) {
             if (c.kind() == CritterKind.FROG && c.alpha() > 0.5) out.add(c.position());
+        }
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() > 0.5 && !a.flies() && !a.swimming()) out.add(a.position());
         }
         return out;
     }

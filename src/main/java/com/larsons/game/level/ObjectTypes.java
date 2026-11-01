@@ -1,7 +1,10 @@
 package com.larsons.game.level;
 
+import com.larsons.game.ambient.AnimalKind;
+import com.larsons.game.ambient.Animals;
 import com.larsons.game.ambient.CritterKind;
 import com.larsons.game.ambient.Critters;
+import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.combat.Dummy;
 import com.larsons.game.combat.FlyingDummy;
@@ -40,7 +43,7 @@ public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
-            RAYS = "rays", CRITTERS = "critters";
+            RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -142,6 +145,42 @@ public final class ObjectTypes {
                             (int) Math.round(o.num("count", 8)), o.num("radius", 4),
                             Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
                 }));
+    }
+
+    /** What a herd's temperament can be: "own" (its kind's), or one of them all. */
+    public static final String OWN = "own";
+
+    static {
+        // a herd of animals living round a spot - cows in a field, geese by a pond, a bear's den - as well as
+        // those that come by on their own (the Level tool's Life page says how many of those)
+        register(new ObjectType(ANIMALS, "Animals", Category.LIFE,
+                List.of(Prop.choice("kind", "Kind", AnimalKind.COW.key(), o -> animalKinds()),
+                        Prop.number("count", "How many", 3, 1, 30, 1),
+                        Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
+                        Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
+                        Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes())),
+                0.6, 1.2, 0xE8B070, false,
+                (o, b) -> {
+                    AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
+                    if (k == null) return;
+                    b.world().animals().herds().add(new Animals.Herd(k, b.onGround(o),
+                            (int) Math.round(o.num("count", 3)), o.num("radius", 8),
+                            Temperament.byKey(o.str("temperament", OWN)),
+                            Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key()))));
+                }));
+    }
+
+    static List<String> animalKinds() {
+        List<String> out = new ArrayList<>();
+        for (AnimalKind k : AnimalKind.values()) out.add(k.key());
+        return out;
+    }
+
+    static List<String> temperaments() {
+        List<String> out = new ArrayList<>();
+        out.add(OWN);
+        for (Temperament t : Temperament.values()) out.add(t.key());
+        return out;
     }
 
     static List<String> critterKinds() {
@@ -258,12 +297,17 @@ public final class ObjectTypes {
             out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",
                     (double) (k == CritterKind.FIREFLY ? 14 : 6), "radius", 4.0, "when", Critters.When.ITS_TIME.key())));
         }
+        for (AnimalKind k : AnimalKind.values()) {
+            int n = Math.max(1, Math.min(4, k.herd()));
+            out.add(new Entry(k.label(), Category.LIFE, ANIMALS, Map.of("kind", k.key(), "count", (double) n,
+                    "radius", k.flies() ? 4.0 : 8.0, "temperament", OWN, "when", Critters.When.ITS_TIME.key())));
+        }
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
-                    || t.key().equals(CRITTERS)) continue;
+                    || t.key().equals(CRITTERS) || t.key().equals(ANIMALS)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
@@ -293,6 +337,12 @@ public final class ObjectTypes {
             case CRITTERS -> {
                 CritterKind k = CritterKind.byKey(o.str("kind", ""));
                 yield (k == null ? "Critters" : k.label()) + " (" + (int) Math.round(o.num("count", 8)) + ")";
+            }
+            case ANIMALS -> {
+                AnimalKind k = AnimalKind.byKey(o.str("kind", ""));
+                Temperament n = Temperament.byKey(o.str("temperament", OWN));
+                yield (k == null ? "Animals" : k.label()) + " (" + (int) Math.round(o.num("count", 3)) + ")"
+                        + (n == null || k != null && n == k.temperament() ? "" : ", " + n.label().toLowerCase());
             }
             default -> t.label();
         };

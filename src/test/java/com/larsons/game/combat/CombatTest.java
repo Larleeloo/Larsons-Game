@@ -39,6 +39,7 @@ class CombatTest {
         if (weapon != null) w.player().inventory().add(weapon);
         w.equipSelected();
         w.seed(42);
+        w.animals().setEnabled(false);          // (no rabbit to catch a stray shot: the fighting alone)
         return w;
     }
 

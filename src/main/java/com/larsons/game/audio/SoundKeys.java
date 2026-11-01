@@ -165,6 +165,29 @@ public final class SoundKeys {
             "dragonfly", List.of("buzz"));
 
     /**
+     * The animals (ambient/AnimalKind) and their sounds, each heard where it
+     * is: its call now and then, its cry when it is hit, a defensive one's
+     * warning (a goose's hiss, a swarm's angry buzz), a bird's wings taking
+     * off, a bee's sting.
+     */
+    public static final Map<String, List<String>> ANIMAL_SOUNDS = orderedMap(
+            "horse", List.of("neigh", "snort"),
+            "cow", List.of("moo", "bellow"),
+            "bear", List.of("growl", "roar"),
+            "sheep", List.of("baa", "bleat"),
+            "pig", List.of("oink", "squeal"),
+            "dog", List.of("bark", "whine", "growl"),
+            "fox", List.of("yip", "yelp"),
+            "cat", List.of("meow", "yowl", "hiss"),
+            "rabbit", List.of("thump", "squeak"),
+            "squirrel", List.of("chatter", "squeak"),
+            "duck", List.of("quack", "squawk", "flap"),
+            "goose", List.of("honk", "squawk", "hiss", "flap"),
+            "swan", List.of("trumpet", "squawk", "hiss", "flap"),
+            "bee", List.of("buzz", "swarm", "sting"),
+            "iguana", List.of("hiss"));
+
+    /**
      * The place itself, each a loop: the breeze over everything; each
      * biome's by day and by night (world/Biome - the plains' birdsong and
      * crickets, the marsh's frogs, the sea ...), heard where it is and
@@ -259,6 +282,7 @@ public final class SoundKeys {
         out.add(WORLD);
         out.add(CREATURES);
         for (String c : CRITTER_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
+        for (String c : ANIMAL_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         out.add(AMBIENT);
         out.add(MUSIC);
         return out;
@@ -497,6 +521,11 @@ public final class SoundKeys {
                 out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), critterName(c.getKey(), s), s));
             }
         }
+        for (Map.Entry<String, List<String>> c : ANIMAL_SOUNDS.entrySet()) {
+            for (String s : c.getValue()) {
+                out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), animalName(c.getKey(), s), s));
+            }
+        }
         for (String state : CHEST_STATES) {
             out.add(row(SoundCategory.WORLD, "chest/" + state, "Chest: " + chestName(state), state));
         }
@@ -654,6 +683,41 @@ public final class SoundKeys {
             case "dragonfly/buzz" -> "Dragonfly: wings darting by";
             default -> critter + ": " + sound;
         };
+    }
+
+    private static String animalName(String animal, String sound) {
+        String what = switch (sound) {
+            case "neigh" -> "neighing";
+            case "snort" -> "snorting, hit";
+            case "moo" -> "mooing";
+            case "bellow" -> "bellowing, hit";
+            case "growl" -> "growling";
+            case "roar" -> "roaring";
+            case "baa" -> "baaing";
+            case "bleat" -> "bleating, hit";
+            case "oink" -> "oinking";
+            case "squeal" -> "squealing, hit";
+            case "bark" -> "barking";
+            case "whine" -> "whining, hit";
+            case "yip" -> "yipping";
+            case "yelp" -> "yelping, hit";
+            case "meow" -> "meowing";
+            case "yowl" -> "yowling, hit";
+            case "hiss" -> "hissing";
+            case "thump" -> "thumping a foot";
+            case "squeak" -> "squeaking, hit";
+            case "chatter" -> "chattering";
+            case "quack" -> "quacking";
+            case "squawk" -> "squawking, hit";
+            case "flap" -> "wings, taking off";
+            case "honk" -> "honking";
+            case "trumpet" -> "trumpeting";
+            case "buzz" -> "buzzing";
+            case "swarm" -> "an angry swarm";
+            case "sting" -> "stinging";
+            default -> sound;
+        };
+        return Character.toUpperCase(animal.charAt(0)) + animal.substring(1) + ": " + what;
     }
 
     private static String chestName(String state) {
