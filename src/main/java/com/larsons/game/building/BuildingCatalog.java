@@ -70,6 +70,8 @@ public final class BuildingCatalog {
                     if (!Files.isRegularFile(d.resolve("profile.json"))) continue;
                     try {
                         BuildingProfile p = BuildingProfile.load(d);
+                        // furniture stands as tall as its model: its top is what she stands on
+                        if (p.furniture()) p.measured(BuildingModel.topOf(d));
                         found.put(d.getFileName().toString(), p);
                     } catch (IOException | RuntimeException e) {
                         System.err.println("[buildings] " + d.getFileName() + ": " + e.getMessage());

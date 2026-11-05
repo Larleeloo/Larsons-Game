@@ -71,6 +71,43 @@ public final class BuildingModel {
         return parse(Files.readAllBytes(f));
     }
 
+    /**
+     * The highest point of {@code dir/mesh.bin} - read without making its
+     * triangles - or NaN when there is none or it cannot be read.
+     */
+    public static double topOf(Path dir) {
+        Path f = dir.resolve("mesh.bin");
+        if (!Files.isRegularFile(f)) return Double.NaN;
+        try {
+            byte[] bytes = Files.readAllBytes(f);
+            ByteBuffer in = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+            if (bytes.length < 9 || in.get() != 'L' || in.get() != 'G' || in.get() != 'M' || in.get() != '1') {
+                return Double.NaN;
+            }
+            int groups = in.getInt();
+            double top = Double.NaN;
+            for (int g = 0; g < groups; g++) {
+                in.get();
+                in.get();
+                int n = in.getInt();
+                for (int i = 0; i < n; i++) {
+                    int c = in.get() & 255;
+                    for (int k = 0; k < c; k++) {
+                        in.getFloat();
+                        in.getFloat();
+                        double z = in.getFloat();
+                        in.getFloat();
+                        in.getFloat();
+                        top = Double.isNaN(top) ? z : Math.max(top, z);
+                    }
+                }
+            }
+            return top;
+        } catch (IOException | RuntimeException e) {
+            return Double.NaN;
+        }
+    }
+
     private record Poly(int part, boolean turns, double[][] corners) {}
 
     static BuildingModel parse(byte[] bytes) throws IOException {

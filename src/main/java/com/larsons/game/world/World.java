@@ -353,6 +353,7 @@ public final class World {
     public World(Wardrobe wardrobe, int slots) {
         player = new Player(wardrobe, slots);
         player.setAimUp(() -> combat.aimsUp(this));
+        player.setTops(tops);
         equipSelected();                // nothing carried yet: her hands are empty
     }
 
@@ -806,6 +807,54 @@ public final class World {
                     player.horseRate(), player.velocity());
         }
     }
+
+    /** The tallest piece of furniture she stands on and climbs up onto (a table, a crate, a barrel), metres. */
+    public static final double CLIMBABLE = 2.0;
+
+    /** Whether she can stand on {@code b} and climb up onto it: a piece of furniture no taller than {@link #CLIMBABLE}. */
+    static boolean climbable(Building b) {
+        return b.profile().furniture() && b.profile().height() <= CLIMBABLE;
+    }
+
+    /** The tops of the furniture, to stand on and climb onto. */
+    private final Player.Tops tops = new Player.Tops() {
+        @Override
+        public double top(double x, double z, double below) {
+            double best = Double.NaN;
+            for (Building b : buildings) {
+                if (!climbable(b)) continue;
+                double t = b.position().y() + b.profile().height();
+                if (t > below || t <= best) continue;
+                if (b.blocks(x, z, 1e-6)) best = t;
+            }
+            return best;
+        }
+
+        @Override
+        public double[] ahead(double x, double z, double dx, double dz, double reach, double feetY, double lo,
+                              double hi) {
+            double[] best = null;
+            double nearest = Double.MAX_VALUE;
+            for (Building b : buildings) {
+                if (!climbable(b)) continue;
+                double t = b.position().y() + b.profile().height(), h = t - feetY;
+                if (h < lo || h > hi) continue;
+                double r = b.profile().reach() + reach;
+                if (Math.hypot(b.position().x() - x, b.position().z() - z) > r) continue;
+                for (double d = 0; d <= reach && d < nearest; d += 0.04) {
+                    double px = x + dx * d, pz = z + dz * d;
+                    if (!b.blocks(px, pz, 1e-6)) continue;
+                    // room on it to stand, a step in from its edge
+                    if (b.blocks(px + dx * 0.3, pz + dz * 0.3, 1e-6)) {
+                        nearest = d;
+                        best = new double[]{px, pz, t};
+                    }
+                    break;
+                }
+            }
+            return best;
+        }
+    };
 
     /** She walks round the buildings - unless she is up above one (on a cliff over it, flying off one). */
     private void keepOutOfBuildings() {

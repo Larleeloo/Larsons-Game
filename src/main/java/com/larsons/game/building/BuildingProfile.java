@@ -159,6 +159,11 @@ public final class BuildingProfile {
     /** Whether it is a light's fitting (filed with the lights, not placed on its own). */
     public boolean fixture() { return group.equals(FIXTURE); }
 
+    /** Measure it by its model: {@code top} metres tall (when it has no height of its own written). */
+    void measured(double top) {
+        if (Double.isNaN(modelHeight) && top > 0) modelHeight = top;
+    }
+
     /** How tall it stands, about: the side view's top (a room's piece: its own height). */
     public double height() {
         if (room != null) return room.height();
