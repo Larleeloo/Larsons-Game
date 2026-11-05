@@ -1104,6 +1104,65 @@ def _(k):
     return low * gust + 0.35 * mid * gust * whistle
 
 
+@sound("ambient/rain", 0.3)
+def _(k):
+    # rain: a hiss over everything, and drops pattering on leaves and ground
+    d = 8.0
+    out = 0.55 * k.periodic(d, band_shape(900, 9000, -1))
+    out += 0.25 * k.periodic(d, band_shape(200, 900, -3))
+    for _ in range(900):
+        place(out, wood(k.uniform(2500, 5500), 0.012, 0.004, k) * k.uniform(0.05, 0.25), k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/gale", 0.26)
+def _(k):
+    # a strong wind: roaring low, gusting, whistling high in the gusts
+    d = 8.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(60, 500, -4))
+    mid = k.periodic(d, band_shape(400, 2600, -2))
+    gust = 0.6 + 0.25 * np.sin(2 * np.pi * 2 * t / d + 0.3) + 0.15 * np.sin(2 * np.pi * 5 * t / d + 1.7)
+    whistle = 0.5 + 0.5 * np.sin(2 * np.pi * 3 * t / d + 4)
+    return low * gust * 1.2 + 0.5 * mid * gust * whistle
+
+
+@sound("ambient/sandstorm", 0.28)
+def _(k):
+    # sand driven along: a dry hiss and a roar under it, the grains rattling
+    d = 8.0
+    t = t_of(d)
+    hiss = k.periodic(d, band_shape(1500, 9000, -1))
+    roar = k.periodic(d, band_shape(80, 600, -3))
+    gust = 0.65 + 0.35 * np.sin(2 * np.pi * 2 * t / d + 1.1)
+    out = 0.6 * hiss * gust + 0.7 * roar * gust
+    for _ in range(500):
+        place(out, crunch(k, 0.02, 400, 3000, 9000, 0.008) * k.uniform(0.05, 0.2), k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/snowfall", 0.16)
+def _(k):
+    # snow falling: a soft, cold, hushed wind
+    d = 8.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(150, 900, -5))
+    gust = 0.6 + 0.4 * np.sin(2 * np.pi * t / d + 2.0)
+    return low * gust
+
+
+@sound("ambient/thunder", 0.5)
+def _(k):
+    # a crack, then the long roll of it rumbling away
+    d = 4.5
+    out = silence(d)
+    place(out, crunch(k, 0.25, 600, 300, 4000, 0.06) * 0.9, 0.0)
+    roll = lp(k.noise(d), 160, 2) * env(d, 0.05, 1.6, 0.3, 1.4)
+    rumble = 0.6 + 0.4 * np.abs(np.sin(2 * np.pi * 1.7 * t_of(d)))
+    out += roll * rumble * 3.0
+    return out
+
+
 @sound("ambient/stream", 0.3)
 def _(k):
     d = 6.0

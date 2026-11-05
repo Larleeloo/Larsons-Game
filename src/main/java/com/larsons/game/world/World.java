@@ -197,6 +197,11 @@ public final class World {
     private GroundMap ground = GroundMap.NONE;
     private WaterMap water = WaterMap.NONE;
     private Sky sky = Sky.DEFAULT;
+    private Weather weather = Weather.NONE;
+    private final Weather.Now weatherNow = new Weather.Now(1025);
+    /** The biome the weather is for: where she was last out of doors. */
+    private Biome weatherBiome = Biome.PLAINS;
+    private Sky.Cover cover = Sky.Cover.OPEN;
     private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
     private final List<LightSpot> lights = new ArrayList<>();
     private final List<RaySpot> raySpots = new ArrayList<>();
@@ -567,6 +572,40 @@ public final class World {
     /** The sky over it and what stands far off round the horizon. */
     public Sky sky() { return sky; }
 
+    /** The level's weather: none, by biome, or fixed. */
+    public Weather weather() { return weather; }
+
+    public void setWeather(Weather w) {
+        weather = w == null ? Weather.NONE : w;
+    }
+
+    /** The weather over her now. */
+    public Weather.Now weatherNow() { return weatherNow; }
+
+    /** What is over the level: the open sky, a roof, a cave's rock. */
+    public Sky.Cover cover() { return cover; }
+
+    public void setCover(Sky.Cover c) {
+        cover = c == null ? Sky.Cover.OPEN : c;
+    }
+
+    /** What is over her where she is: a building's roof inside one, else the level's. */
+    public Sky.Cover over() { return indoors ? Sky.Cover.INSIDE : cover; }
+
+    /** Whether there is no sky over her: inside a building, under the level's roof or a cave's rock. */
+    public boolean roofed() { return over() != Sky.Cover.OPEN; }
+
+    /** The sky as the weather makes it now: greyer, nearer fog, more cloud (as it is, under a roof). */
+    public Sky skyNow() {
+        return roofed() ? sky : Weathering.sky(sky, weatherNow);
+    }
+
+    /** The light now, under the sky as the weather makes it, the lightning's flash in it. */
+    public DayCycle.Daylight daylight() {
+        DayCycle.Daylight d = clock.daylight(skyNow());
+        return roofed() ? d : Weathering.light(d, weatherNow);
+    }
+
     public void setSky(Sky s) {
         sky = s == null ? Sky.DEFAULT : s;
     }
@@ -630,6 +669,8 @@ public final class World {
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
         clock.tick(dt, sky.air());
+        if (!indoors) weatherBiome = biome(player.ground().x(), player.ground().z());
+        weatherNow.tick(dt, time, weather, weatherBiome);
         for (Chest c : chests) {
             c.tick(dt, s -> durations == null ? 0 : durations.apply(c, s));
             player.keepOut(c.position(), Chest.RADIUS);

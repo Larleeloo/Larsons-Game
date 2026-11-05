@@ -187,6 +187,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.scenery = game.demoScenery();
         world.setTerrain(game.terrain());
         world.setGround(game.demoScenery().ground());
+        world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
@@ -1437,6 +1438,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     for (Chest ch : world.chests()) if (ch.store() == st) c = ch;
                     lookIn(st, c);
                 }
+            }
+            // the weather now: weather <clear|rain|thunderstorm|snow|fog|wind|sandstorm> [how heavy]
+            case "weather" -> {
+                String[] a = argument.trim().split("\\s+");
+                com.larsons.game.world.Weather.Kind k = com.larsons.game.world.Weather.Kind.byKey(a[0]);
+                if (k == null) return false;
+                world.setWeather(com.larsons.game.world.Weather.NONE.withMode(com.larsons.game.world.Weather.Mode.FIXED)
+                        .withKind(k).withStrength(a.length > 1 ? Double.parseDouble(a[1]) : 0.9)
+                        .withMode(k == com.larsons.game.world.Weather.Kind.CLEAR
+                                ? com.larsons.game.world.Weather.Mode.NONE : com.larsons.game.world.Weather.Mode.FIXED));
+                world.weatherNow().set(k, a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
             }
             // where she stands, printed (for scripted checks)
             case "where" -> System.out.printf(java.util.Locale.ROOT, "[where] %.2f %.2f %.2f heading %.1f%n",

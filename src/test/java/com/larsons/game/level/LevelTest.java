@@ -149,7 +149,7 @@ class LevelTest {
         l.add(ObjectTypes.VINES, 0, 10, Math.PI / 2, Map.of("length", 6.5)).setLift(0.25);
         l.add(new LevelObject(0, "npc", 4, 4, 0, Map.of("dialogue", "hello", "likes", List.of("cats", 3))));
         l.setMusic("dream_on");
-        l.extra().put("weather", Map.of("rain", "light"));
+        l.extra().put("seasons", Map.of("winter", "long"));
 
         Path folder = root.resolve("round_trip");
         LevelIO.save(l, folder);
@@ -181,7 +181,7 @@ class LevelTest {
         assertEquals(List.of("cats", 3.0), npc.props().get("likes"));
         assertEquals("dream_on", back.music());
         assertTrue(json.contains("\"music\": \"dream_on\""), json);
-        assertEquals(Map.of("rain", "light"), back.extra().get("weather"), "and keys it does not know");
+        assertEquals(Map.of("winter", "long"), back.extra().get("seasons"), "and keys it does not know");
         for (double[] p : new double[][]{{-6, 3}, {8, 8}, {0, 0}, {-3, 1}}) {
             assertEquals(l.heights().height(p[0], p[1]), back.heights().height(p[0], p[1]), 1 / 256.0,
                     "the height at " + p[0] + ", " + p[1]);

@@ -584,6 +584,11 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
   ambient/ocean.mp3                              The sea: waves on the shore (held) (held)        ambient/ocean
   ambient/waste.mp3                              The waste: a hollow wind (held) (held)           ambient/waste
   ambient/crystal.mp3                            The crystal biome: chimes and hum (held) (held)  ambient/crystal
+  ambient/rain.mp3                               Weather: rain falling (held) (held)              ambient/rain
+  ambient/gale.mp3                               Weather: a strong wind, and a thunderstorm's (held) (held) ambient/gale
+  ambient/sandstorm.mp3                          Weather: a sandstorm (held) (held)               ambient/sandstorm
+  ambient/snowfall.mp3                           Weather: snow falling, a soft cold wind (held) (held) ambient/snowfall
+  ambient/thunder.mp3                            Weather: thunder after the lightning (held)      ambient/thunder
 
 
 MUSIC

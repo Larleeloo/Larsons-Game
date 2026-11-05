@@ -90,6 +90,8 @@ public final class LevelWorld {
         world.setGround(level.ground());
         world.setWater(level.water());
         world.setSky(level.sky());
+        world.setWeather(level.weather());
+        world.setCover(level.cover());
         world.setLife(level.life());
         world.startDay();
         double h = level.half();

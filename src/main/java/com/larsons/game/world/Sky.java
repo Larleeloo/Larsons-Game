@@ -23,6 +23,31 @@ import java.util.List;
  */
 public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops, Atmosphere air) {
 
+    /**
+     * What is over a level: the open sky; a roof - a great hall, a dungeon,
+     * dark beyond its walls, lit by its lamps; or the rock of a cave, darker
+     * and cooler still. Under either, no sky, sun, clouds or weather are seen.
+     */
+    public enum Cover {
+        OPEN("open", "Open sky"), INSIDE("inside", "Inside: a hall, a dungeon"), CAVE("cave", "A cave");
+
+        private final String key, label;
+
+        Cover(String key, String label) {
+            this.key = key;
+            this.label = label;
+        }
+
+        public String key() { return key; }
+
+        public String label() { return label; }
+
+        public static Cover byKey(String k) {
+            for (Cover c : values()) if (c.key.equals(k)) return c;
+            return null;
+        }
+    }
+
     /** The most backdrops {@link VoidRenderer} draws. */
     public static final int MAX_BACKDROPS = 8;
     /** The nearest and farthest the fog may be, metres. */

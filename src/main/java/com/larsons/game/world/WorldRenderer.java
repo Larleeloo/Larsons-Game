@@ -97,6 +97,7 @@ public final class WorldRenderer implements AutoCloseable {
     private final ItemSprites items;
     private final ItemRenderer itemRenderer;
     private final Texture shadow;
+    private final WeatherRenderer weather = new WeatherRenderer();
     private final Texture glow;
     private final Texture ray;
     /** A soft-edged square, black: the shadow a building's walls cast round them. */
@@ -215,21 +216,35 @@ public final class WorldRenderer implements AutoCloseable {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
-        Sky sky = world.sky();
-        DayCycle.Daylight light = world.clock().daylight(sky);
+        Sky sky = world.skyNow();
+        DayCycle.Daylight light = world.daylight();
         daylight = light;
-        boolean indoors = world.indoors();
-        float[] fog = indoors ? INDOOR_DARK.clone() : light.horizon();
-        float fogFar = indoors ? INDOOR_FOG : (float) sky.fog();
+        // inside a building, under a level's roof or a cave's rock: no sky - the dark round it
+        Sky.Cover over = world.over();
+        boolean indoors = over != Sky.Cover.OPEN;
+        float[] dark = over == Sky.Cover.CAVE ? CAVE_DARK : INDOOR_DARK;
+        float[] fog = indoors ? dark.clone() : light.horizon();
+        // (a building's dark is near; a hall's or a cave's as far as the level's fog says, a cave's nearer)
+        float fogFar = world.indoors() ? INDOOR_FOG : indoors ? (float) (sky.fog() * (over == Sky.Cover.CAVE
+                ? CAVE_FOG : 0.8)) : (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
         lightUp(world, camera, light);
         if (indoors) {
-            // inside a building: no sky, no ground beyond its floors - the dark
-            glClearColor(INDOOR_DARK[0], INDOOR_DARK[1], INDOOR_DARK[2], 1f);
+            glClearColor(dark[0], dark[1], dark[2], 1f);
             glDepthMask(true);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // (a building's floors are its own; a hall's or a cave's ground is the level's, under no sky)
+            if (!world.indoors()) {
+                voidRenderer.useGround(world.ground());
+                float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+                Sky none = new Sky(Weathering.rgb(dark), Weathering.rgb(dark), fogFar, List.of(),
+                        Atmosphere.STILL);
+                voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, none, unlit(light, dark), sceneLight,
+                        world.time(), pixel);
+                if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+            }
         } else {
             voidRenderer.useGround(world.ground());
             // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
@@ -247,7 +262,7 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
         scenery.showBare(world::picked);
-        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
+        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -555,6 +570,8 @@ public final class WorldRenderer implements AutoCloseable {
             for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
             batch.end();
         }
+        // --- the weather: rain, snow, sand, the wind's dust, falling round the camera (not under a roof) ---
+        if (!indoors) weather.draw(batch, world.weatherNow(), camera, viewProj, fog, fogFar, light, world.time());
         batch.useSceneLight(null);
         glDepthMask(true);
     }
@@ -573,14 +590,15 @@ public final class WorldRenderer implements AutoCloseable {
      */
     private void lightUp(World world, OrbitCamera camera, DayCycle.Daylight light) {
         SceneLight l = sceneLight.clearLights();
-        boolean indoors = world.indoors();
-        float[] a = indoors ? indoorAmbient(light.day()) : light.ambient();
+        Sky.Cover over = world.over();
+        boolean indoors = over != Sky.Cover.OPEN;
+        float[] a = !indoors ? light.ambient() : over == Sky.Cover.CAVE ? caveAmbient() : indoorAmbient(light.day());
         System.arraycopy(a, 0, l.ambient, 0, 3);
         Vec3 eye = camera.eye();
         l.camera[0] = (float) eye.x();
         l.camera[1] = (float) eye.y();
         l.camera[2] = (float) eye.z();
-        Atmosphere air = world.sky().air();
+        Atmosphere air = world.skyNow().air();
         l.mist = indoors ? 0f : (float) (light.mist() * 0.32);
         l.mistHeight = (float) air.mistHeight();
         l.time = (float) world.time();
@@ -635,6 +653,21 @@ public final class WorldRenderer implements AutoCloseable {
     /** Inside a building: the dark beyond its rooms, and how far off things fade into it. */
     static final float[] INDOOR_DARK = {0.035f, 0.028f, 0.024f};
     static final float INDOOR_FOG = 48f;
+    /** A cave: the dark of its rock, cool and blue-grey, and how much nearer than the level's fog the dark comes. */
+    static final float[] CAVE_DARK = {0.022f, 0.027f, 0.036f};
+    static final float CAVE_FOG = 0.6f;
+
+    /** {@code light} with no sky in it: all {@code dark} overhead and round, no sun, no stars, no planet. */
+    static DayCycle.Daylight unlit(DayCycle.Daylight light, float[] dark) {
+        float[] none = {0, 0, 0};
+        return new DayCycle.Daylight(new Vec3(0, -1, 0), -90, 0, 0, light.ambient(), dark.clone(), dark.clone(), none,
+                none, dark.clone(), dark.clone(), 0, light.planet(), 0, 0, 0, light.hour());
+    }
+
+    /** The light in a cave: what little comes in, cold - its lamps and torches do the rest. */
+    static float[] caveAmbient() {
+        return new float[]{0.3f, 0.34f, 0.42f};
+    }
 
     /** The light inside a building, all of it from outside but its lamps: dim and warm, a little more by day. */
     static float[] indoorAmbient(double day) {

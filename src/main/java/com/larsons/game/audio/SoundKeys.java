@@ -213,7 +213,8 @@ public final class SoundKeys {
      * sound object in a level.
      */
     public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
-            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal");
+            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal", "rain", "gale",
+            "sandstorm", "snowfall", "thunder");
 
     /**
      * The places that play a song of their own, and the song each plays until
@@ -803,6 +804,11 @@ public final class SoundKeys {
             case "ocean" -> "The sea: waves on the shore (held)";
             case "waste" -> "The waste: a hollow wind (held)";
             case "crystal" -> "The crystal biome: chimes and hum (held)";
+            case "rain" -> "Weather: rain falling (held)";
+            case "gale" -> "Weather: a strong wind, and a thunderstorm's (held)";
+            case "sandstorm" -> "Weather: a sandstorm (held)";
+            case "snowfall" -> "Weather: snow falling, a soft cold wind (held)";
+            case "thunder" -> "Weather: thunder after the lightning";
             default -> s;
         };
     }

@@ -42,6 +42,7 @@ import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Biome;
 import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
+import com.larsons.game.world.Weather;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.WaterMap;
@@ -1734,6 +1735,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void skyPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Sky and distant backgrounds", x, y);
+        // what is over it: the open sky, a roof (a hall, a dungeon), a cave's rock
+        List<String> covers = new ArrayList<>();
+        for (Sky.Cover c : Sky.Cover.values()) covers.add(c.label());
+        int ci = widgets.choice(ui, "Over it", covers, level.cover().ordinal(), x, y, w);
+        if (ci != level.cover().ordinal()) {
+            level.setCover(Sky.Cover.values()[ci]);
+            dirty = true;
+        }
+        y += 40;
+        if (level.cover() != Sky.Cover.OPEN) {
+            y += ui.paragraph(ui.small, level.cover() == Sky.Cover.CAVE ? "A cave: dark, cold rock all round and over "
+                    + "it - no sky, no sun, no weather; its ground the level's. Light it with lanterns and candles "
+                    + "(Place: Lights)." : "Inside: a great hall, a dungeon - dark beyond its walls, no sky, no sun, "
+                    + "no weather; its lamps and candles lit all day.", x, y, w, Theme.HINT) + 10;
+            Sky sky = level.sky();
+            double fog = widgets.slider(ui, "fog", "Dark from (m)", sky.fog(), Sky.MIN_FOG, Sky.MAX_FOG, "%.0f", x,
+                    y + 10, w);
+            if (fog != sky.fog()) skyEdit(sky.withFog(fog), "Fog");
+            y += 48;
+            thinFog = widgets.toggle(ui, "Thin fog here", thinFog, x, y, w);
+            return;
+        }
         Sky sky = level.sky();
         String[] targets = {"Overhead", "Horizon", "Backdrop"};
         float bw = (w - 8) / 3;
@@ -1848,8 +1871,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void timePanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Time and weather", x, y);
-        String[] tabs = {"Time", "Planet", "Weather"};
-        float bw = (w - 8) / 3;
+        String[] tabs = {"Time", "Planet", "Clouds", "Weather"};
+        float bw = (w - 12) / 4;
         for (int i = 0; i < tabs.length; i++) {
             if (ui.button(tabs[i], x + i * (bw + 4), y, bw, 28, timeTab == i, true)) timeTab = i;
         }
@@ -1905,6 +1928,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                         + "turns with the sun - a crescent by day, full at midnight, lighting the night.", x, y, w,
                         Theme.HINT);
             }
+            case 3 -> {
+                weatherPage(ui, x, y, w);
+                return;
+            }
             default -> {
                 n = n.withClouds(widgets.slider(ui, "t-clouds", "Clouds", a.clouds(), 0, 1, "%.2f", x, y + 10, w));
                 y += 44;
@@ -1924,6 +1951,64 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
+    }
+
+    /**
+     * The Time tool's Weather page: none, by biome (each biome's own,
+     * coming and going in spells - how often, how heavy) or one weather all
+     * the time; and a button to see it here now.
+     */
+    private void weatherPage(Ui ui, float x, float y, float w) {
+        Weather wt = level.weather(), nw = wt;
+        List<String> modes = new ArrayList<>();
+        for (Weather.Mode m : Weather.Mode.values()) modes.add(m.label());
+        int mi = widgets.choice(ui, "Weather", modes, wt.mode().ordinal(), x, y, w);
+        nw = nw.withMode(Weather.Mode.values()[mi]);
+        y += 40;
+        if (nw.mode() == Weather.Mode.FIXED) {
+            List<Weather.Kind> kinds = new ArrayList<>(List.of(Weather.Kind.values()));
+            kinds.remove(Weather.Kind.CLEAR);
+            List<String> names = new ArrayList<>();
+            for (Weather.Kind k : kinds) names.add(k.label());
+            int ki = widgets.choice(ui, "Always", names, Math.max(0, kinds.indexOf(wt.kind())), x, y, w);
+            nw = nw.withKind(kinds.get(ki));
+            y += 40;
+        }
+        if (nw.mode() != Weather.Mode.NONE) {
+            nw = nw.withStrength(widgets.slider(ui, "w-strength", "How heavy", wt.strength(), 0.1, 1, "%.2f", x,
+                    y + 10, w));
+            y += 44;
+        }
+        if (nw.mode() == Weather.Mode.BIOME) {
+            nw = nw.withOften(widgets.slider(ui, "w-often", "How often", wt.often(), 0, 1, "%.2f", x, y + 10, w));
+            y += 44;
+            y += ui.paragraph(ui.small, "Each biome its own weather, in spells of a few minutes: snow over the "
+                    + "mountains and the crystal, sandstorms over the savannah and the waste, rain and thunder over "
+                    + "the plains, the jungle and the shore, fog over the marsh and the river, wind anywhere.", x, y,
+                    w, Theme.HINT) + 10;
+        }
+        if (!nw.equals(wt)) {
+            level.setWeather(nw);
+            view.world().setWeather(nw);
+            dirty = true;
+        }
+        if (level.cover() != Sky.Cover.OPEN) {
+            ui.paragraph(ui.small, "Under its roof (the Sky tool: Over it) none of it is seen.", x, y, w,
+                    Theme.WARNING);
+            return;
+        }
+        // see each one here, now
+        ui.text(ui.small, "See it here now:", x, y, Theme.HINT);
+        y += 22;
+        Weather.Kind[] shown = {Weather.Kind.CLEAR, Weather.Kind.RAIN, Weather.Kind.THUNDERSTORM, Weather.Kind.SNOW,
+                Weather.Kind.FOG, Weather.Kind.WIND, Weather.Kind.SANDSTORM};
+        float bw = (w - 8) / 3;
+        for (int i = 0; i < shown.length; i++) {
+            float bx = x + (i % 3) * (bw + 4), by = y + (i / 3) * 30;
+            if (ui.button(shown[i].label(), bx, by, bw, 26)) {
+                view.world().weatherNow().set(shown[i], shown[i] == Weather.Kind.CLEAR ? 0 : nw.strength());
+            }
+        }
     }
 
     /** Which page of the Life tool shows: the critters and the bushes, or the animals. */
@@ -2714,6 +2799,22 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 changed();
             }
             case "music" -> setMusic(argument.isBlank() ? Songs.NONE : argument.trim());
+            // over open|inside|cave: what is over the level
+            case "over" -> {
+                level.setCover(Sky.Cover.byKey(argument.trim()));
+                dirty = true;
+            }
+            // weathermode none|biome|fixed [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            case "weathermode" -> {
+                Weather wt = level.weather().withMode(Weather.Mode.byKey(a[0]));
+                if (a.length > 1) wt = wt.withKind(Weather.Kind.byKey(a[1]));
+                if (a.length > 2) wt = wt.withStrength(Double.parseDouble(a[2]));
+                level.setWeather(wt);
+                dirty = true;
+            }
+            case "weathernow" -> view.world().weatherNow().set(Weather.Kind.byKey(a[0]),
+                    a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
+            case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "listen" -> {
                 // listen <song> [seconds] [play]: the Level tool's player on a song, at a time, playing
                 if (a.length > 0) listen(a[0]);
