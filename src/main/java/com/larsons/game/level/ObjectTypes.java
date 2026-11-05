@@ -51,7 +51,7 @@ public final class ObjectTypes {
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
             RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
-            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit";
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -170,10 +170,9 @@ public final class ObjectTypes {
                         Prop.number("radius", "Reach (m)", 5, 0.5, 30, 0.5),
                         Prop.number("strength", "Strength", 1, 0.1, 2, 0.1),
                         Prop.number("height", "Height (m)", 1.2, 0, 12, 0.1),
-                        Prop.toggle("glow", "Shows a glow", true)), 0.4, 1.4, 0xFFC468, false,
-                (o, b) -> b.world().lights().add(new World.LightSpot(b.onGround(o).add(0, o.num("height", 1.2), 0),
-                        o.num("radius", 5), lightColour(o.str("colour", "lantern")), o.num("strength", 1),
-                        o.bool("glow", true)))));
+                        Prop.toggle("glow", "Shows a glow", true),
+                        Prop.choice("fixture", "Fitting", "candlestick", o -> fixtures())), 0.4, 1.4, 0xFFC468, false,
+                ObjectTypes::spawnLight));
         register(new ObjectType(RAYS, "Light rays", Category.LIGHTS,
                 List.of(Prop.number("count", "Shafts", 4, 1, 16, 1),
                         Prop.number("spread", "Spread (m)", 1.5, 0.2, 8, 0.1),
@@ -242,6 +241,48 @@ public final class ObjectTypes {
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
                 List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
+        // a saved template (Templates): its pieces, each one of its own once placed
+        register(new ObjectType(TEMPLATE, "Template", Category.TEMPLATES,
+                List.of(Prop.choice("template", "Template", "", o -> templateIds())), 4, 3, 0xB8A0E0, false, null));
+    }
+
+    /**
+     * What a light is: a candle in a candlestick (set on a table, a shelf),
+     * a lone candle, a candelabra, a standing candelabra (on the floor), a
+     * chandelier (hung from the beams), a sconce on the wall, a lantern, a
+     * lantern on its post (outdoors) - or a glow on its own (magic).
+     */
+    static List<String> fixtures() {
+        return List.of("candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce",
+                "lantern", "lantern_post", "glow");
+    }
+
+    /**
+     * A light: its fitting, its flame at the light's height (one standing on
+     * the floor stands on the ground, the light at its flame), and the light
+     * itself.
+     */
+    static void spawnLight(LevelObject o, LevelWorld.Build b) {
+        Vec3 at = b.onGround(o).add(0, o.num("height", 1.2), 0);
+        BuildingProfile fit = BuildingCatalog.get().profile(o.str("fixture", "candlestick"));
+        boolean flame = fit != null && fit.flame() != null;
+        if (flame) {
+            double[] f = fit.flame();
+            Building probe = new Building(o.id(), fit, Vec3.ZERO, o.yaw(), null, null);
+            Vec3 off = probe.toWorld(f[0], f[1]);            // where its flame is from where it stands
+            Vec3 stand = fit.stands() ? b.onGround(o) : at.sub(new Vec3(off.x(), f[2], off.z()));
+            b.world().addBuilding(new Building(o.id(), fit, stand, o.yaw(), BuildingLook.of(o.props().get("look")),
+                    null));
+            at = stand.add(off.x(), f[2], off.z());
+        }
+        b.world().lights().add(new World.LightSpot(at, o.num("radius", 5), lightColour(o.str("colour", "lantern")),
+                o.num("strength", 1), o.bool("glow", true), flame));
+    }
+
+    static List<String> templateIds() {
+        List<String> out = new ArrayList<>();
+        for (Templates.Template t : Templates.all()) out.add(t.id());
+        return out;
     }
 
     static {
@@ -334,6 +375,7 @@ public final class ObjectTypes {
      * where it stands in the set, numbered from {@code firstId}.
      */
     public static List<LevelObject> expand(LevelObject o, int firstId) {
+        if (o.type().equals(TEMPLATE)) return Templates.expand(o, firstId);
         if (!o.type().equals(PREFAB)) return List.of(o);
         Prefab set = Prefab.byKey(o.str("set", ""));
         if (set == null) return List.of();
@@ -505,6 +547,7 @@ public final class ObjectTypes {
         BuildingCatalog buildings = BuildingCatalog.get();
         for (String key : buildings.keys()) {
             BuildingProfile p = buildings.profile(key);
+            if (p.fixture()) continue;                  // (a light's fitting: placed as a light)
             out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : Category.BUILDINGS, BUILDING,
                     Map.of("kind", key)));
         }
@@ -516,16 +559,44 @@ public final class ObjectTypes {
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
+        // the lights: each fitting, at the height it is usually at, in the light it gives
+        Object[][] lights = {{"Candlestick (on a table)", "candlestick", 1.2, "candle", 4.0},
+                {"Candle", "candle", 0.9, "candle", 3.0}, {"Candelabra (on a table)", "candelabra", 1.25, "candle", 5.0},
+                {"Standing candelabra", "standing_candelabra", 1.6, "candle", 5.0},
+                {"Chandelier", "chandelier", 2.7, "candle", 7.0}, {"Wall sconce", "wall_sconce", 1.7, "candle", 4.5},
+                {"Lantern", "lantern", 1.0, "lantern", 5.0}, {"Lantern post", "lantern_post", 1.9, "lantern", 7.0},
+                {"Glow (magic)", "glow", 1.2, "magic", 5.0}};
+        for (Object[] l : lights) {
+            Map<String, Object> props = new LinkedHashMap<>();
+            props.put("colour", l[3]);
+            props.put("radius", l[4]);
+            props.put("strength", 1.0);
+            props.put("height", l[2]);
+            props.put("glow", true);
+            props.put("fixture", l[1]);
+            out.add(new Entry((String) l[0], Category.LIGHTS, LIGHT, props));
+        }
+        out.addAll(templateEntries());
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
-                    || t.key().equals(STAIRS) || t.key().equals(EXIT)) continue;
+                    || t.key().equals(STAIRS) || t.key().equals(EXIT) || t.key().equals(TEMPLATE)
+                    || t.key().equals(LIGHT)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
         }
         return Collections.unmodifiableList(out);
+    }
+
+    /** The saved templates, to place: one entry each. */
+    public static List<Entry> templateEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (Templates.Template t : Templates.all()) {
+            out.add(new Entry(t.name(), Category.TEMPLATES, TEMPLATE, Map.of("template", t.id())));
+        }
+        return out;
     }
 
     /** The sounds a sound spot can play: the held ambient ones (a stream, crickets, the breeze). */
@@ -553,6 +624,10 @@ public final class ObjectTypes {
             case PREFAB -> {
                 Prefab p = Prefab.byKey(o.str("set", ""));
                 yield p == null ? "Set " + o.str("set", "?") + " (unknown)" : p.label();
+            }
+            case TEMPLATE -> {
+                Templates.Template p = Templates.byId(o.str("template", ""));
+                yield p == null ? "Template " + o.str("template", "?") + " (missing)" : p.name();
             }
             case WALL, FLOOR, STAIRS -> Room.profile(roomSpec(o)).label();
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
@@ -594,6 +669,10 @@ public final class ObjectTypes {
         if (o.type().equals(PREFAB)) {
             Prefab p = Prefab.byKey(o.str("set", ""));
             if (p != null) return p.reach(BuildingCatalog.get());
+        }
+        if (o.type().equals(TEMPLATE)) {
+            Templates.Template p = Templates.byId(o.str("template", ""));
+            if (p != null) return p.reach();
         }
         Room.Spec room = roomSpec(o);
         if (room != null) return Room.profile(room).reach();

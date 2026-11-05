@@ -522,9 +522,13 @@ public final class World {
      * @param strength how bright it is, 0 – 2
      * @param glow     whether it shows as a glowing spot itself (else only its light is seen)
      */
-    public record LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow) {}
+    public record LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow, boolean flame) {
+        public LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow) {
+            this(at, radius, rgb, strength, glow, false);
+        }
+    }
 
-    /** The lights placed in it. */
+    /** The lights placed in it ({@code flame}: a candle's or a lantern's - its glow a soft halo round it). */
     public List<LightSpot> lights() { return lights; }
 
     /**

@@ -103,6 +103,11 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture blockShadow;
     /** The buildings' drawing (null: none to draw). */
     private BuildingRenderer buildings;
+    /** Cut away the walls that would hide her, or keep every wall whole (core/Settings#seeThrough). */
+    public void setSeeThrough(boolean on) {
+        if (buildings != null) buildings.setSeeThrough(on);
+    }
+
     /** The buildings drawn lit up (the editor's selection). */
     private Set<Integer> highlight = Set.of();
     /** The light the frame being drawn is lit with, made afresh every frame. */
@@ -707,7 +712,10 @@ public final class WorldRenderer implements AutoCloseable {
     private void lightGlow(World.LightSpot ls, Vec3 right, Vec3 up) {
         float r = ((ls.rgb() >> 16) & 255) / 255f, g = ((ls.rgb() >> 8) & 255) / 255f, b = (ls.rgb() & 255) / 255f;
         double night = daylight == null ? 1 : 1 - 0.6 * daylight.day();
-        for (double[] k : new double[][]{{0.55, 0.35}, {0.16, 1.0}}) {
+        // a candle's flame: a soft halo round it (the flame is its own); a light on its own: an orb
+        double[][] layers = ls.flame() ? new double[][]{{0.7, 0.28}, {0.22, 0.35}} : new double[][]{{0.55, 0.35},
+                {0.16, 1.0}};
+        for (double[] k : layers) {
             double size = k[0];
             Vec3 tl = ls.at().sub(right.scale(size / 2)).add(up.scale(size / 2));
             batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b,

@@ -240,6 +240,14 @@ final class PauseMenu {
             s.autoCamera = !s.autoCamera;
         }
         y += 50;
+        ui.text(ui.body, "Walls near the camera", x, y + 8, Theme.ITEM);
+        if (ui.button(s.seeThrough ? "Cut away" : "Always whole", x + 220, y, 140, 34, s.seeThrough, true)) {
+            s.seeThrough = !s.seeThrough;
+            game.worldRenderer().setSeeThrough(s.seeThrough);
+        }
+        ui.text(ui.small, "Cut away: walls between the camera and her drop out of the way.", x + 400, y + 10,
+                Theme.ITEM_DISABLED);
+        y += 50;
         ui.text(ui.body, "Animations", x, y + 8, Theme.ITEM);
         if (ui.button("New", x + 220, y, 140, 34, !s.classicAnimations, true)) {
             s.classicAnimations = false;

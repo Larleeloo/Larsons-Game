@@ -47,7 +47,8 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         TERRAIN("Terrain"),
         SOUNDS("Sounds"),
         LIGHTS("Light"),
-        MARKERS("Markers");
+        MARKERS("Markers"),
+        TEMPLATES("Templates");
 
         private final String label;
 

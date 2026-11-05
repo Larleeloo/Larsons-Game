@@ -138,6 +138,7 @@ public final class BuildingRenderer implements AutoCloseable {
     private final int[] layers = new int[MAX_PARTS];
     private final float[] glow = new float[MAX_PARTS];
     private final RoomRenderer rooms;
+    private final ModelRenderer models;
     private float night;
 
     /** Drawn from {@code catalog}'s folder, in {@code palette}'s colours. Must be made on the GL thread. */
@@ -157,6 +158,7 @@ public final class BuildingRenderer implements AutoCloseable {
         glBindVertexArray(0);
         patterns = uploadPatterns(catalog);
         rooms = new RoomRenderer(catalog, palette, patterns);
+        models = new ModelRenderer(catalog, palette, patterns);
     }
 
     /** The patterns, a layer each, their tone in red: nearest, repeating. */
@@ -286,6 +288,12 @@ public final class BuildingRenderer implements AutoCloseable {
         return new double[][]{right, up, {-back[0], -back[1], -back[2]}};
     }
 
+    /** Cut away the walls that would hide her (Settings#seeThrough), or keep every wall whole. */
+    public void setSeeThrough(boolean on) {
+        rooms.seeThrough = on;
+        models.seeThrough = on;
+    }
+
     /**
      * Draw {@code buildings} seen by {@code camera}, opaque, writing depth -
      * after the ground, before what stands among them. {@code night} 0 – 1
@@ -298,6 +306,9 @@ public final class BuildingRenderer implements AutoCloseable {
                      float fogFar, SceneLight light, double night, double time, Set<Integer> highlight) {
         if (buildings.isEmpty()) return;
         rooms.draw(buildings, camera, focus, viewProj, fog, fogFar, light, 1 - night, highlight);
+        // those with a 3D model as it; the rest (a barrel, a crate - and any kind with no model) from their views
+        int modelled = models.draw(buildings, camera, focus, viewProj, fog, fogFar, light, night, time, highlight);
+        if (modelled == buildings.size()) return;
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         glDepthMask(true);
@@ -318,7 +329,7 @@ public final class BuildingRenderer implements AutoCloseable {
         double reachSq = Math.pow(fogFar + 30, 2);
         for (Building b : buildings) {
             BuildingProfile p = b.profile();
-            if (p.room() != null) continue;
+            if (p.room() != null || models.has(p)) continue;
             Vec3 at = b.position();
             if (at.sub(eye).horizontalLength() > Math.sqrt(reachSq)) continue;
             SpriteView sv = SpriteView.of(eye, at.add(0, Math.min(3, p.height() * 0.4), 0), b.heading(), camera.yaw());
@@ -411,6 +422,7 @@ public final class BuildingRenderer implements AutoCloseable {
     @Override
     public void close() {
         rooms.close();
+        models.close();
         for (View v : views.values()) if (v != MISSING) glDeleteTextures(v.texture());
         views.clear();
         glDeleteTextures(patterns);

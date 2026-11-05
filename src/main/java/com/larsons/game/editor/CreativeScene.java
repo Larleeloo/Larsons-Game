@@ -26,6 +26,7 @@ import com.larsons.game.level.LevelWorld;
 import com.larsons.game.level.ObjectType;
 import com.larsons.game.level.ObjectType.Category;
 import com.larsons.game.level.ObjectTypes;
+import com.larsons.game.level.Templates;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
@@ -169,7 +170,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private Tool tool = Tool.PLACE;
     // --- place
-    private final List<ObjectTypes.Entry> palette;
+    private List<ObjectTypes.Entry> palette;
+    /** What the selection is saved as, as a template (the Select tool). */
+    private String templateName = "My template";
     private Category category = Category.SCENERY;
     private int paletteScroll;
     private LevelObject template;
@@ -555,15 +558,22 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (template == null) return null;
         undo.before(level, Undo.Part.OBJECTS, "Place " + templateLabel);
         LevelObject o = template.copy(level.nextId()).moveTo(at.x(), at.z());
-        if (o.type().equals(ObjectTypes.PREFAB)) {
-            // a set: each of its buildings placed as one of its own, all of them selected to move together
+        if (o.type().equals(ObjectTypes.PREFAB) || o.type().equals(ObjectTypes.TEMPLATE)) {
+            // a set, a template: each of its pieces placed as one of its own, all of them selected to move together
+            // (a template's buildings with their floors inside, furnished as they were)
+            Templates.Template saved = Templates.byId(o.str("template", ""));
             selection.clear();
             LevelObject first = null;
-            for (LevelObject piece : ObjectTypes.expand(o, level.nextId())) {
-                LevelObject added = level.add(piece);
+            List<LevelObject> pieces = ObjectTypes.expand(o, level.nextId());
+            for (int i = 0; i < pieces.size(); i++) {
+                LevelObject added = level.add(pieces.get(i));
                 selection.add(added);
                 if (first == null) first = added;
+                List<Level> floors = saved == null || outside != null ? null
+                        : saved.floors(saved.objects().get(i).id());
+                if (floors != null) level.setInterior(added.id(), floors);
             }
+            if (first == null) return null;
             o = first;
         } else {
             o = level.add(o);
@@ -1488,6 +1498,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + entries.size() + " (wheel)", x, y + rows * row + 4, Theme.HINT);
         }
         float ty = bottom - 44;
+        if (category == Category.TEMPLATES && template != null && template.type().equals(ObjectTypes.TEMPLATE)) {
+            if (ui.button("Delete this template", x, ty - 38, w, 30)) deleteTemplate();
+        }
         snap = widgets.toggle(ui, "Snap (G)", snap, x, ty, w);
     }
 
@@ -1513,9 +1526,45 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             changed();
         }
         y += 46;
+        // keep what is selected to place again, here or in any level: Place -> Templates
+        ui.text(ui.small, "Save as a template", x, y, Theme.HINT);
+        y += 22;
+        templateName = widgets.text(ui, "template-name", "", templateName, x, y, w);
+        y += 34;
+        if (ui.button("Save template", x, y, w, 30, false, !selection.isEmpty())) saveTemplate();
+        y += 46;
         snap = widgets.toggle(ui, "Snap (G)", snap, x, y, w);
         y += 40;
         ui.text(ui.small, things(level.objects().size()) + " in the level", x, y, Theme.ITEM_DISABLED);
+    }
+
+    /** Save what is selected as a template called {@link #templateName} (Place -> Templates from now on). */
+    private void saveTemplate() {
+        if (selection.isEmpty()) return;
+        try {
+            Templates.Template t = Templates.save(templateName, selection, level);
+            palette = ObjectTypes.palette();
+            game.toast("Saved the template \"" + t.name() + "\" (" + things(t.objects().size())
+                    + ") - it is in Place → Templates", Theme.HINT);
+            Sounds.play(SoundKeys.ui("place"));
+        } catch (java.io.IOException e) {
+            game.toast("Could not save the template: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** Throw away the template being placed. */
+    private void deleteTemplate() {
+        if (template == null || !template.type().equals(ObjectTypes.TEMPLATE)) return;
+        try {
+            Templates.delete(template.str("template", ""));
+            palette = ObjectTypes.palette();
+            game.toast("Deleted the template \"" + templateLabel + "\"", Theme.HINT);
+            Sounds.play(SoundKeys.ui("remove"));
+            List<Integer> left = entriesOf(Category.TEMPLATES);
+            choose(left.isEmpty() ? firstOf(Category.SCENERY) : left.get(0));
+        } catch (java.io.IOException e) {
+            game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
+        }
     }
 
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
@@ -2036,7 +2085,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (ui.button("Play from the spawn (F5)", x, y, w, 32)) playTest(spawnOrPointer());
         y += 40;
         if (ui.button("Back to the menu (Esc)", x, y, w, 32)) leave();
-        y += 50;
+        y += 42;
+        // walls between the camera and her (or what the editor looks at) cut away, or always whole
+        var settings = game.settings();
+        boolean see = widgets.toggle(ui, "See-through walls", settings.seeThrough, x, y, w);
+        if (see != settings.seeThrough) {
+            settings.seeThrough = see;
+            game.worldRenderer().setSeeThrough(see);
+        }
+        y += 42;
         ui.paragraph(ui.small, "Everything here is saved in the level's folder: level.json (readable, one thing "
                 + "a line), height.png (the ground's heights) and ground.png (its paint).", x, y, w,
                 Theme.ITEM_DISABLED);
@@ -2550,6 +2607,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 setTool(Tool.SELECT);
             }
             case "delete" -> deleteSelection();
+            case "savetemplate" -> {
+                templateName = argument.trim();
+                saveTemplate();
+            }
+            case "selectall" -> {
+                selection.clear();
+                selection.addAll(level.objects());
+            }
             case "duplicate" -> duplicate();
             case "turn" -> turn(Math.toRadians(Double.parseDouble(argument.trim())));
             case "sculpt" -> {

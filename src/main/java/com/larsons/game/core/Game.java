@@ -226,6 +226,7 @@ public final class Game implements AutoCloseable {
         voidRenderer = renderers.voidRenderer();
         terrainRenderer = renderers.terrain();
         worldRenderer = renderers.world();
+        worldRenderer.setSeeThrough(settings.seeThrough);
         boot.run(Boot.Step.SOUND_PACK, r -> {
             startSound(r);
             return null;

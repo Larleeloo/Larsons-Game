@@ -73,6 +73,13 @@ public final class Settings {
      */
     public boolean autoCamera = true;
     /**
+     * Walls cut away when they would hide her (Pause → Settings, and the
+     * editor's Level tool): a room's walls between the camera and her drawn
+     * down to a stub, a building's walls by the camera see-through. Off,
+     * every wall stands whole, however near the camera comes.
+     */
+    public boolean seeThrough = true;
+    /**
      * Draw the first version of the states animated again (the weapon stances'
      * moves, kept in assets/animations_v1/) instead of the new one - to compare.
      */
@@ -129,6 +136,7 @@ public final class Settings {
                 s.showHud = Json.bool(j, "showHud", true);
                 s.showProps = Json.bool(j, "showProps", true);
                 s.autoCamera = Json.bool(j, "autoCamera", true);
+                s.seeThrough = Json.bool(j, "seeThrough", true);
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
                 s.savedVsync = Json.bool(j, "vsync", true);
                 s.masterVolume = Math.max(0, Math.min(1, Json.num(j, "masterVolume", 1.0)));
@@ -160,6 +168,7 @@ public final class Settings {
         j.put("showHud", showHud);
         j.put("showProps", showProps);
         j.put("autoCamera", autoCamera);
+        j.put("seeThrough", seeThrough);
         j.put("classicAnimations", classicAnimations);
         j.put("vsync", savedVsync);
         j.put("masterVolume", masterVolume);

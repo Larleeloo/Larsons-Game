@@ -1,0 +1,42 @@
+{
+ "key": "candle",
+ "label": "Candle",
+ "group": "fixture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.205,
+ "model": true,
+ "parts": [
+  {
+   "key": "metal",
+   "label": "Metal",
+   "colour": "#b08a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "wax",
+   "label": "Candle",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flame",
+   "label": "Flame",
+   "colour": "#ffc850",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "flame": [
+  0.0,
+  0.0,
+  0.176
+ ],
+ "stands": false
+}

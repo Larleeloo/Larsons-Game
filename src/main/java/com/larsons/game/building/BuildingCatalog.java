@@ -56,7 +56,10 @@ public final class BuildingCatalog {
             "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire",
             // the furniture
             "bed", "table", "chair", "bench", "stool", "bookshelf", "cupboard", "wardrobe", "fireplace", "counter",
-            "barrel", "crate");
+            "barrel", "crate",
+            // the lights' fittings
+            "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
+            "lantern_post");
 
     /** Read {@code root}: each folder with a profile, and the patterns. Never fails: what cannot be read is left out. */
     public static BuildingCatalog load(Path root) {

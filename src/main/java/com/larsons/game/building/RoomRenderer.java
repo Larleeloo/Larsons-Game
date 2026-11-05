@@ -140,6 +140,9 @@ final class RoomRenderer implements AutoCloseable {
      * those between the eye and {@code focus} cut down - opaque, writing
      * depth. {@code day} 0 – 1 lights the windows' glass.
      */
+    /** Whether walls between the eye and her are cut down (off: every wall whole). */
+    boolean seeThrough = true;
+
     void draw(List<Building> buildings, OrbitCamera camera, Vec3 focus, Mat4 viewProj, float[] fog, float fogFar,
               SceneLight light, double day, Set<Integer> highlight) {
         boolean any = false;
@@ -177,7 +180,7 @@ final class RoomRenderer implements AutoCloseable {
             Mesh m = meshes.get(b);
             if (m == null) m = new Mesh(mesh(b, false), Room.cuts(spec) ? mesh(b, true) : null);
             seen.put(b, m);
-            float[] v = m.cut() != null && Room.cut(b, eye, focus) ? m.cut() : m.whole();
+            float[] v = seeThrough && m.cut() != null && Room.cut(b, eye, focus) ? m.cut() : m.whole();
             if (v.length == 0) continue;
             setLook(b);
             shader.set("uFlash", highlight != null && highlight.contains(b.id()) ? 0.18f : 0f);
