@@ -191,7 +191,7 @@ public final class LevelIO {
         if (Files.isRegularFile(hp)) readHeights(hp, level.heights());
         Path gp = folder.resolve(GROUND);
         if (Files.isRegularFile(gp)) readGround(gp, level.ground(), 0);
-        for (int g = 1; g < GroundMap.GROUPS; g++) {
+        for (int g = 1; g < GroundMap.LAYERS; g++) {
             Path more = folder.resolve(groundFile(g));
             if (Files.isRegularFile(more)) readGround(more, level.ground(), g);
         }
@@ -373,7 +373,7 @@ public final class LevelIO {
         Path hp = folder.resolve(HEIGHTS);
         if (level.heights().flat()) Files.deleteIfExists(hp);
         else writeHeights(level.heights(), hp);
-        for (int g = 0; g < GroundMap.GROUPS; g++) {
+        for (int g = 0; g < GroundMap.LAYERS; g++) {
             Path gp = folder.resolve(groundFile(g));
             if (level.ground().isEmpty(g)) Files.deleteIfExists(gp);
             else writeGround(level.ground(), g, gp);
@@ -415,7 +415,7 @@ public final class LevelIO {
         write(img, file);
     }
 
-    /** The image group {@code g} of the ground's materials is kept in: ground.png, ground2.png, ground3.png. */
+    /** The image layer {@code g} of the ground is kept in: ground.png to ground3.png its materials, ground4.png where the rock is painted over, ground5.png its tint. */
     public static String groundFile(int g) {
         return g == 0 ? GROUND : "ground" + (g + 1) + ".png";
     }

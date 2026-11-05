@@ -32,8 +32,8 @@ public final class Level {
 
     /** The version of the file format this game writes. */
     public static final int FORMAT = 1;
-    /** The sizes a level can be, metres a side. */
-    public static final int[] SIZES = {64, 128, 192, 256};
+    /** The sizes a level can be, metres a side: up to 2048 m, a great forest (its ground on a coarser grid past 256 m). */
+    public static final int[] SIZES = {64, 128, 192, 256, 512, 1024, 2048};
     public static final int DEFAULT_SIZE = 128;
 
     private String name;

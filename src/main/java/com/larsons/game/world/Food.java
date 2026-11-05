@@ -28,6 +28,14 @@ public record Food(String kind, double health, double stamina, double mana, int 
     public static final String BERRIES = "forage_berries", SPRIG = "forage_sprig", FRUIT = "forage_fruit",
             BLOOM = "forage_bloom";
 
+    /**
+     * Whether it is eaten at all: an ingredient - a hide, a feather (world/Hunted) - gives nothing back,
+     * and is only carried, in stacks, for the crafting to come.
+     */
+    public boolean edible() {
+        return health > 0 || stamina > 0 || mana > 0;
+    }
+
     /** What eating it gives back, as the line under its name in the inventory: "+20 health, +15 stamina". */
     public String effect() {
         StringBuilder s = new StringBuilder();

@@ -205,7 +205,7 @@ public final class WaterRenderer implements AutoCloseable {
                     }
                 }
                 if (count == 0) continue;
-                double y = sum / count, x = w.west() + i * WaterMap.CELL, z = w.west() + j * WaterMap.CELL;
+                double y = sum / count, x = w.west() + i * w.cell(), z = w.west() + j * w.cell();
                 double d = y - t.height(x, z);
                 // where the painted water ends short of a bank, it ends in a slant across the cell, not a step
                 if (count < 4) d = Math.min(d, -RIM);
@@ -218,8 +218,8 @@ public final class WaterRenderer implements AutoCloseable {
                 if (!wet[r * n + c]) continue;
                 int a = r * k1 + c, b = a + 1, e = a + k1, f = e + 1;
                 if (Math.max(Math.max(cd[a], cd[b]), Math.max(cd[e], cd[f])) <= 0) continue;     // all under the bank
-                double x0 = w.west() + c * WaterMap.CELL, z0 = w.west() + r * WaterMap.CELL;
-                m.quad(x0, z0, x0 + WaterMap.CELL, z0 + WaterMap.CELL, cy[a], cy[b], cy[e], cy[f], cd[a], cd[b], cd[e],
+                double x0 = w.west() + c * w.cell(), z0 = w.west() + r * w.cell();
+                m.quad(x0, z0, x0 + w.cell(), z0 + w.cell(), cy[a], cy[b], cy[e], cy[f], cd[a], cd[b], cd[e],
                         cd[f], w.flowX(c, r), w.flowZ(c, r), w.kindOf(c, r).code());
             }
         }

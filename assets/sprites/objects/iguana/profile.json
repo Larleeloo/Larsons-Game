@@ -1,1 +1,1 @@
-{"frameWidth": 104, "frameHeight": 104, "frameWorldSize": 1.95, "pivotHeight": 0.13, "fps": 10, "pixelArt": true}
+{"frameWidth": 104, "frameHeight": 104, "frameWorldSize": 1.95, "pivotHeight": 0.13, "fps": 10, "pixelArt": true, "tint": ["#011c10", "#017647", "#3ba440", "#55c77b", "#8edb7a", "#01412b"], "waterline": 0.091}

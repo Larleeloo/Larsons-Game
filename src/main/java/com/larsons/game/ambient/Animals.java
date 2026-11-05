@@ -1,5 +1,8 @@
 package com.larsons.game.ambient;
 
+import com.larsons.game.world.Terrain;
+import com.larsons.game.world.Player;
+
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.SpriteView;
@@ -95,10 +98,27 @@ public final class Animals {
     /**
      * A herd placed in a level: {@code count} of a kind living within {@code
      * radius} m of {@code at}, of their own nature or {@code temperament}'s
-     * (null: their own), about when {@code when} says.
+     * (null: their own), about when {@code when} says - each in one of its
+     * {@code colours} (0xRRGGBB, picked at random for each one, -1 for one as
+     * drawn; none: all as drawn), {@code sizeMin} to {@code sizeMax} times its
+     * kind's size. A {@code single} one is one animal, put just where it
+     * stands, facing {@code heading}, wandering no further than {@code radius}.
      */
     public record Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
-                       Critters.When when, boolean saddled) {
+                       Critters.When when, boolean saddled, List<Integer> colours, double sizeMin, double sizeMax,
+                       boolean single, double heading) {
+
+        public Herd {
+            colours = colours == null ? List.of() : List.copyOf(colours);
+            sizeMin = Math.max(0.2, sizeMin);
+            sizeMax = Math.max(sizeMin, sizeMax);
+        }
+
+        /** A herd of its kind's colours and size. */
+        public Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
+                    Critters.When when, boolean saddled) {
+            this(kind, at, count, radius, temperament, when, saddled, List.of(), 1, 1, false, 0);
+        }
 
         /** A herd without the saddle on (any but horses are never saddled). */
         public Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
@@ -107,8 +127,11 @@ public final class Animals {
         }
     }
 
+    /** How long one hunted down lies where it fell before it fades, seconds. */
+    public static final double LIES_FOR = 14;
+
     /** What an animal did to her, or had done to it, for the world to say and to play. */
-    public enum Outcome { WARNED, STRUCK, BLOCKED, DODGED, PARRIED, RAN_OFF }
+    public enum Outcome { WARNED, STRUCK, BLOCKED, DODGED, PARRIED, RAN_OFF, DOWN }
 
     /** {@code animal} did {@code outcome}; {@code damage} what it took from her. */
     public record Event(Animal animal, Outcome outcome, double damage) {}
@@ -207,8 +230,9 @@ public final class Animals {
             a.cooldown = Math.max(0, a.cooldown - dt);
             a.ignore = Math.max(0, a.ignore - dt);
             boolean fading = a.leaving || a.mode == Animal.Mode.RUN_OFF
-                    || (a.mode == Animal.Mode.FLY_OFF && a.modeTime > 3.5);
-            double fade = a.mode == Animal.Mode.RUN_OFF ? 2.6 : 1.2;
+                    || (a.mode == Animal.Mode.FLY_OFF && a.modeTime > 3.5)
+                    || (a.mode == Animal.Mode.DOWN && a.modeTime > LIES_FOR);
+            double fade = a.mode == Animal.Mode.RUN_OFF || a.mode == Animal.Mode.DOWN ? 2.6 : 1.2;
             a.alpha = fading ? Math.max(0, a.alpha - dt / fade) : Math.min(1, a.alpha + dt / 0.8);
             if (a.alpha <= 0 && fading) a.gone = true;
             react(a, q, place, voice, focus);
@@ -265,9 +289,15 @@ public final class Animals {
             }
         }
         for (Animal a : live) {
+            // a herd taken out of the level (or moved, or changed - the editor's ghost under the pointer) takes
+            // its own with it, saddled ones and all; only a horse she saddled herself is hers to keep
+            if (a.herd != null && !herds.contains(a.herd) && !a.saddledByHer && !a.ridden) {
+                a.leaving = true;
+                if (a.saddled) a.gone = true;          // (a ghost's: gone at once, not left standing about)
+                continue;
+            }
             if (a.saddled) continue;        // a saddled horse stays where she left it, however far she goes
             if (a.herd == null && Math.hypot(a.x - focus.x(), a.z - focus.z()) > REACH + 12) a.gone = true;
-            if (a.herd != null && !herds.contains(a.herd)) a.leaving = true;
         }
         for (Herd h : herds) {
             boolean near = Math.hypot(h.at().x() - focus.x(), h.at().z() - focus.z()) < HERD_REACH;
@@ -348,6 +378,17 @@ public final class Animals {
 
     private void spawnIn(Herd h, Vec3 focus, Place place) {
         AnimalKind k = h.kind();
+        if (h.single()) {
+            // one animal, just where it was put, facing the way it was turned
+            Animal an = make(k, h, h.temperament() == null ? k.temperament() : h.temperament(), h.at().x(),
+                    h.at().z(), place);
+            an.heading = h.heading();
+            an.roam = Math.max(0.5, h.radius());
+            an.timer = 3 + random.nextDouble() * 4;
+            if (h.saddled() && k == AnimalKind.HORSE) an.saddled = true;
+            live.add(an);
+            return;
+        }
         for (int t = 0; t < 8; t++) {
             double a = random.nextDouble() * Math.PI * 2, r = h.radius() * Math.sqrt(random.nextDouble());
             double x = h.at().x() + Math.cos(a) * r, z = h.at().z() + Math.sin(a) * r;
@@ -370,6 +411,10 @@ public final class Animals {
     private Animal make(AnimalKind k, Herd herd, Temperament t, double x, double z, Place place) {
         double g = place.ground(x, z);
         Animal a = new Animal(k, herd, t, x, g, z, random);
+        if (herd != null) {
+            if (!herd.colours().isEmpty()) a.colour = herd.colours().get(random.nextInt(herd.colours().size()));
+            a.size = herd.sizeMin() + random.nextDouble() * (herd.sizeMax() - herd.sizeMin());
+        }
         if (k.flies()) a.y = Critters.surface(x, z, place) + a.lift;
         settle(a, place);
         return a;
@@ -377,7 +422,7 @@ public final class Animals {
 
     /** Whether a {@code k} would live at {@code (x, z)}: its water near, the ground under it fit for it. */
     static boolean livable(AnimalKind k, double x, double z, Place place) {
-        if (!passable(k, x, z, place)) return false;
+        if (!passable(k, x, z, place) || !dry(k, x, z, place)) return false;
         return k.nearWater() <= 0 || Critters.nearWater(x, z, k.nearWater(), place);
     }
 
@@ -385,8 +430,13 @@ public final class Animals {
     static boolean passable(AnimalKind k, double x, double z, Place place) {
         if (k.flies()) return true;
         double deep = place.water(x, z, place.ground(x, z));
-        if (!k.swims() && deep > k.wade()) return false;
+        if (!k.swims() && !k.paddles() && deep > k.wade()) return false;
         return !place.blocked(x, z, k.radius() * 0.6);
+    }
+
+    /** Whether {@code (x, z)} is ground a {@code k} that swims only when it must stands on: no deeper than it wades. */
+    static boolean dry(AnimalKind k, double x, double z, Place place) {
+        return !k.paddles() || place.water(x, z, place.ground(x, z)) <= k.wade();
     }
 
     // --- what they do -----------------------------------------------------------------
@@ -398,6 +448,13 @@ public final class Animals {
             a.provoked = false;
             a.hurtFrom = false;
             say(voice, a, a.kind.hurt(), focus, 0.9);
+            if (a.mode == Animal.Mode.DOWN) {
+                // hunted down: it falls where it is (out of the air, a bird), and leaves what it gives
+                a.vx = a.vz = 0;
+                a.set("fall");
+                events.add(new Event(a, Outcome.DOWN, 0));
+                return;
+            }
             events.add(new Event(a, Outcome.RAN_OFF, 0));
             if (a.kind.swims() && !a.swimming || a.kind.flies()) takeOff(a, voice, focus);
             return;
@@ -434,6 +491,32 @@ public final class Animals {
         AnimalKind k = a.kind;
         double d = her == null ? Double.MAX_VALUE : Math.hypot(her.feet().x() - a.x, her.feet().z() - a.z);
         switch (a.mode) {
+            case DOWN -> {
+                a.vx = a.vz = 0;
+                if (a.airborne) {
+                    // out of the air, onto the ground (or the water)
+                    a.vy -= 9.8 * dt;
+                    a.y += a.vy * dt;
+                    double g = place.ground(a.x, a.z), floor = g + place.water(a.x, a.z, g) * 0.6;
+                    if (a.y <= floor) {
+                        a.airborne = false;
+                        a.vy = 0;
+                        a.y = floor;
+                    }
+                }
+            }
+            case LIE -> {
+                a.vx = a.vz = 0;
+                settle(a, place);
+                // up when she comes near (the calm let her come nearer), or when it has rested
+                double wake = a.temperament == Temperament.SKITTISH ? Math.max(3, k.shy() * 1.2)
+                        : a.temperament == Temperament.TAME ? 1.2 : 2.2;
+                a.timer -= dt;
+                if (a.timer <= 0 || d < wake || a.swimming) {
+                    rest(a);
+                    notice(a, her, d, voice, focus);
+                }
+            }
             case STAGGER -> {
                 double s = Math.max(0, 1 - a.modeTime / 0.3);
                 a.x += a.vx * s * dt;
@@ -568,7 +651,11 @@ public final class Animals {
                 if (a.timer > 0) break;
                 double r = random.nextDouble();
                 boolean eats = k.gait() != AnimalKind.Gait.FLY && k.gait() != AnimalKind.Gait.CRAWL;
-                if (r < 0.4 && eats) {
+                if (k.liesDown() && !a.swimming && !a.saddled && r < 0.14) {
+                    // down to rest a while
+                    a.enter(Animal.Mode.LIE);
+                    a.timer = 10 + random.nextDouble() * 18;
+                } else if (r < 0.4 && eats) {
                     a.enter(Animal.Mode.GRAZE);
                     a.timer = 3 + random.nextDouble() * 6;
                 } else if (r < 0.8) {
@@ -638,6 +725,7 @@ public final class Animals {
             case SWAN -> 0.85;
             case DUCK -> 0.6;
             case GOOSE -> 0.4;
+            case FLAMINGO -> 0.6;
             default -> 0;
         };
         boolean toWater = random.nextDouble() < wet;
@@ -645,7 +733,7 @@ public final class Animals {
         for (int t = 0; t < 8; t++) {
             double ang = random.nextDouble() * Math.PI * 2, r = a.roam * Math.sqrt(random.nextDouble());
             double x = a.homeX + Math.cos(ang) * r, z = a.homeZ + Math.sin(ang) * r;
-            if (!passable(k, x, z, place)) continue;
+            if (!passable(k, x, z, place) || !dry(k, x, z, place)) continue;
             bx = x;
             bz = z;
             if (!toWater || place.water(x, z, place.ground(x, z)) > 0.15) break;
@@ -659,8 +747,12 @@ public final class Animals {
         a.fleeZ = fromZ;
         a.timer = seconds;
         a.angry = 0;
-        // a duck on land takes off; one on the water, and every other, runs (swims) for it
-        if (a.kind == AnimalKind.DUCK && !a.swimming) {
+        // a duck on land takes off, and a perching or a walking bird; one on the water, and every other,
+        // runs (swims) for it
+        AnimalKind.Gait g = a.kind.gait();
+        boolean flits = a.kind == AnimalKind.DUCK || (g == AnimalKind.Gait.PERCH || g == AnimalKind.Gait.FOWL)
+                && a.kind.takesOff();
+        if (flits && !a.swimming) {
             takeOff(a, voice, focus);
             return;
         }
@@ -754,10 +846,10 @@ public final class Animals {
     /** One step along a unit {@code (ux, uz)}, if the ground there will have it. */
     private boolean move(Animal a, double ux, double uz, double step, Place place) {
         AnimalKind k = a.kind;
+        if (a.swimming && k.paddles()) step *= SWIM_PACE;
         double nx = a.x + ux * step, nz = a.z + uz * step;
         if (!k.flies()) {
-            double here = place.ground(a.x, a.z), there = place.ground(nx, nz);
-            if (Math.abs(there - here) > step * 2.5 + 0.12) return false;          // a cliff
+            if (!footing(a, ux, uz, place)) return false;
             if (!passable(k, nx, nz, place) && passable(k, a.x, a.z, place)) return false;
         }
         a.x = nx;
@@ -766,22 +858,57 @@ public final class Animals {
         return true;
     }
 
-    /** Its feet onto the ground - or, swimming, its waterline onto the water. */
+    /** How far ahead the ground's slope is judged, metres: about a stride. */
+    static final double FOOTING = 0.5;
+
+    /**
+     * Whether the ground ahead along a unit {@code (ux, uz)} is ground it
+     * could walk: up no steeper than she could ({@link Terrain#STEEP}, 45°),
+     * down no steeper than she could stand on ({@link Player#SLIDE}) - never
+     * up a rock face or off a ledge. Judged over a stride, not the frame's
+     * step, so a slope is the same slope however slowly it goes. One stuck on
+     * a face (put there, or the ground sculpted under it) may go down or
+     * along it, never further up.
+     */
+    static boolean footing(Animal a, double ux, double uz, Place place) {
+        double here = place.ground(a.x, a.z);
+        double ahead = place.ground(a.x + ux * FOOTING, a.z + uz * FOOTING);
+        double rise = (ahead - here) / FOOTING;
+        if (rise > Terrain.STEEP) return false;
+        if (rise < -Player.SLIDE) {
+            // off a ledge: only if where it stands is a face already (it is on its way down)
+            double d = 0.15;
+            double gx = (place.ground(a.x + d, a.z) - place.ground(a.x - d, a.z)) / (2 * d);
+            double gz = (place.ground(a.x, a.z + d) - place.ground(a.x, a.z - d)) / (2 * d);
+            return Math.hypot(gx, gz) > Player.SLIDE;
+        }
+        return true;
+    }
+
+    /** How much slower one that paddles goes swimming than on its feet. */
+    static final double SWIM_PACE = 0.55;
+
+    /**
+     * Its feet onto the ground - or, swimming, its waterline onto the water:
+     * a water bird as soon as it floats, one that paddles once the water
+     * comes up over its back (wading till then).
+     */
     private static void settle(Animal a, Place place) {
         if (a.kind.flies() || a.airborne) return;
         double g = place.ground(a.x, a.z);
         double deep = place.water(a.x, a.z, g);
-        a.swimming = a.kind.swims() && deep > 0.15;
-        a.y = a.swimming ? g + deep - sink(a.kind) : g;
+        double sink = sink(a.kind) * a.size;
+        a.swimming = a.kind.swims() ? deep > 0.15 : a.kind.paddles() && sink > 0 && deep > sink;
+        a.y = a.swimming ? g + deep - sink : g;
     }
 
-    /** How far under the water a swimmer's feet are: its body floats a third under. */
+    /** How far under the water a swimmer's feet are: a bird's body floats a third under; one that paddles, its waterline. */
     public static double sink(AnimalKind k) {
         return switch (k) {
             case DUCK -> 0.16;
             case GOOSE -> 0.26;
             case SWAN -> 0.31;
-            default -> 0;
+            default -> k.waterline();
         };
     }
 
@@ -860,6 +987,11 @@ public final class Animals {
     /** Its sheet, and how fast it plays, for what it is doing. */
     static void dress(Animal a) {
         AnimalKind k = a.kind;
+        if (a.mode == Animal.Mode.DOWN) {
+            a.set("fall");
+            a.rate = 1;
+            return;
+        }
         double speed = Math.hypot(a.vx, a.vz);
         boolean moving = speed > 0.05;
         switch (k.gait()) {
@@ -868,8 +1000,26 @@ public final class Animals {
                 a.rate = a.hostile() ? 1.4 : 1;
             }
             case CRAWL -> {
-                a.set(moving ? "walk" : "idle");
+                a.set(a.swimming ? "swim" : moving ? "walk" : "idle");
                 a.rate = moving ? clamp(speed / k.walkPace(), 0.6, 3) : 1;
+            }
+            case PERCH, FOWL -> {
+                boolean hostile = a.mode == Animal.Mode.WARN || a.mode == Animal.Mode.STRIKE
+                        || a.mode == Animal.Mode.CHASE && !moving;
+                if (a.airborne) {
+                    a.set("fly");
+                    a.rate = 1;
+                } else if (hostile) {
+                    // the peacock fans its train at her; an eagle mantles, its wings up
+                    a.set(k == AnimalKind.PEACOCK ? "attack" : "fly");
+                    a.rate = 1;
+                } else if (moving) {
+                    a.set(k.gait() == AnimalKind.Gait.PERCH ? "hop" : "walk");
+                    a.rate = clamp(speed / k.walkPace(), 0.6, 3);
+                } else {
+                    a.set(a.mode == Animal.Mode.GRAZE ? "eat" : "idle");
+                    a.rate = 1;
+                }
             }
             case HOP -> {
                 if (moving) {
@@ -900,7 +1050,13 @@ public final class Animals {
                 }
             }
             case FOUR -> {
-                if (moving) {
+                if (a.swimming) {
+                    a.set("swim");
+                    a.rate = moving ? clamp(speed / (k.walkPace() * SWIM_PACE), 0.7, 2) : 0.7;
+                } else if (a.mode == Animal.Mode.LIE) {
+                    a.set("lie");
+                    a.rate = 1;
+                } else if (moving) {
                     boolean runs = speed > (k.walk() + k.run()) * 0.5 * 0.8;
                     a.set(runs ? "run" : "walk");
                     a.rate = clamp(speed / (runs ? k.runPace() : k.walkPace()), 0.6, 2.2);

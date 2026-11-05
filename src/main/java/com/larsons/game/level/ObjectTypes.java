@@ -70,6 +70,43 @@ public final class ObjectTypes {
         return Collections.unmodifiableMap(m);
     }
 
+    /** What {@code o}'s {@code "tint"} and {@code "tintAmount"} make: {@code 0xAARRGGBB} (alpha: how much), or 0: none. */
+    public static int tint(LevelObject o) {
+        int rgb = hex(o.str("tint", ""));
+        if (rgb < 0) return 0;
+        int a = (int) Math.round(Math.max(0, Math.min(1, o.num("tintAmount", 0.6))) * 255);
+        return a << 24 | rgb;
+    }
+
+    /** {@code "#rrggbb"} (or {@code "rrggbb"}) as {@code 0xRRGGBB}, or -1. */
+    public static int hex(String s) {
+        if (s == null) return -1;
+        String h = s.trim();
+        if (h.startsWith("#")) h = h.substring(1);
+        if (h.length() != 6) return -1;
+        try {
+            return Integer.parseInt(h, 16);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** What a herd's colours are called in its file: {@code "natural"} for one as drawn. */
+    public static final String NATURAL = "natural";
+
+    /** A herd's colours ({@code 0xRRGGBB}, -1 for one as drawn); none: all as drawn. */
+    public static List<Integer> herdColours(LevelObject o) {
+        List<Integer> out = new ArrayList<>();
+        if (o.props().get("colours") instanceof List<?> list) {
+            for (Object v : list) {
+                String s = String.valueOf(v);
+                int c = s.equals(NATURAL) ? -1 : hex(s);
+                if (c >= 0 || s.equals(NATURAL)) out.add(c);
+            }
+        }
+        return out;
+    }
+
     /** The colour named {@code name} ({@link #LIGHT_COLOURS}), a {@code #RRGGBB}, or the lantern's. */
     public static int lightColour(String name) {
         Integer c = LIGHT_COLOURS.get(name);
@@ -94,7 +131,10 @@ public final class ObjectTypes {
                 List.of(Prop.text("name", "Name", "spot")), 0.4, 1.2, 0xFFD27A, false, null));
         register(new ObjectType(SCENERY, "Scenery", Category.SCENERY,
                 List.of(Prop.choice("sprite", "Sprite", "oak_tree", o -> sceneryNames()),
-                        Prop.toggle("mirrored", "Mirrored", false)), 0.6, 2.0, 0x7FBF6A, false,
+                        Prop.toggle("mirrored", "Mirrored", false),
+                        Prop.number("scale", "Size", 1, 0.2, 5, 0.05),
+                        Prop.colour("tint", "Tint"),
+                        Prop.number("tintAmount", "Tint strength", 0.6, 0.05, 1, 0.05)), 0.6, 2.0, 0x7FBF6A, false,
                 (o, b) -> b.plant(o)));
         register(new ObjectType(ITEM, "Item", Category.ITEMS,
                 List.of(Prop.choice("item", "Item", "sword", o -> itemIds()),
@@ -115,8 +155,11 @@ public final class ObjectTypes {
                 List.of(Prop.number("health", "Health", 60, 1, 10000, 10)), 0.8, 1.2, 0x9CC4FF, false,
                 (o, b) -> b.world().addFlier(new FlyingDummy(new Vec3(o.x(), 0, o.z()), o.yaw(),
                         o.num("health", 60), b.tuning().dummyDownSeconds, b.terrain()))));
+        // vines on a rock face she climbs: placed on a cliff, they fit themselves to it - facing out of it, at
+        // its foot, as long as it runs - unless set not to (then they hang where they are put, as turned)
         register(new ObjectType(VINES, "Climbing vines", Category.TERRAIN,
-                List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5)), 0.6, 3, 0x5F9E3A, false, null));
+                List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5),
+                        Prop.toggle("fit", "Fit to the rock face", true)), 0.6, 3, 0x5F9E3A, false, null));
         register(new ObjectType(SOUND, "Sound", Category.SOUNDS,
                 List.of(Prop.choice("sound", "Sound", SoundKeys.ambient("stream"), o -> soundKeys())), 0.5, 1.2,
                 0xB48CFF, false,
@@ -167,16 +210,23 @@ public final class ObjectTypes {
                         Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
                         Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
                         Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes()),
-                        Prop.toggle("saddled", "Saddled", false)),
+                        Prop.toggle("saddled", "Saddled", false),
+                        Prop.toggle("single", "One animal, just here", false),
+                        Prop.colours("colours", "Colours"),
+                        Prop.number("size", "Size", 1, 0.3, 3, 0.05),
+                        Prop.number("vary", "Sizes vary (±)", 0, 0, 0.6, 0.05)),
                 0.6, 1.2, 0xE8B070, false,
                 (o, b) -> {
                     AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
                     if (k == null) return;
+                    boolean single = o.bool("single", false);
+                    double size = o.num("size", 1), vary = o.num("vary", 0);
                     b.world().animals().herds().add(new Animals.Herd(k, b.onGround(o),
-                            (int) Math.round(o.num("count", 3)), o.num("radius", 8),
+                            single ? 1 : (int) Math.round(o.num("count", 3)), o.num("radius", single ? 3 : 8),
                             Temperament.byKey(o.str("temperament", OWN)),
                             Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key())),
-                            k == AnimalKind.HORSE && o.bool("saddled", false)));
+                            k == AnimalKind.HORSE && o.bool("saddled", false), herdColours(o),
+                            size * (1 - vary), size * (1 + vary), single, o.yaw()));
                 }));
     }
 
@@ -362,6 +412,7 @@ public final class ObjectTypes {
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         for (ItemDef d : Wearables.ALL) out.add(d.id());
         for (ItemDef d : Pickings.ALL) out.add(d.id());
+        for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
         return out;
     }
@@ -424,6 +475,9 @@ public final class ObjectTypes {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
         for (ItemDef d : Pickings.ALL) {
+            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        }
+        for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
             out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
         }
         for (CritterKind k : CritterKind.values()) {

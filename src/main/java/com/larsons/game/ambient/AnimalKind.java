@@ -13,9 +13,12 @@ import java.util.Locale;
  *
  * <p><b>How it goes</b> ({@link Gait}) is which sheets its sprite has
  * (3D-Modeling's {@code creatures/animals.py}, 8 directions x 3 heights):
- * a four-legged animal idles, walks, runs and grazes; a hopper hops; a bird
+ * a four-legged animal idles, walks, runs, grazes, lies down, swims across
+ * deep water and falls when it is beaten; a hopper hops; a water bird
  * walks, swims, flies, and the goose and the swan go for her with their
- * wings up; the butterfly and the bee only fly; the iguana walks. Its
+ * wings up; a perching bird hops and flits off, a walking one walks (the
+ * peacock fans its train at her); the butterfly, the bee and the
+ * hummingbird only fly; the iguana walks and swims. Its
  * {@link #walk} and {@link #run} are how fast it goes, metres a second, and
  * {@link #walkPace} / {@link #runPace} how fast its sheets were drawn going
  * (the feet keep to the ground when it goes faster or slower: the sheet
@@ -67,7 +70,37 @@ public enum AnimalKind {
     BEE("bee", "Bee", "Bees", Gait.FLY, Temperament.DEFENSIVE, 0.14, 0.15, 3, 1.4, 4.5, 1.4, 1.4,
             0, 0, 2, 0.6, 5, 4, 0, w(1.0, 0.2, 0.4, 0.7, 0.6, 0, 0.6, 0, 0.3), "buzz", null, "swarm", null),
     IGUANA("iguana", "Iguana", "Iguanas", Gait.CRAWL, Temperament.SKITTISH, 0.3, 0.3, 10, 0.3, 1.2, 0.26, 0.26,
-            3, 0, 2, 0.7, 2, 2, 0, w(0, 0.3, 0, 1.2, 0.7, 0.7, 0.1, 0.5, 0), null, "hiss", "hiss", null);
+            3, 0, 2, 0.7, 2, 2, 0, w(0, 0.3, 0, 1.2, 0.7, 0.7, 0.1, 0.5, 0), null, "hiss", "hiss", null),
+    DEER("deer", "Deer", "Deer", Gait.FOUR, Temperament.SKITTISH, 0.42, 1.55, 30, 1.1, 7.0, 1.1, 6.1,
+            14, 0, 6, 1.2, 3, 4, 0, w(0.7, 0.2, 0.8, 0.1, 0.3, 0, 0.6, 0, 0), "call", "bleat", null, null),
+    // the birds: the north's and the tropics' - perching birds hop and flit off, the rest walk (and fly)
+    ROBIN("robin", "Robin", "Robins", Gait.PERCH, Temperament.SKITTISH, 0.1, 0.3, 3, 0.5, 2.5, 0.5, 0.5,
+            4, 0, 1, 0.4, 3, 2, 0, w(1.0, 0.3, 0.5, 0, 0.3, 0, 0.8, 0, 0), "song", "squawk", null, "flap"),
+    BLUE_JAY("blue_jay", "Blue jay", "Blue jays", Gait.PERCH, Temperament.SKITTISH, 0.1, 0.32, 4, 0.5, 2.5,
+            0.5, 0.5, 4, 0, 1, 0.4, 2, 2, 0, w(0.8, 0.2, 0.7, 0.1, 0, 0, 0.6, 0, 0), "jeer", "squawk", null, "flap"),
+    CARDINAL("cardinal", "Cardinal", "Cardinals", Gait.PERCH, Temperament.SKITTISH, 0.1, 0.3, 3, 0.5, 2.5, 0.5,
+            0.5, 4, 0, 1, 0.4, 2, 2, 0, w(0.8, 0.5, 0.3, 0.2, 0, 0, 0.6, 0, 0), "whistle", "squawk", null, "flap"),
+    CROW("crow", "Crow", "Crows", Gait.FOWL, Temperament.SKITTISH, 0.16, 0.48, 6, 0.6, 2.4, 0.5, 0.5,
+            5, 0, 2, 0.6, 3, 4, 0, w(0.9, 0.5, 0.4, 0, 0.4, 0.2, 0.4, 1.0, 0), "caw", "squawk", null, "flap"),
+    OWL("owl", "Owl", "Owls", Gait.PERCH, Temperament.SKITTISH, 0.16, 0.5, 8, 0.4, 2.0, 0.45, 0.45,
+            3.5, 0, 3, 0.6, 1, 1, 0, w(0.5, 0.3, 0.6, 0.4, 0.1, 0, 0.4, 0.3, 0.3), "hoot", "screech", null, "flap"),
+    EAGLE("eagle", "Eagle", "Eagles", Gait.FOWL, Temperament.DEFENSIVE, 0.3, 0.9, 20, 0.5, 2.2, 0.5, 0.5,
+            0, 3.5, 7, 1.0, 1, 1, 0, w(0, 0, 1.2, 0, 0.4, 0.3, 0.3, 0.2, 0), "cry", "screech", "screech", "flap"),
+    PHEASANT("pheasant", "Pheasant", "Pheasants", Gait.FOWL, Temperament.SKITTISH, 0.18, 0.6, 8, 0.6, 3.0,
+            0.55, 0.55, 5, 0, 1, 0.6, 2, 3, 0, w(1.0, 0.3, 0.2, 0, 0.3, 0, 0.5, 0, 0), "cackle", "squawk", null,
+            "flap"),
+    MACAW("macaw", "Macaw", "Macaws", Gait.PERCH, Temperament.CALM, 0.18, 0.75, 8, 0.4, 2.0, 0.45, 0.45,
+            3, 0, 2, 0.6, 2, 3, 0, w(0, 0, 0, 1.2, 0.2, 0, 0.3, 0, 0), "squawk", "shriek", null, "flap"),
+    TOUCAN("toucan", "Toucan", "Toucans", Gait.PERCH, Temperament.SKITTISH, 0.16, 0.55, 6, 0.4, 2.0, 0.45, 0.45,
+            3.5, 0, 2, 0.6, 2, 2, 0, w(0, 0.1, 0, 1.0, 0, 0, 0.2, 0, 0), "croak", "squawk", null, "flap"),
+    COCKATOO("cockatoo", "Cockatoo", "Cockatoos", Gait.PERCH, Temperament.CALM, 0.15, 0.55, 6, 0.4, 2.0, 0.45,
+            0.45, 3, 0, 2, 0.6, 2, 3, 0, w(0, 0, 0, 0.8, 0.6, 0.2, 0, 0, 0), "screech", "squawk", null, "flap"),
+    FLAMINGO("flamingo", "Flamingo", "Flamingos", Gait.FOWL, Temperament.SKITTISH, 0.22, 1.3, 12, 0.5, 2.2, 0.5,
+            0.5, 6, 0, 2, 0.8, 4, 6, 3, w(0, 0.8, 0, 0, 0.3, 0.8, 0.5, 0, 0), "honk", "squawk", null, "flap"),
+    PEACOCK("peacock", "Peacock", "Peacocks", Gait.FOWL, Temperament.DEFENSIVE, 0.25, 1.0, 14, 0.5, 2.6, 0.5, 0.5,
+            0, 3.0, 3, 0.8, 1, 2, 0, w(0.4, 0, 0, 0.6, 0.2, 0, 0, 0, 0), "scream", "squawk", "rattle", null),
+    HUMMINGBIRD("hummingbird", "Hummingbird", "Hummingbirds", Gait.FLY, Temperament.CALM, 0.1, 0.12, 2, 1.6, 5,
+            1.6, 1.6, 0, 0, 0, 0.4, 3, 2, 0, w(0.4, 0.2, 0, 1.0, 0.2, 0, 0.3, 0, 0.3), "hum", null, null, null);
 
     /** How it goes - which sheets its sprite has. */
     public enum Gait {
@@ -75,12 +108,16 @@ public enum AnimalKind {
         FOUR,
         /** A rabbit, a squirrel: idle, hop, eat - it goes a hop at a time. */
         HOP,
-        /** A duck, a goose, a swan: idle, walk, swim, fly, attack, eat. */
+        /** A duck, a goose, a swan: idle, walk, swim, fly, attack, eat, fall. */
         BIRD,
-        /** A butterfly, a bee: fly - it is never on the ground. */
+        /** A butterfly, a bee, a hummingbird: fly - it is never on the ground. */
         FLY,
-        /** The iguana: idle, walk. */
-        CRAWL
+        /** The iguana: idle, walk, swim. */
+        CRAWL,
+        /** A perching bird - a robin, an owl, a macaw: idle, hop, fly, eat, fall; it flits off when startled. */
+        PERCH,
+        /** A bird that walks - a crow, a pheasant, a flamingo, a peacock: idle, walk, fly, eat, (attack,) fall. */
+        FOWL
     }
 
     /** How long one of its hops lasts, seconds, as drawn (6 frames at 12 a second). */
@@ -187,17 +224,63 @@ public enum AnimalKind {
     /** How near water it keeps, metres; 0: anywhere. */
     public double nearWater() { return nearWater; }
 
-    /** Whether it swims (it sits on water deeper than it wades). */
+    /** Whether it floats on the water (a duck, a goose, a swan): it sits on water deeper than it wades. */
     public boolean swims() { return gait == Gait.BIRD; }
+
+    /**
+     * Whether it swims across water too deep to wade, its head and back out
+     * (the four-legged animals and the iguana, on their {@code swim} sheets):
+     * it keeps to dry land when it can, but water does not stop it.
+     */
+    public boolean paddles() { return gait == Gait.FOUR || this == IGUANA; }
 
     /** Whether it is always in the air. */
     public boolean flies() { return gait == Gait.FLY; }
 
+    /** Whether it can take to the air when startled or beaten (the birds but the peacock). */
+    public boolean takesOff() {
+        return (gait == Gait.BIRD || gait == Gait.PERCH || gait == Gait.FOWL) && this != PEACOCK;
+    }
+
+    /** Whether it goes a hop at a time (a rabbit, a squirrel, a perching bird). */
+    public boolean hops() { return gait == Gait.HOP || gait == Gait.PERCH; }
+
+    /** Whether it lies down to rest now and then ({@code lie} sheets: the four-legged animals). */
+    public boolean liesDown() { return gait == Gait.FOUR; }
+
+    /** Whether it has a {@code fall} sheet: falls over when beaten, rather than running off. */
+    public boolean falls() {
+        return gait == Gait.FOUR || gait == Gait.HOP || gait == Gait.BIRD || gait == Gait.PERCH
+                || gait == Gait.FOWL;
+    }
+
+    /**
+     * How far above its feet the water's surface lies on it swimming, metres
+     * (as its {@code swim} sheets were drawn: the sprite's profile's {@code
+     * waterline}); 0: it never swims.
+     */
+    public double waterline() {
+        return switch (this) {
+            case HORSE -> 1.37;
+            case COW -> 1.17;
+            case BEAR -> 0.95;
+            case SHEEP -> 0.76;
+            case PIG -> 0.61;
+            case DOG -> 0.52;
+            case FOX -> 0.45;
+            case CAT -> 0.35;
+            case DEER -> 1.05;
+            case IGUANA -> 0.09;
+            default -> 0;
+        };
+    }
+
     /** How deep a water it walks into, metres (deeper: it swims, or it keeps out). */
     public double wade() {
         return switch (this) {
-            case HORSE, COW, BEAR -> 0.35;
+            case HORSE, COW, BEAR, DEER -> 0.35;
             case SHEEP, PIG, DOG -> 0.15;
+            case FLAMINGO -> 0.4;
             default -> 0.04;
         };
     }
@@ -209,6 +292,7 @@ public enum AnimalKind {
 
     /** How many of its number are about at a time of day (0 night, 1 day): the insects by day only. */
     public double out(double day) {
+        if (this == OWL) return CritterKind.smooth(0.4, 0.7, 1 - day);
         return flies() ? CritterKind.smooth(0.4, 0.7, day) : 1;
     }
 

@@ -34,7 +34,7 @@ import java.util.List;
  */
 public final class Terrain {
 
-    /** Metres between the grid's heights. */
+    /** Metres between the grid's heights: the demo's, and a level's up to 256 m a side (bigger ones: {@link #step}). */
     public static final double STEP = 0.5;
     /**
      * The steepest ground she can walk up (rise over run): 45°. Steeper
@@ -46,7 +46,7 @@ public final class Terrain {
     public static final double PLATEAU_HEIGHT = 6.0, HILL_HEIGHT = 7.0, HOLLOW_DEPTH = 2.5;
 
     /** Flat ground everywhere: what a world stands on until it is given hills. */
-    public static final Terrain FLAT = new Terrain(0, 0, 0, 0, new float[0], List.of(), List.of(), List.of());
+    public static final Terrain FLAT = new Terrain(0, 0, 0, 0, STEP, new float[0], List.of(), List.of(), List.of());
 
     /**
      * Ground whose heights are {@code heights} - {@code columns} by {@code
@@ -57,11 +57,17 @@ public final class Terrain {
      */
     public static Terrain of(double x0, double z0, int columns, int rows, float[] heights, List<Wall> walls,
                              List<Place> places) {
+        return of(x0, z0, columns, rows, STEP, heights, walls, places);
+    }
+
+    /** {@link #of}, its heights {@code step} metres apart (a big level's coarser grid). */
+    public static Terrain of(double x0, double z0, int columns, int rows, double step, float[] heights,
+                             List<Wall> walls, List<Place> places) {
         if (columns < 2 || rows < 2 || heights.length != columns * rows) {
             throw new IllegalArgumentException("a grid of " + columns + " x " + rows + " needs as many heights, not "
                     + heights.length);
         }
-        return new Terrain(x0, z0, columns, rows, heights.clone(), walls, List.of(), places);
+        return new Terrain(x0, z0, columns, rows, step, heights.clone(), walls, List.of(), places);
     }
 
     /**
@@ -102,17 +108,18 @@ public final class Terrain {
     /** A spot worth a name, for the demo's {@code goto}: where it is, standing on the ground. */
     public record Place(String name, double x, double z) {}
 
-    private final double x0, z0;
+    private final double x0, z0, step;
     private final int nx, nz;
     private final float[] heights;
     private final List<Wall> walls;
     private final List<double[]> trail;
     private final List<Place> places;
 
-    private Terrain(double x0, double z0, int nx, int nz, float[] heights, List<Wall> walls, List<double[]> trail,
-                    List<Place> places) {
+    private Terrain(double x0, double z0, int nx, int nz, double step, float[] heights, List<Wall> walls,
+                    List<double[]> trail, List<Place> places) {
         this.x0 = x0;
         this.z0 = z0;
+        this.step = step;
         this.nx = nx;
         this.nz = nz;
         this.heights = heights;
@@ -163,7 +170,7 @@ public final class Terrain {
                 new Place("cliff", PLATEAU[1] + 2.2, -36),
                 new Place("hill", HILL[0], HILL[1]),
                 new Place("hollow", HOLLOW[0], HOLLOW[1]));
-        return new Terrain(bx0, bz0, cx, cz, h, List.of(cliff), trail, places);
+        return new Terrain(bx0, bz0, cx, cz, STEP, h, List.of(cliff), trail, places);
     }
 
     /** The highlands' height at {@code (x, z)}, before the grid (and the box's edges). */
@@ -205,7 +212,7 @@ public final class Terrain {
      */
     public double height(double x, double z) {
         if (heights.length == 0) return 0;
-        double gx = (x - x0) / STEP, gz = (z - z0) / STEP;
+        double gx = (x - x0) / step, gz = (z - z0) / step;
         if (gx < 0 || gz < 0 || gx > nx - 1 || gz > nz - 1) return 0;
         int i = Math.min(nx - 2, (int) gx), j = Math.min(nz - 2, (int) gz);
         double fx = gx - i, fz = gz - j;
@@ -335,6 +342,9 @@ public final class Terrain {
     public double originZ() { return z0; }
 
     public int columns() { return nx; }
+
+    /** Metres between the grid's heights ({@link #STEP}; a big level's more). */
+    public double step() { return step; }
 
     public int rows() { return nz; }
 }

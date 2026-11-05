@@ -112,6 +112,8 @@ public final class WorldRenderer implements AutoCloseable {
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
     private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
     private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
+    /** A herd's animals in their colours: their coats' palette entries recoloured. */
+    private com.larsons.game.sprite.CoatTint coats;
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
@@ -285,7 +287,7 @@ public final class WorldRenderer implements AutoCloseable {
                     (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
-            groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
+            groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
         }
         for (Building b : world.buildings()) buildingShadow(b);
         batch.end();
@@ -295,6 +297,9 @@ public final class WorldRenderer implements AutoCloseable {
         batch.setDepthPlane(eye, upright);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
+        // what is solid - her, the animals, the chests, the dummies - drawn again into the depth buffer
+        // once they are all drawn, so the water and the light rays behind them are not drawn over them
+        List<Runnable> solids = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
 
         // riding, she is seen as her horse is - from its pivot, the way it faces - and drawn just
@@ -317,6 +322,7 @@ public final class WorldRenderer implements AutoCloseable {
         if (steed == null) {
             draws.add(her);
             dist.add(p.feet().sub(eye).dot(forward));
+            solids.add(her);
         }
 
         // the dash's afterimages: the frames she leaves behind, fading where they were
@@ -352,11 +358,13 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
                     c.state().loops(), c.time(), world.time(), chestView, c.light(),
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
-            draws.add(() -> {
+            Runnable chest = () -> {
                 batch.depthAnchor(c.position());
                 LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
                         c.position(), right, up, 1f);
-            });
+            };
+            draws.add(chest);
+            solids.add(chest);
             dist.add(c.position().sub(eye).dot(forward));
         }
 
@@ -391,9 +399,18 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(ls.at().sub(eye).dot(forward));
         }
 
-        combat.sprites(world, batch, camera, (d, draw) -> {
-            draws.add(draw);
-            dist.add(d);
+        combat.sprites(world, batch, camera, new com.larsons.game.combat.CombatRenderer.Draws() {
+            @Override
+            public void add(double d, Runnable draw) {
+                draws.add(draw);
+                dist.add(d);
+            }
+
+            @Override
+            public void addSolid(double d, Runnable draw) {
+                add(d, draw);
+                solids.add(draw);
+            }
         });
 
         // the little creatures: the frogs, crickets and dragonflies drawn from their 24 views, the fireflies lights
@@ -423,11 +440,13 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cr = ObjectStack.resolve(sprites, objects, id, c.state(), c.loops(), c.stateTime(),
                     t, cv, 0, memory);
             float alpha = (float) c.alpha();
-            draws.add(() -> {
+            Runnable critter = () -> {
                 batch.depthAnchor(at);
                 LayerStack.drawBillboard(batch, cr.layers(), cr.framing(), cr.view().elevation(), at, right, up,
                         alpha);
-            });
+            };
+            draws.add(critter);
+            if (alpha > 0.5f) solids.add(critter);
             dist.add(at.sub(eye).dot(forward));
         }
         critterMemory = memories;
@@ -452,6 +471,20 @@ public final class WorldRenderer implements AutoCloseable {
             Runnable rider = a == steed ? her : null;
             if (rider != null) drawnWithHorse[0] = true;
             List<LayerStack.Layer> layers = ar.layers();
+            int[] coat = prof.tint();
+            if (coat.length == 0 && a.colour() >= 0 && !id.equals(a.kind().sprite())) {
+                // (the saddled horse's sheets: the horse's coat)
+                ObjectSprites.Entry plain = objects.entry(a.kind().sprite());
+                if (plain != null) coat = plain.profile().tint();
+            }
+            if (a.colour() >= 0 && coat.length > 0) {
+                if (coats == null) coats = new com.larsons.game.sprite.CoatTint(items.pixelPalette());
+                List<LayerStack.Layer> dyed = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) {
+                    dyed.add(l.palette() == null ? l : l.withPalette(coats.tinted(l.palette(), coat, a.colour())));
+                }
+                layers = dyed;
+            }
             double flash = a.flash();
             if (flash > 0) {
                 List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
@@ -463,12 +496,17 @@ public final class WorldRenderer implements AutoCloseable {
             List<LayerStack.Layer> draw = layers;
             float alpha = (float) a.alpha();
             // a swimmer's depth is the water's surface over it, so the water before it is not drawn over it
-            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()), 0) : at;
-            draws.add(() -> {
+            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()) * a.size(), 0)
+                    : at;
+            // bigger or smaller than its kind: its card that much bigger, its feet where they are
+            Vec3 aRight = a.size() == 1 ? right : right.scale(a.size()), aUp = a.size() == 1 ? up : up.scale(a.size());
+            Runnable animal = () -> {
                 batch.depthAnchor(anchor);
-                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, right, up, alpha);
+                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, aRight, aUp, alpha);
                 if (rider != null) rider.run();
-            });
+            };
+            draws.add(animal);
+            if (alpha > 0.5f) solids.add(animal);
             dist.add(at.sub(eye).dot(forward));
         }
         animalMemory = animalMemories;
@@ -476,6 +514,7 @@ public final class WorldRenderer implements AutoCloseable {
             // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
             draws.add(her);
             dist.add(p.feet().sub(eye).dot(forward));
+            solids.add(her);
         }
 
         Integer[] order = new Integer[draws.size()];
@@ -483,6 +522,19 @@ public final class WorldRenderer implements AutoCloseable {
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+
+        // --- the solid ones again, into the depth buffer only: the water and the rays go behind them ---
+        if (!solids.isEmpty()) {
+            glColorMask(false, false, false, false);
+            glDepthMask(true);
+            batch.begin(viewProj, fog, 0, fogFar);
+            batch.setDepthPlane(eye, upright);
+            batch.setAlphaCut(0.5f);
+            for (Runnable r : solids) r.run();
+            batch.end();
+            glColorMask(true, true, true, true);
+            glDepthMask(false);
+        }
 
         // --- the water, over what stands and wades in it ------------------------------
         water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
@@ -625,7 +677,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     /** Where a glowing piece of scenery's light comes from: low in it, as a crystal's heart. */
     private static Vec3 glowCentre(Scenery.Placed p) {
-        return p.position().add(0, p.profile().frameWorldHeight() * 0.3, 0);
+        return p.position().add(0, p.profile().frameWorldHeight() * p.scale() * 0.3, 0);
     }
 
     /** The feet of everyone walking about, whom the tall grass leans away from. */
@@ -646,7 +698,7 @@ public final class WorldRenderer implements AutoCloseable {
     private void sceneryGlow(Scenery.Placed p, Vec3 right, Vec3 up, double shine) {
         int rgb = p.profile().glow();
         float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
-        double size = p.profile().frameWorldHeight() * 0.9;
+        double size = p.profile().frameWorldHeight() * p.scale() * 0.9;
         Vec3 tl = glowCentre(p).sub(right.scale(size / 2)).add(up.scale(size / 2));
         batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (0.32 * shine));
     }

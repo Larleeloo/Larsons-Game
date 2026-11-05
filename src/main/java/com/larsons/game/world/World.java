@@ -810,20 +810,47 @@ public final class World {
             }
             case RAN_OFF -> combat.say("The " + a.kind().singular().toLowerCase(java.util.Locale.ROOT)
                     + " runs off", 0xE8D8A8, a.position(), a.height() + 0.4, true);
+            case DOWN -> {
+                combat.say("The " + a.kind().singular().toLowerCase(java.util.Locale.ROOT) + " falls", 0xE8D8A8,
+                        a.position(), a.height() + 0.4, true);
+                hunted(a);
+            }
+        }
+    }
+
+    /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
+    void hunted(Animal a) {
+        java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
+                + time));
+        int i = 0;
+        for (com.larsons.game.ambient.Hunting.Drop d : com.larsons.game.ambient.Hunting.drops(a.kind())) {
+            int n = d.roll(r);
+            ItemDef def = Hunted.byId(d.item());
+            if (n <= 0 || def == null) continue;
+            double ang = a.heading() + Math.PI / 2 + i * 2.1, reach = a.radius() * 0.6 + 0.25;
+            double x = a.position().x() + Math.cos(ang) * reach, z = a.position().z() + Math.sin(ang) * reach;
+            if (!lootFits(x, z)) {
+                x = a.position().x();
+                z = a.position().z();
+            }
+            spawn(Item.of(def), new Vec3(x, 0, z), n);
+            i++;
         }
     }
 
     /** What an animal's blow is called, over her: "Pecked!", "Stung!". */
     static String struck(AnimalKind k) {
         return switch (k) {
-            case GOOSE, DUCK -> "Pecked!";
+            case GOOSE, DUCK, ROBIN, BLUE_JAY, CARDINAL, CROW, OWL, PHEASANT, MACAW, TOUCAN, COCKATOO, FLAMINGO,
+                 PEACOCK -> "Pecked!";
             case SWAN -> "Battered!";
             case BEE -> "Stung!";
             case BEAR -> "Mauled!";
-            case HORSE, COW, SHEEP -> "Kicked!";
+            case EAGLE -> "Clawed!";
+            case HORSE, COW, SHEEP, DEER -> "Kicked!";
             case CAT -> "Scratched!";
             case DOG, FOX, PIG, RABBIT, SQUIRREL, IGUANA -> "Bitten!";
-            case BUTTERFLY -> "Tickled!";
+            case BUTTERFLY, HUMMINGBIRD -> "Tickled!";
         };
     }
 
@@ -937,10 +964,58 @@ public final class World {
             double a = c.heading() + (n == 1 ? 0 : -spread / 2 + spread * i / (n - 1))
                     + (random.nextDouble() - 0.5) * 0.15;
             double r = 1.35 + (i % 2) * 0.55 + random.nextDouble() * 0.2;
-            Vec3 land = terrain.onGround(c.position().add(SpriteView.headingVector(a).scale(r)));
+            Vec3 land = terrain.onGround(landing(c, a, r));
             items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
                     time + FIRST_THROW + NEXT_THROW * i));
         }
+    }
+
+    /** How near a wall (or anything solid) a thrown item may come down, metres. */
+    static final double LOOT_CLEAR = 0.35;
+
+    /**
+     * Where an item thrown out of chest {@code c} toward {@code heading},
+     * {@code r} metres, comes down: there, or - a wall, a building, a tree or
+     * a rock in the way - short of it, on the chest's side, or failing that
+     * along another way out of the chest. Never through a wall: inside a room
+     * the loot stays in the room.
+     */
+    Vec3 landing(Chest c, double heading, double r) {
+        Vec3 from = c.position();
+        double best = -1, bestHeading = heading;
+        for (double turn : new double[]{0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, Math.PI}) {
+            Vec3 dir = SpriteView.headingVector(heading + turn);
+            double clear = 0;
+            for (double step = Chest.RADIUS; ; step = Math.min(r, step + 0.1)) {
+                double d = step, x = from.x() + dir.x() * d, z = from.z() + dir.z() * d;
+                if (!lootFits(x, z) || Math.abs(terrain.height(x, z) - from.y()) > 1.2 && d > Chest.RADIUS + 0.4) break;
+                clear = d;
+                if (d >= r) break;
+            }
+            if (clear >= r - 1e-6) {
+                best = r;
+                bestHeading = heading + turn;
+                break;
+            }
+            if (clear > best) {
+                best = clear;
+                bestHeading = heading + turn;
+            }
+        }
+        double d = Math.max(Chest.RADIUS, best);
+        return from.add(SpriteView.headingVector(bestHeading).scale(d));
+    }
+
+    /** Whether loot can come down at {@code (x, z)}: inside the level, clear of walls, buildings, trunks and rocks. */
+    private boolean lootFits(double x, double z) {
+        if (bounds != null && (x < bounds[0] || x > bounds[1] || z < bounds[2] || z > bounds[3])) return false;
+        for (Building b : buildings) {
+            if (b.profile().room() != null && b.profile().room().piece() == com.larsons.game.building.Room.Piece.FLOOR) {
+                continue;
+            }
+            if (b.blocks(x, z, LOOT_CLEAR)) return false;
+        }
+        return !solidNear(x, z, LOOT_CLEAR * 0.5);
     }
 
     public void tick(double dt) {
@@ -1060,7 +1135,7 @@ public final class World {
      */
     public Eaten eat(int slot) {
         Item item = player.inventory().get(slot);
-        if (item == null || !item.def().isFood()) return null;
+        if (item == null || !item.def().edible()) return null;
         Food f = item.def().food();
         double h = Math.min(f.health(), Player.MAX_HEALTH - player.health());
         double s = Math.min(f.stamina(), Player.MAX_STAMINA - player.stamina());

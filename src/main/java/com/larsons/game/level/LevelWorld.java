@@ -187,6 +187,76 @@ public final class LevelWorld {
         return new Terrain.Wall(x0, z0, x1, z1, out.x(), out.z(), bottom, top);
     }
 
+    /** How far round the pointer a rock face for vines is looked for, metres. */
+    static final double FIT_REACH = 4;
+    /** The longest a fitted run of vines is, metres. */
+    static final double FIT_LONGEST = 40;
+
+    /**
+     * Fit vines {@code o} to the rock face nearest its spot (within {@value
+     * #FIT_REACH} m): turned to face out of the rock, moved to the face's
+     * foot, as long as the face runs on (at most {@value #FIT_LONGEST} m) -
+     * so they go where they are clicked on a cliff, however it is turned.
+     * False (and {@code o} as it was) when there is no face that near.
+     */
+    public static boolean fitVines(LevelObject o, HeightField hf) {
+        double step = Math.max(0.25, hf.step() / 2);
+        // the steepest ground round the spot
+        double bx = o.x(), bz = o.z(), best = slope(hf, bx, bz)[2];
+        for (double r = step; r <= FIT_REACH; r += step) {
+            int n = Math.max(8, (int) Math.round(2 * Math.PI * r / step));
+            for (int k = 0; k < n; k++) {
+                double a = 2 * Math.PI * k / n, x = o.x() + Math.cos(a) * r, z = o.z() + Math.sin(a) * r;
+                double sl = slope(hf, x, z)[2] - r * 0.02;            // (the nearer of two as steep)
+                if (sl > best) {
+                    best = sl;
+                    bx = x;
+                    bz = z;
+                }
+            }
+        }
+        if (best < Terrain.STEEP * 0.85) return false;
+        double[] g = slope(hf, bx, bz);
+        double len = Math.hypot(g[0], g[1]);
+        double ox = -g[0] / len, oz = -g[1] / len;                    // out of the rock: downhill
+        // down the face to its foot
+        double fx = bx, fz = bz;
+        for (int i = 0; i < 200 && slope(hf, fx, fz)[2] >= Terrain.STEEP * 0.85; i++) {
+            fx += ox * step;
+            fz += oz * step;
+        }
+        // along the face, each way, as long as the rock goes on just in from the foot
+        double ax = -oz, az = ox, left = 0, right = 0;
+        while (right < FIT_LONGEST / 2 && steepIn(hf, fx + ax * (right + step), fz + az * (right + step), ox, oz)) {
+            right += step;
+        }
+        while (left < FIT_LONGEST / 2 && steepIn(hf, fx - ax * (left + step), fz - az * (left + step), ox, oz)) {
+            left += step;
+        }
+        double length = Math.max(1, Math.round((left + right) * 2) / 2.0);
+        double mid = (right - left) / 2;
+        o.moveTo(fx + ax * mid, fz + az * mid);
+        o.turnTo(SpriteView.headingOf(ox, oz));
+        o.set("length", length);
+        return true;
+    }
+
+    /** Whether the ground just in from foot {@code (x, z)} - into the rock, against {@code (ox, oz)} - is a face. */
+    private static boolean steepIn(HeightField hf, double x, double z, double ox, double oz) {
+        for (double in = 0.5; in <= 1.5; in += 0.5) {
+            if (slope(hf, x - ox * in, z - oz * in)[2] >= Terrain.STEEP * 0.85) return true;
+        }
+        return false;
+    }
+
+    /** The ground's slope at {@code (x, z)}: its rise each way (x, z), and how steep it is (rise over run). */
+    private static double[] slope(HeightField hf, double x, double z) {
+        double d = Math.max(0.25, hf.step() / 2);
+        double gx = (hf.height(x + d, z) - hf.height(x - d, z)) / (2 * d);
+        double gz = (hf.height(x, z + d) - hf.height(x, z - d)) / (2 * d);
+        return new double[]{gx, gz, Math.hypot(gx, gz)};
+    }
+
     /** {@code o} as a piece of scenery standing on {@code terrain}, or null when its sprite is not there. */
     public static Scenery.Placed placed(LevelObject o, Terrain terrain, ScenerySprites sprites) {
         ScenerySprites.Sprite s = sprites.sprite(o.str("sprite", ""));
@@ -194,7 +264,8 @@ public final class LevelWorld {
         // its loop a little off its neighbours', always the same for the same object
         double jitter = ((o.id() * 2654435761L) & 0xFFFF) / 65535.0 * 0.6;
         return new Scenery.Placed(s, o.x(), terrain.height(o.x(), o.z()) + o.lift(), o.z(), o.yaw(),
-                o.bool("mirrored", false), Scenery.windPhase(o.x(), o.z(), jitter));
+                o.bool("mirrored", false), Scenery.windPhase(o.x(), o.z(), jitter), o.num("scale", 1),
+                ObjectTypes.tint(o));
     }
 
     /** {@code level}'s scenery standing on {@code terrain}, from {@code sprites}. */

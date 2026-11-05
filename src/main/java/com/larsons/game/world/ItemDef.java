@@ -92,9 +92,17 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         return Tack.is(this);
     }
 
-    /** Whether it is eaten: a picking from a foraging bush ({@link #food}). */
+    /**
+     * Whether it is a picking or a hunted thing ({@link #food}): stacked in the inventory - eaten,
+     * when it is {@link #edible}.
+     */
     public boolean isFood() {
         return food != null;
+    }
+
+    /** Whether it is eaten: a picking, a cut of meat - not an ingredient (a hide, a feather). */
+    public boolean edible() {
+        return food != null && food.edible();
     }
 
     /** How many go in one inventory slot: a picking's stack, else one. */
@@ -122,6 +130,8 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         ItemDef w = Wearables.byId(id);
         if (w != null) return w;
         ItemDef p = Pickings.byId(id);
-        return p != null ? p : Tack.byId(id);
+        if (p != null) return p;
+        ItemDef h = Hunted.byId(id);
+        return h != null ? h : Tack.byId(id);
     }
 }

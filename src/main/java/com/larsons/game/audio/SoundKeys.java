@@ -189,7 +189,21 @@ public final class SoundKeys {
             "goose", List.of("honk", "squawk", "hiss", "flap"),
             "swan", List.of("trumpet", "squawk", "hiss", "flap"),
             "bee", List.of("buzz", "swarm", "sting"),
-            "iguana", List.of("hiss"));
+            "iguana", List.of("hiss"),
+            "deer", List.of("call", "bleat"),
+            "robin", List.of("song", "squawk", "flap"),
+            "blue_jay", List.of("jeer", "squawk", "flap"),
+            "cardinal", List.of("whistle", "squawk", "flap"),
+            "crow", List.of("caw", "squawk", "flap"),
+            "owl", List.of("hoot", "screech", "flap"),
+            "eagle", List.of("cry", "screech", "flap"),
+            "pheasant", List.of("cackle", "squawk", "flap"),
+            "macaw", List.of("squawk", "shriek", "flap"),
+            "toucan", List.of("croak", "squawk", "flap"),
+            "cockatoo", List.of("screech", "squawk", "flap"),
+            "flamingo", List.of("honk", "squawk", "flap"),
+            "peacock", List.of("scream", "squawk", "rattle"),
+            "hummingbird", List.of("hum"));
 
     /**
      * The place itself, each a loop: the breeze over everything; each
@@ -721,9 +735,26 @@ public final class SoundKeys {
             case "buzz" -> "buzzing";
             case "swarm" -> "an angry swarm";
             case "sting" -> "stinging";
+            case "call" -> "calling";
+            case "song" -> "singing";
+            case "jeer" -> "jeering";
+            case "whistle" -> "whistling";
+            case "caw" -> "cawing";
+            case "hoot" -> "hooting";
+            case "screech" -> "screeching";
+            case "cry" -> "crying out";
+            case "cackle" -> "cackling";
+            case "shriek" -> "shrieking, hit";
+            case "croak" -> "croaking";
+            case "scream" -> "screaming";
+            case "rattle" -> "rattling its train";
+            case "hum" -> "wings humming";
             default -> sound;
         };
-        return Character.toUpperCase(animal.charAt(0)) + animal.substring(1) + ": " + what;
+        if (animal.equals("macaw") && sound.equals("squawk")) what = "squawking";
+        if ((animal.equals("owl") || animal.equals("eagle")) && sound.equals("screech")) what = "screeching, hit";
+        String name = animal.replace('_', ' ');
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1) + ": " + what;
     }
 
     private static String chestName(String state) {

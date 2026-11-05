@@ -60,7 +60,9 @@ public record ObjectType(String key, String label, Category category, List<Prop>
 
     /**
      * Something a kind keeps beside where it stands: a number, a line of
-     * text, one of a list of choices, or on/off.
+     * text, one of a list of choices, on/off, a colour ({@code "#rrggbb"},
+     * or none), or a list of colours (a herd's, {@code "natural"} for one as
+     * drawn).
      *
      * @param key      how it is written in the file
      * @param label    what the properties panel calls it
@@ -74,7 +76,7 @@ public record ObjectType(String key, String label, Category category, List<Prop>
     public record Prop(String key, String label, Kind kind, Object fallback, double min, double max, double step,
                        Function<LevelObject, List<String>> choices) {
 
-        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE }
+        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE, COLOUR, COLOURS }
 
         public static Prop number(String key, String label, double fallback, double min, double max, double step) {
             return new Prop(key, label, Kind.NUMBER, fallback, min, max, step, null);
@@ -90,6 +92,16 @@ public record ObjectType(String key, String label, Category category, List<Prop>
 
         public static Prop toggle(String key, String label, boolean fallback) {
             return new Prop(key, label, Kind.TOGGLE, fallback, 0, 0, 0, null);
+        }
+
+        /** A colour, {@code "#rrggbb"} - none until it is set. */
+        public static Prop colour(String key, String label) {
+            return new Prop(key, label, Kind.COLOUR, "", 0, 0, 0, null);
+        }
+
+        /** A list of colours ({@code "#rrggbb"}, or {@code "natural"}: as drawn) - none until it is set. */
+        public static Prop colours(String key, String label) {
+            return new Prop(key, label, Kind.COLOURS, java.util.List.of(), 0, 0, 0, null);
         }
 
         /** {@code o}'s value of it, or its fallback. */

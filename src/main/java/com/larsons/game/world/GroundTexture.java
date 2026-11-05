@@ -56,6 +56,8 @@ public final class GroundTexture implements AutoCloseable {
             uniform float uGroundTexel;   // metres a texel of the tiles spans
             uniform vec4 uGroundRect;     // the map's west/north corner (x, z) and its size each way
             uniform float uGroundHas[12]; // 1 for each material that loaded and is painted somewhere
+            uniform float uGroundCovered; // 1 when a rock face is painted over somewhere
+            uniform float uGroundTinted;  // 1 when the ground is tinted somewhere
 
             float groundHash(ivec2 p) {
                 uint h = uint(p.x) * 374761393u + uint(p.y) * 668265263u;
@@ -71,8 +73,42 @@ public final class GroundTexture implements AutoCloseable {
                            mix(groundHash(c + ivec2(0, 1)), groundHash(c + ivec2(1, 1)), f.x), f.y);
             }
 
+            vec3 groundColourOn(vec2 xz, vec2 tex);
+
             vec3 groundColour(vec2 xz) {
-                vec2 uv = xz / uGroundTile;
+                return groundColourOn(xz, xz);
+            }
+
+            // the map's layer (0..) at a block's middle, as groundColour reads it
+            vec4 groundLayer(vec2 xz, float layer) {
+                float blockSize = 2.0 * uGroundTexel;
+                vec2 at = (floor(xz / blockSize) + 0.5) * blockSize;
+                vec2 m = (at - uGroundRect.xy) / uGroundRect.zw;
+                vec2 mx = (xz - uGroundRect.xy) / uGroundRect.zw;
+                float inside = step(0.0, m.x) * step(m.x, 1.0) * step(0.0, m.y) * step(m.y, 1.0);
+                return textureGrad(uGroundMaps, vec3(m, layer), dFdx(mx), dFdy(mx)) * inside;
+            }
+
+            // how much the rock is painted over at xz (0: bare rock where it is steep), ragged at its edge
+            float groundCover(vec2 xz) {
+                float blockSize = 2.0 * uGroundTexel;
+                float c = groundLayer(xz, 3.0).r * uGroundCovered;
+                float jag = (groundHash(ivec2(floor(xz / blockSize)) + ivec2(91, 17)) - 0.5) * 0.2;
+                return smoothstep(0.45, 0.55, c + jag);
+            }
+
+            // the ground's colour c tinted as painted at xz: its lightness kept, in the tint's colour
+            vec3 groundTint(vec3 c, vec2 xz) {
+                vec4 t = groundLayer(xz, 4.0) * uGroundTinted;
+                float l = dot(c, vec3(0.299, 0.587, 0.114));
+                float tl = max(dot(t.rgb, vec3(0.299, 0.587, 0.114)), 0.08);
+                vec3 tinted = clamp(t.rgb * (l / tl), 0.0, 1.0);
+                return mix(c, tinted, clamp(t.a, 0.0, 1.0));
+            }
+
+            // the ground's colour by the map at xz, its tiles laid on at tex (a rock face's own plane)
+            vec3 groundColourOn(vec2 xz, vec2 tex) {
+                vec2 uv = tex / uGroundTile;
                 vec2 gx = dFdx(uv), gy = dFdy(uv);
                 vec3 c = textureGrad(uGroundTiles, vec3(uv, 0.0), gx, gy).rgb;
                 // the maps, read once for every block of 2 x 2 texels (with the true
@@ -112,8 +148,8 @@ public final class GroundTexture implements AutoCloseable {
     private final boolean[] loaded = new boolean[GroundMap.MATERIALS];
     /** The map last uploaded ({@link #use}), its groups' versions then, and its texture (null: all grass). */
     private GroundMap mapOf;
-    private final int[] mapVersions = new int[GroundMap.GROUPS];
-    private final boolean[] mapPainted = new boolean[GroundMap.GROUPS];
+    private final int[] mapVersions = new int[GroundMap.LAYERS];
+    private final boolean[] mapPainted = new boolean[GroundMap.LAYERS];
     private TextureArray maps;
     private float mapWest = (float) GroundMap.origin(), mapSize = (float) GroundMap.SIZE;
     private final float tile, texel;
@@ -166,7 +202,7 @@ public final class GroundTexture implements AutoCloseable {
         boolean other = ground != mapOf;
         if (!other && ground != null) {
             boolean same = true;
-            for (int g = 0; g < GroundMap.GROUPS; g++) same &= ground.version(g) == mapVersions[g];
+            for (int g = 0; g < GroundMap.LAYERS; g++) same &= ground.version(g) == mapVersions[g];
             if (same) return;
         } else if (!other) {
             return;
@@ -180,9 +216,9 @@ public final class GroundTexture implements AutoCloseable {
         if (ground == null) return;
         mapWest = (float) ground.west();
         mapSize = (float) ground.size();
-        if (maps == null) maps = TextureArray.data(ground.cells(), ground.cells(), GroundMap.GROUPS);
+        if (maps == null) maps = TextureArray.data(ground.cells(), ground.cells(), GroundMap.LAYERS);
         boolean changed = false;
-        for (int g = 0; g < GroundMap.GROUPS; g++) {
+        for (int g = 0; g < GroundMap.LAYERS; g++) {
             mapPainted[g] = !ground.isEmpty(g);
             if (!other && ground.version(g) == mapVersions[g]) continue;
             mapVersions[g] = ground.version(g);
@@ -227,6 +263,8 @@ public final class GroundTexture implements AutoCloseable {
             shader.set("uGroundHas[" + i + "]", loaded[i] && maps != null && mapPainted[i / 4] ? 1f : 0f);
         }
         shader.set("uGroundRect", mapWest, mapWest, mapSize, mapSize);
+        shader.set("uGroundCovered", maps != null && mapPainted[GroundMap.COVER] ? 1f : 0f);
+        shader.set("uGroundTinted", maps != null && mapPainted[GroundMap.TINT] ? 1f : 0f);
     }
 
     @Override

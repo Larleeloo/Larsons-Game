@@ -870,7 +870,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (!intent.attack()) return intent;
         Player p = world.player();
         Item held = p.inventory().held();
-        if (held == null || !held.def().isFood()) return intent;
+        if (held == null || !held.def().edible()) return intent;
         if (world.time() - lastBite >= BITE) {
             lastBite = world.time();
             eatHeld();
@@ -1375,6 +1375,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     toggleChest(c);
                 }
             }
+            // where she stands, printed (for scripted checks)
+            case "where" -> System.out.printf(java.util.Locale.ROOT, "[where] %.2f %.2f %.2f heading %.1f%n",
+                    p.feet().x(), p.feet().y(), p.feet().z(), Math.toDegrees(p.heading()));
             case "teleport" -> {
                 String[] a = argument.split("[ ,]+");
                 p.setPosition(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
