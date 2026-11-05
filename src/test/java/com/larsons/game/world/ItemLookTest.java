@@ -149,4 +149,21 @@ class ItemLookTest {
         assertTrue(WorldRenderer.isCarried(leftHand, "battle_axe"));
         assertFalse(WorldRenderer.isCarried(worn, "battle_axe"));
     }
+
+    @Test
+    void aForgedWeaponInHerHandsIsInItsOwnColours() {
+        ItemSprites items = new ItemSprites(Path.of("assets", "sprites"));
+        int[] axe = new int[256];
+        for (int i = 2; i < 2 + 12; i++) axe[i] = 0xFF000000 | (0x6B4A2A + i);  // a brown handle, then a blade
+        LayerStack.Layer hand = new LayerStack.Layer(Slot.CARRY_RIGHT, "battle_axe", null, 0, false, axe);
+        LayerStack.Result stack = new LayerStack.Result(List.of(hand), null, null, null, null, 0, 1, 10, false, false);
+        Forged red = Forged.fresh("Red handle").withBase("battle_axe").withTint("handle", 0xCA1525);
+        int[] p = WorldRenderer.inTier(stack, red.item(), items).layers().get(0).palette();
+        assertNotSame(axe, p);
+        for (int e = 2; e < 8; e++) assertNotEquals(axe[e], p[e], "the handle's six labels recoloured");
+        for (int e = 8; e < 14; e++) assertEquals(axe[e], p[e], "the blade as it is drawn");
+        assertSame(stack, WorldRenderer.inTier(stack, Forged.fresh("Plain").withBase("battle_axe").item(), items),
+                "no colours of its own: as drawn");
+        assertTrue(items.parts("battle_axe").containsAll(List.of("all", "handle", "blade")), "what the Forge offers");
+    }
 }

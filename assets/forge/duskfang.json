@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Duskfang",
+  "base": "sword",
+  "rarity": "epic",
+  "dice": 3,
+  "sides": 8,
+  "diceColour": "#5d86fa",
+  "effects": [
+    "venom",
+    "mystic"
+  ],
+  "tints": {
+    "blade": "#b722e7",
+    "handle": "#231c18",
+    "fittings": "#f9c36d"
+  }
+}

@@ -17,8 +17,9 @@ import com.larsons.game.world.World;
  * The fighting on the HUD, over the world:
  *
  * <ul>
- *   <li><b>the dice</b> above her head - one D20 for each the swing rolls, in
- *       the weapon's rarity's colour, tumbling, then coming up their numbers
+ *   <li><b>the dice</b> above her head - one D20 for each the swing rolls (a
+ *       forged weapon's own dice: d4 to d20, a d% as two), in the weapon's
+ *       rarity's colour (or the forged dice's), tumbling, then coming up their numbers
  *       one after another as the blow lands, their total over them and what
  *       the weapon's border adds under that;</li>
  *   <li><b>the damage</b> floating up off whatever was hit, in the weapon's
@@ -96,29 +97,34 @@ public final class CombatHud {
         if (head == null) return;
         Strike s = show.strike();
         DiceRoll roll = s.roll();
-        String folder = scale >= 1.5f ? "d20_px128" : "d20_px64";
-        int[] palette = CombatColours.diePalette(s.rarity(), s.border());
+        String px = scale >= 1.5f ? "_px128" : "_px64";
+        int[] palette = CombatColours.diePalette(s.rarity(), s.border(), s.diceRgb());
         double t = now - show.start();
         double settle = Math.max(0, show.land() - show.start() - LAND);
         float fade = (float) Math.max(0, Math.min(1, Math.min(t / 0.08, (show.end() - now) / 0.3)));
 
-        int n = roll.count(), rows = (n + ROW - 1) / ROW;
+        // a d% is two dice side by side: the tens' (00 - 90) and a d10's ones
+        boolean pct = roll.sides() == 100;
+        int per = pct ? 2 : 1;
+        int n = roll.count() * per, rows = (n + ROW - 1) / ROW;
         float gap = 2, bottom = head[1];
         boolean allUp = true;
-        for (int i = 0; i < n; i++) {
-            int row = i / ROW, inRow = Math.min(ROW, n - row * ROW), col = i % ROW;
+        for (int j = 0; j < n; j++) {
+            int i = j / per;
+            int row = j / ROW, inRow = Math.min(ROW, n - row * ROW), col = j % ROW;
             float x = head[0] - (inRow * DIE + (inRow - 1) * gap) / 2 + col * (DIE + gap);
             float y = bottom - (row + 1) * DIE - row * gap;
             double landAt = settle + i * STAGGER;
+            String[] die = face(roll.sides(), roll.face(i), j % per);
             SheetTexture sheet;
             int frame;
             if (t < landAt) {
                 allUp = false;
-                sheet = fx.sheet(folder, "roll");
-                frame = (int) Math.floor((t + i * 0.137) * 24);
-                y -= (float) Math.abs(Math.sin((t + i * 0.37) * 9)) * 7;     // the dice hop as they tumble
+                sheet = fx.sheet(die[0] + px, "roll");
+                frame = (int) Math.floor((t + j * 0.137) * 24);
+                y -= (float) Math.abs(Math.sin((t + j * 0.37) * 9)) * 7;     // the dice hop as they tumble
             } else {
-                sheet = fx.sheet(folder, String.format("land_%02d", roll.face(i)));
+                sheet = fx.sheet(die[0] + px, die[1]);
                 frame = (int) Math.min(7, Math.floor((t - landAt) * 24));
                 if (t - landAt < LAND) allUp = false;
             }
@@ -142,6 +148,43 @@ public final class CombatHud {
             ui.textShadowed(ui.small, note.text(), head[0] - ui.small.width(note.text()) / 2, top,
                     CombatColours.rgba(note.rgb(), fade));
         }
+    }
+
+    /**
+     * A row of dice of {@code sides} come up {@code values}, each {@code size}
+     * points, centred on {@code cx} with their tops at {@code y}, in {@code
+     * palette} - the Forge's look at a weapon's dice ({@code scale}: device
+     * pixels to a point, which picks the sheets).
+     */
+    public static void landed(Ui ui, CombatSprites fx, int sides, int[] values, int[] palette, float cx, float y,
+                              float size, float scale) {
+        String px = scale * size / DIE >= 1.5f ? "_px128" : "_px64";
+        int per = sides == 100 ? 2 : 1, n = values.length * per;
+        float gap = 2, x0 = cx - (n * size + (n - 1) * gap) / 2;
+        for (int j = 0; j < n; j++) {
+            String[] die = face(sides, values[j / per], j % per);
+            SheetTexture sheet = fx.sheet(die[0] + px, die[1]);
+            if (sheet != null) image(ui.batch(), sheet, 7, palette, x0 + j * (size + gap), y, size, 1f);
+        }
+    }
+
+    /**
+     * Which die shows {@code value} of a roll of {@code sides}, and its sheet:
+     * {@code {"d8", "land_05"}}. A d% shows on two ({@code half} 0 the tens'
+     * die, 00 - 90, and 1 a d10's ones, 0 for ten): 47 is 40 and 7, 100 is 00
+     * and 0. Dice of a kind there is no art for show as a d20's.
+     */
+    static String[] face(int sides, int value, int half) {
+        if (sides == 100) {
+            int ones = value % 10;
+            return half == 0 ? new String[]{"dpct", String.format("land_%02d", (value - ones) % 100)}
+                    : new String[]{"d10", String.format("land_%02d", ones == 0 ? 10 : ones)};
+        }
+        String kind = switch (sides) {
+            case 4, 6, 8, 10, 12, 20 -> "d" + sides;
+            default -> "d20";
+        };
+        return new String[]{kind, String.format("land_%02d", Math.max(1, Math.min(sides, value)))};
     }
 
     /**

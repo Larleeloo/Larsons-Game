@@ -20,6 +20,7 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.world.Chest;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Pickings;
 import com.larsons.game.world.Tack;
@@ -489,11 +490,16 @@ public final class ObjectTypes {
         for (ItemDef d : Pickings.ALL) out.add(d.id());
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
+        for (Forged f : Forged.all()) out.add(f.key());
         return out;
     }
 
-    /** The weapon, wearable or picking called {@code id}, or null. */
+    /** The weapon, wearable or picking called {@code id} - a forged weapon's own weapon - or null. */
     public static ItemDef itemDef(String id) {
+        if (id != null && id.startsWith(Forged.PREFIX)) {
+            Forged f = Forged.byId(id.substring(Forged.PREFIX.length()));
+            return f == null ? null : f.def();
+        }
         return ItemDef.byId(id);
     }
 
@@ -507,7 +513,12 @@ public final class ObjectTypes {
 
     /** The item an {@link #ITEM} object lies as: its tier if it names one it has, else as it is found. */
     public static Item item(LevelObject o) {
-        ItemDef d = itemDef(o.str("item", ""));
+        String id = o.str("item", "");
+        if (id.startsWith(Forged.PREFIX)) {
+            Forged f = Forged.byId(id.substring(Forged.PREFIX.length()));
+            return f == null ? null : f.item();
+        }
+        ItemDef d = itemDef(id);
         if (d == null) return null;
         Tier tier = Tier.byKey(o.str("tier", ""));
         Tier.Row row = Tier.row(d.id());
@@ -546,6 +557,8 @@ public final class ObjectTypes {
             out.add(new Entry(Item.of(d).name(), Category.ITEMS, ITEM,
                     row == null ? Map.of("item", d.id()) : Map.of("item", d.id(), "tier", row.lowest().key())));
         }
+        // the weapons forged in the Forge
+        for (Forged f : Forged.all()) out.add(new Entry(f.name(), Category.ITEMS, ITEM, Map.of("item", f.key())));
         for (ItemDef d : Wearables.ALL) {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }

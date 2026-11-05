@@ -31,11 +31,17 @@ import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
+import com.larsons.game.gfx.Batch;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.PixelPalette;
 import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Border;
+import com.larsons.game.world.Forged;
+import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Rarity;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Atmosphere;
@@ -99,7 +105,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge");
 
         final String label;
 
@@ -179,6 +185,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private LevelObject template;
     private String templateLabel = "";
     private boolean snap;
+    // --- the forge: the weapon being made, and which of its parts (or its dice) the swatches colour
+    private Forged forging = Forged.fresh("New weapon");
+    private int forgeColour;
     // --- select
     private final List<LevelObject> selection = new ArrayList<>();
     private final List<LevelObject> clipboard = new ArrayList<>();
@@ -1251,7 +1260,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean rightPanelShown() {
-        return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty();
+        return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty()
+                || tool == Tool.FORGE;
     }
 
     private void topBar(Ui ui) {
@@ -1259,18 +1269,24 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.rect(0, TOP_H - 1, ui.width(), 1, Theme.PANEL_EDGE);
         float x = 8;
         List<Tool> tools = tools();
+        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
+        // the buttons' padding: as roomy as the bar has room for (eleven tools and five buttons on a small screen)
+        float labels = 0;
+        for (int i = 0; i < tools.size(); i++) labels += ui.body.width((i < 10 ? "0 " : "") + tools.get(i).label);
+        for (String r : right) labels += ui.body.width(r);
+        int buttons = tools.size() + right.length;
+        float pad = Math.max(8, Math.min(22, (ui.width() - 16 - 60 - labels) / buttons - 4));
         for (int i = 0; i < tools.size(); i++) {
-            String label = (i + 1) % 10 + " " + tools.get(i).label;
-            float bw = ui.body.width(label) + 22;
+            String label = (i < 10 ? (i + 1) % 10 + " " : "") + tools.get(i).label;
+            float bw = ui.body.width(label) + pad;
             if (ui.button(label, x, 6, bw, TOP_H - 12, tools.get(i) == tool, true)) setTool(tools.get(i));
             x += bw + 4;
         }
         if (outside != null) x = floorButtons(ui, x + 8);
-        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
         float rx = ui.width() - 8;
         float[] widths = new float[right.length];
         for (int i = right.length - 1; i >= 0; i--) {
-            widths[i] = ui.body.width(right[i]) + 22;
+            widths[i] = ui.body.width(right[i]) + pad;
             rx -= widths[i] + 4;
         }
         float nameX = x + 10, nameW = rx - nameX - 6;
@@ -1422,6 +1438,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> "Name the level, choose its size, save it · F5: play from the spawn · Shift+F5: from the pointer";
             case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
+            case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
+                    + "effects, its parts' colours · Save it, then Place it (it is in Place → Items from then on)";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1452,6 +1470,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
+            case FORGE -> forgePanel(ui, px, py, pw);
         }
     }
 
@@ -1566,6 +1585,181 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         } catch (java.io.IOException e) {
             game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
         }
+    }
+
+    // --- the forge ---------------------------------------------------------------------------
+
+    /**
+     * The Forge: a weapon of Larson's own - one of the weapons, named and
+     * given a rarity, its dice (how many, d4 to d20 or d%) in a colour of
+     * their own, any of the three effects (Venom, Mystic, Bonded - together if
+     * wanted) and each part in a colour of the palette. Saved in {@code
+     * assets/forge/} for every level, and placed from Place → Items.
+     */
+    private void forgePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Forge a weapon", x, y);
+        List<Forged> all = Forged.all();
+        List<String> names = new ArrayList<>();
+        names.add("A new weapon");
+        int at = 0;
+        for (int i = 0; i < all.size(); i++) {
+            names.add(all.get(i).name());
+            if (all.get(i).id().equals(forging.id())) at = i + 1;
+        }
+        int pick = widgets.choice(ui, "Working on", names, at, x, y, w, 0.36f);
+        if (pick != at) {
+            forging = pick == 0 ? Forged.fresh("New weapon") : all.get(pick - 1);
+            forgeColour = 0;
+        }
+        y += 36;
+        String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
+        if (!name.strip().equals(forging.name()) && !name.isBlank()) forging = forging.withName(name);
+        y += 36;
+        List<String> bases = new ArrayList<>();
+        int bi = 0;
+        for (int i = 0; i < ItemDef.ALL.size(); i++) {
+            bases.add(ItemDef.ALL.get(i).name());
+            if (ItemDef.ALL.get(i).id().equals(forging.base())) bi = i;
+        }
+        int b = widgets.choice(ui, "Weapon", bases, bi, x, y, w, 0.36f);
+        if (b != bi) {
+            forging = forging.withBase(ItemDef.ALL.get(b).id());
+            forgeColour = 0;
+        }
+        y += 36;
+        List<String> rarities = new ArrayList<>();
+        for (Rarity r : Rarity.values()) rarities.add(r.label());
+        int ri = widgets.choice(ui, "Rarity", rarities, forging.rarity().ordinal(), x, y, w, 0.36f);
+        if (ri != forging.rarity().ordinal()) forging = forging.withRarity(Rarity.values()[ri]);
+        y += 40;
+
+        // the dice: how many, and of what
+        int n = (int) Math.round(widgets.stepper(ui, "Dice", forging.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
+        if (n != forging.dice()) forging = forging.withDice(n);
+        y += 34;
+        int kinds = Forged.SIDES.length;
+        float dw = (w - (kinds - 1) * 3) / kinds;
+        for (int i = 0; i < kinds; i++) {
+            int sides = Forged.SIDES[i];
+            if (ui.button(Forged.die(sides), x + i * (dw + 3), y, dw, 28, forging.sides() == sides, true)) {
+                forging = forging.withSides(sides);
+            }
+        }
+        y += 38;
+
+        // its effects: any of the three, all three if wanted
+        Border[] borders = Border.values();
+        float ew = (w - 8) / 3;
+        for (int i = 0; i < borders.length; i++) {
+            Border e = borders[i];
+            boolean on = forging.effects().contains(e);
+            float ex = x + i * (ew + 4);
+            if (ui.button(e.label(), ex, y, ew, 28, on, true)) forging = forging.withEffect(e, !on);
+            ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
+        }
+        y += 38;
+
+        // the colours: of a part (or all of it), or of the dice
+        List<String> parts = game.items().parts(forging.base());
+        List<String> targets = new ArrayList<>();
+        for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
+        targets.add("The dice");
+        forgeColour = Math.floorMod(forgeColour, targets.size());
+        forgeColour = widgets.choice(ui, "Colour", targets, forgeColour, x, y, w, 0.36f);
+        y += 34;
+        boolean dice = forgeColour == targets.size() - 1;
+        String part = dice ? null : parts.get(forgeColour);
+        int current = dice ? forging.diceRgb() : forging.tints().getOrDefault(part, -1);
+        int cols = 16;
+        float size = Math.min(16, w / cols);
+        int picked = widgets.swatches(ui, colours, current, x, y, cols, size);
+        if (picked >= 0) forging = dice ? forging.withDiceRgb(picked) : forging.withTint(part, picked);
+        y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
+        if (ui.button(dice ? "The rarity's colour" : "As it is drawn", x, y, w, 26, false, current >= 0)) {
+            forging = dice ? forging.withDiceRgb(-1) : forging.withTint(part, -1);
+        }
+        y += 34;
+
+        float bw = (w - 8) / 3;
+        if (ui.button("Save", x, y, bw, 30)) saveForged(false);
+        if (ui.button("Place it", x + bw + 4, y, bw, 30)) saveForged(true);
+        if (ui.button("Delete", x + 2 * (bw + 4), y, bw, 30, false, forging.id() != null)) deleteForged();
+    }
+
+    /** Keep the weapon being forged; {@code place}: and take up placing it. */
+    private void saveForged(boolean place) {
+        try {
+            forging = Forged.save(forging);
+            palette = ObjectTypes.palette();
+            Sounds.play(SoundKeys.ui("place"));
+            if (place) {
+                setTool(Tool.PLACE);
+                for (int i = 0; i < palette.size(); i++) {
+                    if (forging.key().equals(palette.get(i).props().get("item"))) choose(i);
+                }
+                game.toast("Placing " + forging.name() + " - click where it lies", Theme.HINT);
+            } else {
+                game.toast("Saved " + forging.name() + " - it is in Place → Items", Theme.HINT);
+            }
+        } catch (java.io.IOException e) {
+            game.toast("Could not save it: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** Throw away the weapon being forged (one already placed in a level lies there no more). */
+    private void deleteForged() {
+        if (forging.id() == null) return;
+        try {
+            Forged.delete(forging.id());
+            palette = ObjectTypes.palette();
+            game.toast("Deleted " + forging.name(), Theme.HINT);
+            Sounds.play(SoundKeys.ui("remove"));
+            forging = Forged.fresh("New weapon");
+        } catch (java.io.IOException e) {
+            game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** The weapon being forged as it will look: turning, its name and rarity, its dice as they come up, its effects. */
+    private void forgePreview(Ui ui, float x, float y, float w) {
+        Forged f = forging;
+        y = heading(ui, "As it will be", x, y);
+        ItemSprites items = game.items();
+        ItemSprites.Spin spin = items.spin(f.base());
+        ItemSprites.Icon icon = spin == null ? null : items.icon(f.base(), f.tints());
+        float s = w * 0.86f;
+        if (icon != null) {
+            int frame = (int) Math.floor(view.world().time() / 6.0 * icon.frames());
+            float[] uv = icon.uv(frame);
+            float ix = x + (w - s) / 2, iy = y;
+            Batch b = ui.batch();
+            float[] rc = f.rarity().colour(1f);
+            b.glowRect(icon.halo(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], rc[0], rc[1], rc[2], 0.55f);
+            if (!f.effects().isEmpty()) {
+                float[] bc = f.effects().iterator().next().colour(1f);
+                b.rect(icon.ring(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], 0.9f);
+            }
+            b.rect(icon.sprite(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1);
+        }
+        y += s + 6;
+        ui.text(ui.body, f.name(), x, y, f.rarity().colour(1f));
+        y += 28;
+        ItemDef base = f.def();
+        ui.text(ui.small, f.rarity().label() + " - forged " + base.name().toLowerCase(java.util.Locale.ROOT)
+                + " - rolls " + f.notation(), x, y, Theme.ITEM);
+        y += 22;
+        for (Border e : f.effects()) {
+            y += ui.paragraph(ui.small, e.label() + ": " + e.effect(), x, y, w, e.colour(1f)) + 2;
+        }
+        y += 8;
+        // its dice, come up highest (a d% as its tens and its ones)
+        int[] values = new int[Math.min(f.dice(), 6)];
+        for (int i = 0; i < values.length; i++) values[i] = Math.max(1, f.sides() - i);
+        int[] pal = com.larsons.game.combat.CombatColours.diePalette(f.rarity(),
+                f.effects().isEmpty() ? null : f.effects().iterator().next(), f.diceRgb());
+        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), f.sides(), values, pal,
+                x + w / 2, y, Math.min(48, (w - 12) / Math.max(4, values.length * (f.sides() == 100 ? 2 : 1))),
+                ui.scale());
     }
 
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
@@ -2276,6 +2470,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float w = RIGHT_W - 8, x = ui.width() - RIGHT_W, y = TOP_H + 8, h = ui.height() - TOP_H - HELP_H - 16;
         ui.panel(x, y, w, h);
         float px = x + 12, pw = w - 24, py = y + 10;
+        if (tool == Tool.FORGE) {
+            forgePreview(ui, px, py, pw);
+            return;
+        }
         if (tool == Tool.PLACE) {
             py = heading(ui, "Placing", px, py);
             ui.text(ui.body, templateLabel, px, py, Theme.TITLE);
@@ -2605,6 +2803,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private static String shownChoice(String key, String option) {
         if (key.equals("item")) {
+            if (option.startsWith(Forged.PREFIX)) {
+                Forged f = Forged.byId(option.substring(Forged.PREFIX.length()));
+                return f == null ? option : f.name() + " (forged)";
+            }
             var d = ObjectTypes.itemDef(option);
             return d == null ? option : d.name();
         }
@@ -2815,6 +3017,32 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "weathernow" -> view.world().weatherNow().set(Weather.Kind.byKey(a[0]),
                     a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
+            case "forge" -> {
+                // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |
+                // effect <key> on|off | tint <part> <#rgb|none> | dicecolour <#rgb|none> | colour <n> | save | place
+                String what = a[0], rest = argument.trim().substring(what.length()).trim();
+                switch (what) {
+                    case "new" -> forging = Forged.fresh(rest.isEmpty() ? "New weapon" : rest);
+                    case "open" -> {
+                        Forged f = Forged.byId(rest);
+                        if (f != null) forging = f;
+                    }
+                    case "name" -> forging = forging.withName(rest);
+                    case "base" -> forging = forging.withBase(rest);
+                    case "rarity" -> forging = forging.withRarity(Rarity.byKey(rest));
+                    case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
+                    case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
+                    case "effect" -> forging = forging.withEffect(Border.byKey(a[1]), a.length < 3 || a[2].equals("on"));
+                    case "tint" -> forging = forging.withTint(a[1], a[2].equals("none") ? -1
+                            : Integer.parseInt(a[2].replace("#", ""), 16));
+                    case "dicecolour" -> forging = forging.withDiceRgb(rest.equals("none") ? -1
+                            : Integer.parseInt(rest.replace("#", ""), 16));
+                    case "colour" -> forgeColour = Integer.parseInt(rest);
+                    case "save" -> saveForged(false);
+                    case "place" -> saveForged(true);
+                    default -> { }
+                }
+            }
             case "listen" -> {
                 // listen <song> [seconds] [play]: the Level tool's player on a song, at a time, playing
                 if (a.length > 0) listen(a[0]);

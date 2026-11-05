@@ -18,17 +18,32 @@ import java.util.Objects;
  * {@code silver_necklace}, {@code dye_pink}, {@code belt:epic} - and {@link
  * #parse} reads it back.
  *
+ * <p>A weapon forged in Creative Mode ({@link Forged}) is its weapon with no
+ * tier, of the rarity it was given, its colours, dice and effects its own:
+ * {@code forged:duskfang}.
+ *
  * @param def    what kind of thing it is
  * @param tier   its tier, or null (an item with no tiers)
  * @param rarity how rare it is (a weapon's is its tier's)
  * @param border its rare border, or null
+ * @param forged what it was forged as, or null (anything not forged)
  */
-public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
+public record Item(ItemDef def, Tier tier, Rarity rarity, Border border, Forged forged) {
 
     public Item {
         Objects.requireNonNull(def, "def");
+        if (forged != null) {
+            tier = null;
+            rarity = forged.rarity();
+            border = null;
+        }
         if (tier != null) rarity = tier.rarity();
         if (rarity == null) rarity = Rarity.COMMON;
+    }
+
+    /** An item that was not forged. */
+    public Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
+        this(def, tier, rarity, border, null);
     }
 
     /**
@@ -55,9 +70,26 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
         return new Item(def, null, rarity, null);
     }
 
-    /** This item with {@code border} (null: none). */
+    /** This item with {@code border} (null: none); a forged one as it is. */
     public Item withBorder(Border border) {
-        return new Item(def, tier, rarity, border);
+        return forged != null ? this : new Item(def, tier, rarity, border);
+    }
+
+    /** Whether it has {@code b}'s effect: its border, or one it was forged with. */
+    public boolean has(Border b) {
+        return b != null && (border == b || forged != null && forged.effects().contains(b));
+    }
+
+    /** The borders' effects it has: its border, or those it was forged with (none: empty). */
+    public java.util.List<Border> borders() {
+        if (forged != null) return java.util.List.copyOf(forged.effects());
+        return border == null ? java.util.List.of() : java.util.List.of(border);
+    }
+
+    /** The colour it is ringed in: its border's, or its first forged effect's; null for none. */
+    public Border ring() {
+        java.util.List<Border> b = borders();
+        return b.isEmpty() ? null : b.get(0);
     }
 
     /** The kind's id: the folder its sprites are in, the sounds it makes. */
@@ -65,6 +97,7 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
 
     /** What it is called: the chart's name ("Crystal Axe"), else the kind's ("Belt"). */
     public String name() {
+        if (forged != null) return forged.name();
         String n = Tier.name(def.id(), tier);
         if (n != null) return n;
         return tier == null ? def.name() : tier.label() + " " + def.name();
@@ -82,6 +115,7 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
 
     /** One word for it: {@code id[:tier|:rarity][:border]} (see the class comment). */
     public String key() {
+        if (forged != null) return forged.key();
         StringBuilder s = new StringBuilder(def.id());
         Tier.Row row = Tier.row(def.id());
         if (tier != null) {
@@ -102,6 +136,10 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border) {
     public static Item parse(String text) {
         if (text == null || text.isBlank()) return null;
         String[] parts = text.trim().split("[:\\s]+");
+        if (parts[0].equals("forged")) {
+            Forged f = parts.length > 1 ? Forged.byId(parts[1]) : null;
+            return f == null ? null : f.item();
+        }
         ItemDef def = ItemDef.byId(parts[0]);
         if (def == null) return null;
         Item item = of(def);

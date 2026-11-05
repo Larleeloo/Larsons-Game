@@ -784,16 +784,18 @@ public final class WorldRenderer implements AutoCloseable {
      * {@code stack} with the weapon in her hands - the carried layers of
      * {@code wielded}, in either hand - in its tier's colours ({@code
      * items}' {@link ItemSprites#carriedPalette}): a Sharper Axe's handle
-     * black, a Perfect Sword gold. The stack itself when nothing changes.
+     * black, a Perfect Sword gold - a forged weapon in its own colours. The
+     * stack itself when nothing changes.
      */
     static LayerStack.Result inTier(LayerStack.Result stack, Item wielded, ItemSprites items) {
-        if (stack == null || wielded == null || wielded.tier() == null) return stack;
-        String id = wielded.id(), tier = wielded.tier().key();
+        if (stack == null || wielded == null || wielded.tier() == null && wielded.forged() == null) return stack;
+        String id = wielded.id(), tier = wielded.tier() == null ? null : wielded.tier().key();
         List<LayerStack.Layer> layers = null;
         for (int i = 0; i < stack.layers().size(); i++) {
             LayerStack.Layer l = stack.layers().get(i);
             if (!isCarried(l, id) || l.palette() == null) continue;
-            int[] p = items.carriedPalette(l.palette(), id, tier);
+            int[] p = wielded.forged() != null ? items.carriedForged(l.palette(), id, wielded.forged().tints())
+                    : items.carriedPalette(l.palette(), id, tier);
             if (p == l.palette()) continue;
             if (layers == null) layers = new ArrayList<>(stack.layers());
             layers.set(i, l.withPalette(p));

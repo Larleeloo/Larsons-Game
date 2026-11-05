@@ -119,7 +119,7 @@ final class ItemRenderer implements AutoCloseable {
         batch.glow(dot, corner(c, right, up, hs), right.scale(hs), up.scale(-hs), rc[0], rc[1], rc[2], halo);
 
         SheetTexture sheet = spin == null ? null : sheet(id, SpriteView.of(eye, c, 0, yaw).elevation());
-        Border border = g.item.border();
+        Border border = g.item.ring();
         if (sheet != null) {
             drawSprite(g, t, c, right, up, spin, sheet, rc, border, pickup);
         } else {
@@ -162,6 +162,7 @@ final class ItemRenderer implements AutoCloseable {
         }
         String tier = g.item.tier() == null ? null : g.item.tier().key();
         int palette = batch.palette(pickup != null ? items.paint(sheet, pickup.spin(), pickup.part(), pickup.rgb())
+                : g.item.forged() != null ? items.forged(sheet, g.def.id(), g.item.forged().tints())
                 : items.palette(sheet, g.def.id(), tier));
         batch.quadClipped(sheet.texture(), q[0], q[1], q[2], uv[0], uv[1], uv[2], uv[3],
                 cu0, cv0, cu1, cv1, 1, 1, 1, 1, palette);

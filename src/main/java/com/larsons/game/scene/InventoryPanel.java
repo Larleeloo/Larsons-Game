@@ -9,6 +9,7 @@ import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Border;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Store;
@@ -23,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
@@ -649,6 +651,7 @@ final class InventoryPanel {
         ItemSprites.Spin spin = items.spin(id);
         ItemSprites.Icon icon = spin == null ? null
                 : pickup != null ? items.icon(id, pickup.part(), pickup.rgb())
+                : item.forged() != null ? items.icon(id, item.forged().tints())
                 : items.icon(id, item.tier() == null ? null : item.tier().key());
         if (icon == null) {
             Texture t = game.sprites().icon(d.id(), d.fallbackIcon());
@@ -666,7 +669,7 @@ final class InventoryPanel {
         Batch b = ui.batch();
         float[] rc = item.rarity().colour(1f);
         b.glowRect(icon.halo(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], rc[0], rc[1], rc[2], RARITY_GLOW * alpha);
-        Border border = item.border();
+        Border border = item.ring();
         if (border != null) {
             float[] bc = border.colour(1f);
             float k = (float) (0.75 + 0.25 * Math.sin(world.time() * 2 * Math.PI * 0.8));
@@ -676,18 +679,43 @@ final class InventoryPanel {
     }
 
     /**
+     * A forged weapon's effects: one's in full ("Venom: +50% of damage as
+     * ..."), two or three named and in short ("Venom, Mystic: poison, ×2.5 for
+     * double mana").
+     */
+    private static String effects(Forged f) {
+        if (f.effects().size() == 1) {
+            Border b = f.effects().iterator().next();
+            return b.label() + ": " + b.effect();
+        }
+        List<String> out = new ArrayList<>();
+        for (Border b : f.effects()) {
+            out.add(switch (b) {
+                case VENOM -> "poison";
+                case MYSTIC -> "×2.5 for double mana";
+                case BONDED -> "+10% a living thing hit";
+            });
+        }
+        return f.effectsText() + ": " + String.join(", ", out);
+    }
+
+    /**
      * The item's name in its rarity's colour (and how many, for a stack), its
      * rarity (and tier), its border's effect - or what eating it gives - and
      * {@code hint}.
      */
     private void tooltip(Ui ui, Item item, int amount, String hint, float x, float y) {
         String title = item.fullName() + (amount > 1 ? "  x" + amount : "");
+        Forged forged = item.forged();
         String rarity = item.def().isFood() ? item.def().food().kind() + " - " + item.rarity().label()
+                : forged != null ? item.rarity().label() + " - forged " + item.def().name().toLowerCase(Locale.ROOT)
+                        + ", rolls " + forged.notation()
                 : item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
         Border border = item.border();
         String effect = item.def().edible() ? "Eat: " + item.def().food().effect()
                 : item.def().isFood() ? "An ingredient, for the crafting to come"
                 : item.def().isTack() ? "Saddles a horse: walk up to one and press E"
+                : forged != null ? (forged.effects().isEmpty() ? null : effects(forged))
                 : border == null ? null : border.label() + " border: " + border.effect();
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
