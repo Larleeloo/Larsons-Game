@@ -530,6 +530,8 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/saddle_on.mp3                            Saddling a horse                                 world/saddle_on
   world/mount.mp3                                Getting up on a horse                            world/mount
   world/dismount.mp3                             Getting down off a horse                         world/dismount
+  world/barrel_break.mp3                         A barrel broken open                             world/barrel_break
+  world/crate_break.mp3                          A crate broken open                              world/crate_break
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat

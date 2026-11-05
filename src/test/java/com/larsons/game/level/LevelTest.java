@@ -254,6 +254,30 @@ class LevelTest {
     }
 
     @Test
+    void aBarrelACrateAndAStorageChestHoldWhatTheyAreGiven() {
+        Level l = Level.blank("cellar", 64);
+        LevelObject barrel = l.add(ObjectTypes.BUILDING, 2, 0, 0, Map.of("kind", "barrel", "contents", "sage x4"));
+        l.add(ObjectTypes.BUILDING, -2, 0, 0, Map.of("kind", "crate"));
+        l.add(ObjectTypes.BUILDING, 9, 9, 0, Map.of("kind", "cottage", "contents", "sage"));
+        LevelObject chest = l.add(ObjectTypes.CHEST, 0, 4, 0, Map.of("loot", false, "contents", "sword"));
+        LevelObject loot = l.add(ObjectTypes.CHEST, 0, -4, 0, Map.of("contents", "sword"));
+        World w = new World(new Wardrobe());
+        LevelWorld.populate(w, l, ScenerySprites.NONE, CombatTuning.defaults());
+        assertEquals(3, w.stores().size(), "a cottage holds nothing, and a loot chest gives its loot");
+        assertEquals(4, w.store(barrel.id()).items().amount(0));
+        assertEquals(com.larsons.game.world.Store.Kind.CHEST, w.store(chest.id()).kind());
+        assertNotNull(w.chests().stream().filter(c -> c.store() != null).findFirst().orElse(null));
+        // what is asked in the properties panel: what it holds only where it holds anything
+        ObjectType.Prop contents = ObjectTypes.get(ObjectTypes.CHEST).props().stream()
+                .filter(p -> p.key().equals("contents")).findFirst().orElseThrow();
+        assertTrue(ObjectTypes.applies(chest, contents));
+        assertFalse(ObjectTypes.applies(loot, contents));
+        assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.label().equals("Storage chest")));
+        LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
+        assertTrue(w.stores().isEmpty(), "taken away with the rest");
+    }
+
+    @Test
     void aLevelKeepsItsLifeAndItsSwarmsOfCritters(@TempDir Path root) throws IOException {
         Level l = Level.blank("Pond", 64);
         assertFalse(LevelIO.json(l).contains("\"life\""), "nothing to write while it is as it comes");

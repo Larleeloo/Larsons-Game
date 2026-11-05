@@ -198,6 +198,29 @@ public final class Inventory implements Iterable<Item> {
         return add(item);
     }
 
+    /**
+     * Put {@code amount} of {@code item} in: onto the stacks of it with room,
+     * then into empty slots - the rest of the inventory's first when {@code
+     * stowing}, out of the way of what is in hand - and return how many did
+     * not fit.
+     */
+    public int put(Item item, int amount, boolean stowing) {
+        Objects.requireNonNull(item);
+        int left = amount;
+        if (item.def().stack() > 1) {
+            for (int i = 0; i < slots.length && left > 0; i++) if (slots[i] != null) left = merge(i, item, left);
+        }
+        int first = stowing ? HOTBAR : 0;
+        for (int k = 0; k < slots.length && left > 0; k++) {
+            int i = (first + k) % slots.length;
+            if (slots[i] != null) continue;
+            int n = Math.min(left, Math.max(1, item.def().stack()));
+            set(i, item, n);
+            left -= n;
+        }
+        return left;
+    }
+
     /** Whether one more {@code item} would fit: on a stack of it, or in an empty slot. */
     public boolean hasRoomFor(Item item) {
         return stackWithRoom(item) >= 0 || count() < slots.length;

@@ -45,4 +45,11 @@ public interface Target {
 
     /** What it is called (the lock-on says it). */
     default String name() { return "Target"; }
+
+    /**
+     * Whether it is something to fight - a creature, a dummy - that the
+     * lock-on picks and a Bonded weapon counts; false for a barrel or a
+     * crate, only ever hit to break it.
+     */
+    default boolean living() { return true; }
 }

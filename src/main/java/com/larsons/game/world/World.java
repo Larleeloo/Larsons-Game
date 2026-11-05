@@ -182,6 +182,8 @@ public final class World {
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
     private final List<Building> buildings = new ArrayList<>();
+    /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
+    private final List<Store> stores = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Tack.addTo(Wearables.addTo(new Loot()));
     private final List<Dummy> dummies = new ArrayList<>();
@@ -229,6 +231,7 @@ public final class World {
         private final List<GroundItem> items;
         private final List<Chest> chests;
         private final List<Building> buildings;
+        private final List<Store> stores;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -250,6 +253,7 @@ public final class World {
             items = List.copyOf(w.items);
             chests = List.copyOf(w.chests);
             buildings = List.copyOf(w.buildings);
+            stores = List.copyOf(w.stores);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -285,6 +289,7 @@ public final class World {
         items.clear();
         chests.clear();
         buildings.clear();
+        stores.clear();
         dummies.clear();
         fliers.clear();
         soundSpots.clear();
@@ -311,6 +316,8 @@ public final class World {
         chests.addAll(p.chests);
         buildings.clear();
         buildings.addAll(p.buildings);
+        stores.clear();
+        stores.addAll(p.stores);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -379,6 +386,64 @@ public final class World {
         return b;
     }
 
+    /** Keep {@code s} in the world: a barrel's, a crate's or a storage chest's hold. */
+    public Store addStore(Store s) {
+        stores.add(s);
+        return s;
+    }
+
+    /** The barrels, crates and storage chests. */
+    public List<Store> stores() { return stores; }
+
+    /** The store that is level object {@code id}, or null. */
+    public Store store(int id) {
+        for (Store s : stores) if (s.id() == id) return s;
+        return null;
+    }
+
+    /** The nearest barrel or crate she can reach into, or null (a storage chest is opened as a chest). */
+    public Store reachableStore() {
+        Store best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Store s : stores) {
+            if (s.kind() == Store.Kind.CHEST || !s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * {@code s} broken open: gone (its barrel or crate taken away), what it
+     * held spilled out round where it stood - never through a wall - and
+     * the crack of it.
+     */
+    void smash(Store s) {
+        stores.remove(s);
+        buildings.removeIf(b -> b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null);
+        Vec3 at = s.position();
+        combat.sound("world/" + s.kind().key() + "_break", at, 1);
+        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT) + " breaks", 0xE8D8A8, at,
+                s.height() + 0.4, true);
+        Inventory held = s.items();
+        int k = 0;
+        for (int i = 0; i < held.size(); i++) {
+            Item it = held.get(i);
+            if (it == null) continue;
+            double ang = s.heading() + k * 2.39996, reach = 0.35 + 0.18 * (k % 3);
+            double x = at.x() + Math.cos(ang) * reach, z = at.z() + Math.sin(ang) * reach;
+            if (!lootFits(x, z)) {
+                x = at.x();
+                z = at.z();
+            }
+            spawn(it, new Vec3(x, 0, z), held.amount(i));
+            k++;
+        }
+    }
+
     /** The building that is level object {@code id}, or null. */
     public Building building(int id) {
         for (Building b : buildings) if (b.id() == id) return b;
@@ -425,6 +490,7 @@ public final class World {
     public List<Target> targets() {
         List<Target> out = new ArrayList<>(dummies);
         out.addAll(fliers);
+        for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         return out;
     }
@@ -569,8 +635,12 @@ public final class World {
             int opens = c.opens();
             if (opens != opensSeen.getOrDefault(c, 0)) {
                 opensSeen.put(c, opens);
-                opened(c);
+                if (c.store() == null) opened(c);           // (a storage chest throws nothing out)
             }
+        }
+        for (Store s : List.copyOf(stores)) {
+            s.tick(dt);
+            if (s.broken()) smash(s);
         }
         for (Dummy d : dummies) {
             d.tick(dt);

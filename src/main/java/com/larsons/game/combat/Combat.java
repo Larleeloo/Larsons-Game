@@ -461,7 +461,7 @@ public final class Combat {
     public static Target lockCandidate(Vec3 eye, Vec3 look, Vec3 feet, List<Target> targets, Target after) {
         List<Target> in = new ArrayList<>();
         for (Target t : targets) {
-            if (t.alive() && t.position().horizontalDistance(feet) <= LOCK_RANGE) in.add(t);
+            if (t.alive() && t.living() && t.position().horizontalDistance(feet) <= LOCK_RANGE) in.add(t);
         }
         if (in.isEmpty()) return null;
         Vec3 flat = new Vec3(look.x(), 0, look.z()).normalize(new Vec3(0, 0, -1));
@@ -512,7 +512,7 @@ public final class Combat {
         Target best = null;
         double bestD = LOCK_RANGE;
         for (Target t : targets) {
-            if (t == not || !t.alive()) continue;
+            if (t == not || !t.alive() || !t.living()) continue;
             double d = t.position().horizontalDistance(feet);
             if (d <= bestD) {
                 best = t;
@@ -698,7 +698,7 @@ public final class Combat {
 
     /** Bonded: remember that {@code weapon} hit {@code t} now. */
     private void remember(Item weapon, Target t) {
-        if (weapon == null || weapon.border() != Border.BONDED) return;
+        if (weapon == null || weapon.border() != Border.BONDED || !t.living()) return;
         bonds.computeIfAbsent(weapon, k -> new IdentityHashMap<>()).put(t, now);
     }
 

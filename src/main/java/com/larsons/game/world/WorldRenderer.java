@@ -363,9 +363,12 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
                     c.state().loops(), c.time(), world.time(), chestView, c.light(),
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
+            // a chest things are kept in is a plain chest: none of a loot chest's magic smoke round it
+            List<LayerStack.Layer> shown = c.store() == null ? cs.layers()
+                    : cs.layers().stream().filter(l -> l.item() == null || !l.item().startsWith("smoke")).toList();
             Runnable chest = () -> {
                 batch.depthAnchor(c.position());
-                LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
+                LayerStack.drawBillboard(batch, shown, cs.framing(), cs.view().elevation(),
                         c.position(), right, up, 1f);
             };
             draws.add(chest);

@@ -2250,6 +2250,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         for (ObjectType.Prop p : type.props()) {
+            if (!ObjectTypes.applies(o, p)) continue;
             Object v = p.value(o);
             switch (p.kind()) {
                 case NUMBER -> {

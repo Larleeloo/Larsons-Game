@@ -154,7 +154,7 @@ public final class SoundKeys {
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
             "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
-            "saddle_on", "mount", "dismount");
+            "saddle_on", "mount", "dismount", "barrel_break", "crate_break");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -778,6 +778,8 @@ public final class SoundKeys {
             case "saddle_on" -> "Saddling a horse";
             case "mount" -> "Getting up on a horse";
             case "dismount" -> "Getting down off a horse";
+            case "barrel_break" -> "A barrel broken open";
+            case "crate_break" -> "A crate broken open";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")

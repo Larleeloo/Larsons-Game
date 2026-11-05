@@ -27,6 +27,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.Wearables;
+import com.larsons.game.world.Store;
 import com.larsons.game.world.World;
 
 import java.util.ArrayList;
@@ -143,10 +144,20 @@ public final class ObjectTypes {
                     Item item = item(o);
                     if (item != null) b.world().spawn(item, b.onGround(o));
                 }));
+        // a chest: of loot (it throws out what the level's loot gives, once) or for keeping things in (Store)
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
-                List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE))), Chest.RADIUS, 0.9,
+                List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE)),
+                        Prop.toggle("loot", "Throws out loot", true),
+                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")), Chest.RADIUS, 0.9,
                 0xC89A50, false,
-                (o, b) -> b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()))));
+                (o, b) -> {
+                    Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()));
+                    if (o.bool("loot", true)) return;
+                    Store s = new Store(o.id(), Store.Kind.CHEST, c.position(), o.yaw());
+                    s.fill(o.str("contents", ""));
+                    c.setStore(s);
+                    b.world().addStore(s);
+                }));
         register(new ObjectType(DUMMY, "Training dummy", Category.COMBAT,
                 List.of(Prop.number("health", "Health", 100, 1, 10000, 10)), Dummy.RADIUS, Dummy.HEIGHT, 0xC08A60,
                 false, (o, b) -> b.world().addDummy(new Dummy(b.onGround(o), o.yaw(), o.num("health", 100),
@@ -231,12 +242,20 @@ public final class ObjectTypes {
 
     static {
         // a house, a mill, a castle's keep, a length of its wall: coloured and patterned part by part (its look)
+        // (a barrel or a crate holds things too - and breaks: Store)
         register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
-                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys())),
+                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys()),
+                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")),
                 3, 5, 0xC8A27A, false,
                 (o, b) -> {
                     Building building = building(o, b.terrain());
-                    if (building != null) b.world().addBuilding(building);
+                    if (building == null) return;
+                    b.world().addBuilding(building);
+                    Store.Kind k = Store.Kind.ofBuilding(building.key());
+                    if (k == null) return;
+                    Store s = new Store(o.id(), k, building.position(), o.yaw());
+                    s.fill(o.str("contents", ""));
+                    b.world().addStore(s);
                 }));
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
@@ -301,6 +320,20 @@ public final class ObjectTypes {
                 false, ObjectTypes::spawnRoom));
         register(new ObjectType(EXIT, "Door out", Category.INSIDE, List.of(), 0.9, Room.EXIT_H, 0x7AA0D0, false,
                 ObjectTypes::spawnRoom));
+    }
+
+    /**
+     * Whether {@code p} is one of {@code o}'s to set: what a chest holds only
+     * when it is not a loot chest, what a building holds only when it is a
+     * barrel or a crate, saddled only for horses.
+     */
+    public static boolean applies(LevelObject o, Prop p) {
+        return switch (p.key()) {
+            case "contents" -> o.type().equals(CHEST) ? !o.bool("loot", true)
+                    : Store.Kind.ofBuilding(o.str("kind", "")) != null;
+            case "saddled" -> o.type().equals(ANIMALS) && AnimalKind.HORSE.key().equals(o.str("kind", ""));
+            default -> true;
+        };
     }
 
     /** Whether objects of {@code type} stand in the world as {@link Building}s: buildings, furniture, the rooms' pieces. */
@@ -576,6 +609,8 @@ public final class ObjectTypes {
             props.put("fixture", l[1]);
             out.add(new Entry((String) l[0], Category.LIGHTS, LIGHT, props));
         }
+        out.add(new Entry("Storage chest", Category.INSIDE, CHEST,
+                Map.of("sprite", CHEST_SPRITE, "loot", false, "contents", "")));
         out.addAll(templateEntries());
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)

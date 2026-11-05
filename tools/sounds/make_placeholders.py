@@ -2016,6 +2016,33 @@ def _(k):
     return out
 
 
+def splinter(k, d, staves, lo, hi):
+    """Wood giving way: a crack, staves or boards splintering apart, the bits falling."""
+    out = silence(d)
+    place(out, thump(k, 0.2, 75, 0.65, 0.09, 0.7, 900), 0.0)                  # the blow that breaks it
+    place(out, crunch(k, 0.28, 220, 1400, 7000, 0.05) * 0.7, 0.0)             # splitting
+    for i in range(staves):
+        at = 0.04 + i * 0.05 + k.uniform(-0.01, 0.02)
+        place(out, wood(k.uniform(lo, hi), 0.09, 0.03, k) * (0.75 - 0.05 * i), at)
+    for i in range(5):                                            # and the pieces landing round it
+        at = 0.32 + i * 0.07 + k.uniform(-0.02, 0.02)
+        place(out, wood(k.uniform(lo * 1.4, hi * 1.6), 0.05, 0.015, k) * (0.4 - 0.05 * i), at)
+    return out
+
+
+@sound("world/barrel_break", 0.44)
+def _(k):
+    # a barrel staved in: its hoops ringing as they come loose
+    out = splinter(k, 0.8, 6, 500, 800)
+    place(out, metal(k.uniform(900, 1100), 0.4, 0.5, 0.4, k) * 0.25, 0.05)
+    return out
+
+
+@sound("world/crate_break", 0.44)
+def _(k):
+    return splinter(k, 0.7, 5, 700, 1100)
+
+
 @sound("items/eat", 0.4)
 def _(k):
     d = 0.6
