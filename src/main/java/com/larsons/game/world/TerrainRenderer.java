@@ -102,6 +102,10 @@ public final class TerrainRenderer implements AutoCloseable {
                 vec3 n = normalize(vNormal);
                 // (every texture read before anything branches: their mip levels need the neighbours)
                 vec3 grass = uGroundTile > 0.0 ? groundColour(vPos.xz) : vec3(0.60, 0.63, 0.68);
+                // the ground painted over a rock face, its tiles laid on the face's own plane
+                vec3 faceZ = uGroundTile > 0.0 ? groundColourOn(vPos.xz, vec2(vPos.x, -vPos.y)) : grass;
+                vec3 faceX = uGroundTile > 0.0 ? groundColourOn(vPos.xz, vec2(vPos.z, -vPos.y)) : grass;
+                float cover = uGroundTile > 0.0 ? groundCover(vPos.xz) : 0.0;
                 float tile = max(uGroundTile, 1.0);
                 vec3 rx = texture(uGroundTiles, vec3(vPos.zy / tile, 3.0)).rgb;
                 vec3 rz = texture(uGroundTiles, vec3(vPos.xy / tile, 3.0)).rgb;
@@ -116,7 +120,11 @@ public final class TerrainRenderer implements AutoCloseable {
                 // where it is too steep to walk (45 degrees: n.y 0.71), ragged at the edge
                 float jag = (groundHash(ivec2(floor(vPos.xz / block))) - 0.5) * 0.07;
                 float rocky = smoothstep(0.27, 0.30, 1.0 - n.y + jag);
-                vec3 c = mix(grass, rock, rocky);
+                // painted over (the editor's paint, over rock): the ground's paint, on the face
+                vec3 face = mix(faceZ, faceX, side);
+                vec3 ground = mix(grass, face, smoothstep(0.35, 0.6, 1.0 - n.y));
+                vec3 c = mix(ground, rock, rocky * (1.0 - cover));
+                if (uGroundTile > 0.0) c = groundTint(c, vPos.xz);
                 vec4 v = vines(vPos, n);
                 c = mix(c, v.rgb, v.a);
 
@@ -197,11 +205,11 @@ public final class TerrainRenderer implements AutoCloseable {
         for (int j = 0; j < nz; j++) {
             for (int i = 0; i < nx; i++) {
                 int k = (j * nx + i) * 6;
-                double x = t.originX() + i * Terrain.STEP, z = t.originZ() + j * Terrain.STEP;
+                double x = t.originX() + i * t.step(), z = t.originZ() + j * t.step();
                 double hl = t.at(Math.max(0, i - 1), j), hr = t.at(Math.min(nx - 1, i + 1), j);
                 double hn = t.at(i, Math.max(0, j - 1)), hs = t.at(i, Math.min(nz - 1, j + 1));
-                double sx = (Math.min(nx - 1, i + 1) - Math.max(0, i - 1)) * Terrain.STEP;
-                double sz = (Math.min(nz - 1, j + 1) - Math.max(0, j - 1)) * Terrain.STEP;
+                double sx = (Math.min(nx - 1, i + 1) - Math.max(0, i - 1)) * t.step();
+                double sz = (Math.min(nz - 1, j + 1) - Math.max(0, j - 1)) * t.step();
                 Vec3 n = new Vec3(-(hr - hl) / sx, 1, -(hs - hn) / sz).normalize(Vec3.UP);
                 out[k] = (float) x;
                 out[k + 1] = t.at(i, j);

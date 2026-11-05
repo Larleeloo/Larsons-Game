@@ -1,0 +1,35 @@
+{
+ "key": "lantern",
+ "label": "Lantern",
+ "group": "fixture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.396,
+ "model": true,
+ "parts": [
+  {
+   "key": "metal",
+   "label": "Metal",
+   "colour": "#3e3a38",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glass",
+   "colour": "#ffd070",
+   "texture": "panes",
+   "glow": "always"
+  }
+ ],
+ "footprint": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "flame": [
+  0.0,
+  0.0,
+  0.132
+ ],
+ "stands": false
+}

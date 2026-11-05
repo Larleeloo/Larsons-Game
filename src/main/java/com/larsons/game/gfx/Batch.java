@@ -57,7 +57,7 @@ import static org.lwjgl.opengl.GL33C.*;
  */
 public final class Batch implements AutoCloseable {
 
-    private static final int FLOATS_PER_VERTEX = 16;      // xyz uv rgba clip palette plane floor
+    private static final int FLOATS_PER_VERTEX = 20;      // xyz uv rgba clip palette plane floor tint
     private static final int QUAD_BYTES = 4 * FLOATS_PER_VERTEX * Float.BYTES;
     /** Quads one upload holds (the CPU buffer, and the shared index buffer). */
     private static final int MAX_QUADS = 8192;
@@ -80,6 +80,7 @@ public final class Batch implements AutoCloseable {
             layout(location = 4) in float aPalette;
             layout(location = 5) in float aPlane;     // the depth plane's distance from uEye along uPlaneNormal; 0: none
             layout(location = 6) in float aFloor;     // the height of the ground its anchor stands on
+            layout(location = 7) in vec4 aTint;       // a colour (rgb) the quad is tinted, and how much (a); 0: none
             uniform mat4 uProj;
             uniform vec3 uEye;
             uniform vec3 uPlaneNormal;
@@ -89,8 +90,10 @@ public final class Batch implements AutoCloseable {
             out vec3 vWorld;
             flat out vec4 vClip;
             flat out int vPalette;
+            flat out vec4 vTint;
             void main() {
                 vWorld = aPos;
+                vTint = aTint;
                 vec4 clip = uProj * vec4(aPos, 1.0);
                 float along = dot(aPos - uEye, uPlaneNormal);
                 if (aPlane > 0.0 && along > 1e-4) {
@@ -120,6 +123,7 @@ public final class Batch implements AutoCloseable {
             in vec3 vWorld;
             flat in vec4 vClip;       // u0 v0 u1 v1: texture coordinates outside it are not drawn
             flat in int vPalette;     // the palette row an index texture is coloured from; -1: RGBA texture
+            flat in vec4 vTint;       // its tint: a colour, and how much of it (0: none)
             uniform sampler2D uTex;
             uniform sampler2D uPalettes;
             uniform vec3 uFogColor;
@@ -139,6 +143,13 @@ public final class Batch implements AutoCloseable {
                     c = t * vColor;
                 }
                 if (any(lessThan(vUv, vClip.xy)) || any(greaterThan(vUv, vClip.zw))) discard;
+                if (vTint.a > 0.0 && c.a > 0.0) {
+                    // tinted: each texel in the tint's colour, as light or dark as it was
+                    vec3 straight = c.rgb / c.a;
+                    float l = dot(straight, vec3(0.299, 0.587, 0.114));
+                    float tl = max(dot(vTint.rgb, vec3(0.299, 0.587, 0.114)), 0.08);
+                    c.rgb = mix(straight, clamp(vTint.rgb * (l / tl), 0.0, 1.0), vTint.a) * c.a;
+                }
                 // (light - a glow quad - has colour but no alpha: it is kept, and adds)
                 if (max(c.a, max(c.r, max(c.g, c.b))) <= uAlphaCut) discard;
                 // A cutout (a cut of a half or more) is opaque wherever it is drawn: a texel its
@@ -207,6 +218,8 @@ public final class Batch implements AutoCloseable {
         glEnableVertexAttribArray(5);
         glVertexAttribPointer(6, 1, GL_FLOAT, false, stride, 15L * Float.BYTES);
         glEnableVertexAttribArray(6);
+        glVertexAttribPointer(7, 4, GL_FLOAT, false, stride, 16L * Float.BYTES);
+        glEnableVertexAttribArray(7);
 
         ebo = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -232,6 +245,7 @@ public final class Batch implements AutoCloseable {
         if (drawing) throw new IllegalStateException("batch already begun");
         drawing = true;
         drawCalls = 0;
+        tint(0);
         shader.use();
         shader.set("uProj", projection);
         shader.set("uTex", 0);
@@ -496,7 +510,23 @@ public final class Batch implements AutoCloseable {
                      float r, float g, float b, float a,
                      float cu0, float cv0, float cu1, float cv1, float palette) {
         data.put(x).put(y).put(z).put(u).put(v).put(r).put(g).put(b).put(a)
-                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette).put(plane).put(floor);
+                .put(cu0).put(cv0).put(cu1).put(cv1).put(palette).put(plane).put(floor)
+                .put(tintR).put(tintG).put(tintB).put(tintA);
+    }
+
+    /** The tint the quads queued from now on are drawn in ({@link #tint}): a colour, and how much of it. */
+    private float tintR, tintG, tintB, tintA;
+
+    /**
+     * Tint the quads queued from now on: each texel in {@code argb}'s colour,
+     * as light or dark as it was, its alpha byte how much of the way (0: as
+     * drawn) - a tinted tree, a herd's colours on art that has no palette.
+     */
+    public void tint(int argb) {
+        tintA = ((argb >>> 24) & 255) / 255f;
+        tintR = ((argb >> 16) & 255) / 255f;
+        tintG = ((argb >> 8) & 255) / 255f;
+        tintB = (argb & 255) / 255f;
     }
 
     /** Upload what is queued and draw it: one upload, one draw call per run of the same texture. */

@@ -40,6 +40,7 @@ import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.RideTrack;
 import com.larsons.game.world.Scenery;
+import com.larsons.game.world.Store;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
@@ -186,6 +187,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.scenery = game.demoScenery();
         world.setTerrain(game.terrain());
         world.setGround(game.demoScenery().ground());
+        world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
         // The sword lies a couple of metres ahead, unless it is already in
@@ -433,7 +435,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
 
         // --- items, the chest -----------------------------------------------------------
+        keepStoreInReach();
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
+        else if (in.pressed(GLFW_KEY_E) && inventory.store() != null) inventory.close();
         if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
@@ -579,7 +583,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+    private enum Use { NOTHING, CHEST, STORE, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+
+    /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
+    private Chest storeChest;
 
     /** The saddled horse's sheets, where its {@code ride.json} is. */
     private static final String RIDE_SHEETS = "horse_saddled";
@@ -593,14 +600,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (world.reachableHorse() != null) return Use.MOUNT;
         if (world.saddleable() != null) return Use.SADDLE;
         Chest c = world.reachableChest();
+        Store st = world.reachableStore();
         World.GroundItem g = world.reachable();
         Scenery.Placed b = world.reachableBush();
         Building d = usableDoor();
         double dc = c == null ? Double.MAX_VALUE : c.position().horizontalDistance(me);
+        double ds = st == null ? Double.MAX_VALUE : st.position().horizontalDistance(me);
         double dg = g == null ? Double.MAX_VALUE : g.position.horizontalDistance(me);
         double db = b == null ? Double.MAX_VALUE : Math.hypot(b.x() - me.x(), b.z() - me.z());
         double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
-        if (d != null && dd < dc && dd < dg && dd < db) return Use.DOOR;
+        if (d != null && dd < dc && dd < ds && dd < dg && dd < db) return Use.DOOR;
+        if (st != null && ds < dc && ds < dg && ds <= db) return Use.STORE;
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
         return b != null ? Use.BUSH : Use.NOTHING;
@@ -612,7 +622,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      */
     private void use() {
         switch (usable()) {
-            case CHEST -> toggleChest(world.reachableChest());
+            case CHEST -> {
+                Chest c = world.reachableChest();
+                if (c.store() != null) lookIn(c.store(), c);
+                else toggleChest(c);
+            }
+            case STORE -> lookIn(world.reachableStore(), null);
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
             case DOOR -> goThrough(usableDoor());
@@ -870,7 +885,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (!intent.attack()) return intent;
         Player p = world.player();
         Item held = p.inventory().held();
-        if (held == null || !held.def().isFood()) return intent;
+        if (held == null || !held.def().edible()) return intent;
         if (world.time() - lastBite >= BITE) {
             lastBite = world.time();
             eatHeld();
@@ -899,6 +914,31 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Vec3 d = c.position().sub(p.ground());
         p.turnTo(SpriteView.headingOf(d.x(), d.z()));
         c.toggle(s -> game.worldRenderer().chestDuration(c, s, camera));
+    }
+
+    /**
+     * E by a barrel, a crate or a storage chest ({@code chest}, its lid
+     * opened): what it holds beside her inventory, to move things in and out.
+     */
+    private void lookIn(Store s, Chest chest) {
+        Player p = world.player();
+        Vec3 d = s.position().sub(p.ground());
+        p.turnTo(SpriteView.headingOf(d.x(), d.z()));
+        if (chest != null && !chest.isOpen()) chest.toggle(st -> game.worldRenderer().chestDuration(chest, st, camera));
+        storeChest = chest;
+        inventory.showStore(s);
+    }
+
+    /** A store shown beside the inventory is shut once she is out of its reach; a chest's lid, once it is shut. */
+    private void keepStoreInReach() {
+        Store s = inventory.store();
+        Vec3 me = world.player().ground();
+        if (s != null && !(storeChest != null ? storeChest.inReach(me) : s.inReach(me))) inventory.close();
+        if (storeChest != null && inventory.store() == null) {
+            Chest c = storeChest;
+            if (c.isOpen()) c.toggle(st -> game.worldRenderer().chestDuration(c, st, camera));
+            storeChest = null;
+        }
     }
 
     /** How long each state lasts for the player as seen from here (from the sheets). */
@@ -1058,7 +1098,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         } else if (use == Use.DOOR) {
             text = "E   " + doorText(usableDoor());
         } else if (use == Use.CHEST) {
-            text = "E   " + (world.reachableChest().isOpen() ? "Close the chest" : "Open the chest");
+            Chest c = world.reachableChest();
+            text = "E   " + (c.store() != null ? "Look in the chest"
+                    : c.isOpen() ? "Close the chest" : "Open the chest");
+        } else if (use == Use.STORE) {
+            text = "E   Look in the " + world.reachableStore().kind().label().toLowerCase();
         } else if (use == Use.ITEM) {
             // the item's name in its rarity's colour
             World.GroundItem g = world.reachable();
@@ -1375,6 +1419,40 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     toggleChest(c);
                 }
             }
+            // the first barrel, crate or storage chest: goto (beside it), fill <what>, open, hit (break it)
+            case "store" -> {
+                if (world.stores().isEmpty()) return false;
+                Store st = world.stores().get(0);
+                String a = argument.trim();
+                if (a.equals("goto")) {
+                    Vec3 at = st.position().add(SpriteView.headingVector(st.heading()).scale(st.radius() + 0.8));
+                    p.setPosition(at);
+                    p.snapHeading(SpriteView.headingOf(st.position().x() - at.x(), st.position().z() - at.z()));
+                    camera.snapTo(follow());
+                } else if (a.startsWith("fill")) {
+                    st.fill(a.substring(4));
+                } else if (a.equals("hit")) {
+                    st.hurt(st.maxHealth() + 1, p.ground(), true);
+                } else {
+                    Chest c = null;
+                    for (Chest ch : world.chests()) if (ch.store() == st) c = ch;
+                    lookIn(st, c);
+                }
+            }
+            // the weather now: weather <clear|rain|thunderstorm|snow|fog|wind|sandstorm> [how heavy]
+            case "weather" -> {
+                String[] a = argument.trim().split("\\s+");
+                com.larsons.game.world.Weather.Kind k = com.larsons.game.world.Weather.Kind.byKey(a[0]);
+                if (k == null) return false;
+                world.setWeather(com.larsons.game.world.Weather.NONE.withMode(com.larsons.game.world.Weather.Mode.FIXED)
+                        .withKind(k).withStrength(a.length > 1 ? Double.parseDouble(a[1]) : 0.9)
+                        .withMode(k == com.larsons.game.world.Weather.Kind.CLEAR
+                                ? com.larsons.game.world.Weather.Mode.NONE : com.larsons.game.world.Weather.Mode.FIXED));
+                world.weatherNow().set(k, a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
+            }
+            // where she stands, printed (for scripted checks)
+            case "where" -> System.out.printf(java.util.Locale.ROOT, "[where] %.2f %.2f %.2f heading %.1f%n",
+                    p.feet().x(), p.feet().y(), p.feet().z(), Math.toDegrees(p.heading()));
             case "teleport" -> {
                 String[] a = argument.split("[ ,]+");
                 p.setPosition(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));

@@ -20,9 +20,10 @@ import java.util.function.ToDoubleFunction;
  * Each state is an animation with its own sound ({@code
  * chests/<id>/<state>.mp3}, {@code audio/WorldSounds}).
  *
- * <p>It is a loot chest: every time its lid starts up, {@link #opens()}
- * counts it, and the world throws out what it gives ({@code World}, {@link
- * Loot}).
+ * <p>A loot chest: every time its lid starts up, {@link #opens()} counts
+ * it, and the world throws out what it gives ({@code World}, {@link Loot}).
+ * Or a storage chest ({@link #store()}): opened, what it holds is shown
+ * beside her inventory, to put things in and take them out.
  */
 public final class Chest {
 
@@ -66,6 +67,7 @@ public final class Chest {
     private double time;
     private double duration = State.IDLE.defaultDuration();
     private int opens;
+    private Store store;
 
     /**
      * @param id       the sprite folder, {@code assets/sprites/objects/<id>/}
@@ -137,6 +139,14 @@ public final class Chest {
     }
 
     public String id() { return id; }
+
+    /** What it holds, when it is a storage chest (not a loot chest: it throws nothing out), or null. */
+    public Store store() { return store; }
+
+    /** Make it a storage chest holding {@code s} (null: a loot chest again). */
+    public void setStore(Store s) {
+        store = s;
+    }
 
     public Vec3 position() { return position; }
 

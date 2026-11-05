@@ -58,7 +58,21 @@ public final class Scenery {
      * @param phase    seconds its loop runs ahead of the world's clock ({@link #windPhase})
      */
     public record Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
-                         double phase) {
+                         double phase, double scale, int tint) {
+
+        /**
+         * @param scale how much bigger (above 1) or smaller than drawn it stands: its cards, its trunk, its shadow
+         * @param tint  its colour ({@code 0xAARRGGBB}: the colour, and alpha how much of it); 0: as drawn
+         */
+        public Placed {
+            scale = scale > 0 ? scale : 1;
+        }
+
+        /** One as drawn, its own size. */
+        public Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
+                      double phase) {
+            this(sprite, x, y, z, yaw, mirrored, phase, 1, 0);
+        }
 
         /** One on flat ground ({@code y = 0}). */
         public Placed(ScenerySprites.Sprite sprite, double x, double z, double yaw, boolean mirrored, double phase) {
@@ -73,7 +87,7 @@ public final class Scenery {
         public Vec3 position() { return new Vec3(x, y, z); }
 
         /** Metres round its axis the player is kept out of; 0: she walks through it. */
-        public double radius() { return sprite.profile().radius(); }
+        public double radius() { return sprite.profile().radius() * scale; }
 
         /**
          * The round patch of ground it stands on, in metres from its axis:
@@ -83,7 +97,7 @@ public final class Scenery {
          */
         public double footprint() {
             SceneryProfile p = sprite.profile();
-            return switch (p.kind()) {
+            return scale * switch (p.kind()) {
                 case TREE -> p.radius();
                 case ROCK -> Math.max(p.radius(), 0.7 * p.shadowRadius());
                 case TUFT -> Math.max(p.radius(), 0.25 * p.frameWorldSize());

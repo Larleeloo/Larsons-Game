@@ -31,6 +31,16 @@ public final class GroundMap {
     public static final int MATERIALS = 12;
     /** How many groups of four they are kept in. */
     public static final int GROUPS = MATERIALS / 4;
+    /**
+     * The layers after the materials': where the rock of a face too steep to
+     * walk is painted over ({@link #COVER}: its first channel - the ground
+     * painted there, grass or a material, shows on the face instead of the
+     * rock), and the ground's tint ({@link #TINT}: a colour and how much of
+     * it, the editor's tint brush).
+     */
+    public static final int COVER = GROUPS, TINT = GROUPS + 1;
+    /** Every layer it keeps: the materials' groups, the cover and the tint. */
+    public static final int LAYERS = GROUPS + 2;
     /** The materials' names, as their textures are called in {@code assets/scenery/ground/}. */
     public static final String[] NAMES = {"dirt", "forest_floor", "gravel", "meadow", "sand", "mud", "snow",
             "stone", "jungle_floor", "dry_grass", "ash", "crystal"};
@@ -54,12 +64,14 @@ public final class GroundMap {
     public static final GroundMap NONE = new GroundMap();
 
     private final int cells;
-    private final double origin;
+    private final double origin, cell;
     /** The weights, a group of four materials an array (null: nothing of them painted), four a cell. */
-    private final float[][] w = new float[GROUPS][];
-    private final boolean[] empty = {true, true, true};
+    private final float[][] w = new float[LAYERS][];
+    private final boolean[] empty = {true, true, true, true, true};
     private int version;
-    private final int[] groupVersion = new int[GROUPS];
+    private final int[] groupVersion = new int[LAYERS];
+    /** Whether the brushes paint squares rather than discs ({@link #square(boolean)}). */
+    private boolean square;
 
     /** The demo's map: {@value #SIZE} m a side, all grass. */
     public GroundMap() {
@@ -68,8 +80,9 @@ public final class GroundMap {
 
     /** A map {@code size} metres a side (rounded to whole cells), centred on the origin, all grass. */
     public GroundMap(double size) {
-        cells = Math.max(1, (int) Math.round(size / CELL));
-        origin = -cells * CELL / 2;
+        cell = cellFor(size);
+        cells = Math.max(1, (int) Math.round(size / cell));
+        origin = -cells * cell / 2;
         w[0] = new float[cells * cells * 4];
     }
 
@@ -85,7 +98,22 @@ public final class GroundMap {
     public double west() { return origin; }
 
     /** Metres this map spans each way. */
-    public double size() { return cells * CELL; }
+    public double size() { return cells * cell; }
+
+    /** Metres a cell of this map. */
+    public double cell() { return cell; }
+
+    /**
+     * Metres a cell of a map {@code size} metres a side: {@value #CELL} up to
+     * 256 m, and coarser the bigger it is past that (a 2048 m forest's
+     * cells 2 m), so a big level's map stays about a thousand cells a side.
+     */
+    public static double cellFor(double size) {
+        if (size <= 256) return CELL;
+        if (size <= 512) return 0.5;
+        if (size <= 1024) return 1.0;
+        return 2.0;
+    }
 
     /** Cells a side. */
     public int cells() { return cells; }
@@ -132,6 +160,61 @@ public final class GroundMap {
         return paint((px, pz) -> material, x, z, radius, strength);
     }
 
+    /** Paint squares ({@code true}: {@code radius} metres to each side) rather than discs from now on. */
+    public GroundMap square(boolean on) {
+        square = on;
+        return this;
+    }
+
+    /**
+     * Paint over the rock round {@code (x, z)} ({@code on}): where the ground
+     * is too steep to walk the ground painted there shows - grass, or a
+     * material - instead of bare rock; or ({@code !on}) bare it again.
+     */
+    public GroundMap cover(double x, double z, double radius, double strength, boolean on) {
+        double k = Math.max(0, Math.min(1, strength));
+        float[] a = group(COVER);
+        groupVersion[COVER]++;
+        empty[COVER] = false;
+        return shape(x, z, x, z, radius, (i, v) -> {
+            double now = on ? Math.min(1, a[i] + v * k) : Math.max(0, a[i] - v * k);
+            a[i] = (float) now;
+        });
+    }
+
+    /**
+     * Tint the ground round {@code (x, z)} {@code rgb} ({@code 0xRRGGBB}) -
+     * {@code amount} (0 to 1) of the way to it, at the brush's middle - or,
+     * {@code rgb} -1, take the tint off.
+     */
+    public GroundMap tint(double x, double z, double radius, double strength, int rgb, double amount) {
+        double k = Math.max(0, Math.min(1, strength));
+        float[] a = group(TINT);
+        groupVersion[TINT]++;
+        empty[TINT] = false;
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        return shape(x, z, x, z, radius, (i, v) -> {
+            double t = Math.min(1, v * k * 1.5);
+            if (rgb < 0) {
+                a[i + 3] = (float) Math.max(0, a[i + 3] - t);
+                return;
+            }
+            a[i] = (float) (a[i] + (r - a[i]) * t);
+            a[i + 1] = (float) (a[i + 1] + (g - a[i + 1]) * t);
+            a[i + 2] = (float) (a[i + 2] + (b - a[i + 2]) * t);
+            a[i + 3] = (float) (a[i + 3] + (amount - a[i + 3]) * t);
+        });
+    }
+
+    /** How much the rock is painted over at {@code (x, z)}, 0 to 1. */
+    public double cover(double x, double z) {
+        float[] a = w[COVER];
+        if (a == null) return 0;
+        int c = cell(x), r = cell(z);
+        if (c < 0 || r < 0 || c >= cells || r >= cells) return 0;
+        return a[(r * cells + c) * 4];
+    }
+
     /** What a brush paints where: the material at {@code (x, z)}, or -1 for grass. */
     @FunctionalInterface
     public interface Pattern {
@@ -146,8 +229,8 @@ public final class GroundMap {
     public GroundMap paint(Pattern pattern, double x, double z, double radius, double strength) {
         double k = Math.max(0, Math.min(1, strength));
         shape(x, z, x, z, radius, (i, v) -> {
-            int cell = i / 4;
-            int material = pattern.at(origin + (cell % cells + 0.5) * CELL, origin + (cell / cells + 0.5) * CELL);
+            int ci = i / 4;
+            int material = pattern.at(origin + (ci % cells + 0.5) * cell, origin + (ci / cells + 0.5) * cell);
             if (material >= 0) group(material / 4);
             double a = v * k;
             for (int g = 0; g < GROUPS; g++) {
@@ -181,9 +264,10 @@ public final class GroundMap {
         double dx = x1 - x0, dz = z1 - z0, len2 = dx * dx + dz * dz;
         for (int r = Math.max(r0, 0); r <= Math.min(r1, cells - 1); r++) {
             for (int c = Math.max(c0, 0); c <= Math.min(c1, cells - 1); c++) {
-                double px = origin + (c + 0.5) * CELL, pz = origin + (r + 0.5) * CELL;
+                double px = origin + (c + 0.5) * this.cell, pz = origin + (r + 0.5) * this.cell;
                 double t = len2 == 0 ? 0 : Math.max(0, Math.min(1, ((px - x0) * dx + (pz - z0) * dz) / len2));
-                double d = Math.hypot(px - (x0 + t * dx), pz - (z0 + t * dz));
+                double d = square ? Math.max(Math.abs(px - (x0 + t * dx)), Math.abs(pz - (z0 + t * dz)))
+                        : Math.hypot(px - (x0 + t * dx), pz - (z0 + t * dz));
                 double v = Math.max(0, Math.min(1, 0.5 + (halfWidth - d) / (2 * SOFT)));
                 if (v > 0) cell.cover((r * cells + c) * 4, v);
             }
@@ -193,7 +277,7 @@ public final class GroundMap {
     }
 
     private int cell(double metres) {
-        return (int) Math.floor((metres - origin) / CELL);
+        return (int) Math.floor((metres - origin) / cell);
     }
 
     /**
@@ -202,7 +286,7 @@ public final class GroundMap {
      * grid. Above 0.5 it is that material.
      */
     public double weight(int material, double x, double z) {
-        double fx = (x - origin) / CELL - 0.5, fz = (z - origin) / CELL - 0.5;
+        double fx = (x - origin) / cell - 0.5, fz = (z - origin) / cell - 0.5;
         int c = (int) Math.floor(fx), r = (int) Math.floor(fz);
         double tx = fx - c, tz = fz - r;
         return (1 - tz) * ((1 - tx) * at(material, c, r) + tx * at(material, c + 1, r))
@@ -272,23 +356,23 @@ public final class GroundMap {
         return this;
     }
 
-    /** Every group's bytes (null for one never painted), to put back with {@link #restore}: an undo step. */
+    /** Every layer's bytes (null for one never painted), to put back with {@link #restore}: an undo step. */
     public byte[][] snapshot() {
-        byte[][] out = new byte[GROUPS][];
-        for (int g = 0; g < GROUPS; g++) out[g] = w[g] == null || empty[g] && g > 0 ? null : rgba(g);
+        byte[][] out = new byte[LAYERS][];
+        for (int g = 0; g < LAYERS; g++) out[g] = w[g] == null || empty[g] && g > 0 ? null : rgba(g);
         return out;
     }
 
     /** Put back what {@link #snapshot} kept. */
     public GroundMap restore(byte[][] groups) {
-        for (int g = 0; g < GROUPS; g++) setRgba(g, groups[g]);
+        for (int g = 0; g < LAYERS; g++) setRgba(g, g < groups.length ? groups[g] : null);
         return this;
     }
 
     /** A copy to paint on without changing this one. */
     public GroundMap copy() {
         GroundMap m = new GroundMap(size());
-        for (int g = 0; g < GROUPS; g++) {
+        for (int g = 0; g < LAYERS; g++) {
             if (w[g] != null) m.w[g] = w[g].clone();
             m.empty[g] = empty[g];
         }
@@ -297,8 +381,8 @@ public final class GroundMap {
 
     /** {@code other}'s weights, put over the middle of this map (what lies outside either is left out). */
     public GroundMap copyFrom(GroundMap other) {
-        int shift = (int) Math.round((other.origin - origin) / CELL);
-        for (int g = 0; g < GROUPS; g++) {
+        int shift = (int) Math.round((other.origin - origin) / cell);
+        for (int g = 0; g < LAYERS; g++) {
             empty[g] = true;
             groupVersion[g]++;
             if (other.w[g] == null) {
@@ -308,6 +392,23 @@ public final class GroundMap {
             }
             float[] a = group(g), b = other.w[g];
             java.util.Arrays.fill(a, 0);
+            if (other.cell != cell) {
+                // cells of another size (a level grown past 256 m, or shrunk back): each cell takes the one under it
+                for (int r = 0; r < cells; r++) {
+                    int rr = (int) Math.floor((origin + (r + 0.5) * cell - other.origin) / other.cell);
+                    if (rr < 0 || rr >= other.cells) continue;
+                    for (int c = 0; c < cells; c++) {
+                        int cc = (int) Math.floor((origin + (c + 0.5) * cell - other.origin) / other.cell);
+                        if (cc < 0 || cc >= other.cells) continue;
+                        for (int m = 0; m < 4; m++) {
+                            float v = b[(rr * other.cells + cc) * 4 + m];
+                            a[(r * cells + c) * 4 + m] = v;
+                            if (v > 0) empty[g] = false;
+                        }
+                    }
+                }
+                continue;
+            }
             for (int r = 0; r < other.cells; r++) {
                 int rr = r + shift;
                 if (rr < 0 || rr >= cells) continue;

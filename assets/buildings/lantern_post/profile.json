@@ -1,0 +1,50 @@
+{
+ "key": "lantern_post",
+ "label": "Lantern post",
+ "group": "fixture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.42,
+ "model": true,
+ "parts": [
+  {
+   "key": "post",
+   "label": "Post",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "metal",
+   "label": "Metal",
+   "colour": "#3e3a38",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glass",
+   "colour": "#ffd070",
+   "texture": "panes",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.154,
+   0.154
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "flame": [
+  0.0,
+  -0.462,
+  2.09
+ ],
+ "stands": true
+}

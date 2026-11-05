@@ -32,8 +32,8 @@ public final class Level {
 
     /** The version of the file format this game writes. */
     public static final int FORMAT = 1;
-    /** The sizes a level can be, metres a side. */
-    public static final int[] SIZES = {64, 128, 192, 256};
+    /** The sizes a level can be, metres a side: up to 2048 m, a great forest (its ground on a coarser grid past 256 m). */
+    public static final int[] SIZES = {64, 128, 192, 256, 512, 1024, 2048};
     public static final int DEFAULT_SIZE = 128;
 
     private String name;
@@ -41,6 +41,8 @@ public final class Level {
     private Sky sky = Sky.DEFAULT;
     private String music = Songs.SHUFFLE;
     private Life life = new Life();
+    private com.larsons.game.world.Weather weather = com.larsons.game.world.Weather.NONE;
+    private com.larsons.game.world.Sky.Cover cover = com.larsons.game.world.Sky.Cover.OPEN;
     private HeightField heights;
     private GroundMap ground;
     private WaterMap water;
@@ -131,6 +133,20 @@ public final class Level {
 
     public void setLife(Life life) {
         this.life = life == null ? new Life() : life;
+    }
+
+    /** Its weather (Level tool, Time page): none, by biome, or fixed. */
+    public com.larsons.game.world.Weather weather() { return weather; }
+
+    public void setWeather(com.larsons.game.world.Weather w) {
+        weather = w == null ? com.larsons.game.world.Weather.NONE : w;
+    }
+
+    /** What is over it: the open sky, a roof, a cave's rock. */
+    public com.larsons.game.world.Sky.Cover cover() { return cover; }
+
+    public void setCover(com.larsons.game.world.Sky.Cover c) {
+        cover = c == null ? com.larsons.game.world.Sky.Cover.OPEN : c;
     }
 
     public HeightField heights() { return heights; }

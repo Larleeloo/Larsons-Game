@@ -5,6 +5,7 @@ import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.world.Border;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
@@ -42,6 +43,10 @@ import java.util.function.ToDoubleFunction;
  *       the last five minutes, the one it is hitting now among them - hit
  *       five and, while all five stand, every hit is +50%.</li>
  * </ul>
+ *
+ * <p>A weapon forged in Creative Mode ({@link Forged}) rolls its own dice -
+ * as many as it was given, of any kind from a d4 to a d20 or a d% - and has
+ * every effect it was forged with, together.
  *
  * <p><b>Lock-on</b> ({@link #lock}): locked on to something - a dummy, a
  * flier, anything that can be hit - every swing turns her to it if it is in
@@ -246,7 +251,7 @@ public final class Combat {
         double at = move.at() * p.actionDuration();
 
         boolean plain = plainBlow(weapon, move);
-        boolean mystic = !plain && weapon != null && weapon.border() == Border.MYSTIC;
+        boolean mystic = !plain && weapon != null && weapon.has(Border.MYSTIC);
         double cost = plain ? 0 : manaCost(weapon, move);
         boolean paid = cost <= mana + 1e-9;
         if (paid) mana -= cost;
@@ -259,10 +264,13 @@ public final class Combat {
         Target aimed = softLock(p, move, targets);
         boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
 
+        Forged forged = plain || weapon == null ? null : weapon.forged();
         int n = plain ? tuning.wandHeavyDice
-                : (weapon == null ? tuning.unarmedDice : tuning.dice(weapon.rarity())) + (move.heavy() ? tuning.heavyExtra : 0);
+                : (weapon == null ? tuning.unarmedDice : forged != null ? forged.dice() : tuning.dice(weapon.rarity()))
+                + (move.heavy() ? tuning.heavyExtra : 0);
         if (high) n += HIGH_DICE;
-        Strike strike = new Strike(weapon, DiceRoll.roll(n, tuning.sides, random), mystic && paid, plain);
+        int sides = forged != null ? forged.sides() : tuning.sides;
+        Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, random), mystic && paid, plain);
         List<Note> notes = notes(strike, aimed);
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
         show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
@@ -280,26 +288,30 @@ public final class Combat {
     /** What a swing costs: a spell's mana, Mystic's double. */
     public double manaCost(Item weapon, Move move) {
         double base = move != null && move.kind() == Move.Kind.SPELL ? tuning.spellCost : 0;
-        if (weapon != null && weapon.border() == Border.MYSTIC) {
+        if (weapon != null && weapon.has(Border.MYSTIC)) {
             return Border.MYSTIC_MANA * Math.max(base, tuning.mysticBaseCost);
         }
         return base;
     }
 
-    /** What the border adds, said under the dice ({@code also}: what it is aimed at, for Bonded's count). */
+    /**
+     * What the borders add, said under the dice, one line each ({@code also}:
+     * what it is aimed at, for Bonded's count) - a forged weapon's every effect.
+     */
     private List<Note> notes(Strike s, Target also) {
         List<Note> out = new ArrayList<>();
-        Border b = s.border();
-        if (b == Border.MYSTIC) {
-            out.add(!s.mystic() ? new Note("Mystic: no mana, no bonus", b.rgb())
-                    : new Note("Mystic ×" + trim(Border.MYSTIC_DAMAGE), b.rgb()));
-        } else if (b == Border.BONDED) {
-            int n = bondedCount(s.weapon(), also);
-            out.add(new Note("Bonded +" + Math.round(n * Border.BONDED_PER_HIT * 100) + "% (" + n + " alive)",
-                    b.rgb()));
-        } else if (b == Border.VENOM) {
-            out.add(new Note("Venom +" + Math.round(Border.VENOM_SHARE * 100) + "% over "
-                    + trim(Border.VENOM_SECONDS) + " s", b.rgb()));
+        for (Border b : s.borders()) {
+            if (b == Border.MYSTIC) {
+                out.add(!s.mystic() ? new Note("Mystic: no mana, no bonus", b.rgb())
+                        : new Note("Mystic ×" + trim(Border.MYSTIC_DAMAGE), b.rgb()));
+            } else if (b == Border.BONDED) {
+                int n = bondedCount(s.weapon(), also);
+                out.add(new Note("Bonded +" + Math.round(n * Border.BONDED_PER_HIT * 100) + "% (" + n + " alive)",
+                        b.rgb()));
+            } else if (b == Border.VENOM) {
+                out.add(new Note("Venom +" + Math.round(Border.VENOM_SHARE * 100) + "% over "
+                        + trim(Border.VENOM_SECONDS) + " s", b.rgb()));
+            }
         }
         return out;
     }
@@ -351,7 +363,7 @@ public final class Combat {
 
     /** The notes under {@code s}'s dice, again, now its targets are known. */
     private void renote(Strike s, Target also) {
-        if (show != null && show.strike() == s && s.border() == Border.BONDED) {
+        if (show != null && show.strike() == s && s.has(Border.BONDED)) {
             List<Note> notes = notes(s, also);
             for (Note n : show.notes()) if (n.rgb() == HIGH_RGB) notes.add(0, n);
             show = new Show(s, show.start(), show.land(), notes);
@@ -461,7 +473,7 @@ public final class Combat {
     public static Target lockCandidate(Vec3 eye, Vec3 look, Vec3 feet, List<Target> targets, Target after) {
         List<Target> in = new ArrayList<>();
         for (Target t : targets) {
-            if (t.alive() && t.position().horizontalDistance(feet) <= LOCK_RANGE) in.add(t);
+            if (t.alive() && t.living() && t.position().horizontalDistance(feet) <= LOCK_RANGE) in.add(t);
         }
         if (in.isEmpty()) return null;
         Vec3 flat = new Vec3(look.x(), 0, look.z()).normalize(new Vec3(0, 0, -1));
@@ -512,7 +524,7 @@ public final class Combat {
         Target best = null;
         double bestD = LOCK_RANGE;
         for (Target t : targets) {
-            if (t == not || !t.alive()) continue;
+            if (t == not || !t.alive() || !t.living()) continue;
             double d = t.position().horizontalDistance(feet);
             if (d <= bestD) {
                 best = t;
@@ -650,7 +662,7 @@ public final class Combat {
     public double damage(Strike s, Target t) {
         double d = s.roll().total();
         if (s.mystic()) d *= Border.MYSTIC_DAMAGE;
-        if (s.border() == Border.BONDED) d *= 1 + Border.BONDED_PER_HIT * bondedCount(s.weapon(), t);
+        if (s.has(Border.BONDED)) d *= 1 + Border.BONDED_PER_HIT * bondedCount(s.weapon(), t);
         return Math.round(d);
     }
 
@@ -662,7 +674,7 @@ public final class Combat {
     private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
         t.hurt(d, from, true);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
-        if (s.border() == Border.VENOM && d > 0) {
+        if (s.has(Border.VENOM) && d > 0) {
             int ticks = (int) Math.round(Border.VENOM_SECONDS);
             dots.add(new Dot(t, d * Border.VENOM_SHARE / ticks, ticks, now + 1, from));
         }
@@ -698,7 +710,7 @@ public final class Combat {
 
     /** Bonded: remember that {@code weapon} hit {@code t} now. */
     private void remember(Item weapon, Target t) {
-        if (weapon == null || weapon.border() != Border.BONDED) return;
+        if (weapon == null || !weapon.has(Border.BONDED) || !t.living()) return;
         bonds.computeIfAbsent(weapon, k -> new IdentityHashMap<>()).put(t, now);
     }
 

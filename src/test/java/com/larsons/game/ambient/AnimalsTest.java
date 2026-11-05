@@ -5,9 +5,14 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.world.Biome;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -241,10 +246,23 @@ class AnimalsTest {
         swan.hurt(swan.health() + 1, her.at, true);
         assertFalse(swan.alive(), "beaten: no more a target");
         List<Animals.Event> ev = run(a, p, her, 0.2, heard);
-        assertTrue(ev.stream().anyMatch(e -> e.outcome() == Animals.Outcome.RAN_OFF && e.animal() == swan));
+        // hunted down: game falls where it is, for what it leaves
+        assertTrue(ev.stream().anyMatch(e -> e.outcome() == Animals.Outcome.DOWN && e.animal() == swan));
+        assertEquals(Animal.Mode.DOWN, swan.mode());
+        assertEquals("fall", swan.sheet());
         assertTrue(heard.contains(SoundKeys.creature("swan", "squawk")), heard.toString());
         run(a, p, her, 5, heard);
-        assertFalse(a.live().contains(swan), "run off, and gone");
+        assertTrue(a.live().contains(swan), "lying there a while");
+        run(a, p, her, Animals.LIES_FOR, heard);
+        assertFalse(a.live().contains(swan), "and then gone");
+
+        // the tame are no game: beaten, a horse runs off, and is gone
+        Animal horse = a.add(AnimalKind.HORSE, new Vec3(0, 0, 8), null, p);
+        horse.hurt(horse.health() + 1, her.at, true);
+        ev = run(a, p, her, 0.2, heard);
+        assertTrue(ev.stream().anyMatch(e -> e.outcome() == Animals.Outcome.RAN_OFF && e.animal() == horse));
+        run(a, p, her, 8, heard);
+        assertFalse(a.live().contains(horse), "run off, and gone");
     }
 
     @Test
@@ -299,6 +317,19 @@ class AnimalsTest {
                     "in the tree");
             assertTrue(Math.hypot(horse.position().x(), horse.position().z()) > 3 - 0.2 || p.water(horse.position().x(),
                     horse.position().z(), 0) <= AnimalKind.HORSE.wade(), "in the deep pond");
+        }
+    }
+
+    @Test
+    void aSwimmersWaterlineIsWhereItsSheetsWereDrawn() throws IOException {
+        // the sheets carry where the water comes up to on it as drawn swimming; the game keeps it to that
+        Pattern line = Pattern.compile("\"waterline\"\\s*:\\s*([0-9.]+)");
+        for (AnimalKind k : AnimalKind.values()) {
+            if (!k.paddles()) continue;
+            Path profile = Path.of("assets/sprites/objects", k.key(), "profile.json");
+            Matcher m = line.matcher(Files.readString(profile));
+            assertTrue(m.find(), k + " has no waterline");
+            assertEquals(Double.parseDouble(m.group(1)), k.waterline(), 0.01, k.toString());
         }
     }
 

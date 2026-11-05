@@ -130,6 +130,7 @@ public final class SceneryRenderer implements AutoCloseable {
                     : byName.get(forage.picked());
             Texture bareSheet = bareSprite == null ? null : sheets.get(bareSprite.name());
             for (Scenery.Placed p : e.getValue()) {
+                batch.tint(p.tint());
                 Texture t = sheet;
                 ScenerySprites.Sprite frames = p.sprite();
                 if (bareSheet != null && bare.test(p)) {
@@ -145,6 +146,7 @@ public final class SceneryRenderer implements AutoCloseable {
                 }
             }
         }
+        batch.tint(0);
         batch.depthAnchor(null);
         batch.setAlphaCut(Batch.DEFAULT_ALPHA_CUT);
         batch.end();
@@ -156,7 +158,7 @@ public final class SceneryRenderer implements AutoCloseable {
         SceneryProfile profile = p.profile();
         float[] uv = frames.uv(frames.frameAt(time + p.phase()));
         float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
-        double w = profile.frameWorldSize(), h = profile.frameWorldHeight();
+        double w = profile.frameWorldSize() * p.scale(), h = profile.frameWorldHeight() * p.scale();
         Vec3 topLeft = p.position().sub(right.scale(w / 2)).add(up.scale(h));
         batch.quad(sheet, topLeft, right.scale(w), up.scale(-h), u0, uv[1], u1, uv[3], 1, 1, 1, 1);
     }
@@ -167,7 +169,7 @@ public final class SceneryRenderer implements AutoCloseable {
      * It leans harder the nearer they are, flattened most underfoot.
      */
     static double[] lean(Scenery.Placed p, List<Vec3> walkers) {
-        double h = p.profile().frameWorldHeight(), lx = 0, lz = 0;
+        double h = p.profile().frameWorldHeight() * p.scale(), lx = 0, lz = 0;
         for (Vec3 w : walkers) {
             double dx = p.x() - w.x(), dz = p.z() - w.z(), d = Math.hypot(dx, dz);
             if (d >= BEND_REACH || Math.abs(w.y() - p.y()) > h + 0.5) continue;
@@ -194,8 +196,8 @@ public final class SceneryRenderer implements AutoCloseable {
         SceneryProfile profile = p.profile();
         float[] uv = frames.uv(frames.frameAt(time + p.phase()));
         float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
-        double half = profile.frameWorldSize() / 2;
-        float h = (float) profile.frameWorldHeight();
+        double half = profile.frameWorldSize() * p.scale() / 2;
+        float h = (float) (profile.frameWorldHeight() * p.scale());
         double c = Math.cos(p.yaw()) * half, s = Math.sin(p.yaw()) * half;
         card(batch, sheet, p.x(), p.y(), p.z(), c, s, h, u0, uv[1], u1, uv[3], lean);
         card(batch, sheet, p.x(), p.y(), p.z(), -s, c, h, u0, uv[1], u1, uv[3], lean);

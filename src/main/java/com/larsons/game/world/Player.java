@@ -196,6 +196,43 @@ public final class Player {
     /** Whether she rides: not, getting up into the saddle, sitting it, getting down. */
     public enum Riding { NO, MOUNTING, RIDING, DISMOUNTING }
 
+    /**
+     * The low things about - a table, a bench, a crate, a barrel, a chest -
+     * she can stand on, step up onto (no higher than {@link #STEP_UP}), jump
+     * onto, and climb up onto from the ground ({@link #CLIMB_ONTO} high at
+     * most, about her own height): their tops, and their edges.
+     */
+    public interface Tops {
+        /** The highest top over {@code (x, z)} no higher than {@code below}, or NaN when there is none. */
+        double top(double x, double z, double below);
+
+        /**
+         * The edge of the nearest of them ahead of {@code (x, z)} going {@code
+         * (dx, dz)} (a unit vector), no further than {@code reach}, whose top is
+         * {@code lo} to {@code hi} metres over {@code feetY}: {@code {edge x,
+         * edge z, top}} - or null.
+         */
+        double[] ahead(double x, double z, double dx, double dz, double reach, double feetY, double lo, double hi);
+
+        Tops NONE = new Tops() {
+            @Override
+            public double top(double x, double z, double below) { return Double.NaN; }
+
+            @Override
+            public double[] ahead(double x, double z, double dx, double dz, double reach, double feetY, double lo,
+                                  double hi) {
+                return null;
+            }
+        };
+    }
+
+    /** The highest she steps up onto something low as she walks (a step, a low bench), metres. */
+    public static final double STEP_UP = 0.4;
+    /** The highest top she climbs up onto from the ground (Space by it), metres over her feet: about her height. */
+    public static final double CLIMB_ONTO = 1.8;
+    /** How far ahead of her the edge of what she climbs onto can be, from her middle, metres. */
+    public static final double CLIMB_REACH = 0.8;
+
     /** Something that happened to her this frame, for the world to show: a fall's hurt, a roll out of one... */
     public record Event(Kind kind, double amount) {
         public enum Kind {
@@ -303,6 +340,12 @@ public final class Player {
 
     /** The ground she walks on. */
     private Terrain terrain = Terrain.FLAT;
+    /** The tops of the low things she can stand on and climb onto (a table, a crate, a barrel). */
+    private Tops tops = Tops.NONE;
+    /** Climbing up onto one of them: where she took hold of its edge, which way, its top, from which frame. */
+    private boolean mantling;
+    private Vec3 mantleEdge = Vec3.ZERO, mantleFrom = Vec3.ZERO;
+    private double mantleHeading, mantleTop, mantleF0, mantleTime;
     private WaterMap water = WaterMap.NONE;
     /** The wall she is climbing, or null. */
     private Terrain.Wall wall;
@@ -378,6 +421,10 @@ public final class Player {
             climb(dt, in);
             return;
         }
+        if (mantling) {
+            climbOnto(dt, durations);
+            return;
+        }
 
         boolean grounded = height <= 1e-6 && vy <= 0;
         Stance st = stance();
@@ -442,6 +489,9 @@ public final class Player {
                 // aimed up at what is above her (standing: the crouched shots have no such variant)
                 if (!crouched && next.up() != next && aimUp.getAsBoolean()) next = next.up();
                 drawing = st.drawn() && in.attackHeld();
+            } else if (in.jump() && st.canJump() && startClimbOnto(in, 0.25)) {
+                climbOnto(0, durations);
+                return;
             } else if (in.jump() && st.canJump()) {
                 crouched = false;
                 jumping = true;
@@ -497,6 +547,11 @@ public final class Player {
             if (launched && stateTime >= actionDuration) jumping = false;
         }
         fall(dt, durations);
+        // in the air, coming up against the edge of something low with its top in reach: she climbs up onto it
+        if (airborne && height > 0.15 && wish.length() > 0.5 && startClimbOnto(in, 0.05)) {
+            climbOnto(0, durations);
+            return;
+        }
 
         turnToward(dt);
 
@@ -773,13 +828,29 @@ public final class Player {
             return;
         }
         double x = position.x() + to.x(), z = position.z() + to.z();
-        double ground = terrain.height(x, z);
-        if (grounded && !airborne && feetY - ground <= STEP_DOWN && terrain.slopeUnder(x, z) <= SLIDE) {
+        double ground = groundAt(x, z, feetY + (grounded ? STEP_UP : 0.02));
+        if (grounded && !airborne && feetY - ground <= STEP_DOWN && slopeAt(x, z, ground) <= SLIDE) {
             height = 0;                                          // down a slope she walks
         } else {
             height = Math.max(0, feetY - ground);
         }
         position = new Vec3(x, ground, z);
+    }
+
+    /**
+     * The ground under {@code (x, z)}: the terrain, or the top of a low thing
+     * standing on it there no higher than {@code below} - a table she is on,
+     * a crate she steps up onto.
+     */
+    private double groundAt(double x, double z, double below) {
+        double g = terrain.height(x, z);
+        double t = tops.top(x, z, below);
+        return Double.isNaN(t) ? g : Math.max(g, t);
+    }
+
+    /** How steep it is under {@code (x, z)} at height {@code y}: the terrain's slope, or none on top of something. */
+    private double slopeAt(double x, double z, double y) {
+        return y > terrain.height(x, z) + 0.05 ? 0 : terrain.slopeUnder(x, z);
     }
 
     /** Whether she can go to {@code (x, z)} from where her feet are, by {@code step}. */
@@ -789,9 +860,10 @@ public final class Player {
             double there = water.depth(x, z, terrain.height(x, z));
             if (there > WaterMap.TOO_DEEP && there > waterDepth() - 1e-6) return false;
         }
-        double rise = terrain.height(x, z) - feetY;
+        double rise = groundAt(x, z, feetY + (grounded ? STEP_UP : 0.02)) - feetY;
         if (rise <= 0.02) return true;                           // level, or down
         if (!grounded) return rise <= 0.02;                      // in the air: nothing higher than her feet
+        if (rise > terrain.height(x, z) - feetY + 0.02) return rise <= STEP_UP;   // up onto something low
         double len = step.horizontalLength();
         double steep = terrain.rise(x, z, step.x() / len, step.z() / len);
         return rise <= 0.4 && steep <= Terrain.STEEP;
@@ -799,8 +871,16 @@ public final class Player {
 
     /** Gravity, and the landing: hurt by a long fall, or rolling out of it. */
     private void fall(double dt, ToDoubleFunction<AnimState> durations) {
-        if (height <= 1e-6 && vy <= 0 && terrain.slopeUnder(position.x(), position.z()) > SLIDE) slide(dt);
+        if (height <= 1e-6 && vy <= 0 && slopeAt(position.x(), position.z(), position.y()) > SLIDE) slide(dt);
         double feetY = position.y() + height;
+        if (height > 0) {
+            // coming down over something low - a table, a barrel - she comes down on its top
+            double under = groundAt(position.x(), position.z(), feetY + 0.02);
+            if (under > position.y()) {
+                position = new Vec3(position.x(), under, position.z());
+                height = feetY - under;
+            }
+        }
         if (height > 0 || vy > 0) {
             if (!airborne) {
                 airborne = true;
@@ -815,7 +895,7 @@ public final class Player {
             vy = 0;
             return;
         }
-        if (terrain.slopeUnder(position.x(), position.z()) > SLIDE) {
+        if (slopeAt(position.x(), position.z(), position.y()) > SLIDE) {
             vy = Math.min(vy, 0);                                // on a face too steep to stand: on down it
             return;
         }
@@ -1035,6 +1115,90 @@ public final class Player {
         }
     }
 
+    /**
+     * Space by something low - a table, a crate, a chest - or coming up
+     * against its edge in the air: if its top is {@code lo} to {@link
+     * #CLIMB_ONTO} over her feet and its edge in reach the way she is going
+     * (or facing), she starts climbing up onto it. Whether she does.
+     */
+    private boolean startClimbOnto(Intent in, double lo) {
+        Vec3 dir = in.moving() ? new Vec3(in.moveX(), 0, in.moveZ()).normalize()
+                : SpriteView.headingVector(heading);
+        double feetY = position.y() + height;
+        double[] e = tops.ahead(position.x(), position.z(), dir.x(), dir.z(), CLIMB_REACH, feetY, lo, CLIMB_ONTO);
+        if (e == null) return false;
+        double h = e[2] - feetY;
+        // from as far into the step up over a lip (LEDGE_PATH) as the top is high: the end of it for something low
+        double last = LEDGE_PATH[LEDGE_PATH.length - 1][0], f0 = 0;
+        if (h < LEDGE_RISE) {
+            f0 = LEDGE_PATH[1][0];
+            while (f0 < last && -Pchip.at(LEDGE_PATH, 2, f0) > h) f0 += 0.25;
+        }
+        mantling = true;
+        mantleEdge = new Vec3(e[0], 0, e[1]);
+        mantleHeading = SpriteView.headingOf(dir.x(), dir.z());
+        mantleTop = e[2];
+        mantleF0 = Math.min(f0, last - 4);
+        mantleTime = 0;
+        Vec3 start = pathAt(mantleF0);
+        mantleFrom = new Vec3(position.x() - start.x(), 0, position.z() - start.z());
+        jumping = false;
+        action = null;
+        drawing = false;
+        grab = null;
+        crouched = false;
+        velocity = Vec3.ZERO;
+        vy = 0;
+        return true;
+    }
+
+    /** Where she is at frame {@code f} of climbing onto the top she has hold of (its y her feet's). */
+    private Vec3 pathAt(double f) {
+        Vec3 dir = SpriteView.headingVector(mantleHeading);
+        double out = Pchip.at(LEDGE_PATH, 1, f);
+        return new Vec3(mantleEdge.x() - dir.x() * out, mantleTop + Pchip.at(LEDGE_PATH, 2, f),
+                mantleEdge.z() - dir.z() * out);
+    }
+
+    /**
+     * A frame of climbing up onto something low: carried along the end of
+     * {@link #LEDGE_PATH} as the step up's sheets play from that frame - from
+     * where she stood, eased in - standing on its top at the end.
+     */
+    private void climbOnto(double dt, ToDoubleFunction<AnimState> durations) {
+        mantleTime += dt;
+        velocity = Vec3.ZERO;
+        double last = LEDGE_PATH[LEDGE_PATH.length - 1][0];
+        double perFrame = durations.applyAsDouble(AnimState.LEDGE_UP) / (last + 1);
+        double f = Math.min(last, mantleF0 + mantleTime / Math.max(1e-6, perFrame));
+        Vec3 at = pathAt(f);
+        double ease = Math.max(0, 1 - mantleTime / 0.18);
+        double x = at.x() + mantleFrom.x() * ease, z = at.z() + mantleFrom.z() * ease;
+        double feetY = Math.max(at.y(), position.y() + height - 0.05 * (1 - ease));
+        if (f >= last) feetY = mantleTop;
+        double under = groundAt(x, z, Math.min(feetY, mantleTop) + 0.02);
+        position = new Vec3(x, Math.min(feetY, under), z);
+        height = Math.max(0, feetY - position.y());
+        heading = wantHeading = mantleHeading;
+        setState(AnimState.LEDGE_UP);
+        stateTime = mantleF0 * perFrame + mantleTime;
+        if (f < last) return;
+        mantling = false;
+        position = new Vec3(x, groundAt(x, z, mantleTop + 0.05), z);
+        height = 0;
+        vy = 0;
+        airborne = false;
+        events.add(new Event(Event.Kind.CLIMBED, 0));
+    }
+
+    /** Whether she is climbing up onto something low. */
+    public boolean climbingOnto() { return mantling; }
+
+    /** Stand on, step up onto and climb onto the tops of {@code t} from now on (null: none). */
+    public void setTops(Tops t) {
+        tops = t == null ? Tops.NONE : t;
+    }
+
     /** The dodge under way's animation's length over its art's ({@link AnimState#defaultFrames} at 30 a second). */
     private double scale(AnimState s) {
         double art = s.defaultFrames() / AnimState.DEFAULT_FPS;
@@ -1208,6 +1372,7 @@ public final class Player {
         if (s != null) {
             wall = null;
             ledge = null;
+            mantling = false;
             jumping = false;
             action = null;
             drawing = false;
@@ -1261,6 +1426,7 @@ public final class Player {
         vy = 0;
         wall = null;
         ledge = null;
+        mantling = false;
         airborne = false;
         rollPrimed = false;
     }
@@ -1357,6 +1523,7 @@ public final class Player {
     public void lift(double metres) {
         wall = null;
         ledge = null;
+        mantling = false;
         action = null;
         jumping = false;
         height = Math.max(0, metres);

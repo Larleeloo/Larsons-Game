@@ -51,6 +51,8 @@ public final class SpriteProfile {
     private Boolean pixelArt;                        // null: decided by the frame size
     private final Map<AnimState, Double> stateFps = new EnumMap<>(AnimState.class);
     private final Map<Elevation, double[]> anchors = new EnumMap<>(Elevation.class);
+    /** An animal's coat colours (RGB), which a herd's colour recolours ({@link CoatTint}); empty: none. */
+    private int[] tint = new int[0];
 
     /** The standard 512×512 framing. */
     public static SpriteProfile defaults() {
@@ -75,8 +77,16 @@ public final class SpriteProfile {
         p.pixelArt = pixelArt;
         p.stateFps.putAll(stateFps);
         anchors.forEach((k, v) -> p.anchors.put(k, v.clone()));
+        p.tint = tint.clone();
         return p;
     }
+
+    /**
+     * An animal's coat colours (RGB): the colours of its coat, plumage or
+     * skin in its sheets, which a herd given a colour has recoloured ({@link
+     * CoatTint}) - the {@code "tint"} list in its profile. Empty: none.
+     */
+    public int[] tint() { return tint.clone(); }
 
     public int frameWidth() { return frameWidth; }
 
@@ -146,6 +156,20 @@ public final class SpriteProfile {
                 double v = Json.num(perState, s.key(), -1);
                 if (v > 0) stateFps.put(s, v);
             }
+        }
+        if (json.get("tint") instanceof java.util.List<?> list) {
+            int[] t = new int[list.size()];
+            int n = 0;
+            for (Object o : list) {
+                String h = String.valueOf(o).trim();
+                if (h.startsWith("#")) h = h.substring(1);
+                try {
+                    if (h.length() == 6) t[n++] = Integer.parseInt(h, 16);
+                } catch (NumberFormatException ignored) {
+                    // (a colour that is not one: skipped)
+                }
+            }
+            tint = java.util.Arrays.copyOf(t, n);
         }
         Map<String, Object> anchorJson = Json.obj(json, "anchors");
         if (anchorJson != null) {

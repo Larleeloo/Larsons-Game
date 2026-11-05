@@ -182,6 +182,8 @@ public final class World {
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
     private final List<Building> buildings = new ArrayList<>();
+    /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
+    private final List<Store> stores = new ArrayList<>();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Tack.addTo(Wearables.addTo(new Loot()));
     private final List<Dummy> dummies = new ArrayList<>();
@@ -195,6 +197,11 @@ public final class World {
     private GroundMap ground = GroundMap.NONE;
     private WaterMap water = WaterMap.NONE;
     private Sky sky = Sky.DEFAULT;
+    private Weather weather = Weather.NONE;
+    private final Weather.Now weatherNow = new Weather.Now(1025);
+    /** The biome the weather is for: where she was last out of doors. */
+    private Biome weatherBiome = Biome.PLAINS;
+    private Sky.Cover cover = Sky.Cover.OPEN;
     private final DayCycle clock = new DayCycle(Sky.DEFAULT.air().startHour());
     private final List<LightSpot> lights = new ArrayList<>();
     private final List<RaySpot> raySpots = new ArrayList<>();
@@ -229,6 +236,7 @@ public final class World {
         private final List<GroundItem> items;
         private final List<Chest> chests;
         private final List<Building> buildings;
+        private final List<Store> stores;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -250,6 +258,7 @@ public final class World {
             items = List.copyOf(w.items);
             chests = List.copyOf(w.chests);
             buildings = List.copyOf(w.buildings);
+            stores = List.copyOf(w.stores);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -285,6 +294,7 @@ public final class World {
         items.clear();
         chests.clear();
         buildings.clear();
+        stores.clear();
         dummies.clear();
         fliers.clear();
         soundSpots.clear();
@@ -311,6 +321,8 @@ public final class World {
         chests.addAll(p.chests);
         buildings.clear();
         buildings.addAll(p.buildings);
+        stores.clear();
+        stores.addAll(p.stores);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -346,6 +358,7 @@ public final class World {
     public World(Wardrobe wardrobe, int slots) {
         player = new Player(wardrobe, slots);
         player.setAimUp(() -> combat.aimsUp(this));
+        player.setTops(tops);
         equipSelected();                // nothing carried yet: her hands are empty
     }
 
@@ -377,6 +390,64 @@ public final class World {
     public Building addBuilding(Building b) {
         buildings.add(b);
         return b;
+    }
+
+    /** Keep {@code s} in the world: a barrel's, a crate's or a storage chest's hold. */
+    public Store addStore(Store s) {
+        stores.add(s);
+        return s;
+    }
+
+    /** The barrels, crates and storage chests. */
+    public List<Store> stores() { return stores; }
+
+    /** The store that is level object {@code id}, or null. */
+    public Store store(int id) {
+        for (Store s : stores) if (s.id() == id) return s;
+        return null;
+    }
+
+    /** The nearest barrel or crate she can reach into, or null (a storage chest is opened as a chest). */
+    public Store reachableStore() {
+        Store best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Store s : stores) {
+            if (s.kind() == Store.Kind.CHEST || !s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * {@code s} broken open: gone (its barrel or crate taken away), what it
+     * held spilled out round where it stood - never through a wall - and
+     * the crack of it.
+     */
+    void smash(Store s) {
+        stores.remove(s);
+        buildings.removeIf(b -> b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null);
+        Vec3 at = s.position();
+        combat.sound("world/" + s.kind().key() + "_break", at, 1);
+        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT) + " breaks", 0xE8D8A8, at,
+                s.height() + 0.4, true);
+        Inventory held = s.items();
+        int k = 0;
+        for (int i = 0; i < held.size(); i++) {
+            Item it = held.get(i);
+            if (it == null) continue;
+            double ang = s.heading() + k * 2.39996, reach = 0.35 + 0.18 * (k % 3);
+            double x = at.x() + Math.cos(ang) * reach, z = at.z() + Math.sin(ang) * reach;
+            if (!lootFits(x, z)) {
+                x = at.x();
+                z = at.z();
+            }
+            spawn(it, new Vec3(x, 0, z), held.amount(i));
+            k++;
+        }
     }
 
     /** The building that is level object {@code id}, or null. */
@@ -425,6 +496,7 @@ public final class World {
     public List<Target> targets() {
         List<Target> out = new ArrayList<>(dummies);
         out.addAll(fliers);
+        for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         return out;
     }
@@ -500,6 +572,40 @@ public final class World {
     /** The sky over it and what stands far off round the horizon. */
     public Sky sky() { return sky; }
 
+    /** The level's weather: none, by biome, or fixed. */
+    public Weather weather() { return weather; }
+
+    public void setWeather(Weather w) {
+        weather = w == null ? Weather.NONE : w;
+    }
+
+    /** The weather over her now. */
+    public Weather.Now weatherNow() { return weatherNow; }
+
+    /** What is over the level: the open sky, a roof, a cave's rock. */
+    public Sky.Cover cover() { return cover; }
+
+    public void setCover(Sky.Cover c) {
+        cover = c == null ? Sky.Cover.OPEN : c;
+    }
+
+    /** What is over her where she is: a building's roof inside one, else the level's. */
+    public Sky.Cover over() { return indoors ? Sky.Cover.INSIDE : cover; }
+
+    /** Whether there is no sky over her: inside a building, under the level's roof or a cave's rock. */
+    public boolean roofed() { return over() != Sky.Cover.OPEN; }
+
+    /** The sky as the weather makes it now: greyer, nearer fog, more cloud (as it is, under a roof). */
+    public Sky skyNow() {
+        return roofed() ? sky : Weathering.sky(sky, weatherNow);
+    }
+
+    /** The light now, under the sky as the weather makes it, the lightning's flash in it. */
+    public DayCycle.Daylight daylight() {
+        DayCycle.Daylight d = clock.daylight(skyNow());
+        return roofed() ? d : Weathering.light(d, weatherNow);
+    }
+
     public void setSky(Sky s) {
         sky = s == null ? Sky.DEFAULT : s;
     }
@@ -522,9 +628,13 @@ public final class World {
      * @param strength how bright it is, 0 – 2
      * @param glow     whether it shows as a glowing spot itself (else only its light is seen)
      */
-    public record LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow) {}
+    public record LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow, boolean flame) {
+        public LightSpot(Vec3 at, double radius, int rgb, double strength, boolean glow) {
+            this(at, radius, rgb, strength, glow, false);
+        }
+    }
 
-    /** The lights placed in it. */
+    /** The lights placed in it ({@code flame}: a candle's or a lantern's - its glow a soft halo round it). */
     public List<LightSpot> lights() { return lights; }
 
     /**
@@ -559,14 +669,20 @@ public final class World {
     public void tick(double dt, java.util.function.BiFunction<Chest, Chest.State, Double> durations) {
         time += dt;
         clock.tick(dt, sky.air());
+        if (!indoors) weatherBiome = biome(player.ground().x(), player.ground().z());
+        weatherNow.tick(dt, time, weather, weatherBiome);
         for (Chest c : chests) {
             c.tick(dt, s -> durations == null ? 0 : durations.apply(c, s));
             player.keepOut(c.position(), Chest.RADIUS);
             int opens = c.opens();
             if (opens != opensSeen.getOrDefault(c, 0)) {
                 opensSeen.put(c, opens);
-                opened(c);
+                if (c.store() == null) opened(c);           // (a storage chest throws nothing out)
             }
+        }
+        for (Store s : List.copyOf(stores)) {
+            s.tick(dt);
+            if (s.broken()) smash(s);
         }
         for (Dummy d : dummies) {
             d.tick(dt);
@@ -733,6 +849,54 @@ public final class World {
         }
     }
 
+    /** The tallest piece of furniture she stands on and climbs up onto (a table, a crate, a barrel), metres. */
+    public static final double CLIMBABLE = 2.0;
+
+    /** Whether she can stand on {@code b} and climb up onto it: a piece of furniture no taller than {@link #CLIMBABLE}. */
+    static boolean climbable(Building b) {
+        return b.profile().furniture() && b.profile().height() <= CLIMBABLE;
+    }
+
+    /** The tops of the furniture, to stand on and climb onto. */
+    private final Player.Tops tops = new Player.Tops() {
+        @Override
+        public double top(double x, double z, double below) {
+            double best = Double.NaN;
+            for (Building b : buildings) {
+                if (!climbable(b)) continue;
+                double t = b.position().y() + b.profile().height();
+                if (t > below || t <= best) continue;
+                if (b.blocks(x, z, 1e-6)) best = t;
+            }
+            return best;
+        }
+
+        @Override
+        public double[] ahead(double x, double z, double dx, double dz, double reach, double feetY, double lo,
+                              double hi) {
+            double[] best = null;
+            double nearest = Double.MAX_VALUE;
+            for (Building b : buildings) {
+                if (!climbable(b)) continue;
+                double t = b.position().y() + b.profile().height(), h = t - feetY;
+                if (h < lo || h > hi) continue;
+                double r = b.profile().reach() + reach;
+                if (Math.hypot(b.position().x() - x, b.position().z() - z) > r) continue;
+                for (double d = 0; d <= reach && d < nearest; d += 0.04) {
+                    double px = x + dx * d, pz = z + dz * d;
+                    if (!b.blocks(px, pz, 1e-6)) continue;
+                    // room on it to stand, a step in from its edge
+                    if (b.blocks(px + dx * 0.3, pz + dz * 0.3, 1e-6)) {
+                        nearest = d;
+                        best = new double[]{px, pz, t};
+                    }
+                    break;
+                }
+            }
+            return best;
+        }
+    };
+
     /** She walks round the buildings - unless she is up above one (on a cliff over it, flying off one). */
     private void keepOutOfBuildings() {
         Vec3 at = player.ground();
@@ -810,20 +974,47 @@ public final class World {
             }
             case RAN_OFF -> combat.say("The " + a.kind().singular().toLowerCase(java.util.Locale.ROOT)
                     + " runs off", 0xE8D8A8, a.position(), a.height() + 0.4, true);
+            case DOWN -> {
+                combat.say("The " + a.kind().singular().toLowerCase(java.util.Locale.ROOT) + " falls", 0xE8D8A8,
+                        a.position(), a.height() + 0.4, true);
+                hunted(a);
+            }
+        }
+    }
+
+    /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
+    void hunted(Animal a) {
+        java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
+                + time));
+        int i = 0;
+        for (com.larsons.game.ambient.Hunting.Drop d : com.larsons.game.ambient.Hunting.drops(a.kind())) {
+            int n = d.roll(r);
+            ItemDef def = Hunted.byId(d.item());
+            if (n <= 0 || def == null) continue;
+            double ang = a.heading() + Math.PI / 2 + i * 2.1, reach = a.radius() * 0.6 + 0.25;
+            double x = a.position().x() + Math.cos(ang) * reach, z = a.position().z() + Math.sin(ang) * reach;
+            if (!lootFits(x, z)) {
+                x = a.position().x();
+                z = a.position().z();
+            }
+            spawn(Item.of(def), new Vec3(x, 0, z), n);
+            i++;
         }
     }
 
     /** What an animal's blow is called, over her: "Pecked!", "Stung!". */
     static String struck(AnimalKind k) {
         return switch (k) {
-            case GOOSE, DUCK -> "Pecked!";
+            case GOOSE, DUCK, ROBIN, BLUE_JAY, CARDINAL, CROW, OWL, PHEASANT, MACAW, TOUCAN, COCKATOO, FLAMINGO,
+                 PEACOCK -> "Pecked!";
             case SWAN -> "Battered!";
             case BEE -> "Stung!";
             case BEAR -> "Mauled!";
-            case HORSE, COW, SHEEP -> "Kicked!";
+            case EAGLE -> "Clawed!";
+            case HORSE, COW, SHEEP, DEER -> "Kicked!";
             case CAT -> "Scratched!";
             case DOG, FOX, PIG, RABBIT, SQUIRREL, IGUANA -> "Bitten!";
-            case BUTTERFLY -> "Tickled!";
+            case BUTTERFLY, HUMMINGBIRD -> "Tickled!";
         };
     }
 
@@ -937,10 +1128,58 @@ public final class World {
             double a = c.heading() + (n == 1 ? 0 : -spread / 2 + spread * i / (n - 1))
                     + (random.nextDouble() - 0.5) * 0.15;
             double r = 1.35 + (i % 2) * 0.55 + random.nextDouble() * 0.2;
-            Vec3 land = terrain.onGround(c.position().add(SpriteView.headingVector(a).scale(r)));
+            Vec3 land = terrain.onGround(landing(c, a, r));
             items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
                     time + FIRST_THROW + NEXT_THROW * i));
         }
+    }
+
+    /** How near a wall (or anything solid) a thrown item may come down, metres. */
+    static final double LOOT_CLEAR = 0.35;
+
+    /**
+     * Where an item thrown out of chest {@code c} toward {@code heading},
+     * {@code r} metres, comes down: there, or - a wall, a building, a tree or
+     * a rock in the way - short of it, on the chest's side, or failing that
+     * along another way out of the chest. Never through a wall: inside a room
+     * the loot stays in the room.
+     */
+    Vec3 landing(Chest c, double heading, double r) {
+        Vec3 from = c.position();
+        double best = -1, bestHeading = heading;
+        for (double turn : new double[]{0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, Math.PI}) {
+            Vec3 dir = SpriteView.headingVector(heading + turn);
+            double clear = 0;
+            for (double step = Chest.RADIUS; ; step = Math.min(r, step + 0.1)) {
+                double d = step, x = from.x() + dir.x() * d, z = from.z() + dir.z() * d;
+                if (!lootFits(x, z) || Math.abs(terrain.height(x, z) - from.y()) > 1.2 && d > Chest.RADIUS + 0.4) break;
+                clear = d;
+                if (d >= r) break;
+            }
+            if (clear >= r - 1e-6) {
+                best = r;
+                bestHeading = heading + turn;
+                break;
+            }
+            if (clear > best) {
+                best = clear;
+                bestHeading = heading + turn;
+            }
+        }
+        double d = Math.max(Chest.RADIUS, best);
+        return from.add(SpriteView.headingVector(bestHeading).scale(d));
+    }
+
+    /** Whether loot can come down at {@code (x, z)}: inside the level, clear of walls, buildings, trunks and rocks. */
+    private boolean lootFits(double x, double z) {
+        if (bounds != null && (x < bounds[0] || x > bounds[1] || z < bounds[2] || z > bounds[3])) return false;
+        for (Building b : buildings) {
+            if (b.profile().room() != null && b.profile().room().piece() == com.larsons.game.building.Room.Piece.FLOOR) {
+                continue;
+            }
+            if (b.blocks(x, z, LOOT_CLEAR)) return false;
+        }
+        return !solidNear(x, z, LOOT_CLEAR * 0.5);
     }
 
     public void tick(double dt) {
@@ -1060,7 +1299,7 @@ public final class World {
      */
     public Eaten eat(int slot) {
         Item item = player.inventory().get(slot);
-        if (item == null || !item.def().isFood()) return null;
+        if (item == null || !item.def().edible()) return null;
         Food f = item.def().food();
         double h = Math.min(f.health(), Player.MAX_HEALTH - player.health());
         double s = Math.min(f.stamina(), Player.MAX_STAMINA - player.stamina());

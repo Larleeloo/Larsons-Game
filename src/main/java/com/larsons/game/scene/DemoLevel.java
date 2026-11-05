@@ -41,7 +41,7 @@ public final class DemoLevel {
         float[] h = new float[n * n];
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < n; i++) {
-                h[j * n + i] = (float) t.height(hf.west() + i * Terrain.STEP, hf.west() + j * Terrain.STEP);
+                h[j * n + i] = (float) t.height(hf.west() + i * hf.step(), hf.west() + j * hf.step());
             }
         }
         hf.setHeights(h);

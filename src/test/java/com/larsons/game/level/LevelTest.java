@@ -149,7 +149,7 @@ class LevelTest {
         l.add(ObjectTypes.VINES, 0, 10, Math.PI / 2, Map.of("length", 6.5)).setLift(0.25);
         l.add(new LevelObject(0, "npc", 4, 4, 0, Map.of("dialogue", "hello", "likes", List.of("cats", 3))));
         l.setMusic("dream_on");
-        l.extra().put("weather", Map.of("rain", "light"));
+        l.extra().put("seasons", Map.of("winter", "long"));
 
         Path folder = root.resolve("round_trip");
         LevelIO.save(l, folder);
@@ -181,7 +181,7 @@ class LevelTest {
         assertEquals(List.of("cats", 3.0), npc.props().get("likes"));
         assertEquals("dream_on", back.music());
         assertTrue(json.contains("\"music\": \"dream_on\""), json);
-        assertEquals(Map.of("rain", "light"), back.extra().get("weather"), "and keys it does not know");
+        assertEquals(Map.of("winter", "long"), back.extra().get("seasons"), "and keys it does not know");
         for (double[] p : new double[][]{{-6, 3}, {8, 8}, {0, 0}, {-3, 1}}) {
             assertEquals(l.heights().height(p[0], p[1]), back.heights().height(p[0], p[1]), 1 / 256.0,
                     "the height at " + p[0] + ", " + p[1]);
@@ -251,6 +251,30 @@ class LevelTest {
         assertEquals(3, s.at().y(), 0.05, "a metre over the ground there");
         LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
         assertTrue(w.soundSpots().isEmpty(), "taken away with the rest");
+    }
+
+    @Test
+    void aBarrelACrateAndAStorageChestHoldWhatTheyAreGiven() {
+        Level l = Level.blank("cellar", 64);
+        LevelObject barrel = l.add(ObjectTypes.BUILDING, 2, 0, 0, Map.of("kind", "barrel", "contents", "sage x4"));
+        l.add(ObjectTypes.BUILDING, -2, 0, 0, Map.of("kind", "crate"));
+        l.add(ObjectTypes.BUILDING, 9, 9, 0, Map.of("kind", "cottage", "contents", "sage"));
+        LevelObject chest = l.add(ObjectTypes.CHEST, 0, 4, 0, Map.of("loot", false, "contents", "sword"));
+        LevelObject loot = l.add(ObjectTypes.CHEST, 0, -4, 0, Map.of("contents", "sword"));
+        World w = new World(new Wardrobe());
+        LevelWorld.populate(w, l, ScenerySprites.NONE, CombatTuning.defaults());
+        assertEquals(3, w.stores().size(), "a cottage holds nothing, and a loot chest gives its loot");
+        assertEquals(4, w.store(barrel.id()).items().amount(0));
+        assertEquals(com.larsons.game.world.Store.Kind.CHEST, w.store(chest.id()).kind());
+        assertNotNull(w.chests().stream().filter(c -> c.store() != null).findFirst().orElse(null));
+        // what is asked in the properties panel: what it holds only where it holds anything
+        ObjectType.Prop contents = ObjectTypes.get(ObjectTypes.CHEST).props().stream()
+                .filter(p -> p.key().equals("contents")).findFirst().orElseThrow();
+        assertTrue(ObjectTypes.applies(chest, contents));
+        assertFalse(ObjectTypes.applies(loot, contents));
+        assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.label().equals("Storage chest")));
+        LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
+        assertTrue(w.stores().isEmpty(), "taken away with the rest");
     }
 
     @Test

@@ -11,7 +11,8 @@ import com.larsons.game.world.Rarity;
  * attack, no magic in it) whose dice are all it does - its weapon's border
  * adds nothing. What it does to a target is worked out as it lands ({@link
  * Combat#damage}), since Bonded counts the living things the weapon has hit
- * by then.
+ * by then. A forged weapon's dice are its own ({@link
+ * com.larsons.game.world.Forged}), as many effects as it was forged with.
  */
 public record Strike(Item weapon, DiceRoll roll, boolean mystic, boolean plain) {
 
@@ -25,8 +26,27 @@ public record Strike(Item weapon, DiceRoll roll, boolean mystic, boolean plain) 
         return weapon == null ? Rarity.COMMON : weapon.rarity();
     }
 
-    /** The weapon's rare border, or null - and null for a plain blow, which its border adds nothing to. */
+    /**
+     * The borders' effects it carries: its weapon's border, or those the
+     * weapon was forged with - none for a plain blow, which they add nothing to.
+     */
+    public java.util.List<Border> borders() {
+        return weapon == null || plain ? java.util.List.of() : weapon.borders();
+    }
+
+    /** Whether it carries {@code b}'s effect ({@link #borders}). */
+    public boolean has(Border b) {
+        return weapon != null && !plain && weapon.has(b);
+    }
+
+    /** The colour its dice's rims take: its first effect's, or null for none. */
     public Border border() {
-        return weapon == null || plain ? null : weapon.border();
+        java.util.List<Border> b = borders();
+        return b.isEmpty() ? null : b.get(0);
+    }
+
+    /** The dice's own colour, a forged weapon's ({@code 0xRRGGBB}), or -1 for its rarity's. */
+    public int diceRgb() {
+        return weapon == null || weapon.forged() == null ? -1 : weapon.forged().diceRgb();
     }
 }

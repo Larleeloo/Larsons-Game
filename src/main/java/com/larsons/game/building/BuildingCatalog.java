@@ -56,7 +56,10 @@ public final class BuildingCatalog {
             "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire",
             // the furniture
             "bed", "table", "chair", "bench", "stool", "bookshelf", "cupboard", "wardrobe", "fireplace", "counter",
-            "barrel", "crate");
+            "barrel", "crate",
+            // the lights' fittings
+            "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
+            "lantern_post");
 
     /** Read {@code root}: each folder with a profile, and the patterns. Never fails: what cannot be read is left out. */
     public static BuildingCatalog load(Path root) {
@@ -67,6 +70,8 @@ public final class BuildingCatalog {
                     if (!Files.isRegularFile(d.resolve("profile.json"))) continue;
                     try {
                         BuildingProfile p = BuildingProfile.load(d);
+                        // furniture stands as tall as its model: its top is what she stands on
+                        if (p.furniture()) p.measured(BuildingModel.topOf(d));
                         found.put(d.getFileName().toString(), p);
                     } catch (IOException | RuntimeException e) {
                         System.err.println("[buildings] " + d.getFileName() + ": " + e.getMessage());

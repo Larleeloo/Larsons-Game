@@ -26,21 +26,29 @@ import com.larsons.game.level.LevelWorld;
 import com.larsons.game.level.ObjectType;
 import com.larsons.game.level.ObjectType.Category;
 import com.larsons.game.level.ObjectTypes;
+import com.larsons.game.level.Templates;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
+import com.larsons.game.gfx.Batch;
+import com.larsons.game.sprite.ItemSprites;
 import com.larsons.game.sprite.PixelPalette;
 import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Border;
+import com.larsons.game.world.Forged;
+import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Rarity;
 import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Biome;
 import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
+import com.larsons.game.world.Weather;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.WaterMap;
@@ -97,7 +105,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge");
 
         final String label;
 
@@ -109,9 +117,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** What the sculpting brush does. */
     enum Sculpt { RAISE, LOWER, SMOOTH, FLATTEN }
 
-    /** The paint brush's materials: grass (paints the others away), then {@link GroundMap}'s twelve. */
+    /**
+     * The paint brush's materials: grass (paints the others away), then
+     * {@link GroundMap}'s twelve, then bare rock (takes the paint off the
+     * steep faces, so the rock shows again).
+     */
     static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
-            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal"};
+            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal", "Bare rock"};
+    /** {@link #MATERIALS}' bare rock. */
+    static final int BARE_ROCK = 13;
 
     /** How far the camera can pull back, metres. */
     static final double FAR = 160;
@@ -150,16 +164,30 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private final PixelPalette pixelPalette;
     /** Which part of a building the Look section colours. */
     private int lookPart;
+    /**
+     * The colour picker over everything (null: none): a herd's colours, asked
+     * for as it is placed, or a tint - and what it is picking them for.
+     */
+    private ColourPick colourPick;
+
+    /** The colour picker: {@code target}'s prop {@code key}, one colour or ({@code multi}) a herd's several. */
+    private record ColourPick(LevelObject target, String key, boolean multi, String title,
+                              List<com.larsons.game.ambient.HerdColours.Preset> presets) {}
     private boolean entered;
 
     private Tool tool = Tool.PLACE;
     // --- place
-    private final List<ObjectTypes.Entry> palette;
+    private List<ObjectTypes.Entry> palette;
+    /** What the selection is saved as, as a template (the Select tool). */
+    private String templateName = "My template";
     private Category category = Category.SCENERY;
     private int paletteScroll;
     private LevelObject template;
     private String templateLabel = "";
     private boolean snap;
+    // --- the forge: the weapon being made, and which of its parts (or its dice) the swatches colour
+    private Forged forging = Forged.fresh("New weapon");
+    private int forgeColour;
     // --- select
     private final List<LevelObject> selection = new ArrayList<>();
     private final List<LevelObject> clipboard = new ArrayList<>();
@@ -174,6 +202,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private int paintTab;
     private Biome biome = Biome.MARSH;
     private boolean sowBiome = true;
+    /** Whether the brushes (sculpt, paint, tint) are square rather than round. */
+    private boolean squareBrush;
+    /** Whether painting the ground paints over the rock of a face too steep to walk, too. */
+    private boolean overRock = true;
+    /** The tint brush's colour (-1: it takes the tint off) and how much of it, at most. */
+    private int tintColour = 0xC89A50;
+    private double tintAmount = 0.6;
     // --- water
     private WaterMap.Kind waterKind = WaterMap.Kind.CLEAR;
     private double waterDepth = 0.6, waterSpeed = 0.8;
@@ -245,7 +280,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         PixelPalette pp = PixelPalette.load(game.settings().spritesDir());
         this.pixelPalette = pp;
         this.colours = pp == null ? fallbackColours() : concat(pp.fills(), pp.lines());
-        camera.setMaxDistance(FAR);
+        camera.setMaxDistance(far(level.size()));
         LevelObject spawn = level.spawn();
         if (spawn != null) focus = new Vec3(spawn.x(), 0, spawn.z());
         if (outside != null) {
@@ -366,7 +401,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 && level.contains(cursor.x(), cursor.z());
         if (ghost) {
             Vec3 at = at(cursor);
-            view.setGhost(template.copy().moveTo(at.x(), at.z()));
+            LevelObject g = template.copy().moveTo(at.x(), at.z());
+            // vines show where they will hang: on the face under the pointer
+            if (g.type().equals(ObjectTypes.VINES) && g.bool("fit", true)) LevelWorld.fitVines(g, level.heights());
+            view.setGhost(g);
         } else {
             view.setGhost(null);
         }
@@ -386,7 +424,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private void keys(Input in, double dt, boolean ctrl, boolean shift) {
         if (in.pressed(GLFW_KEY_ESCAPE)) {
             in.consumeKey(GLFW_KEY_ESCAPE);
-            if (!selection.isEmpty()) selection.clear();
+            if (colourPick != null) colourPick = null;
+            else if (!selection.isEmpty()) selection.clear();
             else leave();
             return;
         }
@@ -394,7 +433,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (ctrl && (in.pressed(GLFW_KEY_Y) || shift && in.pressed(GLFW_KEY_Z))) redo();
         else if (ctrl && in.pressed(GLFW_KEY_Z)) undo();
         if (in.pressed(GLFW_KEY_F5)) {
-            playTest(shift ? null : cursor != null ? cursor : focus);
+            // F5: from the player's spawn (where she starts when the level is played) - Shift+F5: from the pointer
+            playTest(shift ? (cursor != null ? cursor : focus) : spawnOrPointer());
             return;
         }
         if (!ctrl) {
@@ -498,9 +538,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return new Vec3(Math.round(p.x() / GRID) * GRID, p.y(), Math.round(p.z() / GRID) * GRID);
     }
 
+    /** How far the camera can pull back over a level {@code size} metres a side: further over a big one. */
+    static double far(double size) {
+        return Math.max(FAR, size * 0.32);
+    }
+
     private void resize(double size) {
         undo.before(level, Undo.Part.ALL, "Resize");
         level.resize(size);
+        camera.setMaxDistance(far(size));
         selection.clear();
         changed();
         game.toast("The level is now " + (int) size + " m a side (Ctrl+Z puts it back)", Theme.HINT);
@@ -522,18 +568,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (template == null) return null;
         undo.before(level, Undo.Part.OBJECTS, "Place " + templateLabel);
         LevelObject o = template.copy(level.nextId()).moveTo(at.x(), at.z());
-        if (o.type().equals(ObjectTypes.PREFAB)) {
-            // a set: each of its buildings placed as one of its own, all of them selected to move together
+        if (o.type().equals(ObjectTypes.PREFAB) || o.type().equals(ObjectTypes.TEMPLATE)) {
+            // a set, a template: each of its pieces placed as one of its own, all of them selected to move together
+            // (a template's buildings with their floors inside, furnished as they were)
+            Templates.Template saved = Templates.byId(o.str("template", ""));
             selection.clear();
             LevelObject first = null;
-            for (LevelObject piece : ObjectTypes.expand(o, level.nextId())) {
-                LevelObject added = level.add(piece);
+            List<LevelObject> pieces = ObjectTypes.expand(o, level.nextId());
+            for (int i = 0; i < pieces.size(); i++) {
+                LevelObject added = level.add(pieces.get(i));
                 selection.add(added);
                 if (first == null) first = added;
+                List<Level> floors = saved == null || outside != null ? null
+                        : saved.floors(saved.objects().get(i).id());
+                if (floors != null) level.setInterior(added.id(), floors);
             }
+            if (first == null) return null;
             o = first;
         } else {
             o = level.add(o);
+            fitVines(o, true);
+            // a herd: what colours are they? (each of them one of those picked, at random)
+            if (o.type().equals(ObjectTypes.ANIMALS)) pickHerdColours(o);
         }
         changed();
         Sounds.play(SoundKeys.ui("place"));
@@ -610,8 +666,24 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (!held) {
             if (boxing) boxSelect(mx, my);
+            if (moving && movedYet && selection.size() == 1) fitVines(selection.get(0), false);
             moving = boxing = false;
         }
+    }
+
+    /**
+     * Vines {@code o} fitted to the rock face nearest them - facing out of
+     * it, at its foot, as long as it runs ({@link LevelWorld#fitVines}) -
+     * when they are set to fit (anything else, or vines set not to, as it
+     * is); {@code tell}: a toast when there is no face there.
+     */
+    private boolean fitVines(LevelObject o, boolean tell) {
+        if (o == null || !o.type().equals(ObjectTypes.VINES) || !o.bool("fit", true)) return false;
+        boolean fitted = LevelWorld.fitVines(o, level.heights());
+        if (fitted) changed();
+        else if (tell) game.toast("No rock face here: vines hang on ground too steep to walk (Sculpt a cliff)",
+                Theme.WARNING);
+        return fitted;
     }
 
     /** Select everything whose spot is inside the box dragged out on the screen. */
@@ -746,7 +818,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** One frame of the sculpting brush at {@code (x, z)}. */
     void applySculpt(double x, double z, boolean inverse, double dt) {
-        var hf = level.heights();
+        var hf = level.heights().square(squareBrush);
         switch (sculpt) {
             case RAISE, LOWER -> {
                 double sign = (sculpt == Sculpt.RAISE) != inverse ? 1 : -1;
@@ -760,18 +832,27 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintTool(boolean press, boolean held, boolean shift, double dt) {
         if (cursor == null) return;
-        boolean biomes = paintTab == 1, sowing = biomes && sowBiome && !shift;
+        boolean biomes = paintTab == 1, tinting = paintTab == 2, sowing = biomes && sowBiome && !shift;
         if (press) {
-            undo.before(level, sowing ? Undo.Part.ALL : Undo.Part.GROUND, biomes ? biome.label() : "Paint");
+            undo.before(level, sowing ? Undo.Part.ALL : Undo.Part.GROUND, biomes ? biome.label()
+                    : tinting ? "Tint" : "Paint");
             stroking = true;
             sowTimer = 0;
         }
         if (!stroking || !held) return;
         double amount = Math.min(1, strength * 5 * dt);
-        if (shift || !biomes) {
-            level.ground().paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+        var ground = level.ground().square(squareBrush);
+        if (tinting) {
+            ground.tint(cursor.x(), cursor.z(), radius, amount, shift ? -1 : tintColour, tintAmount);
+        } else if (!biomes && material == BARE_ROCK) {
+            // bare the rock faces again (Shift: paint over them)
+            ground.cover(cursor.x(), cursor.z(), radius, amount, shift);
+        } else if (shift || !biomes) {
+            ground.paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+            if (overRock && !shift) ground.cover(cursor.x(), cursor.z(), radius, amount, true);
         } else {
-            level.ground().paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
+            ground.paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
+            if (overRock) ground.cover(cursor.x(), cursor.z(), radius, amount, true);
         }
         dirty = true;
         if (sowing) {
@@ -926,6 +1007,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
     }
 
+    /**
+     * Where F5 starts her: at the level's (or this floor's) player spawn - null, which {@link #playTest}
+     * reads as the spawn - or, with no spawn placed, under the pointer (or where the camera looks).
+     */
+    private Vec3 spawnOrPointer() {
+        if (level.spawn() != null) return null;
+        return cursor != null ? cursor : focus;
+    }
+
     /** Play it: from {@code at} (null: its spawn), facing the way the camera looks - F5 comes back. */
     private void playTest(Vec3 at) {
         widgets.stopTyping();
@@ -995,6 +1085,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             leftPanel(ui);
             rightPanel(ui);
             help(ui);
+            if (colourPick != null) colourDialog(ui);
             if (boxing) {
                 Input in = ui.input();
                 float x0 = (float) Math.min(boxX, in.mouseX()), y0 = (float) Math.min(boxY, in.mouseY());
@@ -1081,8 +1172,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (brushTool()) {
                 int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A
                         : tool == Tool.WATER ? 0x5FA8FF : 0x7FD0FF;
-                gizmos.disc(cursor.x(), cursor.z(), radius, bc, 0.12f);
-                gizmos.ring(cursor.x(), cursor.z(), radius, bc, 0.9f);
+                if (squareBrush && (tool == Tool.SCULPT || tool == Tool.PAINT)) {
+                    // the square brush: its four sides
+                    double x0 = cursor.x() - radius, x1 = cursor.x() + radius;
+                    double z0 = cursor.z() - radius, z1 = cursor.z() + radius;
+                    gizmos.line(x0, z0, x1, z0, 0.08, bc, 0.9f);
+                    gizmos.line(x1, z0, x1, z1, 0.08, bc, 0.9f);
+                    gizmos.line(x1, z1, x0, z1, 0.08, bc, 0.9f);
+                    gizmos.line(x0, z1, x0, z0, 0.08, bc, 0.9f);
+                } else {
+                    gizmos.disc(cursor.x(), cursor.z(), radius, bc, 0.12f);
+                    gizmos.ring(cursor.x(), cursor.z(), radius, bc, 0.9f);
+                }
             } else if (tool == Tool.PLACE && template != null && level.contains(cursor.x(), cursor.z())) {
                 Vec3 at = at(cursor);
                 gizmos.ring(at.x(), at.z(), ObjectTypes.radius(template, sprites) + 0.1, 0x8CF08C, 0.85f);
@@ -1152,13 +1253,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The rectangles the panels take up, as drawn: the pointer over one is not over the world. */
     private boolean overUi(double mx, double my) {
         Ui ui = game.ui();
+        if (colourPick != null) return true;
         if (my < TOP_H || my > ui.height() - HELP_H) return true;
         if (mx < LEFT_W + 8) return true;
         return rightPanelShown() && mx > ui.width() - RIGHT_W - 8;
     }
 
     private boolean rightPanelShown() {
-        return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty();
+        return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty()
+                || tool == Tool.FORGE;
     }
 
     private void topBar(Ui ui) {
@@ -1166,18 +1269,24 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.rect(0, TOP_H - 1, ui.width(), 1, Theme.PANEL_EDGE);
         float x = 8;
         List<Tool> tools = tools();
+        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
+        // the buttons' padding: as roomy as the bar has room for (eleven tools and five buttons on a small screen)
+        float labels = 0;
+        for (int i = 0; i < tools.size(); i++) labels += ui.body.width((i < 10 ? "0 " : "") + tools.get(i).label);
+        for (String r : right) labels += ui.body.width(r);
+        int buttons = tools.size() + right.length;
+        float pad = Math.max(8, Math.min(22, (ui.width() - 16 - 60 - labels) / buttons - 4));
         for (int i = 0; i < tools.size(); i++) {
-            String label = (i + 1) % 10 + " " + tools.get(i).label;
-            float bw = ui.body.width(label) + 22;
+            String label = (i < 10 ? (i + 1) % 10 + " " : "") + tools.get(i).label;
+            float bw = ui.body.width(label) + pad;
             if (ui.button(label, x, 6, bw, TOP_H - 12, tools.get(i) == tool, true)) setTool(tools.get(i));
             x += bw + 4;
         }
         if (outside != null) x = floorButtons(ui, x + 8);
-        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
         float rx = ui.width() - 8;
         float[] widths = new float[right.length];
         for (int i = right.length - 1; i >= 0; i--) {
-            widths[i] = ui.body.width(right[i]) + 22;
+            widths[i] = ui.body.width(right[i]) + pad;
             rx -= widths[i] + 4;
         }
         float nameX = x + 10, nameW = rx - nameX - 6;
@@ -1197,7 +1306,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case 0 -> undo();
                     case 1 -> redo();
                     case 2 -> save();
-                    case 3 -> playTest(cursor != null ? cursor : focus);
+                    case 3 -> playTest(spawnOrPointer());
                     case 4 -> leave();         // (inside: back outside)
                     default -> { }
                 }
@@ -1326,9 +1435,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SKY -> "Pick what to colour, then click a swatch · the fog and the backdrops show as you change them";
             case TIME -> "The hour the level starts at, how long a day lasts, the planet, clouds, stars, aurora, mist "
                     + "and light rays · Run the time to watch a day go by";
-            case LEVEL -> "Name the level, choose its size, save it · Shift+F5: play from the spawn";
+            case LEVEL -> "Name the level, choose its size, save it · F5: play from the spawn · Shift+F5: from the pointer";
             case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
+            case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
+                    + "effects, its parts' colours · Save it, then Place it (it is in Place → Items from then on)";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1359,6 +1470,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case TIME -> timePanel(ui, px, py, pw);
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
+            case FORGE -> forgePanel(ui, px, py, pw);
         }
     }
 
@@ -1406,6 +1518,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + entries.size() + " (wheel)", x, y + rows * row + 4, Theme.HINT);
         }
         float ty = bottom - 44;
+        if (category == Category.TEMPLATES && template != null && template.type().equals(ObjectTypes.TEMPLATE)) {
+            if (ui.button("Delete this template", x, ty - 38, w, 30)) deleteTemplate();
+        }
         snap = widgets.toggle(ui, "Snap (G)", snap, x, ty, w);
     }
 
@@ -1431,14 +1546,229 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             changed();
         }
         y += 46;
+        // keep what is selected to place again, here or in any level: Place -> Templates
+        ui.text(ui.small, "Save as a template", x, y, Theme.HINT);
+        y += 22;
+        templateName = widgets.text(ui, "template-name", "", templateName, x, y, w);
+        y += 34;
+        if (ui.button("Save template", x, y, w, 30, false, !selection.isEmpty())) saveTemplate();
+        y += 46;
         snap = widgets.toggle(ui, "Snap (G)", snap, x, y, w);
         y += 40;
         ui.text(ui.small, things(level.objects().size()) + " in the level", x, y, Theme.ITEM_DISABLED);
     }
 
+    /** Save what is selected as a template called {@link #templateName} (Place -> Templates from now on). */
+    private void saveTemplate() {
+        if (selection.isEmpty()) return;
+        try {
+            Templates.Template t = Templates.save(templateName, selection, level);
+            palette = ObjectTypes.palette();
+            game.toast("Saved the template \"" + t.name() + "\" (" + things(t.objects().size())
+                    + ") - it is in Place → Templates", Theme.HINT);
+            Sounds.play(SoundKeys.ui("place"));
+        } catch (java.io.IOException e) {
+            game.toast("Could not save the template: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** Throw away the template being placed. */
+    private void deleteTemplate() {
+        if (template == null || !template.type().equals(ObjectTypes.TEMPLATE)) return;
+        try {
+            Templates.delete(template.str("template", ""));
+            palette = ObjectTypes.palette();
+            game.toast("Deleted the template \"" + templateLabel + "\"", Theme.HINT);
+            Sounds.play(SoundKeys.ui("remove"));
+            List<Integer> left = entriesOf(Category.TEMPLATES);
+            choose(left.isEmpty() ? firstOf(Category.SCENERY) : left.get(0));
+        } catch (java.io.IOException e) {
+            game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    // --- the forge ---------------------------------------------------------------------------
+
+    /**
+     * The Forge: a weapon of Larson's own - one of the weapons, named and
+     * given a rarity, its dice (how many, d4 to d20 or d%) in a colour of
+     * their own, any of the three effects (Venom, Mystic, Bonded - together if
+     * wanted) and each part in a colour of the palette. Saved in {@code
+     * assets/forge/} for every level, and placed from Place → Items.
+     */
+    private void forgePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Forge a weapon", x, y);
+        List<Forged> all = Forged.all();
+        List<String> names = new ArrayList<>();
+        names.add("A new weapon");
+        int at = 0;
+        for (int i = 0; i < all.size(); i++) {
+            names.add(all.get(i).name());
+            if (all.get(i).id().equals(forging.id())) at = i + 1;
+        }
+        int pick = widgets.choice(ui, "Working on", names, at, x, y, w, 0.36f);
+        if (pick != at) {
+            forging = pick == 0 ? Forged.fresh("New weapon") : all.get(pick - 1);
+            forgeColour = 0;
+        }
+        y += 36;
+        String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
+        if (!name.strip().equals(forging.name()) && !name.isBlank()) forging = forging.withName(name);
+        y += 36;
+        List<String> bases = new ArrayList<>();
+        int bi = 0;
+        for (int i = 0; i < ItemDef.ALL.size(); i++) {
+            bases.add(ItemDef.ALL.get(i).name());
+            if (ItemDef.ALL.get(i).id().equals(forging.base())) bi = i;
+        }
+        int b = widgets.choice(ui, "Weapon", bases, bi, x, y, w, 0.36f);
+        if (b != bi) {
+            forging = forging.withBase(ItemDef.ALL.get(b).id());
+            forgeColour = 0;
+        }
+        y += 36;
+        List<String> rarities = new ArrayList<>();
+        for (Rarity r : Rarity.values()) rarities.add(r.label());
+        int ri = widgets.choice(ui, "Rarity", rarities, forging.rarity().ordinal(), x, y, w, 0.36f);
+        if (ri != forging.rarity().ordinal()) forging = forging.withRarity(Rarity.values()[ri]);
+        y += 40;
+
+        // the dice: how many, and of what
+        int n = (int) Math.round(widgets.stepper(ui, "Dice", forging.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
+        if (n != forging.dice()) forging = forging.withDice(n);
+        y += 34;
+        int kinds = Forged.SIDES.length;
+        float dw = (w - (kinds - 1) * 3) / kinds;
+        for (int i = 0; i < kinds; i++) {
+            int sides = Forged.SIDES[i];
+            if (ui.button(Forged.die(sides), x + i * (dw + 3), y, dw, 28, forging.sides() == sides, true)) {
+                forging = forging.withSides(sides);
+            }
+        }
+        y += 38;
+
+        // its effects: any of the three, all three if wanted
+        Border[] borders = Border.values();
+        float ew = (w - 8) / 3;
+        for (int i = 0; i < borders.length; i++) {
+            Border e = borders[i];
+            boolean on = forging.effects().contains(e);
+            float ex = x + i * (ew + 4);
+            if (ui.button(e.label(), ex, y, ew, 28, on, true)) forging = forging.withEffect(e, !on);
+            ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
+        }
+        y += 38;
+
+        // the colours: of a part (or all of it), or of the dice
+        List<String> parts = game.items().parts(forging.base());
+        List<String> targets = new ArrayList<>();
+        for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
+        targets.add("The dice");
+        forgeColour = Math.floorMod(forgeColour, targets.size());
+        forgeColour = widgets.choice(ui, "Colour", targets, forgeColour, x, y, w, 0.36f);
+        y += 34;
+        boolean dice = forgeColour == targets.size() - 1;
+        String part = dice ? null : parts.get(forgeColour);
+        int current = dice ? forging.diceRgb() : forging.tints().getOrDefault(part, -1);
+        int cols = 16;
+        float size = Math.min(16, w / cols);
+        int picked = widgets.swatches(ui, colours, current, x, y, cols, size);
+        if (picked >= 0) forging = dice ? forging.withDiceRgb(picked) : forging.withTint(part, picked);
+        y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
+        if (ui.button(dice ? "The rarity's colour" : "As it is drawn", x, y, w, 26, false, current >= 0)) {
+            forging = dice ? forging.withDiceRgb(-1) : forging.withTint(part, -1);
+        }
+        y += 34;
+
+        float bw = (w - 8) / 3;
+        if (ui.button("Save", x, y, bw, 30)) saveForged(false);
+        if (ui.button("Place it", x + bw + 4, y, bw, 30)) saveForged(true);
+        if (ui.button("Delete", x + 2 * (bw + 4), y, bw, 30, false, forging.id() != null)) deleteForged();
+    }
+
+    /** Keep the weapon being forged; {@code place}: and take up placing it. */
+    private void saveForged(boolean place) {
+        try {
+            forging = Forged.save(forging);
+            palette = ObjectTypes.palette();
+            Sounds.play(SoundKeys.ui("place"));
+            if (place) {
+                setTool(Tool.PLACE);
+                for (int i = 0; i < palette.size(); i++) {
+                    if (forging.key().equals(palette.get(i).props().get("item"))) choose(i);
+                }
+                game.toast("Placing " + forging.name() + " - click where it lies", Theme.HINT);
+            } else {
+                game.toast("Saved " + forging.name() + " - it is in Place → Items", Theme.HINT);
+            }
+        } catch (java.io.IOException e) {
+            game.toast("Could not save it: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** Throw away the weapon being forged (one already placed in a level lies there no more). */
+    private void deleteForged() {
+        if (forging.id() == null) return;
+        try {
+            Forged.delete(forging.id());
+            palette = ObjectTypes.palette();
+            game.toast("Deleted " + forging.name(), Theme.HINT);
+            Sounds.play(SoundKeys.ui("remove"));
+            forging = Forged.fresh("New weapon");
+        } catch (java.io.IOException e) {
+            game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
+        }
+    }
+
+    /** The weapon being forged as it will look: turning, its name and rarity, its dice as they come up, its effects. */
+    private void forgePreview(Ui ui, float x, float y, float w) {
+        Forged f = forging;
+        y = heading(ui, "As it will be", x, y);
+        ItemSprites items = game.items();
+        ItemSprites.Spin spin = items.spin(f.base());
+        ItemSprites.Icon icon = spin == null ? null : items.icon(f.base(), f.tints());
+        float s = w * 0.86f;
+        if (icon != null) {
+            int frame = (int) Math.floor(view.world().time() / 6.0 * icon.frames());
+            float[] uv = icon.uv(frame);
+            float ix = x + (w - s) / 2, iy = y;
+            Batch b = ui.batch();
+            float[] rc = f.rarity().colour(1f);
+            b.glowRect(icon.halo(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], rc[0], rc[1], rc[2], 0.55f);
+            if (!f.effects().isEmpty()) {
+                float[] bc = f.effects().iterator().next().colour(1f);
+                b.rect(icon.ring(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], 0.9f);
+            }
+            b.rect(icon.sprite(), ix, iy, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1);
+        }
+        y += s + 6;
+        ui.text(ui.body, f.name(), x, y, f.rarity().colour(1f));
+        y += 28;
+        ItemDef base = f.def();
+        ui.text(ui.small, f.rarity().label() + " - forged " + base.name().toLowerCase(java.util.Locale.ROOT)
+                + " - rolls " + f.notation(), x, y, Theme.ITEM);
+        y += 22;
+        for (Border e : f.effects()) {
+            y += ui.paragraph(ui.small, e.label() + ": " + e.effect(), x, y, w, e.colour(1f)) + 2;
+        }
+        y += 8;
+        // its dice, come up highest (a d% as its tens and its ones)
+        int[] values = new int[Math.min(f.dice(), 6)];
+        for (int i = 0; i < values.length; i++) values[i] = Math.max(1, f.sides() - i);
+        int[] pal = com.larsons.game.combat.CombatColours.diePalette(f.rarity(),
+                f.effects().isEmpty() ? null : f.effects().iterator().next(), f.diceRgb());
+        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), f.sides(), values, pal,
+                x + w / 2, y, Math.min(48, (w - 12) / Math.max(4, values.length * (f.sides() == 100 ? 2 : 1))),
+                ui.scale());
+    }
+
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
         radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y, w);
         strength = widgets.slider(ui, "strength", strengthLabel, strength, 0.05, 1, "%.2f", x, y + 40, w);
+        // the brush's shape: a disc, or a square (a plateau with sides, a square pit, a square of paving)
+        float bw = (w - 6) / 2;
+        if (ui.button("Round brush", x, y + 70, bw, 24, !squareBrush, true)) squareBrush = false;
+        if (ui.button("Square brush", x + bw + 6, y + 70, bw, 24, squareBrush, true)) squareBrush = true;
     }
 
     private void sculptPanel(Ui ui, float x, float y, float w) {
@@ -1452,7 +1782,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         y += 80;
         brushSliders(ui, x, y + 10, w, "Strength");
-        y += 100;
+        y += 130;
         flatHeight = widgets.stepper(ui, "Flatten to (m)", flatHeight, 0.25, -Terrain.STEP * 200, 100, "%.2f",
                 x, y, w);
         y += 44;
@@ -1463,8 +1793,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void paintPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Paint the ground", x, y);
-        String[] tabs = {"Ground", "Biome"};
-        float tw = (w - 4) / 2, bw = (w - 6) / 2;
+        String[] tabs = {"Ground", "Biome", "Tint"};
+        float tw = (w - 8) / 3, bw = (w - 6) / 2;
         for (int i = 0; i < tabs.length; i++) {
             if (ui.button(tabs[i], x + i * (tw + 4), y, tw, 28, paintTab == i, true)) paintTab = i;
         }
@@ -1476,10 +1806,27 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
             y += (MATERIALS.length + 1) / 2 * 34;
+            overRock = widgets.toggle(ui, "Paint over rock faces", overRock, x, y, w);
+            y += 36;
             brushSliders(ui, x, y + 10, w, "Strength");
-            y += 100;
-            ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen.",
-                    x, y, w, Theme.HINT);
+            y += 130;
+            ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen. "
+                    + "Over rock faces: the paint shows on ground too steep to walk, instead of the rock "
+                    + "(Bare rock takes it off again).", x, y, w, Theme.HINT);
+            return;
+        }
+        if (paintTab == 2) {
+            ui.paragraph(ui.small, "Tint the ground any colour - autumn's gold, a blighted grey - keeping its "
+                    + "pattern. Shift takes the tint off.", x, y, w, Theme.HINT);
+            y += 40;
+            int cols = 16;
+            float size = Math.min(16, w / cols);
+            int picked = widgets.swatches(ui, colours, tintColour, x, y, cols, size);
+            if (picked >= 0) tintColour = picked;
+            y += Widgets.swatchesHeight(colours.length, cols, size) + 8;
+            tintAmount = widgets.slider(ui, "tint-amount", "How much", tintAmount, 0.05, 1, "%.2f", x, y + 10, w);
+            y += 44;
+            brushSliders(ui, x, y + 10, w, "Strength");
             return;
         }
         Biome[] all = Biome.values();
@@ -1492,7 +1839,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         sowBiome = widgets.toggle(ui, "Sow its plants", sowBiome, x, y, w);
         y += 40;
         brushSliders(ui, x, y + 10, w, "Strength");
-        y += 100;
+        y += 130;
         ui.paragraph(ui.small, biomeHint(biome) + " Shift paints back to grass (and sows nothing).", x, y, w,
                 Theme.HINT);
     }
@@ -1582,6 +1929,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void skyPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Sky and distant backgrounds", x, y);
+        // what is over it: the open sky, a roof (a hall, a dungeon), a cave's rock
+        List<String> covers = new ArrayList<>();
+        for (Sky.Cover c : Sky.Cover.values()) covers.add(c.label());
+        int ci = widgets.choice(ui, "Over it", covers, level.cover().ordinal(), x, y, w);
+        if (ci != level.cover().ordinal()) {
+            level.setCover(Sky.Cover.values()[ci]);
+            dirty = true;
+        }
+        y += 40;
+        if (level.cover() != Sky.Cover.OPEN) {
+            y += ui.paragraph(ui.small, level.cover() == Sky.Cover.CAVE ? "A cave: dark, cold rock all round and over "
+                    + "it - no sky, no sun, no weather; its ground the level's. Light it with lanterns and candles "
+                    + "(Place: Lights)." : "Inside: a great hall, a dungeon - dark beyond its walls, no sky, no sun, "
+                    + "no weather; its lamps and candles lit all day.", x, y, w, Theme.HINT) + 10;
+            Sky sky = level.sky();
+            double fog = widgets.slider(ui, "fog", "Dark from (m)", sky.fog(), Sky.MIN_FOG, Sky.MAX_FOG, "%.0f", x,
+                    y + 10, w);
+            if (fog != sky.fog()) skyEdit(sky.withFog(fog), "Fog");
+            y += 48;
+            thinFog = widgets.toggle(ui, "Thin fog here", thinFog, x, y, w);
+            return;
+        }
         Sky sky = level.sky();
         String[] targets = {"Overhead", "Horizon", "Backdrop"};
         float bw = (w - 8) / 3;
@@ -1696,8 +2065,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void timePanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Time and weather", x, y);
-        String[] tabs = {"Time", "Planet", "Weather"};
-        float bw = (w - 8) / 3;
+        String[] tabs = {"Time", "Planet", "Clouds", "Weather"};
+        float bw = (w - 12) / 4;
         for (int i = 0; i < tabs.length; i++) {
             if (ui.button(tabs[i], x + i * (bw + 4), y, bw, 28, timeTab == i, true)) timeTab = i;
         }
@@ -1753,6 +2122,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                         + "turns with the sun - a crescent by day, full at midnight, lighting the night.", x, y, w,
                         Theme.HINT);
             }
+            case 3 -> {
+                weatherPage(ui, x, y, w);
+                return;
+            }
             default -> {
                 n = n.withClouds(widgets.slider(ui, "t-clouds", "Clouds", a.clouds(), 0, 1, "%.2f", x, y + 10, w));
                 y += 44;
@@ -1772,6 +2145,64 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         if (!n.equals(a)) skyEdit(level.sky().withAir(n), "Time and weather");
+    }
+
+    /**
+     * The Time tool's Weather page: none, by biome (each biome's own,
+     * coming and going in spells - how often, how heavy) or one weather all
+     * the time; and a button to see it here now.
+     */
+    private void weatherPage(Ui ui, float x, float y, float w) {
+        Weather wt = level.weather(), nw = wt;
+        List<String> modes = new ArrayList<>();
+        for (Weather.Mode m : Weather.Mode.values()) modes.add(m.label());
+        int mi = widgets.choice(ui, "Weather", modes, wt.mode().ordinal(), x, y, w);
+        nw = nw.withMode(Weather.Mode.values()[mi]);
+        y += 40;
+        if (nw.mode() == Weather.Mode.FIXED) {
+            List<Weather.Kind> kinds = new ArrayList<>(List.of(Weather.Kind.values()));
+            kinds.remove(Weather.Kind.CLEAR);
+            List<String> names = new ArrayList<>();
+            for (Weather.Kind k : kinds) names.add(k.label());
+            int ki = widgets.choice(ui, "Always", names, Math.max(0, kinds.indexOf(wt.kind())), x, y, w);
+            nw = nw.withKind(kinds.get(ki));
+            y += 40;
+        }
+        if (nw.mode() != Weather.Mode.NONE) {
+            nw = nw.withStrength(widgets.slider(ui, "w-strength", "How heavy", wt.strength(), 0.1, 1, "%.2f", x,
+                    y + 10, w));
+            y += 44;
+        }
+        if (nw.mode() == Weather.Mode.BIOME) {
+            nw = nw.withOften(widgets.slider(ui, "w-often", "How often", wt.often(), 0, 1, "%.2f", x, y + 10, w));
+            y += 44;
+            y += ui.paragraph(ui.small, "Each biome its own weather, in spells of a few minutes: snow over the "
+                    + "mountains and the crystal, sandstorms over the savannah and the waste, rain and thunder over "
+                    + "the plains, the jungle and the shore, fog over the marsh and the river, wind anywhere.", x, y,
+                    w, Theme.HINT) + 10;
+        }
+        if (!nw.equals(wt)) {
+            level.setWeather(nw);
+            view.world().setWeather(nw);
+            dirty = true;
+        }
+        if (level.cover() != Sky.Cover.OPEN) {
+            ui.paragraph(ui.small, "Under its roof (the Sky tool: Over it) none of it is seen.", x, y, w,
+                    Theme.WARNING);
+            return;
+        }
+        // see each one here, now
+        ui.text(ui.small, "See it here now:", x, y, Theme.HINT);
+        y += 22;
+        Weather.Kind[] shown = {Weather.Kind.CLEAR, Weather.Kind.RAIN, Weather.Kind.THUNDERSTORM, Weather.Kind.SNOW,
+                Weather.Kind.FOG, Weather.Kind.WIND, Weather.Kind.SANDSTORM};
+        float bw = (w - 8) / 3;
+        for (int i = 0; i < shown.length; i++) {
+            float bx = x + (i % 3) * (bw + 4), by = y + (i / 3) * 30;
+            if (ui.button(shown[i].label(), bx, by, bw, 26)) {
+                view.world().weatherNow().set(shown[i], shown[i] == Weather.Kind.CLEAR ? 0 : nw.strength());
+            }
+        }
     }
 
     /** Which page of the Life tool shows: the critters and the bushes, or the animals. */
@@ -1930,10 +2361,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 60;
         if (ui.button("Save (Ctrl+S)", x, y, w, 32)) save();
         y += 40;
-        if (ui.button("Play from the spawn (Shift+F5)", x, y, w, 32)) playTest(null);
+        if (ui.button("Play from the spawn (F5)", x, y, w, 32)) playTest(spawnOrPointer());
         y += 40;
         if (ui.button("Back to the menu (Esc)", x, y, w, 32)) leave();
-        y += 50;
+        y += 42;
+        // walls between the camera and her (or what the editor looks at) cut away, or always whole
+        var settings = game.settings();
+        boolean see = widgets.toggle(ui, "See-through walls", settings.seeThrough, x, y, w);
+        if (see != settings.seeThrough) {
+            settings.seeThrough = see;
+            game.worldRenderer().setSeeThrough(see);
+        }
+        y += 42;
         ui.paragraph(ui.small, "Everything here is saved in the level's folder: level.json (readable, one thing "
                 + "a line), height.png (the ground's heights) and ground.png (its paint).", x, y, w,
                 Theme.ITEM_DISABLED);
@@ -2031,6 +2470,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float w = RIGHT_W - 8, x = ui.width() - RIGHT_W, y = TOP_H + 8, h = ui.height() - TOP_H - HELP_H - 16;
         ui.panel(x, y, w, h);
         float px = x + 12, pw = w - 24, py = y + 10;
+        if (tool == Tool.FORGE) {
+            forgePreview(ui, px, py, pw);
+            return;
+        }
         if (tool == Tool.PLACE) {
             py = heading(ui, "Placing", px, py);
             ui.text(ui.body, templateLabel, px, py, Theme.TITLE);
@@ -2090,6 +2533,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         for (ObjectType.Prop p : type.props()) {
+            if (!ObjectTypes.applies(o, p)) continue;
             Object v = p.value(o);
             switch (p.kind()) {
                 case NUMBER -> {
@@ -2126,12 +2570,154 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case TOGGLE -> {
                     boolean cur = v instanceof Boolean b && b;
                     boolean nv = widgets.toggle(ui, p.label(), cur, x, y, w);
-                    if (nv != cur) edit(o, p.label(), () -> o.set(p.key(), nv));
+                    if (nv != cur) {
+                        edit(o, p.label(), () -> o.set(p.key(), nv));
+                        if (p.key().equals("fit") && nv) fitVines(o, true);
+                    }
+                }
+                case COLOUR -> {
+                    // a swatch of it (or "none"), the picker, and taking it off
+                    int cur = ObjectTypes.hex(String.valueOf(v));
+                    ui.text(ui.small, p.label(), x, y + 6, Theme.ITEM);
+                    float sx = x + w * 0.4f;
+                    if (cur >= 0) ui.rect(sx, y + 2, 22, 22, Theme.rgb((cur >> 16) & 255, (cur >> 8) & 255, cur & 255, 1f));
+                    else ui.text(ui.small, "none", sx, y + 6, Theme.ITEM_DISABLED);
+                    if (ui.button("Pick", sx + 28, y, 58, 26)) {
+                        colourPick = new ColourPick(o, p.key(), false, p.label() + ": " + typeLabel(o), List.of());
+                    }
+                    if (cur >= 0 && ui.button("None", sx + 92, y, 58, 26)) edit(o, p.label(), () -> o.set(p.key(), null));
+                }
+                case COLOURS -> {
+                    // a herd's colours: a chip of each, and the picker
+                    List<Integer> cur = ObjectTypes.herdColours(o);
+                    ui.text(ui.small, p.label(), x, y + 6, Theme.ITEM);
+                    float sx = x + w * 0.4f;
+                    if (cur.isEmpty()) ui.text(ui.small, "as drawn", sx, y + 6, Theme.ITEM_DISABLED);
+                    for (int i = 0; i < Math.min(5, cur.size()); i++) {
+                        int c = cur.get(i);
+                        float cx = sx + i * 16;
+                        if (c < 0) ui.outline(cx, y + 5, 14, 14, 1, Theme.ITEM);
+                        else ui.rect(cx, y + 5, 14, 14, Theme.rgb((c >> 16) & 255, (c >> 8) & 255, c & 255, 1f));
+                    }
+                    if (ui.button("Choose", x + w - 70, y, 70, 26)) pickHerdColours(o);
                 }
             }
             y += r;
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+    }
+
+    /** What {@code o} is called in the editor: its kind's name ("Cows"), its sprite's, or its type's. */
+    private String typeLabel(LevelObject o) {
+        if (o.type().equals(ObjectTypes.ANIMALS)) {
+            com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(o.str("kind", ""));
+            if (k != null) return o.bool("single", false) ? k.singular() : k.label();
+        }
+        if (o.type().equals(ObjectTypes.SCENERY)) return ObjectTypes.readable(o.str("sprite", ""));
+        ObjectType t = ObjectTypes.get(o.type());
+        return t == null ? o.type() : t.label();
+    }
+
+    /** Ask what colours herd {@code o} is: its kind's coats, or any of the 128. */
+    private void pickHerdColours(LevelObject o) {
+        com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(o.str("kind", ""));
+        if (k == null) return;
+        colourPick = new ColourPick(o, "colours", true, "What colours are these " + typeLabel(o).toLowerCase(
+                java.util.Locale.ROOT) + "?", com.larsons.game.ambient.HerdColours.of(k));
+    }
+
+    /** {@code rgb} as a herd's colour is written: {@code "#rrggbb"}, or {@code "natural"} (-1). */
+    private static String colourKey(int rgb) {
+        return rgb < 0 ? ObjectTypes.NATURAL : String.format("#%06x", rgb & 0xFFFFFF);
+    }
+
+    /**
+     * The colour picker, over everything: a herd's colours - its kind's coats
+     * to tick, any of the 128 colours to add, those picked to take off again
+     * - or one colour (a tint). Done (or Esc) closes it.
+     */
+    private void colourDialog(Ui ui) {
+        ColourPick pick = colourPick;
+        LevelObject o = pick.target();
+        if (o != template && level.byId(o.id()) == null) {
+            colourPick = null;           // (it was taken away under the picker: undo)
+            return;
+        }
+        ui.scrim();
+        float w = Math.min(560, ui.width() - 40), x = (ui.width() - w) / 2;
+        int cols = 16;
+        float size = Math.min(22, (w - 40) / cols);
+        float presetRows = pick.multi() ? (pick.presets().size() + 2) / 3 : 0;
+        float h = 120 + presetRows * 34 + Widgets.swatchesHeight(colours.length, cols, size) + (pick.multi() ? 70 : 20);
+        float y = Math.max(20, (ui.height() - h) / 2);
+        ui.panel(x, y, w, h);
+        float ix = x + 20, iw = w - 40, cy = y + 16;
+        ui.text(ui.body, pick.title(), ix, cy, Theme.TITLE);
+        cy += 30;
+        List<Integer> chosen = pick.multi() ? new ArrayList<>(ObjectTypes.herdColours(o)) : new ArrayList<>();
+        int single = pick.multi() ? -1 : ObjectTypes.hex(o.str(pick.key(), ""));
+        if (pick.multi()) {
+            ui.paragraph(ui.small, "Tick one or more: each of them is one of these, at random. None ticked: all as "
+                    + "drawn.", ix, cy, iw, Theme.HINT);
+            cy += 24;
+            float bw = (iw - 12) / 3;
+            for (int i = 0; i < pick.presets().size(); i++) {
+                var pr = pick.presets().get(i);
+                float bx = ix + (i % 3) * (bw + 6), by = cy + (i / 3) * 34;
+                boolean on = chosen.contains(pr.rgb());
+                if (ui.button(pr.name(), bx + 22, by, bw - 22, 28, on, true)) {
+                    if (on) chosen.remove(Integer.valueOf(pr.rgb()));
+                    else chosen.add(pr.rgb());
+                    setColours(o, chosen);
+                }
+                if (pr.rgb() < 0) ui.outline(bx, by + 6, 16, 16, 1, Theme.ITEM);
+                else ui.rect(bx, by + 6, 16, 16, Theme.rgb((pr.rgb() >> 16) & 255, (pr.rgb() >> 8) & 255,
+                        pr.rgb() & 255, 1f));
+            }
+            cy += presetRows * 34 + 6;
+            ui.text(ui.small, "Or any colour:", ix, cy, Theme.ITEM);
+            cy += 20;
+        }
+        int picked = widgets.swatches(ui, colours, single, ix, cy, cols, size);
+        cy += Widgets.swatchesHeight(colours.length, cols, size) + 10;
+        if (picked >= 0) {
+            if (pick.multi()) {
+                if (!chosen.contains(picked & 0xFFFFFF)) chosen.add(picked & 0xFFFFFF);
+                setColours(o, chosen);
+            } else {
+                edit(o, "Tint", () -> o.set(pick.key(), colourKey(picked)));
+            }
+        }
+        if (pick.multi()) {
+            // the colours picked: click one to take it off
+            ui.text(ui.small, chosen.isEmpty() ? "Picked: none (as drawn)" : "Picked (click to take off):", ix, cy + 4,
+                    Theme.ITEM);
+            float px = ix + 190;
+            for (int i = 0; i < chosen.size() && i < 14; i++) {
+                int c = chosen.get(i);
+                float sx = px + i * 24;
+                if (c < 0) ui.outline(sx, cy, 20, 20, 2, Theme.ITEM);
+                else ui.rect(sx, cy, 20, 20, Theme.rgb((c >> 16) & 255, (c >> 8) & 255, c & 255, 1f));
+                if (ui.clicked(sx, cy, 20, 20)) {
+                    chosen.remove(i);
+                    setColours(o, chosen);
+                    break;
+                }
+            }
+            cy += 30;
+        }
+        if (ui.button("Done", x + w - 120, y + h - 40, 100, 30)) colourPick = null;
+        if (!pick.multi() && ui.button("None", x + w - 230, y + h - 40, 100, 30)) {
+            edit(o, "Tint", () -> o.set(pick.key(), null));
+            colourPick = null;
+        }
+    }
+
+    /** Herd {@code o}'s colours set to {@code rgbs} (-1: as drawn); none: all as drawn. */
+    private void setColours(LevelObject o, List<Integer> rgbs) {
+        List<Object> out = new ArrayList<>();
+        for (int c : rgbs) out.add(colourKey(c));
+        edit(o, "Colours", () -> o.set("colours", out.isEmpty() ? null : out));
     }
 
     /** Whether {@code o} is a building with an inside to edit. */
@@ -2217,6 +2803,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private static String shownChoice(String key, String option) {
         if (key.equals("item")) {
+            if (option.startsWith(Forged.PREFIX)) {
+                Forged f = Forged.byId(option.substring(Forged.PREFIX.length()));
+                return f == null ? option : f.name() + " (forged)";
+            }
             var d = ObjectTypes.itemDef(option);
             return d == null ? option : d.name();
         }
@@ -2305,6 +2895,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 setTool(Tool.SELECT);
             }
             case "delete" -> deleteSelection();
+            case "savetemplate" -> {
+                templateName = argument.trim();
+                saveTemplate();
+            }
+            case "selectall" -> {
+                selection.clear();
+                selection.addAll(level.objects());
+            }
             case "duplicate" -> duplicate();
             case "turn" -> turn(Math.toRadians(Double.parseDouble(argument.trim())));
             case "sculpt" -> {
@@ -2318,6 +2916,22 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 for (double t = 0; t < seconds; t += 1 / 60.0) {
                     applySculpt(Double.parseDouble(a[1]), Double.parseDouble(a[2]), false, 1 / 60.0);
                 }
+            }
+            case "brush" -> squareBrush = argument.trim().equals("square");
+            case "tint" -> {
+                // tint <#rrggbb|off> x z radius [amount]
+                undo.before(level, Undo.Part.GROUND, "Tint");
+                int rgb = a[0].equals("off") ? -1 : Integer.parseInt(a[0].replace("#", ""), 16);
+                level.ground().square(squareBrush).tint(Double.parseDouble(a[1]), Double.parseDouble(a[2]),
+                        Double.parseDouble(a[3]), 1, rgb, a.length > 4 ? Double.parseDouble(a[4]) : 0.6);
+                dirty = true;
+            }
+            case "cover" -> {
+                // cover <on|off> x z radius: paint over the rock faces there (or bare them)
+                undo.before(level, Undo.Part.GROUND, "Paint over rock");
+                level.ground().square(squareBrush).cover(Double.parseDouble(a[1]), Double.parseDouble(a[2]),
+                        Double.parseDouble(a[3]), 1, a[0].equals("on"));
+                dirty = true;
             }
             case "paint" -> {
                 // paint <0 grass .. 12 crystal> x z radius
@@ -2387,6 +3001,48 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 changed();
             }
             case "music" -> setMusic(argument.isBlank() ? Songs.NONE : argument.trim());
+            // over open|inside|cave: what is over the level
+            case "over" -> {
+                level.setCover(Sky.Cover.byKey(argument.trim()));
+                dirty = true;
+            }
+            // weathermode none|biome|fixed [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            case "weathermode" -> {
+                Weather wt = level.weather().withMode(Weather.Mode.byKey(a[0]));
+                if (a.length > 1) wt = wt.withKind(Weather.Kind.byKey(a[1]));
+                if (a.length > 2) wt = wt.withStrength(Double.parseDouble(a[2]));
+                level.setWeather(wt);
+                dirty = true;
+            }
+            case "weathernow" -> view.world().weatherNow().set(Weather.Kind.byKey(a[0]),
+                    a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
+            case "timetab" -> timeTab = Integer.parseInt(a[0]);
+            case "forge" -> {
+                // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |
+                // effect <key> on|off | tint <part> <#rgb|none> | dicecolour <#rgb|none> | colour <n> | save | place
+                String what = a[0], rest = argument.trim().substring(what.length()).trim();
+                switch (what) {
+                    case "new" -> forging = Forged.fresh(rest.isEmpty() ? "New weapon" : rest);
+                    case "open" -> {
+                        Forged f = Forged.byId(rest);
+                        if (f != null) forging = f;
+                    }
+                    case "name" -> forging = forging.withName(rest);
+                    case "base" -> forging = forging.withBase(rest);
+                    case "rarity" -> forging = forging.withRarity(Rarity.byKey(rest));
+                    case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
+                    case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
+                    case "effect" -> forging = forging.withEffect(Border.byKey(a[1]), a.length < 3 || a[2].equals("on"));
+                    case "tint" -> forging = forging.withTint(a[1], a[2].equals("none") ? -1
+                            : Integer.parseInt(a[2].replace("#", ""), 16));
+                    case "dicecolour" -> forging = forging.withDiceRgb(rest.equals("none") ? -1
+                            : Integer.parseInt(rest.replace("#", ""), 16));
+                    case "colour" -> forgeColour = Integer.parseInt(rest);
+                    case "save" -> saveForged(false);
+                    case "place" -> saveForged(true);
+                    default -> { }
+                }
+            }
             case "listen" -> {
                 // listen <song> [seconds] [play]: the Level tool's player on a song, at a time, playing
                 if (a.length > 0) listen(a[0]);

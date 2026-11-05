@@ -72,10 +72,26 @@ public final class LevelIO {
     static final double OFFSET = 128, SCALE = 256;
 
     private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "life", "objects",
-            "interiors");
+            "interiors", "weather", "cover");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
+
+    /** A level's weather, as written: {@code {"mode": "biome", "kind": "rain", "strength": 0.8, "often": 0.4}}. */
+    static Map<String, Object> weather(com.larsons.game.world.Weather w) {
+        Map<String, Object> o = new LinkedHashMap<>();
+        o.put("mode", w.mode().key());
+        o.put("kind", w.kind().key());
+        o.put("strength", round(w.strength()));
+        o.put("often", round(w.often()));
+        return o;
+    }
+
+    static com.larsons.game.world.Weather weather(Map<String, Object> j) {
+        com.larsons.game.world.Weather.Mode m = com.larsons.game.world.Weather.Mode.byKey(Json.str(j, "mode", "none"));
+        return new com.larsons.game.world.Weather(m, com.larsons.game.world.Weather.Kind.byKey(Json.str(j, "kind",
+                "rain")), Json.num(j, "strength", 0.8), Json.num(j, "often", 0.4));
+    }
 
     // --- the folder of levels -------------------------------------------------------------
 
@@ -156,6 +172,8 @@ public final class LevelIO {
         level.setMusic(Json.str(j, "music", Songs.SHUFFLE));          // a level saved before music: shuffled
         if (j.get("sea") instanceof Number n) level.water().setSeaLevel(n.doubleValue());
         if (j.get("life") != null) level.setLife(Life.fromJson(j.get("life")));
+        if (j.get("weather") instanceof Map<?, ?> wj) level.setWeather(weather(Json.asObject(wj)));
+        level.setCover(com.larsons.game.world.Sky.Cover.byKey(Json.str(j, "cover", "open")));
         int highest = 0;
         Object objs = j.get("objects");
         if (objs instanceof List<?> list) {
@@ -191,7 +209,7 @@ public final class LevelIO {
         if (Files.isRegularFile(hp)) readHeights(hp, level.heights());
         Path gp = folder.resolve(GROUND);
         if (Files.isRegularFile(gp)) readGround(gp, level.ground(), 0);
-        for (int g = 1; g < GroundMap.GROUPS; g++) {
+        for (int g = 1; g < GroundMap.LAYERS; g++) {
             Path more = folder.resolve(groundFile(g));
             if (Files.isRegularFile(more)) readGround(more, level.ground(), g);
         }
@@ -373,7 +391,7 @@ public final class LevelIO {
         Path hp = folder.resolve(HEIGHTS);
         if (level.heights().flat()) Files.deleteIfExists(hp);
         else writeHeights(level.heights(), hp);
-        for (int g = 0; g < GroundMap.GROUPS; g++) {
+        for (int g = 0; g < GroundMap.LAYERS; g++) {
             Path gp = folder.resolve(groundFile(g));
             if (level.ground().isEmpty(g)) Files.deleteIfExists(gp);
             else writeGround(level.ground(), g, gp);
@@ -415,7 +433,7 @@ public final class LevelIO {
         write(img, file);
     }
 
-    /** The image group {@code g} of the ground's materials is kept in: ground.png, ground2.png, ground3.png. */
+    /** The image layer {@code g} of the ground is kept in: ground.png to ground3.png its materials, ground4.png where the rock is painted over, ground5.png its tint. */
     public static String groundFile(int g) {
         return g == 0 ? GROUND : "ground" + (g + 1) + ".png";
     }
@@ -430,6 +448,8 @@ public final class LevelIO {
         head.put("music", level.music());
         if (!Double.isNaN(level.water().seaLevel())) head.put("sea", round(level.water().seaLevel()));
         if (!level.life().isDefault()) head.put("life", tidy(level.life().toJson()));
+        if (!level.weather().isDefault()) head.put("weather", weather(level.weather()));
+        if (level.cover() != com.larsons.game.world.Sky.Cover.OPEN) head.put("cover", level.cover().key());
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         Map<String, Object> ins = interiors(level);
         if (!ins.isEmpty()) head.put("interiors", ins);

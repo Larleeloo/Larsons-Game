@@ -493,6 +493,7 @@ public final class VoidRenderer implements AutoCloseable {
                 float t = dir.y < -1e-4 ? -uEye.y / dir.y : 0.0;
                 vec3 p = uEye + dir * t;
                 vec3 grass = uGroundTile > 0.0 ? groundColour(p.xz) : vec3(0.0);
+                if (uGroundTile > 0.0) grass = groundTint(grass, p.xz);
 
                 if (dir.y >= -1e-4 || uEye.y <= 0.0) {
                     vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
@@ -640,7 +641,7 @@ public final class VoidRenderer implements AutoCloseable {
         glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, hills);
         shader.set("uHills", unit);
-        shader.set("uHillsGrid", (float) terrain.originX(), (float) terrain.originZ(), (float) Terrain.STEP);
+        shader.set("uHillsGrid", (float) terrain.originX(), (float) terrain.originZ(), (float) terrain.step());
     }
 
     /**

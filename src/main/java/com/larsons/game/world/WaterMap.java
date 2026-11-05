@@ -67,7 +67,7 @@ public final class WaterMap {
     public static final WaterMap NONE = new WaterMap(1);
 
     private final int cells;
-    private final double origin;
+    private final double origin, cell;
     /** Each cell's surface height (NaN: none), kind (0 none), and flow (x, z metres a second). */
     private final float[] surface, flowX, flowZ;
     private final byte[] kind;
@@ -77,8 +77,9 @@ public final class WaterMap {
 
     /** No water over a square {@code size} metres a side, centred on the origin. */
     public WaterMap(double size) {
-        cells = Math.max(1, (int) Math.round(size / CELL));
-        origin = -cells * CELL / 2;
+        cell = cellFor(size);
+        cells = Math.max(1, (int) Math.round(size / cell));
+        origin = -cells * cell / 2;
         surface = new float[cells * cells];
         Arrays.fill(surface, Float.NaN);
         flowX = new float[cells * cells];
@@ -90,7 +91,21 @@ public final class WaterMap {
 
     public double west() { return origin; }
 
-    public double size() { return cells * CELL; }
+    public double size() { return cells * cell; }
+
+    /** Metres a cell of this map. */
+    public double cell() { return cell; }
+
+    /**
+     * Metres a cell of a map {@code size} metres a side: {@value #CELL} up to
+     * 256 m, and coarser the bigger it is past that (a 2048 m forest's
+     * cells 2 m), so a big level's map stays about a thousand cells a side.
+     */
+    public static double cellFor(double size) {
+        if (size <= 256) return CELL;
+        if (size <= 1024) return 1.0;
+        return 2.0;
+    }
 
     /** How many times it has changed: what is drawn of it is built again when this changes. */
     public int version() { return version; }
@@ -117,7 +132,7 @@ public final class WaterMap {
 
     /** The cell {@code (x, z)} is in, or -1 off the map. */
     private int index(double x, double z) {
-        int c = (int) Math.floor((x - origin) / CELL), r = (int) Math.floor((z - origin) / CELL);
+        int c = (int) Math.floor((x - origin) / cell), r = (int) Math.floor((z - origin) / cell);
         if (c < 0 || r < 0 || c >= cells || r >= cells) return -1;
         return r * cells + c;
     }
@@ -205,13 +220,13 @@ public final class WaterMap {
         return this;
     }
 
-    private void forCells(double x, double z, double radius, java.util.function.IntConsumer cell) {
-        int c0 = (int) Math.floor((x - radius - origin) / CELL), c1 = (int) Math.floor((x + radius - origin) / CELL);
-        int r0 = (int) Math.floor((z - radius - origin) / CELL), r1 = (int) Math.floor((z + radius - origin) / CELL);
+    private void forCells(double x, double z, double radius, java.util.function.IntConsumer each) {
+        int c0 = (int) Math.floor((x - radius - origin) / cell), c1 = (int) Math.floor((x + radius - origin) / cell);
+        int r0 = (int) Math.floor((z - radius - origin) / cell), r1 = (int) Math.floor((z + radius - origin) / cell);
         for (int r = Math.max(0, r0); r <= Math.min(cells - 1, r1); r++) {
             for (int c = Math.max(0, c0); c <= Math.min(cells - 1, c1); c++) {
-                double px = origin + (c + 0.5) * CELL, pz = origin + (r + 0.5) * CELL;
-                if (Math.hypot(px - x, pz - z) <= radius) cell.accept(r * cells + c);
+                double px = origin + (c + 0.5) * cell, pz = origin + (r + 0.5) * cell;
+                if (Math.hypot(px - x, pz - z) <= radius) each.accept(r * cells + c);
             }
         }
         version++;
@@ -292,7 +307,27 @@ public final class WaterMap {
         Arrays.fill(kind, (byte) 0);
         Arrays.fill(flowX, 0);
         Arrays.fill(flowZ, 0);
-        int shift = (int) Math.round((other.origin - origin) / CELL);
+        if (other.cell != cell) {
+            // cells of another size: each cell takes the water of the one under it
+            for (int r = 0; r < cells; r++) {
+                int rr = (int) Math.floor((origin + (r + 0.5) * cell - other.origin) / other.cell);
+                if (rr < 0 || rr >= other.cells) continue;
+                for (int c = 0; c < cells; c++) {
+                    int cc = (int) Math.floor((origin + (c + 0.5) * cell - other.origin) / other.cell);
+                    if (cc < 0 || cc >= other.cells) continue;
+                    int i = r * cells + c, j = rr * other.cells + cc;
+                    surface[i] = other.surface[j];
+                    kind[i] = other.kind[j];
+                    flowX[i] = other.flowX[j];
+                    flowZ[i] = other.flowZ[j];
+                }
+            }
+            seaLevel = other.seaLevel;
+            recount();
+            version++;
+            return this;
+        }
+        int shift = (int) Math.round((other.origin - origin) / cell);
         for (int r = 0; r < other.cells; r++) {
             int rr = r + shift;
             if (rr < 0 || rr >= cells) continue;

@@ -16,7 +16,8 @@ import java.util.Map;
  * fixed palette slots - 1 its rim, 2 – 5 its faces from shadow to
  * highlight, 6 the numbers - so one set of sheets is every rarity's die:
  * white, green, blue, purple, orange and cyan, swapped on the GPU. A die
- * of a weapon with a rare border has its rim in the border's colour. The
+ * of a weapon with a rare border has its rim in the border's colour; a
+ * forged weapon's dice may be any colour ({@link #die(int, Border)}). The
  * spell sheets ({@code magic_bolt}, {@code magic_burst}) are slots 1 – 5
  * likewise, from the dark edge to the white core.
  */
@@ -52,14 +53,44 @@ public final class CombatColours {
     }
 
     /**
-     * The palette to draw a D20 sheet with (slot 0 clear), for a weapon of
+     * A die's six colours from one ({@code rgb}, a forged weapon's): it as the
+     * faces' mid shade, the shadow and the lights as much darker and lighter
+     * as a white die's are, the rim a dark shade of it (or {@code border}'s),
+     * the numbers white on a dark die and near black on a light one.
+     */
+    public static int[] die(int rgb, Border border) {
+        double[] t = com.larsons.game.sprite.Variants.Oklab.of(rgb & 0xFFFFFF);
+        double L = t[0], c = Math.hypot(t[1], t[2]), h = Math.atan2(t[2], t[1]);
+        int[] out = new int[6];
+        out[0] = border != null ? border.rgb() : shade(Math.max(0.16, L * 0.38), c * 0.75, h);
+        out[1] = shade(L - 0.16, c * 1.05, h);
+        out[2] = rgb & 0xFFFFFF;
+        out[3] = shade(L + 0.08, c * 0.9, h);
+        out[4] = shade(L + 0.16, c * 0.7, h);
+        out[5] = L > 0.68 ? 0x231C18 : 0xFFFFFF;
+        return out;
+    }
+
+    private static int shade(double L, double c, double h) {
+        return com.larsons.game.sprite.Variants.Oklab.rgb(Math.max(0.08, Math.min(0.99, L)), c * Math.cos(h),
+                c * Math.sin(h));
+    }
+
+    /**
+     * The palette to draw a die's sheet with (slot 0 clear), for a weapon of
      * {@code rarity} with {@code border} - the same array each time, for
      * the GPU's palette rows.
      */
     public static int[] diePalette(Rarity rarity, Border border) {
-        String key = (rarity == null ? Rarity.COMMON : rarity).key() + "/" + (border == null ? "" : border.key());
+        return diePalette(rarity, border, -1);
+    }
+
+    /** {@link #diePalette(Rarity, Border)} - or, {@code rgb} not -1, in that colour ({@link #die(int, Border)}). */
+    public static int[] diePalette(Rarity rarity, Border border, int rgb) {
+        String key = (rarity == null ? Rarity.COMMON : rarity).key() + "/" + (border == null ? "" : border.key())
+                + (rgb < 0 ? "" : "#" + Integer.toHexString(rgb & 0xFFFFFF));
         return diePalettes.computeIfAbsent(key, k -> {
-            int[] c = die(rarity, border);
+            int[] c = rgb < 0 ? die(rarity, border) : die(rgb, border);
             int[] p = new int[256];
             for (int i = 0; i < c.length; i++) p[i + 1] = 0xFF000000 | c[i];
             return p;

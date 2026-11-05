@@ -30,9 +30,9 @@ public record DiceRoll(int sides, int[] faces) {
         return t;
     }
 
-    /** "3d20". */
+    /** "3d20" ("2d%" for the percentile dice). */
     public String notation() {
-        return faces.length + "d" + sides;
+        return faces.length + (sides == 100 ? "d%" : "d" + sides);
     }
 
     @Override

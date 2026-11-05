@@ -97,12 +97,18 @@ public final class WorldRenderer implements AutoCloseable {
     private final ItemSprites items;
     private final ItemRenderer itemRenderer;
     private final Texture shadow;
+    private final WeatherRenderer weather = new WeatherRenderer();
     private final Texture glow;
     private final Texture ray;
     /** A soft-edged square, black: the shadow a building's walls cast round them. */
     private final Texture blockShadow;
     /** The buildings' drawing (null: none to draw). */
     private BuildingRenderer buildings;
+    /** Cut away the walls that would hide her, or keep every wall whole (core/Settings#seeThrough). */
+    public void setSeeThrough(boolean on) {
+        if (buildings != null) buildings.setSeeThrough(on);
+    }
+
     /** The buildings drawn lit up (the editor's selection). */
     private Set<Integer> highlight = Set.of();
     /** The light the frame being drawn is lit with, made afresh every frame. */
@@ -112,6 +118,8 @@ public final class WorldRenderer implements AutoCloseable {
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
     private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
     private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
+    /** A herd's animals in their colours: their coats' palette entries recoloured. */
+    private com.larsons.game.sprite.CoatTint coats;
     private final CombatRenderer combat;
 
     private LayerStack.Result playerStack;
@@ -208,21 +216,35 @@ public final class WorldRenderer implements AutoCloseable {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
-        Sky sky = world.sky();
-        DayCycle.Daylight light = world.clock().daylight(sky);
+        Sky sky = world.skyNow();
+        DayCycle.Daylight light = world.daylight();
         daylight = light;
-        boolean indoors = world.indoors();
-        float[] fog = indoors ? INDOOR_DARK.clone() : light.horizon();
-        float fogFar = indoors ? INDOOR_FOG : (float) sky.fog();
+        // inside a building, under a level's roof or a cave's rock: no sky - the dark round it
+        Sky.Cover over = world.over();
+        boolean indoors = over != Sky.Cover.OPEN;
+        float[] dark = over == Sky.Cover.CAVE ? CAVE_DARK : INDOOR_DARK;
+        float[] fog = indoors ? dark.clone() : light.horizon();
+        // (a building's dark is near; a hall's or a cave's as far as the level's fog says, a cave's nearer)
+        float fogFar = world.indoors() ? INDOOR_FOG : indoors ? (float) (sky.fog() * (over == Sky.Cover.CAVE
+                ? CAVE_FOG : 0.8)) : (float) sky.fog();
         Vec3 eye = camera.eye();
 
         ground = world.terrain();
         lightUp(world, camera, light);
         if (indoors) {
-            // inside a building: no sky, no ground beyond its floors - the dark
-            glClearColor(INDOOR_DARK[0], INDOOR_DARK[1], INDOOR_DARK[2], 1f);
+            glClearColor(dark[0], dark[1], dark[2], 1f);
             glDepthMask(true);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // (a building's floors are its own; a hall's or a cave's ground is the level's, under no sky)
+            if (!world.indoors()) {
+                voidRenderer.useGround(world.ground());
+                float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+                Sky none = new Sky(Weathering.rgb(dark), Weathering.rgb(dark), fogFar, List.of(),
+                        Atmosphere.STILL);
+                voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, none, unlit(light, dark), sceneLight,
+                        world.time(), pixel);
+                if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+            }
         } else {
             voidRenderer.useGround(world.ground());
             // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
@@ -240,7 +262,7 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
         scenery.showBare(world::picked);
-        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.time(), camera, upright);
+        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright);
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -285,7 +307,7 @@ public final class WorldRenderer implements AutoCloseable {
                     (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
-            groundShadow(s.position(), s.profile().shadowRadius(), 0.35f);
+            groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
         }
         for (Building b : world.buildings()) buildingShadow(b);
         batch.end();
@@ -295,6 +317,9 @@ public final class WorldRenderer implements AutoCloseable {
         batch.setDepthPlane(eye, upright);
         List<Runnable> draws = new ArrayList<>();
         List<Double> dist = new ArrayList<>();
+        // what is solid - her, the animals, the chests, the dummies - drawn again into the depth buffer
+        // once they are all drawn, so the water and the light rays behind them are not drawn over them
+        List<Runnable> solids = new ArrayList<>();
         Vec3 right = camera.right(), up = camera.up(), forward = camera.forward();
 
         // riding, she is seen as her horse is - from its pivot, the way it faces - and drawn just
@@ -317,6 +342,7 @@ public final class WorldRenderer implements AutoCloseable {
         if (steed == null) {
             draws.add(her);
             dist.add(p.feet().sub(eye).dot(forward));
+            solids.add(her);
         }
 
         // the dash's afterimages: the frames she leaves behind, fading where they were
@@ -352,11 +378,16 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cs = ObjectStack.resolve(sprites, objects, c.id(), c.state().key(),
                     c.state().loops(), c.time(), world.time(), chestView, c.light(),
                     chestMemory.computeIfAbsent(c, k -> new ObjectStack.Memory()));
-            draws.add(() -> {
+            // a chest things are kept in is a plain chest: none of a loot chest's magic smoke round it
+            List<LayerStack.Layer> shown = c.store() == null ? cs.layers()
+                    : cs.layers().stream().filter(l -> l.item() == null || !l.item().startsWith("smoke")).toList();
+            Runnable chest = () -> {
                 batch.depthAnchor(c.position());
-                LayerStack.drawBillboard(batch, cs.layers(), cs.framing(), cs.view().elevation(),
+                LayerStack.drawBillboard(batch, shown, cs.framing(), cs.view().elevation(),
                         c.position(), right, up, 1f);
-            });
+            };
+            draws.add(chest);
+            solids.add(chest);
             dist.add(c.position().sub(eye).dot(forward));
         }
 
@@ -391,9 +422,18 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(ls.at().sub(eye).dot(forward));
         }
 
-        combat.sprites(world, batch, camera, (d, draw) -> {
-            draws.add(draw);
-            dist.add(d);
+        combat.sprites(world, batch, camera, new com.larsons.game.combat.CombatRenderer.Draws() {
+            @Override
+            public void add(double d, Runnable draw) {
+                draws.add(draw);
+                dist.add(d);
+            }
+
+            @Override
+            public void addSolid(double d, Runnable draw) {
+                add(d, draw);
+                solids.add(draw);
+            }
         });
 
         // the little creatures: the frogs, crickets and dragonflies drawn from their 24 views, the fireflies lights
@@ -423,11 +463,13 @@ public final class WorldRenderer implements AutoCloseable {
             ObjectStack.Result cr = ObjectStack.resolve(sprites, objects, id, c.state(), c.loops(), c.stateTime(),
                     t, cv, 0, memory);
             float alpha = (float) c.alpha();
-            draws.add(() -> {
+            Runnable critter = () -> {
                 batch.depthAnchor(at);
                 LayerStack.drawBillboard(batch, cr.layers(), cr.framing(), cr.view().elevation(), at, right, up,
                         alpha);
-            });
+            };
+            draws.add(critter);
+            if (alpha > 0.5f) solids.add(critter);
             dist.add(at.sub(eye).dot(forward));
         }
         critterMemory = memories;
@@ -452,6 +494,20 @@ public final class WorldRenderer implements AutoCloseable {
             Runnable rider = a == steed ? her : null;
             if (rider != null) drawnWithHorse[0] = true;
             List<LayerStack.Layer> layers = ar.layers();
+            int[] coat = prof.tint();
+            if (coat.length == 0 && a.colour() >= 0 && !id.equals(a.kind().sprite())) {
+                // (the saddled horse's sheets: the horse's coat)
+                ObjectSprites.Entry plain = objects.entry(a.kind().sprite());
+                if (plain != null) coat = plain.profile().tint();
+            }
+            if (a.colour() >= 0 && coat.length > 0) {
+                if (coats == null) coats = new com.larsons.game.sprite.CoatTint(items.pixelPalette());
+                List<LayerStack.Layer> dyed = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) {
+                    dyed.add(l.palette() == null ? l : l.withPalette(coats.tinted(l.palette(), coat, a.colour())));
+                }
+                layers = dyed;
+            }
             double flash = a.flash();
             if (flash > 0) {
                 List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
@@ -463,12 +519,17 @@ public final class WorldRenderer implements AutoCloseable {
             List<LayerStack.Layer> draw = layers;
             float alpha = (float) a.alpha();
             // a swimmer's depth is the water's surface over it, so the water before it is not drawn over it
-            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()), 0) : at;
-            draws.add(() -> {
+            Vec3 anchor = a.swimming() ? at.add(0, com.larsons.game.ambient.Animals.sink(a.kind()) * a.size(), 0)
+                    : at;
+            // bigger or smaller than its kind: its card that much bigger, its feet where they are
+            Vec3 aRight = a.size() == 1 ? right : right.scale(a.size()), aUp = a.size() == 1 ? up : up.scale(a.size());
+            Runnable animal = () -> {
                 batch.depthAnchor(anchor);
-                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, right, up, alpha);
+                LayerStack.drawBillboard(batch, draw, ar.framing(), ar.view().elevation(), at, aRight, aUp, alpha);
                 if (rider != null) rider.run();
-            });
+            };
+            draws.add(animal);
+            if (alpha > 0.5f) solids.add(animal);
             dist.add(at.sub(eye).dot(forward));
         }
         animalMemory = animalMemories;
@@ -476,6 +537,7 @@ public final class WorldRenderer implements AutoCloseable {
             // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
             draws.add(her);
             dist.add(p.feet().sub(eye).dot(forward));
+            solids.add(her);
         }
 
         Integer[] order = new Integer[draws.size()];
@@ -483,6 +545,19 @@ public final class WorldRenderer implements AutoCloseable {
         java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> dist.get(i)).reversed());
         for (int i : order) draws.get(i).run();
         batch.end();
+
+        // --- the solid ones again, into the depth buffer only: the water and the rays go behind them ---
+        if (!solids.isEmpty()) {
+            glColorMask(false, false, false, false);
+            glDepthMask(true);
+            batch.begin(viewProj, fog, 0, fogFar);
+            batch.setDepthPlane(eye, upright);
+            batch.setAlphaCut(0.5f);
+            for (Runnable r : solids) r.run();
+            batch.end();
+            glColorMask(true, true, true, true);
+            glDepthMask(false);
+        }
 
         // --- the water, over what stands and wades in it ------------------------------
         water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
@@ -495,6 +570,8 @@ public final class WorldRenderer implements AutoCloseable {
             for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
             batch.end();
         }
+        // --- the weather: rain, snow, sand, the wind's dust, falling round the camera (not under a roof) ---
+        if (!indoors) weather.draw(batch, world.weatherNow(), camera, viewProj, fog, fogFar, light, world.time());
         batch.useSceneLight(null);
         glDepthMask(true);
     }
@@ -513,14 +590,15 @@ public final class WorldRenderer implements AutoCloseable {
      */
     private void lightUp(World world, OrbitCamera camera, DayCycle.Daylight light) {
         SceneLight l = sceneLight.clearLights();
-        boolean indoors = world.indoors();
-        float[] a = indoors ? indoorAmbient(light.day()) : light.ambient();
+        Sky.Cover over = world.over();
+        boolean indoors = over != Sky.Cover.OPEN;
+        float[] a = !indoors ? light.ambient() : over == Sky.Cover.CAVE ? caveAmbient() : indoorAmbient(light.day());
         System.arraycopy(a, 0, l.ambient, 0, 3);
         Vec3 eye = camera.eye();
         l.camera[0] = (float) eye.x();
         l.camera[1] = (float) eye.y();
         l.camera[2] = (float) eye.z();
-        Atmosphere air = world.sky().air();
+        Atmosphere air = world.skyNow().air();
         l.mist = indoors ? 0f : (float) (light.mist() * 0.32);
         l.mistHeight = (float) air.mistHeight();
         l.time = (float) world.time();
@@ -575,6 +653,21 @@ public final class WorldRenderer implements AutoCloseable {
     /** Inside a building: the dark beyond its rooms, and how far off things fade into it. */
     static final float[] INDOOR_DARK = {0.035f, 0.028f, 0.024f};
     static final float INDOOR_FOG = 48f;
+    /** A cave: the dark of its rock, cool and blue-grey, and how much nearer than the level's fog the dark comes. */
+    static final float[] CAVE_DARK = {0.022f, 0.027f, 0.036f};
+    static final float CAVE_FOG = 0.6f;
+
+    /** {@code light} with no sky in it: all {@code dark} overhead and round, no sun, no stars, no planet. */
+    static DayCycle.Daylight unlit(DayCycle.Daylight light, float[] dark) {
+        float[] none = {0, 0, 0};
+        return new DayCycle.Daylight(new Vec3(0, -1, 0), -90, 0, 0, light.ambient(), dark.clone(), dark.clone(), none,
+                none, dark.clone(), dark.clone(), 0, light.planet(), 0, 0, 0, light.hour());
+    }
+
+    /** The light in a cave: what little comes in, cold - its lamps and torches do the rest. */
+    static float[] caveAmbient() {
+        return new float[]{0.3f, 0.34f, 0.42f};
+    }
 
     /** The light inside a building, all of it from outside but its lamps: dim and warm, a little more by day. */
     static float[] indoorAmbient(double day) {
@@ -625,7 +718,7 @@ public final class WorldRenderer implements AutoCloseable {
 
     /** Where a glowing piece of scenery's light comes from: low in it, as a crystal's heart. */
     private static Vec3 glowCentre(Scenery.Placed p) {
-        return p.position().add(0, p.profile().frameWorldHeight() * 0.3, 0);
+        return p.position().add(0, p.profile().frameWorldHeight() * p.scale() * 0.3, 0);
     }
 
     /** The feet of everyone walking about, whom the tall grass leans away from. */
@@ -646,7 +739,7 @@ public final class WorldRenderer implements AutoCloseable {
     private void sceneryGlow(Scenery.Placed p, Vec3 right, Vec3 up, double shine) {
         int rgb = p.profile().glow();
         float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
-        double size = p.profile().frameWorldHeight() * 0.9;
+        double size = p.profile().frameWorldHeight() * p.scale() * 0.9;
         Vec3 tl = glowCentre(p).sub(right.scale(size / 2)).add(up.scale(size / 2));
         batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b, (float) (0.32 * shine));
     }
@@ -655,7 +748,10 @@ public final class WorldRenderer implements AutoCloseable {
     private void lightGlow(World.LightSpot ls, Vec3 right, Vec3 up) {
         float r = ((ls.rgb() >> 16) & 255) / 255f, g = ((ls.rgb() >> 8) & 255) / 255f, b = (ls.rgb() & 255) / 255f;
         double night = daylight == null ? 1 : 1 - 0.6 * daylight.day();
-        for (double[] k : new double[][]{{0.55, 0.35}, {0.16, 1.0}}) {
+        // a candle's flame: a soft halo round it (the flame is its own); a light on its own: an orb
+        double[][] layers = ls.flame() ? new double[][]{{0.7, 0.28}, {0.22, 0.35}} : new double[][]{{0.55, 0.35},
+                {0.16, 1.0}};
+        for (double[] k : layers) {
             double size = k[0];
             Vec3 tl = ls.at().sub(right.scale(size / 2)).add(up.scale(size / 2));
             batch.glow(glow, tl, right.scale(size), up.scale(-size), r, g, b,
@@ -688,16 +784,18 @@ public final class WorldRenderer implements AutoCloseable {
      * {@code stack} with the weapon in her hands - the carried layers of
      * {@code wielded}, in either hand - in its tier's colours ({@code
      * items}' {@link ItemSprites#carriedPalette}): a Sharper Axe's handle
-     * black, a Perfect Sword gold. The stack itself when nothing changes.
+     * black, a Perfect Sword gold - a forged weapon in its own colours. The
+     * stack itself when nothing changes.
      */
     static LayerStack.Result inTier(LayerStack.Result stack, Item wielded, ItemSprites items) {
-        if (stack == null || wielded == null || wielded.tier() == null) return stack;
-        String id = wielded.id(), tier = wielded.tier().key();
+        if (stack == null || wielded == null || wielded.tier() == null && wielded.forged() == null) return stack;
+        String id = wielded.id(), tier = wielded.tier() == null ? null : wielded.tier().key();
         List<LayerStack.Layer> layers = null;
         for (int i = 0; i < stack.layers().size(); i++) {
             LayerStack.Layer l = stack.layers().get(i);
             if (!isCarried(l, id) || l.palette() == null) continue;
-            int[] p = items.carriedPalette(l.palette(), id, tier);
+            int[] p = wielded.forged() != null ? items.carriedForged(l.palette(), id, wielded.forged().tints())
+                    : items.carriedPalette(l.palette(), id, tier);
             if (p == l.palette()) continue;
             if (layers == null) layers = new ArrayList<>(stack.layers());
             layers.set(i, l.withPalette(p));

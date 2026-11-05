@@ -467,6 +467,45 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   creatures/bee/swarm.mp3                        Bee: an angry swarm                              creature/bee/swarm
   creatures/bee/sting.mp3                        Bee: stinging                                    creature/bee/sting
   creatures/iguana/hiss.mp3                      Iguana: hissing                                  creature/iguana/hiss
+  creatures/deer/call.mp3                        Deer: calling                                    creature/deer/call
+  creatures/deer/bleat.mp3                       Deer: bleating, hit                              creature/deer/bleat
+  creatures/robin/song.mp3                       Robin: singing                                   creature/robin/song
+  creatures/robin/squawk.mp3                     Robin: squawking, hit                            creature/robin/squawk
+  creatures/robin/flap.mp3                       Robin: wings, taking off                         creature/robin/flap
+  creatures/blue_jay/jeer.mp3                    Blue jay: jeering                                creature/blue_jay/jeer
+  creatures/blue_jay/squawk.mp3                  Blue jay: squawking, hit                         creature/blue_jay/squawk
+  creatures/blue_jay/flap.mp3                    Blue jay: wings, taking off                      creature/blue_jay/flap
+  creatures/cardinal/whistle.mp3                 Cardinal: whistling                              creature/cardinal/whistle
+  creatures/cardinal/squawk.mp3                  Cardinal: squawking, hit                         creature/cardinal/squawk
+  creatures/cardinal/flap.mp3                    Cardinal: wings, taking off                      creature/cardinal/flap
+  creatures/crow/caw.mp3                         Crow: cawing                                     creature/crow/caw
+  creatures/crow/squawk.mp3                      Crow: squawking, hit                             creature/crow/squawk
+  creatures/crow/flap.mp3                        Crow: wings, taking off                          creature/crow/flap
+  creatures/owl/hoot.mp3                         Owl: hooting                                     creature/owl/hoot
+  creatures/owl/screech.mp3                      Owl: screeching, hit                             creature/owl/screech
+  creatures/owl/flap.mp3                         Owl: wings, taking off                           creature/owl/flap
+  creatures/eagle/cry.mp3                        Eagle: crying out                                creature/eagle/cry
+  creatures/eagle/screech.mp3                    Eagle: screeching, hit                           creature/eagle/screech
+  creatures/eagle/flap.mp3                       Eagle: wings, taking off                         creature/eagle/flap
+  creatures/pheasant/cackle.mp3                  Pheasant: cackling                               creature/pheasant/cackle
+  creatures/pheasant/squawk.mp3                  Pheasant: squawking, hit                         creature/pheasant/squawk
+  creatures/pheasant/flap.mp3                    Pheasant: wings, taking off                      creature/pheasant/flap
+  creatures/macaw/squawk.mp3                     Macaw: squawking                                 creature/macaw/squawk
+  creatures/macaw/shriek.mp3                     Macaw: shrieking, hit                            creature/macaw/shriek
+  creatures/macaw/flap.mp3                       Macaw: wings, taking off                         creature/macaw/flap
+  creatures/toucan/croak.mp3                     Toucan: croaking                                 creature/toucan/croak
+  creatures/toucan/squawk.mp3                    Toucan: squawking, hit                           creature/toucan/squawk
+  creatures/toucan/flap.mp3                      Toucan: wings, taking off                        creature/toucan/flap
+  creatures/cockatoo/screech.mp3                 Cockatoo: screeching                             creature/cockatoo/screech
+  creatures/cockatoo/squawk.mp3                  Cockatoo: squawking, hit                         creature/cockatoo/squawk
+  creatures/cockatoo/flap.mp3                    Cockatoo: wings, taking off                      creature/cockatoo/flap
+  creatures/flamingo/honk.mp3                    Flamingo: honking                                creature/flamingo/honk
+  creatures/flamingo/squawk.mp3                  Flamingo: squawking, hit                         creature/flamingo/squawk
+  creatures/flamingo/flap.mp3                    Flamingo: wings, taking off                      creature/flamingo/flap
+  creatures/peacock/scream.mp3                   Peacock: screaming                               creature/peacock/scream
+  creatures/peacock/squawk.mp3                   Peacock: squawking, hit                          creature/peacock/squawk
+  creatures/peacock/rattle.mp3                   Peacock: rattling its train                      creature/peacock/rattle
+  creatures/hummingbird/hum.mp3                  Hummingbird: wings humming                       creature/hummingbird/hum
 
 
 WORLD & LOOT
@@ -491,6 +530,8 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/saddle_on.mp3                            Saddling a horse                                 world/saddle_on
   world/mount.mp3                                Getting up on a horse                            world/mount
   world/dismount.mp3                             Getting down off a horse                         world/dismount
+  world/barrel_break.mp3                         A barrel broken open                             world/barrel_break
+  world/crate_break.mp3                          A crate broken open                              world/crate_break
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat
@@ -543,6 +584,11 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
   ambient/ocean.mp3                              The sea: waves on the shore (held) (held)        ambient/ocean
   ambient/waste.mp3                              The waste: a hollow wind (held) (held)           ambient/waste
   ambient/crystal.mp3                            The crystal biome: chimes and hum (held) (held)  ambient/crystal
+  ambient/rain.mp3                               Weather: rain falling (held) (held)              ambient/rain
+  ambient/gale.mp3                               Weather: a strong wind, and a thunderstorm's (held) (held) ambient/gale
+  ambient/sandstorm.mp3                          Weather: a sandstorm (held) (held)               ambient/sandstorm
+  ambient/snowfall.mp3                           Weather: snow falling, a soft cold wind (held) (held) ambient/snowfall
+  ambient/thunder.mp3                            Weather: thunder after the lightning (held)      ambient/thunder
 
 
 MUSIC

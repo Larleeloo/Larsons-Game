@@ -142,8 +142,9 @@ class InteriorTest {
                 List<Building> walls = new ArrayList<>(), furniture = new ArrayList<>(), doors = new ArrayList<>();
                 for (Building b : w.buildings()) {
                     Room.Spec r = b.profile().room();
-                    if (r == null) furniture.add(b);
-                    else if (r.piece() == Room.Piece.WALL) walls.add(b);
+                    if (r == null) {
+                        if (!b.profile().fixture()) furniture.add(b);            // (not a candle on its table)
+                    } else if (r.piece() == Room.Piece.WALL) walls.add(b);
                     if (r != null && (r.piece() == Room.Piece.EXIT || r.piece() == Room.Piece.STAIRS)) doors.add(b);
                 }
                 // she can stand at each door and stairs: nothing solid there

@@ -37,7 +37,7 @@ public final class BuildingProfile {
     }
 
     /** What kind of thing it is: a building, a piece of furniture, or a piece of a room ({@link Room}). */
-    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room";
+    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture";
 
     /** A view's size in pixels and the pixel its ground point is at. */
     public record Frame(int width, int height, double anchorX, double anchorY, double angle) {}
@@ -62,6 +62,12 @@ public final class BuildingProfile {
     private final double[] door;
     private final boolean interior;
     private final Anim anim;
+    /** A model-only kind's height (no views to measure), or NaN. */
+    private double modelHeight = Double.NaN;
+    /** A light's fitting: where its flame is (its own metres: x, y, z up), or null. */
+    private double[] flame;
+    /** A light's fitting that stands on the ground (not hung up or set on something). */
+    private boolean stands;
 
     public BuildingProfile(String key, String label, double pixel, double texel, double depthMin, double depthStep,
                            Map<Elevation, Frame> frames, List<Part> parts, List<Shape> footprint, double[] door,
@@ -144,9 +150,24 @@ public final class BuildingProfile {
         return r;
     }
 
+    /** A light's fitting: where its flame is, its own metres ({x, y, z} with z up), or null. */
+    public double[] flame() { return flame == null ? null : flame.clone(); }
+
+    /** Whether it is a light's fitting that stands on the ground (a standing candelabra, a lantern post). */
+    public boolean stands() { return stands; }
+
+    /** Whether it is a light's fitting (filed with the lights, not placed on its own). */
+    public boolean fixture() { return group.equals(FIXTURE); }
+
+    /** Measure it by its model: {@code top} metres tall (when it has no height of its own written). */
+    void measured(double top) {
+        if (Double.isNaN(modelHeight) && top > 0) modelHeight = top;
+    }
+
     /** How tall it stands, about: the side view's top (a room's piece: its own height). */
     public double height() {
         if (room != null) return room.height();
+        if (!Double.isNaN(modelHeight)) return modelHeight;
         Frame f = frames.get(Elevation.SIDE);
         return f == null ? 4 : f.anchorY() * pixel;
     }
@@ -207,8 +228,16 @@ public final class BuildingProfile {
             anim = new Anim((int) Json.num(an, "frames", 1), Json.num(an, "degrees", 90), Json.num(an, "speed", 30));
         }
         Map<String, Object> depth = Json.obj(o, "depth");
-        return new BuildingProfile(Json.str(o, "key", "building"), Json.str(o, "label", "Building"),
-                Json.str(o, "group", BUILDING), null, Json.num(o, "pixel", 0.0375), Json.num(o, "texel", 0.0375), Json.num(depth, "min", -10),
-                Json.num(depth, "step", 0.08), frames, parts, shapes, door, Json.bool(o, "interior", false), anim);
+        BuildingProfile p = new BuildingProfile(Json.str(o, "key", "building"), Json.str(o, "label", "Building"),
+                Json.str(o, "group", BUILDING), null, Json.num(o, "pixel", 0.0375), Json.num(o, "texel", 0.0375),
+                Json.num(depth, "min", -10), Json.num(depth, "step", 0.08), frames, parts, shapes, door,
+                Json.bool(o, "interior", false), anim);
+        if (o.get("height") instanceof Number h) p.modelHeight = h.doubleValue();
+        if (o.get("flame") instanceof List<?> f && f.size() >= 3) {
+            p.flame = new double[]{((Number) f.get(0)).doubleValue(), ((Number) f.get(1)).doubleValue(),
+                    ((Number) f.get(2)).doubleValue()};
+        }
+        p.stands = Json.bool(o, "stands", false);
+        return p;
     }
 }

@@ -220,6 +220,38 @@ public final class ItemSprites implements AutoCloseable {
     }
 
     /**
+     * The palette {@code id}'s turning sheet {@code sheet} is drawn in as a
+     * forged weapon whose parts are in {@code tints} ({@link TierLook#forged}).
+     */
+    public int[] forged(SheetTexture sheet, String id, Map<String, Integer> tints) {
+        Spin s = spin(id);
+        return tiers.forged(sheet.sharedPalette(), id, s == null ? null : s.parts(), tints);
+    }
+
+    /** An in-hand layer of weapon {@code id} (palette {@code base}) as a forged weapon in {@code tints}. */
+    public int[] carriedForged(int[] base, String id, Map<String, Integer> tints) {
+        return tiers.forged(base, id, tiers.carried(id), tints);
+    }
+
+    /** The parts of weapon {@code id} a forged one can colour: its in-hand sheets' (and {@code all}). */
+    public java.util.List<String> parts(String id) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        out.add(TierLook.ALL);
+        Map<String, int[]> c = tiers.carried(id);
+        if (c != null) out.addAll(c.keySet());
+        Spin s = spin(id);
+        if (s != null && s.parts() != null) for (String p : s.parts().keySet()) if (!out.contains(p)) out.add(p);
+        return out;
+    }
+
+    /** {@code id}'s icon as a forged weapon in {@code tints}. As {@link #icon(String, String)}. */
+    public Icon icon(String id, Map<String, Integer> tints) {
+        Spin s = spin(id);
+        return icon(id + "/forged" + tints, id, Elevation.TOP,
+                base -> tiers.forged(base, id, s == null ? null : s.parts(), tints));
+    }
+
+    /**
      * The palette an in-hand layer of weapon {@code id} (palette {@code base})
      * is drawn in for {@code tier}: its parts by {@code tiers.json}'s {@code
      * carried} map. {@code base} itself when nothing changes.

@@ -38,7 +38,11 @@ public final class Animal implements Target {
         /** Knocked back by a blow. */
         STAGGER,
         /** Beaten: running off, fading, gone. */
-        RUN_OFF
+        RUN_OFF,
+        /** Lying down, resting (a four-legged one): it gets up when she comes near, or when it has rested. */
+        LIE,
+        /** Hunted down: fallen over, its drops left by it, and after a while gone. */
+        DOWN
     }
 
     /** How long a hit's white flash lasts, seconds. */
@@ -63,7 +67,10 @@ public final class Animal implements Target {
     boolean swimming, airborne, warned;
     double ignore;                          // a friendly one, done with her: how long it leaves her be
     boolean saddled;                        // a horse with the saddle on: she can ride it, and it stays
+    boolean saddledByHer;                   // she put that saddle on (not its herd, placed saddled in the level)
     boolean ridden;                         // she is on it (or getting on or off): the world moves it
+    int colour = -1;                        // its coat's colour (0xRRGGBB), its herd's pick; -1: as drawn
+    double size = 1;                        // how much bigger or smaller than its kind it is drawn and stands
 
     Animal(AnimalKind kind, Animals.Herd herd, Temperament temperament, double x, double y, double z, Random random) {
         this.kind = kind;
@@ -107,10 +114,19 @@ public final class Animal implements Target {
     /** How far into its sheet it is, seconds - at the speed it is played. */
     public double sheetTime() { return sheetTime; }
 
-    /** Whether its sheet repeats (all but a blow: a hopper going hops on). */
+    /** Whether its sheet repeats (all but a blow and a fall: a hopper going hops on). */
     public boolean loops() {
-        return !(sheet.equals("attack") && mode == Mode.STRIKE);
+        return !(sheet.equals("attack") && mode == Mode.STRIKE) && !sheet.equals("fall");
     }
+
+    /** Its coat's colour (0xRRGGBB) - its herd's, one of the colours the herd was given - or -1: as drawn. */
+    public int colour() { return colour; }
+
+    /** How much bigger (above 1) or smaller than its kind it is: its sprite is drawn that much bigger. */
+    public double size() { return size; }
+
+    /** Whether it has been hunted down: fallen, lying where it fell until it fades. */
+    public boolean down() { return mode == Mode.DOWN; }
 
     /** How much of it shows, 0 – 1. */
     public double alpha() { return alpha; }
@@ -129,6 +145,7 @@ public final class Animal implements Target {
     public void setSaddled(boolean on) {
         if (kind != AnimalKind.HORSE) return;
         saddled = on;
+        saddledByHer = on;
         if (on) {
             leaving = false;
             homeX = x;
@@ -206,14 +223,15 @@ public final class Animal implements Target {
     }
 
     @Override
-    public double radius() { return kind.radius(); }
+    public double radius() { return kind.radius() * size; }
 
     @Override
-    public double height() { return kind.height(); }
+    public double height() { return kind.height() * size; }
 
     @Override
     public boolean alive() {
-        return health > 0 && !leaving && !gone && mode != Mode.RUN_OFF && mode != Mode.FLY_OFF && alpha > 0.3;
+        return health > 0 && !leaving && !gone && mode != Mode.RUN_OFF && mode != Mode.FLY_OFF
+                && mode != Mode.DOWN && alpha > 0.3;
     }
 
     @Override
@@ -235,7 +253,8 @@ public final class Animal implements Target {
         fleeZ = f.z();
         hurtFrom = true;
         if (health <= 0) {
-            mode = Mode.RUN_OFF;
+            // hunted down - those that fall, and are game - or beaten, and off it runs
+            mode = Hunting.game(kind) ? Mode.DOWN : Mode.RUN_OFF;
             modeTime = 0;
             beaten = true;
             return;

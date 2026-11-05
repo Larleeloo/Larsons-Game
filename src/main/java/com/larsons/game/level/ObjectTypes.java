@@ -20,6 +20,7 @@ import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.SceneryProfile;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.world.Chest;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Pickings;
 import com.larsons.game.world.Tack;
@@ -27,6 +28,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.Wearables;
+import com.larsons.game.world.Store;
 import com.larsons.game.world.World;
 
 import java.util.ArrayList;
@@ -51,7 +53,7 @@ public final class ObjectTypes {
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
             RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
-            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit";
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -68,6 +70,43 @@ public final class ObjectTypes {
         m.put("rose", 0xFF8AB0);
         m.put("white", 0xFFFFFF);
         return Collections.unmodifiableMap(m);
+    }
+
+    /** What {@code o}'s {@code "tint"} and {@code "tintAmount"} make: {@code 0xAARRGGBB} (alpha: how much), or 0: none. */
+    public static int tint(LevelObject o) {
+        int rgb = hex(o.str("tint", ""));
+        if (rgb < 0) return 0;
+        int a = (int) Math.round(Math.max(0, Math.min(1, o.num("tintAmount", 0.6))) * 255);
+        return a << 24 | rgb;
+    }
+
+    /** {@code "#rrggbb"} (or {@code "rrggbb"}) as {@code 0xRRGGBB}, or -1. */
+    public static int hex(String s) {
+        if (s == null) return -1;
+        String h = s.trim();
+        if (h.startsWith("#")) h = h.substring(1);
+        if (h.length() != 6) return -1;
+        try {
+            return Integer.parseInt(h, 16);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** What a herd's colours are called in its file: {@code "natural"} for one as drawn. */
+    public static final String NATURAL = "natural";
+
+    /** A herd's colours ({@code 0xRRGGBB}, -1 for one as drawn); none: all as drawn. */
+    public static List<Integer> herdColours(LevelObject o) {
+        List<Integer> out = new ArrayList<>();
+        if (o.props().get("colours") instanceof List<?> list) {
+            for (Object v : list) {
+                String s = String.valueOf(v);
+                int c = s.equals(NATURAL) ? -1 : hex(s);
+                if (c >= 0 || s.equals(NATURAL)) out.add(c);
+            }
+        }
+        return out;
     }
 
     /** The colour named {@code name} ({@link #LIGHT_COLOURS}), a {@code #RRGGBB}, or the lantern's. */
@@ -94,7 +133,10 @@ public final class ObjectTypes {
                 List.of(Prop.text("name", "Name", "spot")), 0.4, 1.2, 0xFFD27A, false, null));
         register(new ObjectType(SCENERY, "Scenery", Category.SCENERY,
                 List.of(Prop.choice("sprite", "Sprite", "oak_tree", o -> sceneryNames()),
-                        Prop.toggle("mirrored", "Mirrored", false)), 0.6, 2.0, 0x7FBF6A, false,
+                        Prop.toggle("mirrored", "Mirrored", false),
+                        Prop.number("scale", "Size", 1, 0.2, 5, 0.05),
+                        Prop.colour("tint", "Tint"),
+                        Prop.number("tintAmount", "Tint strength", 0.6, 0.05, 1, 0.05)), 0.6, 2.0, 0x7FBF6A, false,
                 (o, b) -> b.plant(o)));
         register(new ObjectType(ITEM, "Item", Category.ITEMS,
                 List.of(Prop.choice("item", "Item", "sword", o -> itemIds()),
@@ -103,10 +145,20 @@ public final class ObjectTypes {
                     Item item = item(o);
                     if (item != null) b.world().spawn(item, b.onGround(o));
                 }));
+        // a chest: of loot (it throws out what the level's loot gives, once) or for keeping things in (Store)
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
-                List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE))), Chest.RADIUS, 0.9,
+                List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE)),
+                        Prop.toggle("loot", "Throws out loot", true),
+                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")), Chest.RADIUS, 0.9,
                 0xC89A50, false,
-                (o, b) -> b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()))));
+                (o, b) -> {
+                    Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()));
+                    if (o.bool("loot", true)) return;
+                    Store s = new Store(o.id(), Store.Kind.CHEST, c.position(), o.yaw());
+                    s.fill(o.str("contents", ""));
+                    c.setStore(s);
+                    b.world().addStore(s);
+                }));
         register(new ObjectType(DUMMY, "Training dummy", Category.COMBAT,
                 List.of(Prop.number("health", "Health", 100, 1, 10000, 10)), Dummy.RADIUS, Dummy.HEIGHT, 0xC08A60,
                 false, (o, b) -> b.world().addDummy(new Dummy(b.onGround(o), o.yaw(), o.num("health", 100),
@@ -115,8 +167,11 @@ public final class ObjectTypes {
                 List.of(Prop.number("health", "Health", 60, 1, 10000, 10)), 0.8, 1.2, 0x9CC4FF, false,
                 (o, b) -> b.world().addFlier(new FlyingDummy(new Vec3(o.x(), 0, o.z()), o.yaw(),
                         o.num("health", 60), b.tuning().dummyDownSeconds, b.terrain()))));
+        // vines on a rock face she climbs: placed on a cliff, they fit themselves to it - facing out of it, at
+        // its foot, as long as it runs - unless set not to (then they hang where they are put, as turned)
         register(new ObjectType(VINES, "Climbing vines", Category.TERRAIN,
-                List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5)), 0.6, 3, 0x5F9E3A, false, null));
+                List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5),
+                        Prop.toggle("fit", "Fit to the rock face", true)), 0.6, 3, 0x5F9E3A, false, null));
         register(new ObjectType(SOUND, "Sound", Category.SOUNDS,
                 List.of(Prop.choice("sound", "Sound", SoundKeys.ambient("stream"), o -> soundKeys())), 0.5, 1.2,
                 0xB48CFF, false,
@@ -127,10 +182,9 @@ public final class ObjectTypes {
                         Prop.number("radius", "Reach (m)", 5, 0.5, 30, 0.5),
                         Prop.number("strength", "Strength", 1, 0.1, 2, 0.1),
                         Prop.number("height", "Height (m)", 1.2, 0, 12, 0.1),
-                        Prop.toggle("glow", "Shows a glow", true)), 0.4, 1.4, 0xFFC468, false,
-                (o, b) -> b.world().lights().add(new World.LightSpot(b.onGround(o).add(0, o.num("height", 1.2), 0),
-                        o.num("radius", 5), lightColour(o.str("colour", "lantern")), o.num("strength", 1),
-                        o.bool("glow", true)))));
+                        Prop.toggle("glow", "Shows a glow", true),
+                        Prop.choice("fixture", "Fitting", "candlestick", o -> fixtures())), 0.4, 1.4, 0xFFC468, false,
+                ObjectTypes::spawnLight));
         register(new ObjectType(RAYS, "Light rays", Category.LIGHTS,
                 List.of(Prop.number("count", "Shafts", 4, 1, 16, 1),
                         Prop.number("spread", "Spread (m)", 1.5, 0.2, 8, 0.1),
@@ -167,31 +221,88 @@ public final class ObjectTypes {
                         Prop.number("radius", "Within (m)", 8, 1, 60, 0.5),
                         Prop.choice("temperament", "Nature", OWN, o -> temperaments()),
                         Prop.choice("when", "When", Critters.When.ITS_TIME.key(), o -> critterTimes()),
-                        Prop.toggle("saddled", "Saddled", false)),
+                        Prop.toggle("saddled", "Saddled", false),
+                        Prop.toggle("single", "One animal, just here", false),
+                        Prop.colours("colours", "Colours"),
+                        Prop.number("size", "Size", 1, 0.3, 3, 0.05),
+                        Prop.number("vary", "Sizes vary (±)", 0, 0, 0.6, 0.05)),
                 0.6, 1.2, 0xE8B070, false,
                 (o, b) -> {
                     AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
                     if (k == null) return;
+                    boolean single = o.bool("single", false);
+                    double size = o.num("size", 1), vary = o.num("vary", 0);
                     b.world().animals().herds().add(new Animals.Herd(k, b.onGround(o),
-                            (int) Math.round(o.num("count", 3)), o.num("radius", 8),
+                            single ? 1 : (int) Math.round(o.num("count", 3)), o.num("radius", single ? 3 : 8),
                             Temperament.byKey(o.str("temperament", OWN)),
                             Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key())),
-                            k == AnimalKind.HORSE && o.bool("saddled", false)));
+                            k == AnimalKind.HORSE && o.bool("saddled", false), herdColours(o),
+                            size * (1 - vary), size * (1 + vary), single, o.yaw()));
                 }));
     }
 
     static {
         // a house, a mill, a castle's keep, a length of its wall: coloured and patterned part by part (its look)
+        // (a barrel or a crate holds things too - and breaks: Store)
         register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
-                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys())),
+                List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys()),
+                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")),
                 3, 5, 0xC8A27A, false,
                 (o, b) -> {
                     Building building = building(o, b.terrain());
-                    if (building != null) b.world().addBuilding(building);
+                    if (building == null) return;
+                    b.world().addBuilding(building);
+                    Store.Kind k = Store.Kind.ofBuilding(building.key());
+                    if (k == null) return;
+                    Store s = new Store(o.id(), k, building.position(), o.yaw());
+                    s.fill(o.str("contents", ""));
+                    b.world().addStore(s);
                 }));
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
                 List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
+        // a saved template (Templates): its pieces, each one of its own once placed
+        register(new ObjectType(TEMPLATE, "Template", Category.TEMPLATES,
+                List.of(Prop.choice("template", "Template", "", o -> templateIds())), 4, 3, 0xB8A0E0, false, null));
+    }
+
+    /**
+     * What a light is: a candle in a candlestick (set on a table, a shelf),
+     * a lone candle, a candelabra, a standing candelabra (on the floor), a
+     * chandelier (hung from the beams), a sconce on the wall, a lantern, a
+     * lantern on its post (outdoors) - or a glow on its own (magic).
+     */
+    static List<String> fixtures() {
+        return List.of("candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce",
+                "lantern", "lantern_post", "glow");
+    }
+
+    /**
+     * A light: its fitting, its flame at the light's height (one standing on
+     * the floor stands on the ground, the light at its flame), and the light
+     * itself.
+     */
+    static void spawnLight(LevelObject o, LevelWorld.Build b) {
+        Vec3 at = b.onGround(o).add(0, o.num("height", 1.2), 0);
+        BuildingProfile fit = BuildingCatalog.get().profile(o.str("fixture", "candlestick"));
+        boolean flame = fit != null && fit.flame() != null;
+        if (flame) {
+            double[] f = fit.flame();
+            Building probe = new Building(o.id(), fit, Vec3.ZERO, o.yaw(), null, null);
+            Vec3 off = probe.toWorld(f[0], f[1]);            // where its flame is from where it stands
+            Vec3 stand = fit.stands() ? b.onGround(o) : at.sub(new Vec3(off.x(), f[2], off.z()));
+            b.world().addBuilding(new Building(o.id(), fit, stand, o.yaw(), BuildingLook.of(o.props().get("look")),
+                    null));
+            at = stand.add(off.x(), f[2], off.z());
+        }
+        b.world().lights().add(new World.LightSpot(at, o.num("radius", 5), lightColour(o.str("colour", "lantern")),
+                o.num("strength", 1), o.bool("glow", true), flame));
+    }
+
+    static List<String> templateIds() {
+        List<String> out = new ArrayList<>();
+        for (Templates.Template t : Templates.all()) out.add(t.id());
+        return out;
     }
 
     static {
@@ -210,6 +321,20 @@ public final class ObjectTypes {
                 false, ObjectTypes::spawnRoom));
         register(new ObjectType(EXIT, "Door out", Category.INSIDE, List.of(), 0.9, Room.EXIT_H, 0x7AA0D0, false,
                 ObjectTypes::spawnRoom));
+    }
+
+    /**
+     * Whether {@code p} is one of {@code o}'s to set: what a chest holds only
+     * when it is not a loot chest, what a building holds only when it is a
+     * barrel or a crate, saddled only for horses.
+     */
+    public static boolean applies(LevelObject o, Prop p) {
+        return switch (p.key()) {
+            case "contents" -> o.type().equals(CHEST) ? !o.bool("loot", true)
+                    : Store.Kind.ofBuilding(o.str("kind", "")) != null;
+            case "saddled" -> o.type().equals(ANIMALS) && AnimalKind.HORSE.key().equals(o.str("kind", ""));
+            default -> true;
+        };
     }
 
     /** Whether objects of {@code type} stand in the world as {@link Building}s: buildings, furniture, the rooms' pieces. */
@@ -284,6 +409,7 @@ public final class ObjectTypes {
      * where it stands in the set, numbered from {@code firstId}.
      */
     public static List<LevelObject> expand(LevelObject o, int firstId) {
+        if (o.type().equals(TEMPLATE)) return Templates.expand(o, firstId);
         if (!o.type().equals(PREFAB)) return List.of(o);
         Prefab set = Prefab.byKey(o.str("set", ""));
         if (set == null) return List.of();
@@ -362,12 +488,18 @@ public final class ObjectTypes {
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         for (ItemDef d : Wearables.ALL) out.add(d.id());
         for (ItemDef d : Pickings.ALL) out.add(d.id());
+        for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
+        for (Forged f : Forged.all()) out.add(f.key());
         return out;
     }
 
-    /** The weapon, wearable or picking called {@code id}, or null. */
+    /** The weapon, wearable or picking called {@code id} - a forged weapon's own weapon - or null. */
     public static ItemDef itemDef(String id) {
+        if (id != null && id.startsWith(Forged.PREFIX)) {
+            Forged f = Forged.byId(id.substring(Forged.PREFIX.length()));
+            return f == null ? null : f.def();
+        }
         return ItemDef.byId(id);
     }
 
@@ -381,7 +513,12 @@ public final class ObjectTypes {
 
     /** The item an {@link #ITEM} object lies as: its tier if it names one it has, else as it is found. */
     public static Item item(LevelObject o) {
-        ItemDef d = itemDef(o.str("item", ""));
+        String id = o.str("item", "");
+        if (id.startsWith(Forged.PREFIX)) {
+            Forged f = Forged.byId(id.substring(Forged.PREFIX.length()));
+            return f == null ? null : f.item();
+        }
+        ItemDef d = itemDef(id);
         if (d == null) return null;
         Tier tier = Tier.byKey(o.str("tier", ""));
         Tier.Row row = Tier.row(d.id());
@@ -420,10 +557,15 @@ public final class ObjectTypes {
             out.add(new Entry(Item.of(d).name(), Category.ITEMS, ITEM,
                     row == null ? Map.of("item", d.id()) : Map.of("item", d.id(), "tier", row.lowest().key())));
         }
+        // the weapons forged in the Forge
+        for (Forged f : Forged.all()) out.add(new Entry(f.name(), Category.ITEMS, ITEM, Map.of("item", f.key())));
         for (ItemDef d : Wearables.ALL) {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
         for (ItemDef d : Pickings.ALL) {
+            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        }
+        for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
             out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
         }
         for (CritterKind k : CritterKind.values()) {
@@ -451,6 +593,7 @@ public final class ObjectTypes {
         BuildingCatalog buildings = BuildingCatalog.get();
         for (String key : buildings.keys()) {
             BuildingProfile p = buildings.profile(key);
+            if (p.fixture()) continue;                  // (a light's fitting: placed as a light)
             out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : Category.BUILDINGS, BUILDING,
                     Map.of("kind", key)));
         }
@@ -462,16 +605,46 @@ public final class ObjectTypes {
         for (String key : soundKeys()) {
             out.add(new Entry(readable(key), Category.SOUNDS, SOUND, Map.of("sound", key)));
         }
+        // the lights: each fitting, at the height it is usually at, in the light it gives
+        Object[][] lights = {{"Candlestick (on a table)", "candlestick", 1.2, "candle", 4.0},
+                {"Candle", "candle", 0.9, "candle", 3.0}, {"Candelabra (on a table)", "candelabra", 1.25, "candle", 5.0},
+                {"Standing candelabra", "standing_candelabra", 1.6, "candle", 5.0},
+                {"Chandelier", "chandelier", 2.7, "candle", 7.0}, {"Wall sconce", "wall_sconce", 1.7, "candle", 4.5},
+                {"Lantern", "lantern", 1.0, "lantern", 5.0}, {"Lantern post", "lantern_post", 1.9, "lantern", 7.0},
+                {"Glow (magic)", "glow", 1.2, "magic", 5.0}};
+        for (Object[] l : lights) {
+            Map<String, Object> props = new LinkedHashMap<>();
+            props.put("colour", l[3]);
+            props.put("radius", l[4]);
+            props.put("strength", 1.0);
+            props.put("height", l[2]);
+            props.put("glow", true);
+            props.put("fixture", l[1]);
+            out.add(new Entry((String) l[0], Category.LIGHTS, LIGHT, props));
+        }
+        out.add(new Entry("Storage chest", Category.INSIDE, CHEST,
+                Map.of("sprite", CHEST_SPRITE, "loot", false, "contents", "")));
+        out.addAll(templateEntries());
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
-                    || t.key().equals(STAIRS) || t.key().equals(EXIT)) continue;
+                    || t.key().equals(STAIRS) || t.key().equals(EXIT) || t.key().equals(TEMPLATE)
+                    || t.key().equals(LIGHT)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
         }
         return Collections.unmodifiableList(out);
+    }
+
+    /** The saved templates, to place: one entry each. */
+    public static List<Entry> templateEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (Templates.Template t : Templates.all()) {
+            out.add(new Entry(t.name(), Category.TEMPLATES, TEMPLATE, Map.of("template", t.id())));
+        }
+        return out;
     }
 
     /** The sounds a sound spot can play: the held ambient ones (a stream, crickets, the breeze). */
@@ -499,6 +672,10 @@ public final class ObjectTypes {
             case PREFAB -> {
                 Prefab p = Prefab.byKey(o.str("set", ""));
                 yield p == null ? "Set " + o.str("set", "?") + " (unknown)" : p.label();
+            }
+            case TEMPLATE -> {
+                Templates.Template p = Templates.byId(o.str("template", ""));
+                yield p == null ? "Template " + o.str("template", "?") + " (missing)" : p.name();
             }
             case WALL, FLOOR, STAIRS -> Room.profile(roomSpec(o)).label();
             case SOUND -> "Sound: " + readable(o.str("sound", "?"));
@@ -540,6 +717,10 @@ public final class ObjectTypes {
         if (o.type().equals(PREFAB)) {
             Prefab p = Prefab.byKey(o.str("set", ""));
             if (p != null) return p.reach(BuildingCatalog.get());
+        }
+        if (o.type().equals(TEMPLATE)) {
+            Templates.Template p = Templates.byId(o.str("template", ""));
+            if (p != null) return p.reach();
         }
         Room.Spec room = roomSpec(o);
         if (room != null) return Room.profile(room).reach();

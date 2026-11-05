@@ -129,8 +129,42 @@ public final class WorldSounds {
         double dt = Double.isNaN(lastTime) ? 1 : Math.max(0, Math.min(1, world.time() - lastTime));
         lastTime = world.time();
         biomes(world, listener, dt);
+        weather(world);
         spots(world, listener, right);
     }
+
+    /** How loud the weather is at its heaviest; under a building's roof, how much of it is heard. */
+    public static final double WEATHER = 0.75, MUFFLED = 0.35;
+
+    /**
+     * The weather: rain on everything, a gale (and a thunderstorm's), a
+     * sandstorm, the hush of snow - each as loud as it is heavy, muffled
+     * inside a building and not heard under a level's roof or in a cave -
+     * and the thunder after each bolt of lightning.
+     */
+    private void weather(World world) {
+        com.larsons.game.world.Weather.Now now = world.weatherNow();
+        double heard = world.indoors() ? MUFFLED : world.roofed() ? 0 : 1;
+        double rain = now.of(com.larsons.game.world.Weather.Kind.RAIN)
+                + now.of(com.larsons.game.world.Weather.Kind.THUNDERSTORM);
+        double gale = now.of(com.larsons.game.world.Weather.Kind.WIND)
+                + 0.7 * now.of(com.larsons.game.world.Weather.Kind.THUNDERSTORM);
+        double[] levels = {rain, gale, now.of(com.larsons.game.world.Weather.Kind.SANDSTORM),
+                now.of(com.larsons.game.world.Weather.Kind.SNOW)};
+        for (int i = 0; i < WEATHER_SOUNDS.length; i++) {
+            SoundEmitter e = weatherBeds[i];
+            if (levels[i] * heard <= 1e-3) e.stop();
+            else e.update(SoundKeys.ambient(WEATHER_SOUNDS[i]), WEATHER * levels[i] * heard);
+        }
+        for (double loud : now.drainThunder()) {
+            if (heard > 0) Sounds.play(SoundKeys.ambient("thunder"), Math.min(1, loud) * Math.max(heard, 0.6));
+        }
+    }
+
+    /** The weather's held sounds, and what plays each. */
+    private static final String[] WEATHER_SOUNDS = {"rain", "gale", "sandstorm", "snowfall"};
+    private final SoundEmitter[] weatherBeds = {new SoundEmitter(), new SoundEmitter(), new SoundEmitter(),
+            new SoundEmitter()};
 
     /**
      * How much of each biome's sound to hear at {@code at}, by day {@code day}

@@ -235,6 +235,46 @@ public final class TierLook {
         return out;
     }
 
+    /**
+     * A sheet's palette ({@code base}) of {@code item} in a forged weapon's
+     * colours: {@code tints} part to {@code 0xRRGGBB} - {@link #ALL} tinting
+     * the whole weapon first, then each part given its colour as a tier's
+     * part is ({@link #shift}). {@code base} itself when none apply. Kept like
+     * {@link #palette}'s.
+     */
+    public int[] forged(int[] base, String item, Map<String, int[]> parts, Map<String, Integer> tints) {
+        if (base == null || parts == null || parts.isEmpty() || tints == null || tints.isEmpty()) return base;
+        Map<String, int[]> forBase = memo.get(base);
+        String key = item + "/forged" + tints;
+        if (forBase != null) {
+            int[] hit = forBase.get(key);
+            if (hit != null) return hit;
+        }
+        int[] out = base.clone();
+        Integer all = tints.get(ALL);
+        if (all != null) {
+            List<Integer> mats = new ArrayList<>();
+            for (Map.Entry<String, int[]> p : parts.entrySet()) {
+                if (p.getKey().equals(STRING)) continue;
+                for (int m : p.getValue()) if (!mats.contains(m)) mats.add(m);
+            }
+            tint(base, out, mats, all);
+        }
+        for (Map.Entry<String, Integer> t : tints.entrySet()) {
+            if (t.getKey().equals(ALL)) continue;
+            int[] mats = parts.get(t.getKey());
+            if (mats == null) continue;
+            for (int m : mats) shift(base, out, m, t.getValue());
+        }
+        if (memoSize >= MEMO) {
+            memo.clear();
+            memoSize = 0;
+        }
+        memo.computeIfAbsent(base, b -> new HashMap<>()).put(key, out);
+        memoSize++;
+        return out;
+    }
+
     /** {@code base} with {@code look} made on {@code parts}: the whole weapon tinted first, then each named part. */
     int[] recolour(int[] base, Map<String, int[]> parts, Map<String, String> look) {
         int[] out = base.clone();

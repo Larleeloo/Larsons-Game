@@ -1,1 +1,1 @@
-{"frameWidth": 64, "frameHeight": 64, "frameWorldSize": 1.2, "pivotHeight": 0.27, "fps": 12, "pixelArt": true}
+{"frameWidth": 64, "frameHeight": 64, "frameWorldSize": 1.2, "pivotHeight": 0.27, "fps": 12, "pixelArt": true, "tint": ["#571a34", "#7c3c24", "#b56a40", "#e58538", "#edb251"]}

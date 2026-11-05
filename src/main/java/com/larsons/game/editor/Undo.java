@@ -22,6 +22,12 @@ final class Undo {
 
     /** How many steps back it goes. */
     static final int DEPTH = 60;
+    /**
+     * The most its steps keep, bytes: a big level's ground is megabytes a
+     * step, so on one of those it goes fewer steps back rather than filling
+     * the memory.
+     */
+    static final long BUDGET = 384L << 20;
 
     /** What a change touches. */
     enum Part { OBJECTS, HEIGHTS, GROUND, WATER, SKY, ALL }
@@ -35,8 +41,19 @@ final class Undo {
     /** Keep {@code part} of {@code level} as it is, before {@code label} changes it. */
     void before(Level level, Part part, String label) {
         undo.push(capture(level, part, label));
-        while (undo.size() > DEPTH) undo.removeLast();
         redo.clear();
+        while (undo.size() > DEPTH || undo.size() > 1 && bytes(undo) > BUDGET) undo.removeLast();
+    }
+
+    /** About how many bytes {@code states} keep. */
+    private static long bytes(Deque<State> states) {
+        long n = 0;
+        for (State s : states) {
+            if (s.heights() != null) n += s.heights().length * 4L;
+            if (s.ground() != null) for (byte[] g : s.ground()) if (g != null) n += g.length;
+            if (s.water() != null) n += s.water().length;
+        }
+        return n;
     }
 
     private static State capture(Level level, Part part, String label) {

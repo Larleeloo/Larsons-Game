@@ -36,6 +36,15 @@ public final class CombatRenderer {
     /** Somewhere to queue a sprite to draw, by its distance along the camera's view. */
     public interface Draws {
         void add(double distance, Runnable draw);
+
+        /**
+         * A draw of something solid - a dummy - that also stands in the depth
+         * buffer afterwards, so the water and the light rays behind it are not
+         * drawn over it.
+         */
+        default void addSolid(double distance, Runnable draw) {
+            add(distance, draw);
+        }
     }
 
     private final SpriteLibrary sprites;
@@ -95,7 +104,7 @@ public final class CombatRenderer {
                 layers = lit;
             }
             List<LayerStack.Layer> draw = layers;
-            out.add(d.position().sub(eye).dot(forward), () -> {
+            out.addSolid(d.position().sub(eye).dot(forward), () -> {
                 batch.depthAnchor(d.position());
                 LayerStack.drawBillboard(batch, draw, r.framing(), r.view().elevation(), d.position(), right, up, 1f);
             });
@@ -116,7 +125,7 @@ public final class CombatRenderer {
             }
             List<LayerStack.Layer> draw = layers;
             Vec3 at = f.position();
-            out.add(at.sub(eye).dot(forward), () -> {
+            out.addSolid(at.sub(eye).dot(forward), () -> {
                 batch.depthAnchor(at);
                 LayerStack.drawBillboard(batch, draw, r.framing(), r.view().elevation(), at, right, up, 1f);
             });

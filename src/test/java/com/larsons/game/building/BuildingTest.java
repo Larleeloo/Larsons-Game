@@ -162,8 +162,15 @@ class BuildingTest {
             BuildingProfile p = c.profile(k);
             assertFalse(p.parts().isEmpty(), k);
             assertTrue(p.parts().size() <= BuildingRenderer.MAX_PARTS, k);
-            assertFalse(p.footprint().isEmpty(), k);
-            for (Elevation e : Elevation.values()) assertNotNull(p.frame(e), k + " " + e);
+            // the lights' fittings: 3D models only, out of her way but those standing on the floor
+            if (p.fixture()) {
+                assertNotNull(p.flame(), k + "'s flame");
+                assertEquals(p.stands(), !p.footprint().isEmpty(), k);
+                assertTrue(p.height() > p.flame()[2], k);
+            } else {
+                assertFalse(p.footprint().isEmpty(), k);
+                for (Elevation e : Elevation.values()) assertNotNull(p.frame(e), k + " " + e);
+            }
             for (BuildingProfile.Part part : p.parts()) {
                 assertNotNull(c.texture(part.texture()), k + " " + part.key() + ": " + part.texture());
             }
@@ -175,6 +182,55 @@ class BuildingTest {
             }
         }
         assertNotNull(c.profile("windmill").anim());
+    }
+
+    @Test
+    void everyBuildingButABarrelAndACrateIsA3DModel() throws IOException {
+        BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
+        for (String k : c.keys()) {
+            BuildingModel m = BuildingModel.load(c.root().resolve(k));
+            if (k.equals("barrel") || k.equals("crate")) {
+                assertNull(m, k + ": she opens it, fills it and breaks it - a sprite");
+                continue;
+            }
+            assertNotNull(m, k);
+            assertTrue(m.fixedCorners() > 0 && m.fixedCorners() % 3 == 0, k);
+            assertEquals(m.fixedCorners() + m.turningCorners(), m.vertices().length / BuildingModel.FLOATS, k);
+            BuildingProfile p = c.profile(k);
+            assertEquals(p.anim() != null, m.turningCorners() > 0, k + ": its turning part");
+            assertTrue(Math.abs(m.top() - p.height()) < Math.max(0.6, p.height() * 0.25), k + " " + m.top() + " "
+                    + p.height());
+            // every corner's part is one of its parts; its normal a unit
+            float[] v = m.vertices();
+            for (int i = 0; i < v.length; i += BuildingModel.FLOATS) {
+                assertTrue(v[i + 14] >= 0 && v[i + 14] < p.parts().size(), k);
+                assertEquals(1, Math.sqrt(v[i + 3] * v[i + 3] + v[i + 4] * v[i + 4] + v[i + 5] * v[i + 5]), 1e-3, k);
+            }
+        }
+        // a box's edges are lines; where a round tower's faces meet, nearly flat, they are not
+        BuildingModel crate = BuildingModel.parse(boxModel());
+        float[] v = crate.vertices();
+        int lines = 0;
+        for (int i = 0; i < v.length; i += 3 * BuildingModel.FLOATS) lines += Integer.bitCount((int) v[i + 15]);
+        assertEquals(12 * 2, lines, "each of a box's 12 edges, on both faces that meet there");
+    }
+
+    /** A 1 m box as a model file: six faces of one part. */
+    private static byte[] boxModel() {
+        double[][][] faces = {
+                {{0, 0, 0}, {0, 1, 0}, {1, 1, 0}, {1, 0, 0}}, {{0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
+                {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}}, {{1, 1, 0}, {0, 1, 0}, {0, 1, 1}, {1, 1, 1}},
+                {{0, 1, 0}, {0, 0, 0}, {0, 0, 1}, {0, 1, 1}}, {{1, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 0, 1}}};
+        java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(4 + 4 + 6 + 6 * (1 + 4 * 20) + 1)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        b.put("LGM1".getBytes()).putInt(1).put((byte) 0).put((byte) 0).putInt(6);
+        for (double[][] f : faces) {
+            b.put((byte) 4);
+            for (double[] p : f) b.putFloat((float) p[0]).putFloat((float) p[1]).putFloat((float) p[2]).putFloat(0)
+                    .putFloat(0);
+        }
+        b.put((byte) 0);
+        return b.array();
     }
 
     @Test

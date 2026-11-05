@@ -1104,6 +1104,65 @@ def _(k):
     return low * gust + 0.35 * mid * gust * whistle
 
 
+@sound("ambient/rain", 0.3)
+def _(k):
+    # rain: a hiss over everything, and drops pattering on leaves and ground
+    d = 8.0
+    out = 0.55 * k.periodic(d, band_shape(900, 9000, -1))
+    out += 0.25 * k.periodic(d, band_shape(200, 900, -3))
+    for _ in range(900):
+        place(out, wood(k.uniform(2500, 5500), 0.012, 0.004, k) * k.uniform(0.05, 0.25), k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/gale", 0.26)
+def _(k):
+    # a strong wind: roaring low, gusting, whistling high in the gusts
+    d = 8.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(60, 500, -4))
+    mid = k.periodic(d, band_shape(400, 2600, -2))
+    gust = 0.6 + 0.25 * np.sin(2 * np.pi * 2 * t / d + 0.3) + 0.15 * np.sin(2 * np.pi * 5 * t / d + 1.7)
+    whistle = 0.5 + 0.5 * np.sin(2 * np.pi * 3 * t / d + 4)
+    return low * gust * 1.2 + 0.5 * mid * gust * whistle
+
+
+@sound("ambient/sandstorm", 0.28)
+def _(k):
+    # sand driven along: a dry hiss and a roar under it, the grains rattling
+    d = 8.0
+    t = t_of(d)
+    hiss = k.periodic(d, band_shape(1500, 9000, -1))
+    roar = k.periodic(d, band_shape(80, 600, -3))
+    gust = 0.65 + 0.35 * np.sin(2 * np.pi * 2 * t / d + 1.1)
+    out = 0.6 * hiss * gust + 0.7 * roar * gust
+    for _ in range(500):
+        place(out, crunch(k, 0.02, 400, 3000, 9000, 0.008) * k.uniform(0.05, 0.2), k.uniform(0, d), wrap=True)
+    return out
+
+
+@sound("ambient/snowfall", 0.16)
+def _(k):
+    # snow falling: a soft, cold, hushed wind
+    d = 8.0
+    t = t_of(d)
+    low = k.periodic(d, band_shape(150, 900, -5))
+    gust = 0.6 + 0.4 * np.sin(2 * np.pi * t / d + 2.0)
+    return low * gust
+
+
+@sound("ambient/thunder", 0.5)
+def _(k):
+    # a crack, then the long roll of it rumbling away
+    d = 4.5
+    out = silence(d)
+    place(out, crunch(k, 0.25, 600, 300, 4000, 0.06) * 0.9, 0.0)
+    roll = lp(k.noise(d), 160, 2) * env(d, 0.05, 1.6, 0.3, 1.4)
+    rumble = 0.6 + 0.4 * np.abs(np.sin(2 * np.pi * 1.7 * t_of(d)))
+    out += roll * rumble * 3.0
+    return out
+
+
 @sound("ambient/stream", 0.3)
 def _(k):
     d = 6.0
@@ -1801,6 +1860,138 @@ def _(k):
     return hiss(k, 0.55, 1500, 6500, 0.15)
 
 
+# The deer and the birds (the north's and the tropics') -------------------------------------
+
+@sound("creatures/deer/call", 0.4)
+def _(k):
+    d = 0.9
+    return animal(k, d, [(0, 420), (0.2, 640), (0.7, 560), (1, 300)], "o", 1.2, vib=0.04, rough=0.2, breath=0.1)
+
+
+@sound("creatures/deer/bleat", 0.4)
+def _(k):
+    d = 0.4
+    return animal(k, d, [(0, 700), (0.3, 900), (1, 520)], "e", 1.35, vib=0.08, vib_rate=14, rough=0.3)
+
+
+def tweets(k, n, gap, d, pairs):
+    """A run of n chirps, gap apart, each gliding between one of pairs' two pitches."""
+    out = silence(gap * n + d)
+    for i in range(n):
+        f0, f1 = pairs[i % len(pairs)]
+        j = k.uniform(0.94, 1.06)
+        place(out, chirp(f0 * j, f1 * j, d) * (1 - 0.06 * i), i * gap)
+    return out
+
+
+def squawk_of(k, d, pitch, scale, rough=0.9):
+    """A bird's hurt squawk: nasal, rough, at pitch (Hz), its formants scaled by scale."""
+    return nasal(k, d, [(0, pitch), (0.3, pitch * 1.18), (1, pitch * 0.82)],
+                 [(1000 * scale, 180 * scale, 1.0), (1900 * scale, 240 * scale, 0.6), (3100 * scale, 300, 0.3)],
+                 rough=rough) * bell(d, 0.15, 1.0)
+
+
+# each bird: its call (a function of the kit), its squawk's (length, pitch, formant scale), its wings' (count, gap,
+# length, low, high)
+SMALL_FLAPS = (6, 0.06, 0.07, 600, 4200)
+BIRDS = {
+    "robin": (lambda k: tweets(k, 7, 0.13, 0.1, [(2600, 3300), (3400, 2700), (3000, 3800)]), (0.2, 900, 1.9),
+              SMALL_FLAPS),
+    "blue_jay": (lambda k: nasal(k, 0.5, [(0, 1100), (0.4, 1300), (1, 850)], [(2200, 300, 1.0), (3600, 400, 0.6)],
+                                 rough=0.6) * bell(0.5, 0.15, 1.0), (0.22, 850, 1.8), SMALL_FLAPS),
+    "cardinal": (lambda k: tweets(k, 5, 0.18, 0.16, [(4200, 2200), (4000, 2100)]), (0.2, 900, 1.9), SMALL_FLAPS),
+    "crow": (lambda k: _caws(k), (0.3, 520, 1.1), (5, 0.12, 0.11, 300, 2600)),
+    "owl": (lambda k: _hoots(k), (0.6, 1400, 1.5), (4, 0.18, 0.15, 150, 1400)),
+    "eagle": (lambda k: tweets(k, 4, 0.16, 0.14, [(2600, 3200), (3100, 2500)]), (0.5, 1600, 1.6),
+              (4, 0.2, 0.18, 150, 1500)),
+    "pheasant": (lambda k: _cackle(k), (0.3, 700, 1.3), (8, 0.05, 0.08, 400, 3200)),
+    "macaw": (lambda k: squawk_of(k, 0.55, 640, 1.3, rough=1.0), (0.5, 900, 1.5), (5, 0.14, 0.13, 250, 2200)),
+    "toucan": (lambda k: _croaks(k), (0.25, 700, 1.3), (5, 0.12, 0.11, 300, 2600)),
+    "cockatoo": (lambda k: squawk_of(k, 0.6, 1050, 1.7, rough=1.0), (0.3, 800, 1.5), (5, 0.12, 0.11, 300, 2600)),
+    "flamingo": (lambda k: _honks(k, 520, 1.0), (0.32, 600, 1.1), (5, 0.16, 0.14, 200, 2000)),
+    "peacock": (lambda k: _scream(k), (0.35, 700, 1.3), None),
+}
+
+
+def _caws(k):
+    out = silence(1.2)
+    for i in range(3):
+        place(out, nasal(k, 0.3, [(0, 520), (0.3, 600), (1, 430)], [(900, 200, 1.0), (1700, 260, 0.7),
+                                                                     (2800, 320, 0.3)], rough=1.0)
+              * bell(0.3, 0.15, 1.0), i * 0.38)
+    return out
+
+
+def _hoots(k):
+    out = silence(1.5)
+    for i, (at, d) in enumerate(((0.0, 0.3), (0.45, 0.18), (0.7, 0.55))):
+        place(out, animal(k, d, [(0, 380), (0.4, 400), (1, 360)], "u", 0.8, breath=0.15) * (1 - 0.1 * i), at)
+    return out
+
+
+def _cackle(k):
+    out = silence(0.9)
+    for i in range(2):
+        place(out, nasal(k, 0.28, [(0, 900), (0.3, 1100), (1, 800)], [(1600, 260, 1.0), (2800, 320, 0.5)], rough=1.0)
+              * bell(0.28, 0.12, 1.0), i * 0.3)
+    return out
+
+
+def _croaks(k):
+    out = silence(1.0)
+    for i in range(4):
+        place(out, nasal(k, 0.18, [(0, 240), (1, 210)], [(700, 150, 1.0), (1400, 200, 0.6)], rough=1.0)
+              * bell(0.18, 0.2, 1.0), i * 0.22)
+    return out
+
+
+def _honks(k, pitch, scale):
+    out = silence(0.8)
+    for i in range(2):
+        place(out, nasal(k, 0.26, [(0, pitch), (0.25, pitch * 1.15), (1, pitch * 0.95)],
+                         [(750 * scale, 150, 1.0), (1400 * scale, 190, 0.7), (2600 * scale, 260, 0.3)], rough=0.5)
+              * bell(0.26, 0.2, 1.0), i * 0.34)
+    return out
+
+
+def _scream(k):
+    d = 0.9
+    return animal(k, d, [(0, 700), (0.15, 1150), (0.6, 1000), (1, 650)], "a", 1.45, vib=0.05, rough=0.4)
+
+
+def _register_birds():
+    calls = {"robin": "song", "blue_jay": "jeer", "cardinal": "whistle", "crow": "caw", "owl": "hoot", "eagle": "cry",
+             "pheasant": "cackle", "macaw": "squawk", "toucan": "croak", "cockatoo": "screech", "flamingo": "honk",
+             "peacock": "scream"}
+    hurts = {"owl": "screech", "eagle": "screech", "macaw": "shriek"}
+    for bird, (call, (sd, sp, ss), wings) in BIRDS.items():
+        sound(f"creatures/{bird}/{calls[bird]}", 0.38)(call)
+        sound(f"creatures/{bird}/{hurts.get(bird, 'squawk')}", 0.4)(
+            lambda k, sd=sd, sp=sp, ss=ss: squawk_of(k, sd, sp, ss))
+        if wings:
+            sound(f"creatures/{bird}/flap", 0.36)(lambda k, w=wings: flaps(k, w[0], w[1], w[2], w[3], w[4]))
+
+
+_register_birds()
+
+
+@sound("creatures/peacock/rattle", 0.36)
+def _(k):
+    d = 1.0                                                       # the train shaken: a dry rattle of quills
+    out = silence(d)
+    for i in range(36):
+        place(out, bp(k.noise(0.02), 2500, 9000) * bell(0.02, 0.3, 1.5) * k.uniform(0.5, 1.0), i * 0.026)
+    return out * bell(d, 0.3, 0.8)
+
+
+@sound("creatures/hummingbird/hum", 0.26)
+def _(k):
+    d = 1.0                                                       # wings beating fifty times a second
+    t = t_of(d)
+    tone = np.sin(2 * np.pi * 48 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t))
+    return (lp(np.abs(tone) - 0.5, 900) + 0.15 * bp(k.noise(d), 80, 600)) * bell(d, 0.45, 1.3)
+
+
 @sound("world/forage_pick", 0.38)
 def _(k):
     d = 0.45
@@ -1882,6 +2073,33 @@ def _(k):
         place(out, thump(k, 0.12, k.uniform(95, 120), 0.6, 0.06, 0.5, 900) * (0.9 - 0.1 * i), at)
         place(out, wood(k.uniform(500, 700), 0.08, 0.03, k) * 0.35, at + 0.004)
     return out
+
+
+def splinter(k, d, staves, lo, hi):
+    """Wood giving way: a crack, staves or boards splintering apart, the bits falling."""
+    out = silence(d)
+    place(out, thump(k, 0.2, 75, 0.65, 0.09, 0.7, 900), 0.0)                  # the blow that breaks it
+    place(out, crunch(k, 0.28, 220, 1400, 7000, 0.05) * 0.7, 0.0)             # splitting
+    for i in range(staves):
+        at = 0.04 + i * 0.05 + k.uniform(-0.01, 0.02)
+        place(out, wood(k.uniform(lo, hi), 0.09, 0.03, k) * (0.75 - 0.05 * i), at)
+    for i in range(5):                                            # and the pieces landing round it
+        at = 0.32 + i * 0.07 + k.uniform(-0.02, 0.02)
+        place(out, wood(k.uniform(lo * 1.4, hi * 1.6), 0.05, 0.015, k) * (0.4 - 0.05 * i), at)
+    return out
+
+
+@sound("world/barrel_break", 0.44)
+def _(k):
+    # a barrel staved in: its hoops ringing as they come loose
+    out = splinter(k, 0.8, 6, 500, 800)
+    place(out, metal(k.uniform(900, 1100), 0.4, 0.5, 0.4, k) * 0.25, 0.05)
+    return out
+
+
+@sound("world/crate_break", 0.44)
+def _(k):
+    return splinter(k, 0.7, 5, 700, 1100)
 
 
 @sound("items/eat", 0.4)

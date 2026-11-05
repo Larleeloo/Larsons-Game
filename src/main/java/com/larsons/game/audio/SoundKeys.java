@@ -154,7 +154,7 @@ public final class SoundKeys {
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
             "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
-            "saddle_on", "mount", "dismount");
+            "saddle_on", "mount", "dismount", "barrel_break", "crate_break");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -189,7 +189,21 @@ public final class SoundKeys {
             "goose", List.of("honk", "squawk", "hiss", "flap"),
             "swan", List.of("trumpet", "squawk", "hiss", "flap"),
             "bee", List.of("buzz", "swarm", "sting"),
-            "iguana", List.of("hiss"));
+            "iguana", List.of("hiss"),
+            "deer", List.of("call", "bleat"),
+            "robin", List.of("song", "squawk", "flap"),
+            "blue_jay", List.of("jeer", "squawk", "flap"),
+            "cardinal", List.of("whistle", "squawk", "flap"),
+            "crow", List.of("caw", "squawk", "flap"),
+            "owl", List.of("hoot", "screech", "flap"),
+            "eagle", List.of("cry", "screech", "flap"),
+            "pheasant", List.of("cackle", "squawk", "flap"),
+            "macaw", List.of("squawk", "shriek", "flap"),
+            "toucan", List.of("croak", "squawk", "flap"),
+            "cockatoo", List.of("screech", "squawk", "flap"),
+            "flamingo", List.of("honk", "squawk", "flap"),
+            "peacock", List.of("scream", "squawk", "rattle"),
+            "hummingbird", List.of("hum"));
 
     /**
      * The place itself, each a loop: the breeze over everything; each
@@ -199,7 +213,8 @@ public final class SoundKeys {
      * sound object in a level.
      */
     public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
-            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal");
+            "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal", "rain", "gale",
+            "sandstorm", "snowfall", "thunder");
 
     /**
      * The places that play a song of their own, and the song each plays until
@@ -721,9 +736,26 @@ public final class SoundKeys {
             case "buzz" -> "buzzing";
             case "swarm" -> "an angry swarm";
             case "sting" -> "stinging";
+            case "call" -> "calling";
+            case "song" -> "singing";
+            case "jeer" -> "jeering";
+            case "whistle" -> "whistling";
+            case "caw" -> "cawing";
+            case "hoot" -> "hooting";
+            case "screech" -> "screeching";
+            case "cry" -> "crying out";
+            case "cackle" -> "cackling";
+            case "shriek" -> "shrieking, hit";
+            case "croak" -> "croaking";
+            case "scream" -> "screaming";
+            case "rattle" -> "rattling its train";
+            case "hum" -> "wings humming";
             default -> sound;
         };
-        return Character.toUpperCase(animal.charAt(0)) + animal.substring(1) + ": " + what;
+        if (animal.equals("macaw") && sound.equals("squawk")) what = "squawking";
+        if ((animal.equals("owl") || animal.equals("eagle")) && sound.equals("screech")) what = "screeching, hit";
+        String name = animal.replace('_', ' ');
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1) + ": " + what;
     }
 
     private static String chestName(String state) {
@@ -747,6 +779,8 @@ public final class SoundKeys {
             case "saddle_on" -> "Saddling a horse";
             case "mount" -> "Getting up on a horse";
             case "dismount" -> "Getting down off a horse";
+            case "barrel_break" -> "A barrel broken open";
+            case "crate_break" -> "A crate broken open";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")
@@ -770,6 +804,11 @@ public final class SoundKeys {
             case "ocean" -> "The sea: waves on the shore (held)";
             case "waste" -> "The waste: a hollow wind (held)";
             case "crystal" -> "The crystal biome: chimes and hum (held)";
+            case "rain" -> "Weather: rain falling (held)";
+            case "gale" -> "Weather: a strong wind, and a thunderstorm's (held)";
+            case "sandstorm" -> "Weather: a sandstorm (held)";
+            case "snowfall" -> "Weather: snow falling, a soft cold wind (held)";
+            case "thunder" -> "Weather: thunder after the lightning";
             default -> s;
         };
     }
