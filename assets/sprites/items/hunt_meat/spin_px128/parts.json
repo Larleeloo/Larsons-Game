@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "meat": [
+   0
+  ],
+  "fat": [
+   1
+  ],
+  "bone": [
+   2
+  ]
+ },
+ "materials": [
+  "meat",
+  "fat",
+  "bone"
+ ]
+}

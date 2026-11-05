@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "fur": [
+   0,
+   1
+  ],
+  "cord": [
+   2
+  ]
+ },
+ "materials": [
+  "fur",
+  "fur",
+  "cord"
+ ]
+}

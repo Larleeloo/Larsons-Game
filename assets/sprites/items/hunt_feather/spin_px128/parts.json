@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "vane": [
+   0
+  ],
+  "quill": [
+   1
+  ]
+ },
+ "materials": [
+  "vane",
+  "quill"
+ ]
+}
