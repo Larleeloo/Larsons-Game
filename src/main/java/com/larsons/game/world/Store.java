@@ -6,35 +6,53 @@ import com.larsons.game.math.Vec3;
 import java.util.Locale;
 
 /**
- * Somewhere to keep things: a barrel, a crate, or a chest that is not a
- * loot chest. Each holds so many slots of anything ({@link #items}),
+ * Somewhere to keep things: a barrel, a crate, a pot, or a chest that is
+ * not a loot chest. Each holds so many slots of anything ({@link #items}),
  * filled in Creative Mode ({@link #fill}) or by her - E by it opens it
  * beside her inventory, to move things in and out.
  *
- * <p>A barrel or a crate breaks: it is a {@link Target} her blows and shots
- * land on, and broken, what it held spills out round where it stood
- * ({@code World}). A chest does not.
+ * <p>A barrel, a crate, a pot or a storage chest breaks: it is a {@link
+ * Target} her blows and shots land on, and broken it shatters into pieces
+ * ({@link Shards}), what it held spilled out round where it stood ({@code
+ * World}). A loot chest is not a store, and does not.
  */
 public final class Store implements Target {
 
-    /** What it is: its slots, how much a blow it takes, how big it is to hit. */
+    /**
+     * What it is: its slots, how much a blow it takes, how big it is to hit -
+     * and, broken, how many pieces it shatters into and how big they are.
+     */
     public enum Kind {
-        BARREL("barrel", "Barrel", 9, 30, 0.34, 0.95),
-        CRATE("crate", "Crate", 12, 22, 0.36, 0.72),
-        CHEST("chest", "Chest", 20, 0, Chest.RADIUS, 0.8);
+        BARREL("barrel", "Barrel", 9, 30, 0.34, 0.95, 26, 0.13),
+        CRATE("crate", "Crate", 12, 22, 0.36, 0.72, 24, 0.13),
+        CHEST("chest", "Chest", 20, 40, Chest.RADIUS, 0.8, 30, 0.12),
+        POT("pot", "Pot", 4, 6, 0.24, 0.5, 18, 0.08),
+        LARGE_POT("large_pot", "Large pot", 6, 10, 0.3, 0.85, 24, 0.1);
 
         private final String key, label;
-        private final int slots;
-        private final double health, radius, height;
+        private final int slots, pieces;
+        private final double health, radius, height, pieceSize;
 
-        Kind(String key, String label, int slots, double health, double radius, double height) {
+        Kind(String key, String label, int slots, double health, double radius, double height, int pieces,
+             double pieceSize) {
             this.key = key;
             this.label = label;
             this.slots = slots;
             this.health = health;
             this.radius = radius;
             this.height = height;
+            this.pieces = pieces;
+            this.pieceSize = pieceSize;
         }
+
+        /** How many pieces it shatters into. */
+        public int pieces() { return pieces; }
+
+        /** About how big a piece of it is, metres. */
+        public double pieceSize() { return pieceSize; }
+
+        /** Whether it is fired clay: it shatters, rather than breaking. */
+        public boolean clay() { return this == POT || this == LARGE_POT; }
 
         public String key() { return key; }
 
@@ -55,6 +73,8 @@ public final class Store implements Target {
             return switch (key) {
                 case "barrel" -> BARREL;
                 case "crate" -> CRATE;
+                case "pot" -> POT;
+                case "large_pot" -> LARGE_POT;
                 default -> null;
             };
         }

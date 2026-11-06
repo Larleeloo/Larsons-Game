@@ -1,0 +1,134 @@
+{
+ "key": "shop_house",
+ "label": "Shop house",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 12.075,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#d8c8a8",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#d8c8a8",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "beams",
+   "label": "Beams",
+   "colour": "#4a3020",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#a84a30",
+   "texture": "clay_tiles",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#2e4a3a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#2e4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "shutters",
+   "label": "Shutters",
+   "colour": "#2e4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "awning",
+   "label": "Awning",
+   "colour": "#2e6a4a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "awning2",
+   "label": "Awning stripes",
+   "colour": "#e8dcc0",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Sign",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Sign's picture",
+   "colour": "#e0b040",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#9a4a36",
+   "texture": "brick",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   8.75,
+   7.5
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -4.094,
+   1.875,
+   0.687,
+   0.2
+  ]
+ ],
+ "door": [
+  0.0,
+  -4.875
+ ],
+ "interior": true,
+ "anim": null
+}

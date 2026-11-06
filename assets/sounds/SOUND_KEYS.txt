@@ -36,9 +36,13 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/ledge_up.mp3                            Stepping up over a ledge                         player/ledge_up
   player/ledge_down.mp3                          Stepping down over a ledge                       player/ledge_down
   player/pickup.mp3                              Reaching down for something                      player/pickup
+  player/swim.mp3                                Swim (held)                                      player/swim
+  player/swim_under.mp3                          Swim under water (held)                          player/swim_under
   player/climb_grip.mp3                          Climbing: a hand on the vines                    player/climb_grip
   player/climb_top.mp3                           Over the ledge: feet down                        player/climb_top
   player/let_go.mp3                              Letting go of the vines                          player/let_go
+  player/surface.mp3                             Coming up for air                                player/surface
+  player/wade_out.mp3                            Wading out of the water                          player/wade_out
 
   One body's or one object's own (silent until given a file):
 
@@ -116,6 +120,9 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/ledge_down.mp3                 feminine ledge, step down                        player/feminine/ledge_down
   player/feminine/ride.mp3                       feminine ride (held)                             player/feminine/ride
   player/feminine/ride_run.mp3                   feminine ride, gallop (held)                     player/feminine/ride_run
+  player/feminine/swim_idle.mp3                  feminine tread water (held)                      player/feminine/swim_idle
+  player/feminine/swim.mp3                       feminine swim (held)                             player/feminine/swim
+  player/feminine/swim_under.mp3                 feminine swim under water (held)                 player/feminine/swim_under
   player/feminine/footstep_grass.mp3             feminine footstep on grass                       player/feminine/footstep_grass
   player/feminine/footstep_dirt.mp3              feminine footstep on a dirt path                 player/feminine/footstep_dirt
   player/feminine/footstep_gravel.mp3            feminine footstep on gravel                      player/feminine/footstep_gravel
@@ -134,6 +141,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/climb_grip.mp3                 feminine climbing: a hand on the vines           player/feminine/climb_grip
   player/feminine/climb_top.mp3                  feminine over the ledge: feet down               player/feminine/climb_top
   player/feminine/let_go.mp3                     feminine letting go of the vines                 player/feminine/let_go
+  player/feminine/surface.mp3                    feminine coming up for air                       player/feminine/surface
+  player/feminine/wade_out.mp3                   feminine wading out of the water                 player/feminine/wade_out
   player/masculine/idle.mp3                      masculine idle (held)                            player/masculine/idle
   player/masculine/walk.mp3                      masculine walk (held)                            player/masculine/walk
   player/masculine/run.mp3                       masculine run (held)                             player/masculine/run
@@ -208,6 +217,9 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/ledge_down.mp3                masculine ledge, step down                       player/masculine/ledge_down
   player/masculine/ride.mp3                      masculine ride (held)                            player/masculine/ride
   player/masculine/ride_run.mp3                  masculine ride, gallop (held)                    player/masculine/ride_run
+  player/masculine/swim_idle.mp3                 masculine tread water (held)                     player/masculine/swim_idle
+  player/masculine/swim.mp3                      masculine swim (held)                            player/masculine/swim
+  player/masculine/swim_under.mp3                masculine swim under water (held)                player/masculine/swim_under
   player/masculine/footstep_grass.mp3            masculine footstep on grass                      player/masculine/footstep_grass
   player/masculine/footstep_dirt.mp3             masculine footstep on a dirt path                player/masculine/footstep_dirt
   player/masculine/footstep_gravel.mp3           masculine footstep on gravel                     player/masculine/footstep_gravel
@@ -226,6 +238,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/climb_grip.mp3                masculine climbing: a hand on the vines          player/masculine/climb_grip
   player/masculine/climb_top.mp3                 masculine over the ledge: feet down              player/masculine/climb_top
   player/masculine/let_go.mp3                    masculine letting go of the vines                player/masculine/let_go
+  player/masculine/surface.mp3                   masculine coming up for air                      player/masculine/surface
+  player/masculine/wade_out.mp3                  masculine wading out of the water                player/masculine/wade_out
 
 
 VOICES
@@ -239,6 +253,7 @@ Each body's own: the emotes, being hurt, knocked out or out of breath.
   player/feminine/hurt.mp3                       Feminine: hurt                                   player/feminine/hurt
   player/feminine/knocked_out.mp3                Feminine: knocked out                            player/feminine/knocked_out
   player/feminine/out_of_breath.mp3              Feminine: out of breath                          player/feminine/out_of_breath
+  player/feminine/gasp.mp3                       Feminine: gasping for air                        player/feminine/gasp
   player/masculine/emote_laugh.mp3               Masculine: laugh                                 player/masculine/emote_laugh
   player/masculine/emote_cry.mp3                 Masculine: cry                                   player/masculine/emote_cry
   player/masculine/emote_surprise.mp3            Masculine: surprise                              player/masculine/emote_surprise
@@ -246,6 +261,7 @@ Each body's own: the emotes, being hurt, knocked out or out of breath.
   player/masculine/hurt.mp3                      Masculine: hurt                                  player/masculine/hurt
   player/masculine/knocked_out.mp3               Masculine: knocked out                           player/masculine/knocked_out
   player/masculine/out_of_breath.mp3             Masculine: out of breath                         player/masculine/out_of_breath
+  player/masculine/gasp.mp3                      Masculine: gasping for air                       player/masculine/gasp
 
 
 WEAPONS
@@ -270,6 +286,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/mace_heavy_attack.mp3                   Mace ground smash                                player/mace_heavy_attack
   player/dagger_attack.mp3                       Dagger thrust                                    player/dagger_attack
   player/dagger_heavy_attack.mp3                 Dagger slash and lunge                           player/dagger_heavy_attack
+  player/jump_attack.mp3                         Jump attack                                      player/jump_attack
   items/sword/equip.mp3                          Taking the sword in hand                         item/sword/equip
   items/battle_axe/equip.mp3                     Taking the battle axe in hand                    item/battle_axe/equip
   items/longbow/equip.mp3                        Taking the longbow in hand                       item/longbow/equip
@@ -335,6 +352,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/feminine/crossbow_fire_up.mp3           feminine crossbow fire, aimed up                 player/feminine/crossbow_fire_up
   player/feminine/staff_attack_up.mp3            feminine staff cast, aimed up                    player/feminine/staff_attack_up
   player/feminine/wand_attack_up.mp3             feminine wand cast, aimed up                     player/feminine/wand_attack_up
+  player/feminine/jump_attack.mp3                feminine jump attack                             player/feminine/jump_attack
   player/masculine/attack.mp3                    masculine attack                                 player/masculine/attack
   player/masculine/spin_attack.mp3               masculine spin attack                            player/masculine/spin_attack
   player/masculine/parry.mp3                     masculine parry                                  player/masculine/parry
@@ -388,6 +406,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/masculine/crossbow_fire_up.mp3          masculine crossbow fire, aimed up                player/masculine/crossbow_fire_up
   player/masculine/staff_attack_up.mp3           masculine staff cast, aimed up                   player/masculine/staff_attack_up
   player/masculine/wand_attack_up.mp3            masculine wand cast, aimed up                    player/masculine/wand_attack_up
+  player/masculine/jump_attack.mp3               masculine jump attack                            player/masculine/jump_attack
 
 
 HITS & MAGIC
@@ -408,6 +427,9 @@ The damage dice, blows landing, arrows and bolts striking, spells, poison, block
   combat/block.mp3                               A dive blocked                                   combat/block
   combat/parry.mp3                               A dive parried                                   combat/parry
   combat/dodge.mp3                               A dive dodged                                    combat/dodge
+  combat/plunge.mp3                              A jump attack landing                            combat/plunge
+  combat/out_of_ammo.mp3                         Out of ammunition                                combat/out_of_ammo
+  combat/reload.mp3                              Ammunition used up: a fresh one                  combat/reload
 
 
 CREATURES
@@ -532,6 +554,9 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/dismount.mp3                             Getting down off a horse                         world/dismount
   world/barrel_break.mp3                         A barrel broken open                             world/barrel_break
   world/crate_break.mp3                          A crate broken open                              world/crate_break
+  world/chest_break.mp3                          A storage chest broken open                      world/chest_break
+  world/pot_break.mp3                            A pot shattering                                 world/pot_break
+  world/large_pot_break.mp3                      A large pot shattering                           world/large_pot_break
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat
@@ -656,5 +681,13 @@ Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines,
   ui/undo.mp3                                    Editor: undo                                     ui/undo
   ui/save.mp3                                    Saved                                            ui/save
   ui/playtest.mp3                                Editor: into or out of a play-test               ui/playtest
+  ui/level_up.mp3                                A level gained                                   ui/level_up
+  ui/upgrade.mp3                                 A weapon upgraded                                ui/upgrade
+  ui/card_play.mp3                               A card played                                    ui/card_play
+  ui/card_shuffle.mp3                            Cards reshuffled                                 ui/card_shuffle
+  ui/perk.mp3                                    A perk taken                                     ui/perk
+  ui/shop_open.mp3                               A shop opened                                    ui/shop_open
+  ui/shop_buy.mp3                                Something bought                                 ui/shop_buy
+  ui/shop_sell.mp3                               Something sold                                   ui/shop_sell
   combat/lock_on.mp3                             Locking on to a target                           combat/lock_on
   combat/lock_off.mp3                            Letting the target go                            combat/lock_off

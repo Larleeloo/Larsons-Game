@@ -1,0 +1,62 @@
+{
+ "key": "large_pot",
+ "label": "Large pot",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 40,
+   "height": 58,
+   "anchorX": 20.0,
+   "anchorY": 54.62666666666667,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 40,
+   "height": 56,
+   "anchorX": 20.0,
+   "anchorY": 46.557777721091334,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 40,
+   "height": 40,
+   "anchorX": 20.0,
+   "anchorY": 19.60266666666667,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -1.0801734540376005,
+  "step": 0.00850530278769764
+ },
+ "parts": [
+  {
+   "key": "clay",
+   "label": "Clay",
+   "colour": "#c07848",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "band",
+   "label": "Painted bands",
+   "colour": "#3a2a24",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.308
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

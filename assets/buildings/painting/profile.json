@@ -1,0 +1,37 @@
+{
+ "key": "painting",
+ "label": "Painting (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.31,
+ "model": true,
+ "parts": [
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "canvas",
+   "label": "Canvas",
+   "colour": "#4e7a5a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "canvas2",
+   "label": "Its sky",
+   "colour": "#9ab8d0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

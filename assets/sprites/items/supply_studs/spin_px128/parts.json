@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "metal": [
+   0
+  ],
+  "leather": [
+   1
+  ]
+ },
+ "materials": [
+  "metal",
+  "leather"
+ ]
+}

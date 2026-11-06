@@ -1,0 +1,73 @@
+{
+ "key": "shop_counter",
+ "label": "Shop counter",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.2,
+ "model": true,
+ "parts": [
+  {
+   "key": "body",
+   "label": "Counter",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "top",
+   "label": "Top",
+   "colour": "#a07040",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "shelves",
+   "label": "Shelves",
+   "colour": "#5a3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "jars",
+   "label": "Jars and bottles",
+   "colour": "#8ab8a8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "jars2",
+   "label": "More jars",
+   "colour": "#c87a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Scales",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   -0.55,
+   2.42,
+   0.66
+  ],
+  [
+   "box",
+   0.0,
+   0.605,
+   2.42,
+   0.396
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "crystal": [
+   0,
+   1
+  ],
+  "rock": [
+   2
+  ]
+ },
+ "materials": [
+  "crystal",
+  "crystal",
+  "rock"
+ ]
+}

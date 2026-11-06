@@ -1,0 +1,59 @@
+{
+ "key": "tesla_coil",
+ "label": "Lightning coil",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.383,
+ "model": true,
+ "parts": [
+  {
+   "key": "base",
+   "label": "Base",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "coil",
+   "label": "Coil",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "core",
+   "label": "Core",
+   "colour": "#d8d0c0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "ring",
+   "label": "Top ring",
+   "colour": "#a8a8b0",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "spark",
+   "label": "Sparks",
+   "colour": "#a0d0ff",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.88,
+   0.88
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

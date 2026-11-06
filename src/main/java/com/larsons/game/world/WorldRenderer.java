@@ -102,6 +102,8 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture ray;
     /** A soft-edged square, black: the shadow a building's walls cast round them. */
     private final Texture blockShadow;
+    /** A white pixel: the pieces of what she breaks, tinted. */
+    private final Texture piece = Texture.white();
     /** The buildings' drawing (null: none to draw). */
     private BuildingRenderer buildings;
     /** Cut away the walls that would hide her, or keep every wall whole (core/Settings#seeThrough). */
@@ -436,6 +438,24 @@ public final class WorldRenderer implements AutoCloseable {
                 solids.add(draw);
             }
         });
+
+        // the pieces of what she has broken: little flat splinters and shards, tumbling, lit as the day is
+        float pieceLight = (float) (0.55 + 0.45 * light.day());
+        for (Shards.Piece sp : world.shards().pieces()) {
+            Vec3 at = sp.at();
+            double c = Math.cos(sp.angle()), sn = Math.sin(sp.angle());
+            Vec3 r = right.scale(c * sp.width()).add(up.scale(sn * sp.width()));
+            Vec3 d = right.scale(sn * sp.height()).sub(up.scale(c * sp.height()));
+            Vec3 tl = at.sub(r.scale(0.5)).sub(d.scale(0.5));
+            int rgb = sp.rgb();
+            float a = (float) sp.alpha();
+            draws.add(() -> {
+                batch.depthAnchor(ground.onGround(at));
+                batch.quad(piece, tl, r, d, 0, 0, 1, 1, ((rgb >> 16) & 255) / 255f * pieceLight,
+                        ((rgb >> 8) & 255) / 255f * pieceLight, (rgb & 255) / 255f * pieceLight, a);
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
 
         // the little creatures: the frogs, crickets and dragonflies drawn from their 24 views, the fireflies lights
         Map<Critter, ObjectStack.Memory> memories = new IdentityHashMap<>();
@@ -944,6 +964,7 @@ public final class WorldRenderer implements AutoCloseable {
         glow.close();
         ray.close();
         blockShadow.close();
+        piece.close();
         water.close();
         if (buildings != null) buildings.close();
     }

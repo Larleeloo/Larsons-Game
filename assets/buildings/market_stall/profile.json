@@ -1,0 +1,73 @@
+{
+ "key": "market_stall",
+ "label": "Market stall",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.062,
+ "model": true,
+ "parts": [
+  {
+   "key": "counter",
+   "label": "Counter",
+   "colour": "#7a4c2c",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "top",
+   "label": "Counter top",
+   "colour": "#a07040",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "posts",
+   "label": "Posts",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "awning",
+   "label": "Canopy",
+   "colour": "#d8c8a0",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "goods",
+   "label": "Goods",
+   "colour": "#c8a048",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "goods2",
+   "label": "More goods",
+   "colour": "#a83a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "crates",
+   "label": "Crates",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   3.25,
+   1.875
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

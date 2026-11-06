@@ -1,0 +1,66 @@
+{
+ "key": "alchemy_table",
+ "label": "Alchemy table",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.715,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Table",
+   "colour": "#5a3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glass",
+   "colour": "#a8d0d8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "potion",
+   "label": "Potions",
+   "colour": "#58d068",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "potion2",
+   "label": "More potions",
+   "colour": "#c050d0",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "flame",
+   "label": "Burner's flame",
+   "colour": "#60a0ff",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.87,
+   0.88
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

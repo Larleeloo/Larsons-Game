@@ -184,6 +184,10 @@ public final class World {
     private final List<Building> buildings = new ArrayList<>();
     /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
     private final List<Store> stores = new ArrayList<>();
+    /** The market stalls and shop counters: what each sells, and what is left of it. */
+    private final List<Shop> shops = new ArrayList<>();
+    /** The pieces what she breaks shatters into. */
+    private final Shards shards = new Shards();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Tack.addTo(Wearables.addTo(new Loot()));
     private final List<Dummy> dummies = new ArrayList<>();
@@ -240,6 +244,7 @@ public final class World {
         private final List<Chest> chests;
         private final List<Building> buildings;
         private final List<Store> stores;
+        private final List<Shop> shops;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -262,6 +267,7 @@ public final class World {
             chests = List.copyOf(w.chests);
             buildings = List.copyOf(w.buildings);
             stores = List.copyOf(w.stores);
+            shops = List.copyOf(w.shops);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -298,6 +304,8 @@ public final class World {
         chests.clear();
         buildings.clear();
         stores.clear();
+        shops.clear();
+        shards.clear();
         dummies.clear();
         fliers.clear();
         soundSpots.clear();
@@ -326,6 +334,8 @@ public final class World {
         buildings.addAll(p.buildings);
         stores.clear();
         stores.addAll(p.stores);
+        shops.clear();
+        shops.addAll(p.shops);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -404,6 +414,30 @@ public final class World {
     /** The barrels, crates and storage chests. */
     public List<Store> stores() { return stores; }
 
+    /** Keep {@code s} in the world: a market stall or a shop's counter. */
+    public Shop addShop(Shop s) {
+        shops.add(s);
+        return s;
+    }
+
+    /** The market stalls and shop counters. */
+    public List<Shop> shops() { return shops; }
+
+    /** The nearest shop she can reach, or null. */
+    public Shop reachableShop() {
+        Shop best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Shop s : shops) {
+            if (!s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
     /** The store that is level object {@code id}, or null. */
     public Store store(int id) {
         for (Store s : stores) if (s.id() == id) return s;
@@ -432,11 +466,21 @@ public final class World {
      */
     void smash(Store s) {
         stores.remove(s);
+        int[] colours = null;
+        for (Building b : buildings) {
+            if (b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null) {
+                colours = partColours(b);
+                break;
+            }
+        }
         buildings.removeIf(b -> b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null);
+        chests.removeIf(c -> c.store() == s);
         Vec3 at = s.position();
+        shards.burst(at, s.radius() * 0.8, s.height(), colours == null ? CHEST_COLOURS : colours, s.kind().pieces(),
+                s.kind().pieceSize(), terrain);
         combat.sound("world/" + s.kind().key() + "_break", at, 1);
-        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT) + " breaks", 0xE8D8A8, at,
-                s.height() + 0.4, true);
+        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT)
+                + (s.kind().clay() ? " shatters" : " breaks"), 0xE8D8A8, at, s.height() + 0.4, true);
         Inventory held = s.items();
         int k = 0;
         for (int i = 0; i < held.size(); i++) {
@@ -452,6 +496,23 @@ public final class World {
             k++;
         }
     }
+
+    /** A storage chest's pieces: its wood, its darker boards, its brass. */
+    private static final int[] CHEST_COLOURS = {0x7A4A2A, 0x7A4A2A, 0x5A3A22, 0xC8A050};
+
+    /** {@code b}'s parts' colours, as it is coloured - its first part (its body) the most of them. */
+    private static int[] partColours(Building b) {
+        var parts = b.profile().parts();
+        if (parts.isEmpty()) return null;
+        int[] out = new int[parts.size() + 2];
+        for (int i = 0; i < parts.size(); i++) out[i] = b.look().colour(parts.get(i));
+        out[parts.size()] = out[0];
+        out[parts.size() + 1] = out[0];
+        return out;
+    }
+
+    /** The pieces flying and lying about from what she has broken. */
+    public Shards shards() { return shards; }
 
     /** The building that is level object {@code id}, or null. */
     public Building building(int id) {
@@ -761,6 +822,7 @@ public final class World {
             s.tick(dt);
             if (s.broken()) smash(s);
         }
+        shards.tick(dt, terrain);
         for (Dummy d : dummies) {
             d.tick(dt);
             if (!player.passesThrough()) player.keepOut(d.position(), Dummy.RADIUS);   // (she rolls through them)

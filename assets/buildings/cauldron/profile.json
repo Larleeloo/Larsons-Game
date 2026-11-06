@@ -1,0 +1,51 @@
+{
+ "key": "cauldron",
+ "label": "Cauldron",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.946,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brew",
+   "label": "Brew",
+   "colour": "#6ad040",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "logs",
+   "label": "Logs",
+   "colour": "#5a3a22",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#f0a030",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.462
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

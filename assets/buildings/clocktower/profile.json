@@ -1,0 +1,99 @@
+{
+ "key": "clocktower",
+ "label": "Clock tower",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 25.25,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#a8a090",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#7a746a",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4a5e",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#5a3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "clock",
+   "label": "Clock faces",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Hands and numerals",
+   "colour": "#2a2a30",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "fieldstone",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   4.75,
+   4.75
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -2.469,
+   1.875,
+   0.688,
+   0.2
+  ]
+ ],
+ "door": [
+  0.0,
+  -3.25
+ ],
+ "interior": true,
+ "anim": null
+}

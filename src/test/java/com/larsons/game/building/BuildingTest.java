@@ -152,6 +152,9 @@ class BuildingTest {
         assertEquals("panes", back.texture(p.part("windows")));
     }
 
+    /** What she walks over or what hangs on a wall: nothing in her way. */
+    private static final java.util.Set<String> FLAT_OR_HUNG = java.util.Set.of("rug", "painting", "banner");
+
     @Test
     void theGamesBuildingsAreAllThereWithTheirPatterns() {
         BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
@@ -168,8 +171,10 @@ class BuildingTest {
                 assertEquals(p.stands(), !p.footprint().isEmpty(), k);
                 assertTrue(p.height() > p.flame()[2], k);
             } else {
-                assertFalse(p.footprint().isEmpty(), k);
-                for (Elevation e : Elevation.values()) assertNotNull(p.frame(e), k + " " + e);
+                // solid, but for what lies flat underfoot or hangs on a wall
+                assertEquals(!FLAT_OR_HUNG.contains(k), !p.footprint().isEmpty(), k);
+                // its views, unless it is only ever a 3D model
+                if (!p.modelOnly()) for (Elevation e : Elevation.values()) assertNotNull(p.frame(e), k + " " + e);
             }
             for (BuildingProfile.Part part : p.parts()) {
                 assertNotNull(c.texture(part.texture()), k + " " + part.key() + ": " + part.texture());
@@ -189,7 +194,7 @@ class BuildingTest {
         BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
         for (String k : c.keys()) {
             BuildingModel m = BuildingModel.load(c.root().resolve(k));
-            if (k.equals("barrel") || k.equals("crate")) {
+            if (k.equals("barrel") || k.equals("crate") || k.equals("pot") || k.equals("large_pot")) {
                 assertNull(m, k + ": she opens it, fills it and breaks it - a sprite");
                 continue;
             }

@@ -130,6 +130,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
     /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
     static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
+    /**
+     * The market stall: off to her left at the start, facing where she
+     * starts - supplies, upgrade ingots, reshuffle scrolls and her class's
+     * cards for her coins.
+     */
+    static final Vec3 STALL_AT = new Vec3(-6.2, 0, -4.4);
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     static final String CHEST = "ornate_chest";
@@ -139,7 +145,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * the fan its loot lands in (up to 2.1 m out, {@code World}) and room to
      * walk; round a dummy, room to circle it and swing.
      */
-    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8;
+    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8,
+            STALL_CLEAR = 3.2;
 
     private final Game game;
     private final World world;
@@ -212,6 +219,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         world.addChest(new Chest(CHEST, world.terrain().onGround(PLATEAU_CHEST_AT),
                 SpriteView.headingOf(-0.6, 1)));
+        addStall();
         for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
@@ -297,6 +305,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 t.dummyHealth, t.dummyDownSeconds));
     }
 
+    /** The market stall, facing where she starts (its shop alone, at a counter's height, if it has no model). */
+    private void addStall() {
+        Vec3 at = world.terrain().onGround(STALL_AT);
+        double facing = SpriteView.headingOf(-STALL_AT.x(), -STALL_AT.z());
+        var profile = com.larsons.game.building.BuildingCatalog.get().profile("market_stall_awning");
+        Vec3 counter = at;
+        if (profile != null) {
+            var b = world.addBuilding(new com.larsons.game.building.Building(-2, profile, at, facing, null, null));
+            counter = b.toWorld(0, com.larsons.game.level.ObjectTypes.front(profile));
+        }
+        world.addShop(new com.larsons.game.world.Shop(-2, "Market stall", counter, facing, "", true));
+    }
+
     /** A flying dummy on its rounds round {@code centre}, starting {@code start} radians round them. */
     private FlyingDummy addFlier(Vec3 centre, double start) {
         CombatTuning t = world.combat().tuning();
@@ -320,6 +341,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Vec3 at : DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         for (Vec3 at : HIGHLAND_DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         clear.add(new SceneryLayout.Clearing(PLATEAU_CHEST_AT.x(), PLATEAU_CHEST_AT.z(), CHEST_CLEAR));
+        clear.add(new SceneryLayout.Clearing(STALL_AT.x(), STALL_AT.z(), STALL_CLEAR));
         // room to land below the ledge, and to stand at the foot of the cliff
         Terrain t = Terrain.highlands();
         for (String place : new String[]{"cliff", "hollow"}) {
@@ -462,7 +484,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // --- items, the chest -----------------------------------------------------------
         keepStoreInReach();
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
-        else if (in.pressed(GLFW_KEY_E) && inventory.store() != null) inventory.close();
+        else if (in.pressed(GLFW_KEY_E) && (inventory.store() != null || inventory.shop() != null)) inventory.close();
         if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
@@ -610,7 +632,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, STORE, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
     private Chest storeChest;
@@ -638,6 +660,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
         if (d != null && dd < dc && dd < ds && dd < dg && dd < db) return Use.DOOR;
         if (st != null && ds < dc && ds < dg && ds <= db) return Use.STORE;
+        com.larsons.game.world.Shop sh = world.reachableShop();
+        if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
         return b != null ? Use.BUSH : Use.NOTHING;
@@ -655,6 +679,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 else toggleChest(c);
             }
             case STORE -> lookIn(world.reachableStore(), null);
+            case SHOP -> {
+                com.larsons.game.world.Shop sh = world.reachableShop();
+                Vec3 d = sh.position().sub(world.player().ground());
+                world.player().turnTo(SpriteView.headingOf(d.x(), d.z()));
+                inventory.showShop(sh);
+            }
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
             case DOOR -> goThrough(usableDoor());
@@ -1160,6 +1190,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             Chest c = world.reachableChest();
             text = "E   " + (c.store() != null ? "Look in the chest"
                     : c.isOpen() ? "Close the chest" : "Open the chest");
+        } else if (use == Use.SHOP) {
+            text = "E   Shop at ";
+            name = world.reachableShop().name();
+            edge = nameColour = Theme.rgb(240, 192, 48, 1f);
         } else if (use == Use.STORE) {
             text = "E   Look in the " + world.reachableStore().kind().label().toLowerCase();
         } else if (use == Use.ITEM) {

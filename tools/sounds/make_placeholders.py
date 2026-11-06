@@ -398,6 +398,12 @@ def voice(kit, body, what):
         place(out, syllable(kit, 1.0, [(0, f0 * 1.1), (0.3, f0 * 1.0), (1, f0 * 0.55)], "o", sc, h=0.05,
                             breath=0.25, vib=0.02, vib_rate=4), 0)
         return out
+    if what == "gasp":
+        # coming up from under the water: a sharp breath in, then out
+        out = silence(0.7)
+        place(out, breathy(kit, 0.26, "a", sc, lo=700) * env(0.26, 0.01, 0.2) * 1.1, 0)
+        place(out, breathy(kit, 0.3, "uh", sc) * bell(0.3, 0.3, 1.2) * 0.5, 0.34)
+        return out
     if what == "out_of_breath":
         out = silence(1.45)
         for i in range(3):
@@ -588,7 +594,7 @@ def _(k):
 
 for _body in BODIES:
     for _what in ("emote_laugh", "emote_cry", "emote_surprise", "emote_angry", "hurt", "knocked_out",
-                  "out_of_breath"):
+                  "out_of_breath", "gasp"):
         SOUNDS[f"player/{_body}/{_what}"] = (0.5, (lambda b, w: lambda k: voice(k, b, w))(_body, _what))
 
 
@@ -2110,6 +2116,183 @@ def _(k):
         place(out, crunch(k, 0.12, 260, 1200, 6000, 0.04) * (1 - 0.2 * i), at)
         place(out, thump(k, 0.08, 120, 0.5, 0.03, 0.4, 500) * 0.4, at)
     return out
+
+
+# Swimming, jump attacks, ammunition, shattering, cards and shops ---------------------------
+
+def splash(k, d, lo=400, hi=4200, drops=6, body=0.3):
+    """Water broken: a burst of filtered noise, a low thump under it, drops falling back."""
+    out = bp(k.noise(d), lo, hi) * env(d, 0.004, d * 0.6)
+    out = out + body * thump(k, d, 70, 0.6, 0.06, 0.6, 400)
+    for _ in range(drops):
+        f = k.uniform(700, 1700)
+        place(out, chirp(f, f * k.uniform(1.6, 2.4), k.uniform(0.012, 0.025)) * 0.35, k.uniform(0.05, d * 0.8))
+    return out
+
+
+@sound("player/swim", 0.4)
+def _(k):
+    # two strokes, each a scoop of water and its splash
+    d = 1.2
+    out = silence(d)
+    for at in (0.0, 0.6):
+        place(out, splash(k, 0.5, 300, 2600, 4, 0.15) * 0.8, at)
+    return out
+
+
+@sound("player/swim_under", 0.3)
+def _(k):
+    # under the water: muffled, a low rush and bubbles
+    d = 1.6
+    out = lp(k.noise(d), 500) * bell(d, 0.5, 1.0) * 1.5
+    for _ in range(10):
+        f = k.uniform(300, 900)
+        place(out, chirp(f, f * k.uniform(1.4, 2.0), k.uniform(0.02, 0.05)) * 0.25, k.uniform(0.05, d - 0.1))
+    return out
+
+
+@sound("player/surface", 0.42)
+def _(k):
+    return splash(k, 0.55, 500, 5000, 8, 0.2)
+
+
+@sound("player/wade_out", 0.4)
+def _(k):
+    d = 0.8
+    out = silence(d)
+    for i, at in enumerate((0.0, 0.3)):
+        place(out, splash(k, 0.35, 400, 3600, 3, 0.4) * (1 - 0.3 * i), at)
+    return out + 0.15 * bp(k.noise(d), 2000, 6000) * env(d, 0.05, 0.6)      # water running off her
+
+
+@sound("player/jump_attack", 0.5)
+def _(k):
+    # the leap and the weapon brought down through the air
+    d = 0.5
+    out = whoosh(k, d, 300, 900, 600, 1.2, 0.3)
+    return out + place(silence(d), swing(k, 0.3, 700, 2200, 600, 1.5, 0.1), 0.18)
+
+
+@sound("combat/plunge", 0.7)
+def _(k):
+    # landing a jump attack: a heavy blow into the ground, dust and grit thrown out
+    d = 0.7
+    out = thump(k, d, 60, 0.5, 0.16, 1.0, 900) + 0.6 * place(silence(d), crunch(k, 0.4, 200, 900, 5000, 0.08), 0)
+    return out + 0.3 * rustle(k, d, 800, 5000, 0.4) * bell(d, 0.3, 1.0)
+
+
+@sound("combat/out_of_ammo", 0.35)
+def _(k):
+    # an empty, dry click - twice
+    out = silence(0.3)
+    place(out, metal(1800, 0.05, 0.02, 0.9, k) + wood(900, 0.05, 0.02, k), 0)
+    return place(out, (metal(1500, 0.05, 0.02, 0.9, k) + wood(800, 0.05, 0.02, k)) * 0.8, 0.14)
+
+
+@sound("combat/reload", 0.38)
+def _(k):
+    # a fresh one taken up: a scrape and a snap into place
+    d = 0.45
+    scrape = bp(k.noise(0.22), 1500, 6000) * bell(0.22, 0.5, 1.4)
+    out = place(silence(d), scrape * 0.6, 0)
+    place(out, metal(2200, 0.15, 0.08, 0.7, k), 0.22)
+    return place(out, wood(1200, 0.06, 0.03, k), 0.22)
+
+
+@sound("world/chest_break", 0.46)
+def _(k):
+    out = splinter(k, 0.9, 7, 400, 700)
+    place(out, metal(k.uniform(1300, 1500), 0.35, 0.3, 0.5, k) * 0.2, 0.08)      # its brass corners
+    return out
+
+
+def shatter(k, d, shards, lo, hi, body_f):
+    """Fired clay breaking: a dull knock, the crack, and shards ringing as they scatter."""
+    out = silence(d)
+    place(out, thump(k, 0.15, body_f, 0.6, 0.06, 0.6, 1200) * 0.8, 0.0)
+    place(out, crunch(k, 0.18, 320, 2500, 9000, 0.03) * 0.8, 0.0)
+    for i in range(shards):
+        at = 0.03 + i * 0.045 + k.uniform(-0.01, 0.03)
+        place(out, metal(k.uniform(lo, hi), 0.12, 0.05, 0.6, k) * (0.6 - 0.04 * i), at)
+    return out
+
+
+@sound("world/pot_break", 0.42)
+def _(k):
+    return shatter(k, 0.6, 7, 2200, 4200, 150)
+
+
+@sound("world/large_pot_break", 0.46)
+def _(k):
+    return shatter(k, 0.8, 10, 1600, 3600, 110)
+
+
+@sound("ui/level_up", 0.42)
+def _(k):
+    d = 1.3
+    out = chime([523.25, 659.25, 783.99, 1046.5], d, 0.09, 0.8, 0.45)
+    pad = sum(osc(f, d) for f in (261.63, 523.25)) * bell(d, 0.3, 1.0)
+    return out + 0.2 * pad + 0.25 * sparkle(k, d, 10, 2500, 7000)
+
+
+@sound("ui/upgrade", 0.42)
+def _(k):
+    # the hammer on the anvil, then a bright ring
+    d = 0.9
+    out = silence(d)
+    for i, at in enumerate((0.0, 0.18)):
+        place(out, metal(1250 + 80 * i, 0.3, 0.2, 0.9, k) * (0.8 + 0.2 * i), at)
+    return place(out, chime([1046.5, 1567.98], 0.5, 0.05, 0.5, 0.4), 0.36)
+
+
+@sound("ui/card_play", 0.32)
+def _(k):
+    # a card flicked down onto the table, a little shimmer of its magic
+    d = 0.45
+    flick = bp(k.noise(0.08), 1500, 7000) * env(0.08, 0.002, 0.05)
+    out = place(silence(d), flick, 0)
+    return out + 0.35 * place(silence(d), sparkle(k, 0.35, 6, 3000, 7000), 0.06)
+
+
+@sound("ui/card_shuffle", 0.32)
+def _(k):
+    # a riffle: many little flicks running together
+    d = 0.7
+    out = silence(d)
+    for i in range(22):
+        at = 0.04 + i * 0.024 + k.uniform(-0.004, 0.004)
+        place(out, bp(k.noise(0.025), 2000, 8000) * env(0.025, 0.001, 0.015) * k.uniform(0.5, 0.9), at)
+    return place(out, wood(900, 0.08, 0.04, k) * 0.5, 0.6)
+
+
+@sound("ui/perk", 0.38)
+def _(k):
+    return chime([659.25, 987.77, 1318.51], 0.8, 0.07, 0.6, 0.45) + 0.2 * sparkle(k, 0.8, 6, 3000, 6000)
+
+
+@sound("ui/shop_open", 0.34)
+def _(k):
+    # a shop's bell over the door
+    return chime([1318.51, 1567.98], 0.9, 0.11, 0.7, 0.55)
+
+
+def coins(k, d, n):
+    out = silence(d)
+    for i in range(n):
+        at = 0.02 + i * k.uniform(0.04, 0.07)
+        place(out, metal(k.uniform(3000, 4200), 0.12, 0.06, 0.8, k) * k.uniform(0.5, 0.9), at)
+    return out
+
+
+@sound("ui/shop_buy", 0.38)
+def _(k):
+    return coins(k, 0.5, 5)
+
+
+@sound("ui/shop_sell", 0.36)
+def _(k):
+    out = coins(k, 0.45, 3)
+    return place(out, wood(700, 0.08, 0.04, k) * 0.5, 0.0)       # set down on the counter
 
 
 # --- writing -------------------------------------------------------------------------------

@@ -37,7 +37,8 @@ public final class BuildingProfile {
     }
 
     /** What kind of thing it is: a building, a piece of furniture, or a piece of a room ({@link Room}). */
-    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture";
+    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture",
+            TOWN = "town";
 
     /** A view's size in pixels and the pixel its ground point is at. */
     public record Frame(int width, int height, double anchorX, double anchorY, double angle) {}
@@ -76,6 +77,8 @@ public final class BuildingProfile {
     private final Anim anim;
     /** A model-only kind's height (no views to measure), or NaN. */
     private double modelHeight = Double.NaN;
+    /** Whether it is only ever a 3D model: no views of it were drawn. */
+    private boolean modelOnly;
     /** A light's fitting: where its flame is (its own metres: x, y, z up), or null. */
     private double[] flame;
     /** A light's fitting that stands on the ground (not hung up or set on something). */
@@ -182,6 +185,12 @@ public final class BuildingProfile {
     /** Whether it is a light's fitting (filed with the lights, not placed on its own). */
     public boolean fixture() { return group.equals(FIXTURE); }
 
+    /** Whether it is only ever drawn as its 3D model (it has no views). */
+    public boolean modelOnly() { return modelOnly; }
+
+    /** Whether it is the town's: a market stall, a town house, a workshop, a clock tower, a foundry. */
+    public boolean town() { return group.equals(TOWN); }
+
     /** Measure it by its model: {@code top} metres tall (when it has no height of its own written). */
     void measured(double top) {
         if (Double.isNaN(modelHeight) && top > 0) modelHeight = top;
@@ -256,6 +265,7 @@ public final class BuildingProfile {
                 Json.num(depth, "min", -10), Json.num(depth, "step", 0.08), frames, parts, shapes, door,
                 Json.bool(o, "interior", false), anim);
         if (o.get("height") instanceof Number h) p.modelHeight = h.doubleValue();
+        p.modelOnly = Json.bool(o, "model", false);
         if (o.get("flame") instanceof List<?> f && f.size() >= 3) {
             p.flame = new double[]{((Number) f.get(0)).doubleValue(), ((Number) f.get(1)).doubleValue(),
                     ((Number) f.get(2)).doubleValue()};
