@@ -148,6 +148,14 @@ final class InventoryPanel {
         tiersOf = -1;
     }
 
+    /** Open the screen with the tiers of the weapon in {@code slot} beside it. */
+    void showTiers(int slot) {
+        if (open && (store != null || shop != null)) close();
+        show();
+        cards = false;
+        tiersOf = slot;
+    }
+
     /**
      * Whether the game stands still: her own inventory is open - her cards,
      * a weapon's tiers - and no barrel, crate or chest beside it.

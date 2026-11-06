@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "name": "Town",
+  "size": 128,
+  "sky": {
+    "zenith": "#5C78A3",
+    "horizon": "#BDC9DB",
+    "fog": 120,
+    "backdrops": [],
+    "time": {
+      "start": 10,
+      "day": 24
+    },
+    "planet": {
+      "show": true,
+      "azimuth": 200,
+      "elevation": 16,
+      "size": 26,
+      "rings": false,
+      "seed": 1
+    },
+    "clouds": 0.35,
+    "stars": 0.85,
+    "aurora": 0.35,
+    "mist": {
+      "thick": 0.15,
+      "height": 2.5
+    },
+    "rays": 0.6
+  },
+  "music": "shuffle",
+  "objects": [
+    {"id": 1, "type": "spawn", "x": 0, "z": 12, "yaw": 0},
+    {"id": 2, "type": "building", "x": 0, "z": -15, "yaw": 180, "kind": "clocktower"},
+    {"id": 3, "type": "building", "x": -12, "z": -13, "yaw": 180, "kind": "shop_house"},
+    {"id": 4, "type": "building", "x": 12.5, "z": -13, "yaw": 180, "kind": "workshop"},
+    {"id": 5, "type": "building", "x": -17, "z": -1, "yaw": 270, "kind": "row_house"},
+    {"id": 6, "type": "building", "x": -17, "z": 6.6, "yaw": 270, "kind": "row_house", "look": {"walls":{"colour":"#e0c89c"},"roof":{"colour":"#6a4a3c","texture":"clay_tiles"}}},
+    {"id": 7, "type": "building", "x": -17, "z": 14.2, "yaw": 270, "kind": "row_house", "look": {"walls":{"colour":"#c8d0d8"}}},
+    {"id": 8, "type": "building", "x": 20, "z": 4, "yaw": 90, "kind": "foundry"},
+    {"id": 9, "type": "shop", "x": -4.5, "z": -3, "yaw": 180, "name": "Supplies", "stall": "market_stall", "stock": "whetstone, iron wedges, mace studs, small crystal, large crystal, arrow bundle, bolt bundle", "buys": true},
+    {"id": 10, "type": "shop", "x": 4.5, "z": -3, "yaw": 180, "name": "Card seller", "stall": "market_stall_awning", "stock": "reshuffle scroll x6, cards x6", "buys": true},
+    {"id": 11, "type": "building", "x": -6.9, "z": -3.6, "yaw": 0, "kind": "pot", "contents": ""},
+    {"id": 12, "type": "building", "x": -7, "z": -2.5, "yaw": 0, "kind": "large_pot", "contents": ""},
+    {"id": 13, "type": "building", "x": -6.4, "z": -2, "yaw": 0, "kind": "pot", "contents": ""},
+    {"id": 14, "type": "building", "x": 7, "z": -3.6, "yaw": 0, "kind": "barrel", "contents": ""},
+    {"id": 15, "type": "building", "x": 7.1, "z": -2.4, "yaw": 0, "kind": "crate", "contents": ""},
+    {"id": 16, "type": "building", "x": -9, "z": -8, "yaw": 0, "kind": "large_pot", "contents": ""},
+    {"id": 17, "type": "building", "x": -8.3, "z": -8.2, "yaw": 0, "kind": "pot", "contents": ""},
+    {"id": 18, "type": "building", "x": 8, "z": -7.9, "yaw": 0, "kind": "barrel", "contents": ""},
+    {"id": 19, "type": "building", "x": 9, "z": -7.9, "yaw": 0, "kind": "crate", "contents": ""},
+    {"id": 20, "type": "light", "x": -8, "z": 4, "yaw": 0, "colour": "lantern", "radius": 7, "strength": 1, "fixture": "lantern_post"},
+    {"id": 21, "type": "light", "x": 8, "z": 4, "yaw": 0, "colour": "lantern", "radius": 7, "strength": 1, "fixture": "lantern_post"},
+    {"id": 22, "type": "light", "x": -8, "z": -9, "yaw": 0, "colour": "lantern", "radius": 7, "strength": 1, "fixture": "lantern_post"},
+    {"id": 23, "type": "light", "x": 8.5, "z": -9.3, "yaw": 0, "colour": "lantern", "radius": 7, "strength": 1, "fixture": "lantern_post"},
+    {"id": 24, "type": "scenery", "x": -28, "z": -24, "yaw": 0, "sprite": "oak_tree"},
+    {"id": 25, "type": "scenery", "x": 30, "z": -22, "yaw": 0, "sprite": "oak_tree"},
+    {"id": 26, "type": "scenery", "x": -30, "z": 22, "yaw": 0, "sprite": "birch_tree"},
+    {"id": 27, "type": "scenery", "x": 32, "z": 24, "yaw": 0, "sprite": "pine_tree"}
+  ]
+}

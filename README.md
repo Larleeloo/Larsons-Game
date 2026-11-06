@@ -1852,6 +1852,12 @@ of jars, a keeper's spot to buy and sell at - the workshop its boiler,
 lightning coil and alchemy table, the foundry its cauldrons, boilers and
 still.
 
+`assets/levels/town` is a sample to play and to open in the editor: a market
+square with both stalls selling (supplies at one, cards at the other), pots,
+barrels and crates round them to break, lantern posts, three narrow town houses
+dressed differently, the shop house, the workshop, the clock tower and the
+foundry.
+
 The new furniture (Place → **Inside**): a **shop counter** (with its scales
 and a wall of shelves), a **rug**, a **painting** and a **banner** (both hung
 on a wall), a **tall clock**, a **potted plant**, the **pot** and **large
@@ -2373,7 +2379,10 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
-`chest` (open or shut it), `chest goto`, `door` (go through the door, stairs or door out she is at),
+`chest` (open or shut it), `chest goto`, `store [n] goto|open|hit|fill <what>` (barrel, crate, pot or storage
+chest n), `shop goto` / `shop` (the nearest shop: at its counter / open or shut it), `hero <class>` or
+`hero picker`, `cards` (her hand and perks), `tiers <slot>` (a weapon's tiers; `tiers <slot> up`: upgrade it),
+`door` (go through the door, stairs or door out she is at),
 `enter` (into the nearest building with an inside, wherever it is), `upstairs` / `downstairs` (by the
 nearest stairs), `outside`, `dummy goto [n] [metres] [front|back|left|right]` (stand
 by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the

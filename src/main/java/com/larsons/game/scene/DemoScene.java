@@ -1512,11 +1512,58 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     toggleChest(c);
                 }
             }
-            // the first barrel, crate or storage chest: goto (beside it), fill <what>, open, hit (break it)
+            // her class: hero <class> (chosen, its deck dealt), hero picker (the class picker up)
+            case "hero" -> {
+                String a = argument.trim();
+                if (a.equals("picker")) choosing = true;
+                else if (com.larsons.game.cards.CardBook.get().hero(a) == null) return false;
+                else {
+                    p.hero().choose(a, p);
+                    choosing = false;
+                }
+            }
+            // her cards beside the inventory (J); a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
+            case "cards" -> inventory.toggleCards();
+            case "tiers" -> {
+                String[] a = argument.trim().split("\\s+");
+                int slot = Integer.parseInt(a[0]) - 1;
+                if (!com.larsons.game.world.Upgrades.has(p.inventory().get(slot))) return false;
+                if (a.length > 1 && a[1].equals("up")) com.larsons.game.world.Upgrades.upgrade(p.inventory(), slot);
+                else inventory.showTiers(slot);
+            }
+            // the nearest shop: shop goto (at its counter, facing it), shop (open it, or shut it)
+            case "shop" -> {
+                if (world.shops().isEmpty()) return false;
+                com.larsons.game.world.Shop sh = world.shops().get(0);
+                for (com.larsons.game.world.Shop o : world.shops()) {
+                    if (o.position().horizontalDistance(p.ground()) < sh.position().horizontalDistance(p.ground())) {
+                        sh = o;
+                    }
+                }
+                if (argument.trim().equals("goto")) {
+                    Vec3 at = sh.position().add(SpriteView.headingVector(sh.heading()).scale(0.9));
+                    p.setPosition(at);
+                    p.snapHeading(SpriteView.headingOf(sh.position().x() - at.x(), sh.position().z() - at.z()));
+                    camera.snapTo(follow());
+                } else if (inventory.shop() == sh) {
+                    inventory.close();
+                } else {
+                    inventory.showShop(sh);
+                }
+            }
+            // a barrel, crate, pot or storage chest (the first, or store <n> ...): goto (beside it), fill <what>,
+            // open, hit (break it)
             case "store" -> {
                 if (world.stores().isEmpty()) return false;
-                Store st = world.stores().get(0);
                 String a = argument.trim();
+                int n = 0;
+                if (a.matches("\\d+.*")) {
+                    int sp = a.indexOf(' ');
+                    n = Integer.parseInt(sp < 0 ? a : a.substring(0, sp)) - 1;
+                    a = sp < 0 ? "" : a.substring(sp + 1).trim();
+                }
+                if (n < 0 || n >= world.stores().size()) return false;
+                Store st = world.stores().get(n);
                 if (a.equals("goto")) {
                     Vec3 at = st.position().add(SpriteView.headingVector(st.heading()).scale(st.radius() + 0.8));
                     p.setPosition(at);
