@@ -1,5 +1,6 @@
 package com.larsons.game.world;
 
+import com.larsons.game.combat.DiceRoll;
 import com.larsons.game.util.Json;
 
 import java.io.IOException;
@@ -47,7 +48,79 @@ import java.util.stream.Stream;
  * @param effects  the borders' effects it has
  */
 public record Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints,
-                     int dice, int sides, int diceRgb, Set<Border> effects) {
+                     int dice, int sides, int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra,
+                     int ammoEvery, List<Upgrade> upgrades, int level) {
+
+    /**
+     * One of a forged weapon's upgrade tiers after its first (the weapon as
+     * forged): what it is called ("" - its name and the tier's number,
+     * "Duskfang +2"), how rare, the dice it rolls then and their colour, its
+     * parts' colours (empty: as before), how many swings or shots one of its
+     * ammunition lasts ({@link Ammo}), how many {@link Ammo#INGOT}s it costs
+     * to reach, and whether it is a mystery until it is reached (shown as ???).
+     */
+    public record Upgrade(String name, Rarity rarity, int dice, int sides, List<DiceRoll.Group> extra, int diceRgb,
+                          Map<String, Integer> tints, int ammoEvery, int cost, boolean mystery) {
+        public Upgrade {
+            name = name == null ? "" : name.strip();
+            if (rarity == null) rarity = Rarity.EPIC;
+            dice = Math.max(1, Math.min(MAX_DICE, dice));
+            if (!known(sides)) sides = 20;
+            extra = extra == null ? List.of() : List.copyOf(extra);
+            diceRgb = diceRgb < 0 ? -1 : diceRgb & 0xFFFFFF;
+            tints = tints == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(tints));
+            ammoEvery = Math.max(1, ammoEvery);
+            cost = Math.max(0, cost);
+        }
+
+        public Upgrade withName(String n) {
+            return new Upgrade(n, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withRarity(Rarity r) {
+            return new Upgrade(name, r, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withDice(int n) {
+            return new Upgrade(name, rarity, n, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withSides(int x) {
+            return new Upgrade(name, rarity, dice, x, extra, diceRgb, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withExtra(List<DiceRoll.Group> e) {
+            return new Upgrade(name, rarity, dice, sides, e, diceRgb, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withDiceRgb(int c) {
+            return new Upgrade(name, rarity, dice, sides, extra, c, tints, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withTint(String part, int rgb) {
+            Map<String, Integer> t = new LinkedHashMap<>(tints);
+            if (rgb < 0) t.remove(part);
+            else t.put(part, rgb);
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, t, ammoEvery, cost, mystery);
+        }
+
+        public Upgrade withAmmoEvery(int n) {
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, n, cost, mystery);
+        }
+
+        public Upgrade withCost(int c) {
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, c, mystery);
+        }
+
+        public Upgrade withMystery(boolean m) {
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, m);
+        }
+    }
+
+    /** The most upgrade tiers a forged weapon has, its first (as forged) among them. */
+    public static final int MAX_TIERS = 10;
+    /** How many swings or shots one of its ammunition lasts, unless the Forge says otherwise. */
+    public static final int AMMO_EVERY = 12;
 
     /** The dice there are, in the order the Forge offers them. */
     public static final int[] SIDES = {4, 6, 8, 10, 100, 12, 20};
@@ -78,6 +151,101 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         EnumSet<Border> e = EnumSet.noneOf(Border.class);
         if (effects != null) for (Border b : effects) if (b != null) e.add(b);
         effects = Collections.unmodifiableSet(e);
+        extra = extra == null ? List.of() : List.copyOf(extra);
+        ammoEvery = ammoEvery <= 0 ? AMMO_EVERY : ammoEvery;
+        upgrades = upgrades == null ? List.of()
+                : List.copyOf(upgrades.size() > MAX_TIERS - 1 ? upgrades.subList(0, MAX_TIERS - 1) : upgrades);
+        level = Math.max(0, Math.min(upgrades.size(), level));
+    }
+
+    /** One as the Forge made them before upgrades: its first tier only. */
+    public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
+                  int diceRgb, Set<Border> effects) {
+        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, List.of(), AMMO_EVERY, List.of(), 0);
+    }
+
+    // --- its tier now (level 0: as forged; n: its n-th upgrade) ----------------------
+
+    /** Its upgrade tier now, or null at its first (as forged). */
+    public Upgrade tier() {
+        return level == 0 ? null : upgrades.get(level - 1);
+    }
+
+    /** How many tiers it has, its first among them. */
+    public int tiers() {
+        return upgrades.size() + 1;
+    }
+
+    /** What it is called at its tier now: the tier's own name, or its name and the tier's number. */
+    @Override
+    public String name() {
+        Upgrade u = tier();
+        if (u == null) return name;
+        return u.name().isEmpty() ? name + " +" + level : u.name();
+    }
+
+    /** Its name as forged (its first tier's). */
+    public String baseName() { return name; }
+
+    @Override
+    public Rarity rarity() { return tier() == null ? rarity : tier().rarity(); }
+
+    @Override
+    public int dice() { return tier() == null ? dice : tier().dice(); }
+
+    @Override
+    public int sides() { return tier() == null ? sides : tier().sides(); }
+
+    @Override
+    public int diceRgb() { return tier() == null ? diceRgb : tier().diceRgb(); }
+
+    @Override
+    public List<DiceRoll.Group> extra() { return tier() == null ? extra : tier().extra(); }
+
+    @Override
+    public int ammoEvery() { return tier() == null ? ammoEvery : tier().ammoEvery(); }
+
+    /** Its parts' colours at its tier now: its first tier's, with every upgrade's so far over them. */
+    @Override
+    public Map<String, Integer> tints() {
+        if (level == 0) return tints;
+        Map<String, Integer> t = new LinkedHashMap<>(tints);
+        for (int i = 0; i < level; i++) t.putAll(upgrades.get(i).tints());
+        return Collections.unmodifiableMap(t);
+    }
+
+    /** It at tier {@code n} (0: as forged), held within its tiers. */
+    public Forged at(int n) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n);
+    }
+
+    /** It one tier up, or null at its last. */
+    public Forged upgraded() {
+        return level >= upgrades.size() ? null : at(level + 1);
+    }
+
+    /** The ingots its next tier costs (-1: it is at its last). */
+    public int nextCost() {
+        return level >= upgrades.size() ? -1 : upgrades.get(level).cost();
+    }
+
+    /** Its dice at its tier now: "2d8 × 1d4". */
+    public String diceText() {
+        StringBuilder s = new StringBuilder(dice() + die(sides()));
+        for (DiceRoll.Group g : extra()) s.append(' ').append(g.notation());
+        return s.toString();
+    }
+
+    public Forged withExtra(List<DiceRoll.Group> e) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0);
+    }
+
+    public Forged withAmmoEvery(int n) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0);
+    }
+
+    public Forged withUpgrades(List<Upgrade> u) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0);
     }
 
     /** A new one: an Epic sword rolling one d20, in its own colours, with no effects. */
@@ -111,9 +279,9 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return new Item(def(), null, rarity, null, this);
     }
 
-    /** What items call it: {@code forged:<id>}. */
+    /** What items call it: {@code forged:<id>}, and its tier past its first: {@code forged:<id>:2}. */
     public String key() {
-        return PREFIX + id;
+        return PREFIX + id + (level > 0 ? ":" + level : "");
     }
 
     /** Its effects, as the inventory says them: "Venom, Mystic". */
@@ -123,27 +291,27 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return String.join(", ", out);
     }
 
-    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects); }
+    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
-    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects); }
+    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
     /** Made from another weapon: the colours of parts it does not have dropped. */
-    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects); }
+    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
-    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects); }
+    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
-    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects); }
+    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
-    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects); }
+    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level); }
 
-    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects); }
+    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level); }
 
     /** {@code part} in {@code rgb} (-1: as it is drawn). */
     public Forged withTint(String part, int rgb) {
         Map<String, Integer> t = new LinkedHashMap<>(tints);
         if (rgb < 0) t.remove(part);
         else t.put(part, rgb);
-        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects);
+        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level);
     }
 
     /** With {@code b}'s effect, or without it. */
@@ -151,7 +319,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         EnumSet<Border> e = effects.isEmpty() ? EnumSet.noneOf(Border.class) : EnumSet.copyOf(effects);
         if (on) e.add(b);
         else e.remove(b);
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level);
     }
 
     // --- the forge's files ------------------------------------------------------------
@@ -181,7 +349,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     /** Keep {@code f}: under its id, or a new one from its name. Returns it as kept. */
     public static synchronized Forged save(Forged f) throws IOException {
         Files.createDirectories(dir);
-        Forged kept = f.id() == null || f.id().isBlank() ? f.withId(free(slug(f.name()))) : f;
+        Forged kept = f.id() == null || f.id().isBlank() ? f.withId(free(slug(f.baseName()))) : f;
         Files.writeString(dir.resolve(kept.id() + ".json"), json(kept), StandardCharsets.UTF_8);
         all = null;
         return kept;
@@ -208,6 +376,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     }
 
     static String json(Forged f) {
+        f = f.at(0);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("format", FORMAT);
         m.put("name", f.name());
@@ -216,12 +385,30 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         m.put("dice", f.dice());
         m.put("sides", f.sides());
         if (f.diceRgb() >= 0) m.put("diceColour", hex(f.diceRgb()));
+        if (!f.extra().isEmpty()) m.put("moreDice", groups(f.extra()));
+        m.put("ammoEvery", f.ammoEvery());
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
-        Map<String, Object> t = new LinkedHashMap<>();
-        for (Map.Entry<String, Integer> p : f.tints().entrySet()) t.put(p.getKey(), hex(p.getValue()));
-        m.put("tints", t);
+        m.put("tints", tintMap(f.tints()));
+        if (!f.upgrades().isEmpty()) {
+            List<Object> ups = new ArrayList<>();
+            for (Upgrade u : f.upgrades()) {
+                Map<String, Object> um = new LinkedHashMap<>();
+                if (!u.name().isEmpty()) um.put("name", u.name());
+                um.put("rarity", u.rarity().key());
+                um.put("dice", u.dice());
+                um.put("sides", u.sides());
+                if (!u.extra().isEmpty()) um.put("moreDice", groups(u.extra()));
+                if (u.diceRgb() >= 0) um.put("diceColour", hex(u.diceRgb()));
+                if (!u.tints().isEmpty()) um.put("tints", tintMap(u.tints()));
+                um.put("ammoEvery", u.ammoEvery());
+                um.put("cost", u.cost());
+                if (u.mystery()) um.put("mystery", true);
+                ups.add(um);
+            }
+            m.put("upgrades", ups);
+        }
         return Json.stringify(m) + "\n";
     }
 
@@ -240,9 +427,56 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
             }
         }
         String dc = Json.str(m, "diceColour", "");
+        List<Upgrade> ups = new ArrayList<>();
+        if (m.get("upgrades") instanceof List<?> l) {
+            for (Object o : l) {
+                Map<String, Object> um = Json.asObject(o);
+                String udc = Json.str(um, "diceColour", "");
+                Map<String, Integer> ut = new LinkedHashMap<>();
+                Map<String, Object> utm = Json.obj(um, "tints");
+                if (utm != null) for (Map.Entry<String, Object> x : utm.entrySet()) ut.put(x.getKey(), rgb(x.getValue()));
+                ups.add(new Upgrade(Json.str(um, "name", ""), Rarity.byKey(Json.str(um, "rarity", "epic")),
+                        (int) Json.num(um, "dice", 1), (int) Json.num(um, "sides", 20), groups(um.get("moreDice")),
+                        udc.isEmpty() ? -1 : rgb(udc), ut, (int) Json.num(um, "ammoEvery", AMMO_EVERY),
+                        (int) Json.num(um, "cost", 1), Boolean.TRUE.equals(um.get("mystery"))));
+            }
+        }
         return new Forged(id, Json.str(m, "name", id), Json.str(m, "base", "sword"),
                 Rarity.byKey(Json.str(m, "rarity", "epic")), tints, (int) Json.num(m, "dice", 1),
-                (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects);
+                (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
+                (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0);
+    }
+
+    private static List<Object> groups(List<DiceRoll.Group> gs) {
+        List<Object> out = new ArrayList<>();
+        for (DiceRoll.Group g : gs) {
+            Map<String, Object> gm = new LinkedHashMap<>();
+            gm.put("op", g.op().key());
+            gm.put("count", g.count());
+            gm.put("sides", g.sides());
+            out.add(gm);
+        }
+        return out;
+    }
+
+    private static List<DiceRoll.Group> groups(Object o) {
+        List<DiceRoll.Group> out = new ArrayList<>();
+        if (o instanceof List<?> l) {
+            for (Object x : l) {
+                Map<String, Object> gm = Json.asObject(x);
+                int sides = (int) Json.num(gm, "sides", 6);
+                if (!known(sides)) continue;
+                out.add(new DiceRoll.Group((int) Json.num(gm, "count", 1), sides,
+                        DiceRoll.Op.byKey(Json.str(gm, "op", "+"))));
+            }
+        }
+        return out;
+    }
+
+    private static Map<String, Object> tintMap(Map<String, Integer> tints) {
+        Map<String, Object> t = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> p : tints.entrySet()) t.put(p.getKey(), hex(p.getValue()));
+        return t;
     }
 
     private static List<Forged> readAll(Path folder) {

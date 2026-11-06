@@ -52,4 +52,10 @@ public interface Target {
      * crate, only ever hit to break it.
      */
     default boolean living() { return true; }
+
+    /** Stand frozen where it is for {@code seconds} (a card's Freeze): nothing that cannot move minds. */
+    default void freeze(double seconds) { }
+
+    /** Whether it stands frozen now. */
+    default boolean frozen() { return false; }
 }

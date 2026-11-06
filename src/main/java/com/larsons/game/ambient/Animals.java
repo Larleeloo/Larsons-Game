@@ -93,6 +93,12 @@ public final class Animals {
 
         /** Whether she is down (her health gone): they leave her be. */
         boolean down();
+
+        /**
+         * How easily she is noticed ({@code world.Stealth}): what every
+         * distance an animal notices her at is multiplied by (1: in the open).
+         */
+        default double conspicuous() { return 1; }
     }
 
     /**
@@ -204,6 +210,14 @@ public final class Animals {
         return kind.cap() * life.density(kind) * kind.out(day) * Math.min(1.5, share.get(kind));
     }
 
+    /** Take {@code a} out of the world at once (a card turned it into something else). */
+    public void remove(Animal a) {
+        if (a == null) return;
+        a.gone = true;
+        a.alpha = 0;
+        live.remove(a);
+    }
+
     /** Put one in, now, at {@code at} (a script, a test): of its own nature, or {@code temperament}'s. */
     public Animal add(AnimalKind kind, Vec3 at, Temperament temperament, Place place) {
         Animal a = make(kind, null, temperament == null ? kind.temperament() : temperament, at.x(), at.z(), place);
@@ -251,6 +265,13 @@ public final class Animals {
             if (a.alpha <= 0 && fading) a.gone = true;
             if (still) {
                 stand(a, place);
+                continue;
+            }
+            if (a.frozen > 0) {
+                // a card's Freeze: it stands where it is, its sheet stopped
+                a.frozen -= dt;
+                a.vx = a.vz = 0;
+                a.sheetTime -= dt * a.rate;
                 continue;
             }
             react(a, q, place, voice, focus);
@@ -557,8 +578,8 @@ public final class Animals {
                 a.vx = a.vz = 0;
                 settle(a, place);
                 // up when she comes near (the calm let her come nearer), or when it has rested
-                double wake = a.temperament == Temperament.SKITTISH ? Math.max(3, k.shy() * 1.2)
-                        : a.temperament == Temperament.TAME ? 1.2 : 2.2;
+                double wake = (a.temperament == Temperament.SKITTISH ? Math.max(3, k.shy() * 1.2)
+                        : a.temperament == Temperament.TAME ? 1.2 : 2.2) * (her == null ? 1 : her.conspicuous());
                 a.timer -= dt;
                 if (a.timer <= 0 || d < wake || a.swimming) {
                     rest(a);
@@ -721,9 +742,10 @@ public final class Animals {
     private boolean notice(Animal a, Quarry her, double d, Critters.Voice voice, Vec3 focus) {
         if (her == null || a.saddled) return false;             // a saddled horse waits for her
         AnimalKind k = a.kind;
+        double c = her.conspicuous();
         switch (a.temperament) {
             case SKITTISH -> {
-                if (k.shy() > 0 && d < k.shy()) {
+                if (k.shy() > 0 && d < k.shy() * c) {
                     flee(a, her.feet().x(), her.feet().z(), 3 + random.nextDouble() * 2, voice, focus);
                     return true;
                 }
@@ -737,7 +759,7 @@ public final class Animals {
                 }
             }
             case DEFENSIVE -> {
-                if (k.warn() > 0 && d < k.warn()) {
+                if (k.warn() > 0 && d < k.warn() * c) {
                     a.enter(Animal.Mode.WARN);
                     a.timer = 1.6;
                     say(voice, a, k.angry(), focus, 0.85);
@@ -746,7 +768,7 @@ public final class Animals {
                 }
             }
             case HOSTILE -> {
-                if (d < SIGHT) {
+                if (d < SIGHT * c) {
                     a.angry = CALM_DOWN;
                     a.enter(Animal.Mode.CHASE);
                     say(voice, a, k.angry() != null ? k.angry() : k.call(), focus, 0.9);

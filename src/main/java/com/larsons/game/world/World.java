@@ -190,6 +190,9 @@ public final class World {
     private final List<FlyingDummy> fliers = new ArrayList<>();
     private final List<SoundSpot> soundSpots = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
+    /** How easily she is noticed now, worked out a few times a second. */
+    private Stealth stealth = Stealth.OPEN;
+    private double stealthClock, lastHidden = Double.NEGATIVE_INFINITY;
     private Terrain terrain = Terrain.FLAT;
     private Vec3 spawnPoint = Vec3.ZERO;
     private Random random = new Random();
@@ -472,6 +475,74 @@ public final class World {
     /** The fighting: the dice, the damage, the shots in flight, her mana. */
     public Combat combat() { return combat; }
 
+    // --- a card's Transfigure ------------------------------------------------------
+
+    /** What a Transfigure turns things into: animals that walk the ground. */
+    public static final AnimalKind[] TRANSFIGURE_INTO = {AnimalKind.SHEEP, AnimalKind.PIG, AnimalKind.RABBIT,
+            AnimalKind.CAT, AnimalKind.DOG, AnimalKind.FOX, AnimalKind.DUCK, AnimalKind.GOOSE, AnimalKind.PHEASANT,
+            AnimalKind.IGUANA, AnimalKind.COW, AnimalKind.DEER};
+
+    /** Something turned into an animal: what it was (an animal's kind; null: a dummy, hidden meanwhile), and until when. */
+    private record Turned(AnimalKind was, com.larsons.game.ambient.Temperament temper, Animal as, double until) {}
+
+    private final List<Turned> turned = new ArrayList<>();
+
+    /**
+     * Turn {@code t} into an animal picked at random for {@code seconds}: a
+     * dummy (or a flier) goes for that long and is back when it is over; an
+     * animal becomes another, and turns back where that one is then. False
+     * when it cannot be (a ridden horse, a barrel).
+     */
+    public boolean transfigure(Target t, double seconds) {
+        Vec3 at = terrain.onGround(t.position());
+        AnimalKind into = TRANSFIGURE_INTO[random.nextInt(TRANSFIGURE_INTO.length)];
+        AnimalKind was = null;
+        com.larsons.game.ambient.Temperament temper = null;
+        if (t instanceof Dummy d) {
+            d.hide(seconds);
+        } else if (t instanceof FlyingDummy f) {
+            f.hide(seconds);
+        } else if (t instanceof Animal a && !a.ridden() && !a.saddled()) {
+            if (a.kind() == into) into = into == AnimalKind.SHEEP ? AnimalKind.PIG : AnimalKind.SHEEP;
+            was = a.kind();
+            temper = a.temperament();
+            animals.remove(a);
+        } else {
+            return false;
+        }
+        Animal as = animals.add(into, at, com.larsons.game.ambient.Temperament.CALM, place());
+        turned.add(new Turned(was, temper, as, time + seconds));
+        return true;
+    }
+
+    /** The Transfigures run out: the stand-ins go, the animals turn back. */
+    private void turnBack() {
+        for (java.util.Iterator<Turned> it = turned.iterator(); it.hasNext(); ) {
+            Turned tu = it.next();
+            if (time < tu.until()) continue;
+            it.remove();
+            Vec3 at = tu.as() != null ? tu.as().position() : null;
+            if (tu.as() != null) animals.remove(tu.as());
+            if (tu.was() != null && at != null) animals.add(tu.was(), terrain.onGround(at), tu.temper(), place());
+        }
+    }
+
+    /** How easily she is noticed now ({@link Stealth}). */
+    public Stealth stealth() { return stealth; }
+
+    /**
+     * Whether a blow she starts now is a sneak attack: she was hidden a
+     * moment ago ({@link #SNEAK_GRACE} s) - standing up to swing gives her away
+     * only once the blow has landed.
+     */
+    public boolean sneaky() { return time - lastHidden <= SNEAK_GRACE; }
+
+    /** How long after she was last hidden a blow she starts is still a sneak attack, seconds. */
+    public static final double SNEAK_GRACE = 0.6;
+
+    /** What the cards she has played are doing for her ({@link Player#buffs}). */
+    public Buffs buffs() { return player.buffs(); }
+
     public List<Dummy> dummies() { return dummies; }
 
     public Dummy addDummy(Dummy dummy) {
@@ -494,8 +565,9 @@ public final class World {
 
     /** Everything that can be hit: the dummies, the fliers, the animals about (but the horse she rides). */
     public List<Target> targets() {
-        List<Target> out = new ArrayList<>(dummies);
-        out.addAll(fliers);
+        List<Target> out = new ArrayList<>();
+        for (Dummy d : dummies) if (!d.hidden()) out.add(d);
+        for (FlyingDummy f : fliers) if (!f.hidden()) out.add(f);
         for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         return out;
@@ -705,7 +777,14 @@ public final class World {
             }
         }
         if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
+        stealthClock -= dt;
+        if (stealthClock <= 0) {
+            stealth = Stealth.of(this);
+            stealthClock = 0.2;
+        }
+        if (stealth.hidden()) lastHidden = time;
         combat.tick(dt, this);
+        turnBack();
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
@@ -950,6 +1029,9 @@ public final class World {
 
             @Override
             public boolean down() { return player.health() <= 0; }
+
+            @Override
+            public double conspicuous() { return stealth.score(); }
         };
     }
 

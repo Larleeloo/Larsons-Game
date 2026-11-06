@@ -89,6 +89,16 @@ public final class FlyingDummy implements Target {
     private final double maxHealth, downSeconds;
     private Vec3 position, velocity = Vec3.ZERO;
     private double heading;
+    /** Seconds it hangs frozen in the air (a card's Freeze). */
+    private double frozen;
+
+    @Override
+    public void freeze(double seconds) {
+        frozen = Math.max(frozen, seconds);
+    }
+
+    @Override
+    public boolean frozen() { return frozen > 0; }
     private double health;
     private Phase phase = Phase.FLY;
     private Dummy.Side side = Dummy.Side.FRONT;
@@ -131,6 +141,16 @@ public final class FlyingDummy implements Target {
      * ground and its rising. Returns what its dive did this frame.
      */
     public Outcome tick(double dt, Terrain terrain, Player player) {
+        if (hidden > 0) {
+            hidden -= dt;               // turned into an animal by a card: back when it is over
+            return Outcome.NONE;
+        }
+        if (frozen > 0 && phase != Phase.FALL && phase != Phase.DOWN) {
+            // a card's Freeze: it hangs in the air where it is
+            frozen -= dt;
+            if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
+            return Outcome.NONE;
+        }
         time += dt;
         clock += dt;
         sinceSwoop += dt;
@@ -344,9 +364,20 @@ public final class FlyingDummy implements Target {
     @Override
     public double sinceHurt() { return sinceHurt; }
 
+    /** Seconds it is gone for (turned into an animal by a card's Transfigure). */
+    private double hidden;
+
+    /** Gone for {@code seconds}: turned into an animal, it is not there to see or hit. */
+    public void hide(double seconds) {
+        hidden = Math.max(hidden, seconds);
+    }
+
+    /** Whether it is gone for now (turned into an animal). */
+    public boolean hidden() { return hidden > 0; }
+
     @Override
     public boolean alive() {
-        return phase == Phase.FLY || phase == Phase.WARN || phase == Phase.SWOOP || phase == Phase.HIT;
+        return hidden <= 0 && (phase == Phase.FLY || phase == Phase.WARN || phase == Phase.SWOOP || phase == Phase.HIT);
     }
 
     @Override

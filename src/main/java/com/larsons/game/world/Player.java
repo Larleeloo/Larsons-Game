@@ -427,6 +427,8 @@ public final class Player {
     private String horseSheet = "idle";
     private double horseTime, horseRate = 1;
 
+    /** What the cards she has played are doing for her. */
+    private final Buffs buffs = new Buffs();
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private final Inventory inventory;
@@ -448,6 +450,9 @@ public final class Player {
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
+        buffs.tick(dt);
+        if (health > 0) health = Math.min(MAX_HEALTH, health + buffs.plus(Buffs.Kind.REGEN_HEALTH) * dt);
+        stamina = Math.min(MAX_STAMINA, stamina + buffs.plus(Buffs.Kind.REGEN_STAMINA) * dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
         if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
@@ -602,7 +607,7 @@ public final class Player {
                 return;
             }
         }
-        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish));
+        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED));
         if (dodging()) {
             velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
         } else {
@@ -617,7 +622,7 @@ public final class Player {
         if (jumping) {
             if (!launched && stateTime >= JUMP_LAUNCH * actionDuration) {
                 launched = true;
-                vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2;
+                vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2 * Math.sqrt(buffs.times(Buffs.Kind.JUMP));
             }
             if (launched && stateTime >= actionDuration) jumping = false;
         }
@@ -1103,10 +1108,11 @@ public final class Player {
         if (wish.length() > 1) wish = wish.normalize();
         boolean fast = (in.run() || in.sprint()) && stamina > 1 && wish.length() > 0.3;
         if (fast) {
-            stamina = Math.max(0, stamina - SWIM_COST * dt);
+            stamina = Math.max(0, stamina - SWIM_COST * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
             sinceTired = 0;
         }
-        double speed = (under ? SWIM_UNDER_SPEED : SWIM_SPEED) * (fast ? SWIM_FAST / SWIM_SPEED : 1);
+        double speed = (under ? SWIM_UNDER_SPEED : SWIM_SPEED) * (fast ? SWIM_FAST / SWIM_SPEED : 1)
+                * buffs.times(Buffs.Kind.SPEED);
         velocity = velocity.lerp(wish.scale(speed), 1 - Math.exp(-dt * 3));
         Vec3 step = velocity.scale(dt);
         if (step.horizontalLength() > 1e-9) {
@@ -1155,7 +1161,7 @@ public final class Player {
     /** Her breath: running out under the water (then drowning), coming back above it. */
     private void breathe(double dt) {
         if (swimming && under) {
-            breath = Math.max(0, breath - dt);
+            breath = Math.max(0, breath - dt / buffs.times(Buffs.Kind.BREATH));
             if (breath <= 0) {
                 drowned += DROWN * dt;
                 if (drowned >= 1) {
@@ -1169,6 +1175,9 @@ public final class Player {
             drowned = 0;
         }
     }
+
+    /** What the cards she has played are doing for her now. */
+    public Buffs buffs() { return buffs; }
 
     /** Whether she is swimming (in water too deep to wade), and under it. */
     public boolean swimming() { return swimming; }
@@ -1242,7 +1251,7 @@ public final class Player {
         position = new Vec3(at.x(), ground, at.z());
         heading = wantHeading = w.facing();
         boolean moving = Math.abs(up) > 0.1 || Math.abs(side) > 0.1;
-        stamina = Math.max(0, stamina - (moving ? CLIMB_COST : HANG_COST) * dt);
+        stamina = Math.max(0, stamina - (moving ? CLIMB_COST : HANG_COST) * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
         sinceTired = 0;
         setState(AnimState.CLIMB);
         stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
@@ -1321,7 +1330,7 @@ public final class Player {
     private void overLip(double dt, ToDoubleFunction<AnimState> durations) {
         Terrain.Wall w = wall;
         ledgeTime += dt;
-        stamina = Math.max(0, stamina - CLIMB_COST * dt);
+        stamina = Math.max(0, stamina - CLIMB_COST * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
         sinceTired = 0;
         velocity = Vec3.ZERO;
         double last = LEDGE_PATH[LEDGE_PATH.length - 1][0];
@@ -1722,6 +1731,11 @@ public final class Player {
 
     public double health() { return health; }
 
+    /** {@code amount} health back (no more than full; not once knocked out). */
+    public void heal(double amount) {
+        if (health > 0 && amount > 0) health = Math.min(MAX_HEALTH, health + amount);
+    }
+
     public double stamina() { return stamina; }
 
     /** Seconds since she was last hurt (a lot: never). */
@@ -1745,6 +1759,8 @@ public final class Player {
      */
     public double hurt(double damage) {
         if (damage <= 0 || health <= 0) return 0;
+        damage = buffs.soak(damage * buffs.times(Buffs.Kind.DEFENSE));
+        if (damage <= 0) return 0;
         double took = Math.min(health, damage);
         health -= took;
         sinceHurt = 0;

@@ -1070,6 +1070,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawMana(ui, world.combat(), hotbar - 34);
                 combatHud.drawHeavy(ui, world.player(), hotbar - 34);
                 combatHud.drawVitals(ui, world.player(), hotbar - 34);
+                combatHud.drawStealth(ui, world, hotbar - 34);
+                combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!game.importer().visible()) inventory.draw(ui);
         }

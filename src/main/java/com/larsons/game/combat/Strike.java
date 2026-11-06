@@ -1,6 +1,7 @@
 package com.larsons.game.combat;
 
 import com.larsons.game.world.Border;
+import com.larsons.game.world.Buffs;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Rarity;
 
@@ -14,7 +15,18 @@ import com.larsons.game.world.Rarity;
  * by then. A forged weapon's dice are its own ({@link
  * com.larsons.game.world.Forged}), as many effects as it was forged with.
  */
-public record Strike(Item weapon, DiceRoll roll, boolean mystic, boolean plain) {
+public record Strike(Item weapon, DiceRoll roll, boolean mystic, boolean plain, boolean sneak, double times,
+                     Buffs.Only what) {
+
+    public Strike {
+        if (times <= 0) times = 1;
+        if (what == null) what = Buffs.Only.ANY;
+    }
+
+    /** A strike with no card's help and no sneaking. */
+    public Strike(Item weapon, DiceRoll roll, boolean mystic, boolean plain) {
+        this(weapon, roll, mystic, plain, false, 1, Buffs.Only.ANY);
+    }
 
     /** A strike its weapon's border has its say in. */
     public Strike(Item weapon, DiceRoll roll, boolean mystic) {

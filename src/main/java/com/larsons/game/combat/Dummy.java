@@ -87,6 +87,15 @@ public final class Dummy implements Target {
     }
 
     public void tick(double dt) {
+        if (hidden > 0) {
+            hidden -= dt;               // turned into an animal by a card: back when it is over
+            return;
+        }
+        if (frozen > 0) {
+            frozen -= dt;               // a card's Freeze: it stands stock still, its sway stopped
+            if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
+            return;
+        }
         time += dt;
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
         switch (phase) {
@@ -161,8 +170,27 @@ public final class Dummy implements Target {
 
     @Override
     public boolean alive() {
-        return phase == Phase.IDLE || phase == Phase.HIT;
+        return hidden <= 0 && (phase == Phase.IDLE || phase == Phase.HIT);
     }
+
+    /** Seconds it is gone for (turned into an animal by a card's Transfigure), and frozen for (Freeze). */
+    private double hidden, frozen;
+
+    @Override
+    public void freeze(double seconds) {
+        frozen = Math.max(frozen, seconds);
+    }
+
+    @Override
+    public boolean frozen() { return frozen > 0; }
+
+    /** Gone for {@code seconds}: turned into an animal, it is not there to see or hit. */
+    public void hide(double seconds) {
+        hidden = Math.max(hidden, seconds);
+    }
+
+    /** Whether it is gone for now (turned into an animal). */
+    public boolean hidden() { return hidden > 0; }
 
     @Override
     public Vec3 position() { return position; }

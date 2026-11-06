@@ -1746,20 +1746,46 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 28;
         ItemDef base = f.def();
         ui.text(ui.small, f.rarity().label() + " - forged " + base.name().toLowerCase(java.util.Locale.ROOT)
-                + " - rolls " + f.notation(), x, y, Theme.ITEM);
+                + " - rolls " + f.diceText(), x, y, Theme.ITEM);
         y += 22;
         for (Border e : f.effects()) {
             y += ui.paragraph(ui.small, e.label() + ": " + e.effect(), x, y, w, e.colour(1f)) + 2;
         }
         y += 8;
-        // its dice, come up highest (a d% as its tens and its ones)
-        int[] values = new int[Math.min(f.dice(), 6)];
-        for (int i = 0; i < values.length; i++) values[i] = Math.max(1, f.sides() - i);
+        // its dice, come up highest (a d% as its tens and its ones), and any more doing their sums
+        com.larsons.game.combat.DiceRoll roll = highest(f);
         int[] pal = com.larsons.game.combat.CombatColours.diePalette(f.rarity(),
                 f.effects().isEmpty() ? null : f.effects().iterator().next(), f.diceRgb());
-        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), f.sides(), values, pal,
-                x + w / 2, y, Math.min(48, (w - 12) / Math.max(4, values.length * (f.sides() == 100 ? 2 : 1))),
-                ui.scale());
+        int across = 0;
+        for (int i = 0; i < roll.count(); i++) across += roll.sidesOf(i) == 100 ? 2 : 1;
+        float size = Math.min(48, (w - 12) / Math.max(4, Math.min(12, across + 1)));
+        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), roll, pal,
+                x + w / 2, y, size, ui.scale());
+    }
+
+    /** {@code f}'s dice come up as high as they go (its first six, and each more group's first three). */
+    static com.larsons.game.combat.DiceRoll highest(Forged f) {
+        List<Integer> faces = new ArrayList<>(), sides = new ArrayList<>();
+        List<com.larsons.game.combat.DiceRoll.Op> ops = new ArrayList<>();
+        for (int i = 0; i < Math.min(f.dice(), 6); i++) {
+            faces.add(Math.max(1, f.sides() - i));
+            sides.add(f.sides());
+            ops.add(com.larsons.game.combat.DiceRoll.Op.ADD);
+        }
+        for (com.larsons.game.combat.DiceRoll.Group g : f.extra()) {
+            for (int i = 0; i < Math.min(g.count(), 3); i++) {
+                faces.add(Math.max(1, g.sides() - i));
+                sides.add(g.sides());
+                ops.add(g.op());
+            }
+        }
+        int[] fa = new int[faces.size()], si = new int[faces.size()];
+        for (int i = 0; i < fa.length; i++) {
+            fa[i] = faces.get(i);
+            si[i] = sides.get(i);
+        }
+        return new com.larsons.game.combat.DiceRoll(f.sides(), fa, si,
+                ops.toArray(new com.larsons.game.combat.DiceRoll.Op[0]));
     }
 
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {

@@ -9,9 +9,14 @@ import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Buffs;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Stealth;
 import com.larsons.game.world.Rarity;
 import com.larsons.game.world.World;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The fighting on the HUD, over the world:
@@ -103,41 +108,51 @@ public final class CombatHud {
         double settle = Math.max(0, show.land() - show.start() - LAND);
         float fade = (float) Math.max(0, Math.min(1, Math.min(t / 0.08, (show.end() - now) / 0.3)));
 
-        // a d% is two dice side by side: the tens' (00 - 90) and a d10's ones
-        boolean pct = roll.sides() == 100;
-        int per = pct ? 2 : 1;
-        int n = roll.count() * per, rows = (n + ROW - 1) / ROW;
+        // a d% is two dice side by side: the tens' (00 - 90) and a d10's ones;
+        // a die doing other than adding has its sum before it (× ÷ − %)
+        List<List<Slot>> rows = rows(slots(roll), DIE, ROW);
         float gap = 2, bottom = head[1];
         boolean allUp = true;
-        for (int j = 0; j < n; j++) {
-            int i = j / per;
-            int row = j / ROW, inRow = Math.min(ROW, n - row * ROW), col = j % ROW;
-            float x = head[0] - (inRow * DIE + (inRow - 1) * gap) / 2 + col * (DIE + gap);
-            float y = bottom - (row + 1) * DIE - row * gap;
-            double landAt = settle + i * STAGGER;
-            String[] die = face(roll.sides(), roll.face(i), j % per);
-            SheetTexture sheet;
-            int frame;
-            if (t < landAt) {
-                allUp = false;
-                sheet = fx.sheet(die[0] + px, "roll");
-                frame = (int) Math.floor((t + j * 0.137) * 24);
-                y -= (float) Math.abs(Math.sin((t + j * 0.37) * 9)) * 7;     // the dice hop as they tumble
-            } else {
-                sheet = fx.sheet(die[0] + px, die[1]);
-                frame = (int) Math.min(7, Math.floor((t - landAt) * 24));
-                if (t - landAt < LAND) allUp = false;
+        for (int r = 0; r < rows.size(); r++) {
+            List<Slot> row = rows.get(r);
+            float x = head[0] - width(row, DIE, gap) / 2;
+            float y0 = bottom - (r + 1) * DIE - r * gap;
+            for (Slot sl : row) {
+                float w = sl.width(DIE);
+                if (sl.glyph()) {
+                    glyph(ui, sl.op(), x, y0, w, DIE, fade);
+                    x += w + gap;
+                    continue;
+                }
+                int i = sl.die();
+                float y = y0;
+                double landAt = settle + i * STAGGER;
+                String[] die = face(roll.sidesOf(i), roll.face(i), sl.half());
+                SheetTexture sheet;
+                int frame;
+                int j = i * 2 + sl.half();
+                if (t < landAt) {
+                    allUp = false;
+                    sheet = fx.sheet(die[0] + px, "roll");
+                    frame = (int) Math.floor((t + j * 0.137) * 24);
+                    y -= (float) Math.abs(Math.sin((t + j * 0.37) * 9)) * 7;     // the dice hop as they tumble
+                } else {
+                    sheet = fx.sheet(die[0] + px, die[1]);
+                    frame = (int) Math.min(7, Math.floor((t - landAt) * 24));
+                    if (t - landAt < LAND) allUp = false;
+                }
+                if (sheet != null) image(ui.batch(), sheet, frame, palette, x, y, DIE, fade);
+                x += w + gap;
             }
-            if (sheet != null) image(ui.batch(), sheet, frame, palette, x, y, DIE, fade);
         }
 
-        float top = bottom - rows * DIE - (rows - 1) * gap - 4;
+        float top = bottom - rows.size() * DIE - (rows.size() - 1) * gap - 4;
         if (allUp) {
             String total = String.valueOf(roll.total());
             float[] c = CombatColours.rgba(s.rarity() == Rarity.COMMON ? 0xFFFFFF : s.rarity().rgb(), fade);
             top -= ui.large.lineHeight();
             ui.textShadowed(ui.large, total, head[0] - ui.large.width(total) / 2, top, c);
-            String sum = roll.count() > 1 ? roll.notation() : "";
+            String sum = roll.count() > 1 || !roll.plain() ? roll.notation() : "";
             if (!sum.isEmpty()) {
                 ui.textShadowed(ui.small, sum, head[0] + ui.large.width(total) / 2 + 6,
                         top + ui.large.lineHeight() - ui.small.lineHeight() - 3, Theme.withAlpha(Theme.HINT, fade));
@@ -158,14 +173,86 @@ public final class CombatHud {
      */
     public static void landed(Ui ui, CombatSprites fx, int sides, int[] values, int[] palette, float cx, float y,
                               float size, float scale) {
+        landed(ui, fx, new DiceRoll(sides, values), palette, cx, y, size, scale);
+    }
+
+    /** {@code roll}'s dice come up, and the sums between them, in a row (or rows) - as {@link #landed above}. */
+    public static void landed(Ui ui, CombatSprites fx, DiceRoll roll, int[] palette, float cx, float y,
+                              float size, float scale) {
         String px = scale * size / DIE >= 1.5f ? "_px128" : "_px64";
-        int per = sides == 100 ? 2 : 1, n = values.length * per;
-        float gap = 2, x0 = cx - (n * size + (n - 1) * gap) / 2;
-        for (int j = 0; j < n; j++) {
-            String[] die = face(sides, values[j / per], j % per);
-            SheetTexture sheet = fx.sheet(die[0] + px, die[1]);
-            if (sheet != null) image(ui.batch(), sheet, 7, palette, x0 + j * (size + gap), y, size, 1f);
+        float gap = 2;
+        List<List<Slot>> rows = rows(slots(roll), size, 12);
+        for (List<Slot> row : rows) {
+            float x = cx - width(row, size, gap) / 2;
+            for (Slot sl : row) {
+                float w = sl.width(size);
+                if (sl.glyph()) {
+                    glyph(ui, sl.op(), x, y, w, size, 1f);
+                } else {
+                    String[] die = face(roll.sidesOf(sl.die()), roll.face(sl.die()), sl.half());
+                    SheetTexture sheet = fx.sheet(die[0] + px, die[1]);
+                    if (sheet != null) image(ui.batch(), sheet, 7, palette, x, y, size, 1f);
+                }
+                x += w + gap;
+            }
+            y += size + gap;
         }
+    }
+
+    /** One place in a row of dice: a die (or half a d%'s pair), or the sum before the next. */
+    record Slot(int die, int half, String op) {
+        boolean glyph() { return op != null; }
+
+        float width(float die) { return glyph() ? die * 0.45f : die; }
+    }
+
+    /**
+     * {@code roll}'s dice in order, a d% as its two, with the sum before
+     * each die that does other than add - and a + between groups of dice of
+     * different kinds.
+     */
+    static List<Slot> slots(DiceRoll roll) {
+        List<Slot> out = new ArrayList<>();
+        for (int i = 0; i < roll.count(); i++) {
+            DiceRoll.Op op = roll.op(i);
+            boolean group = i > 0 && (roll.sidesOf(i) != roll.sidesOf(i - 1) || op != roll.op(i - 1));
+            if (op != DiceRoll.Op.ADD || group) out.add(new Slot(i, 0, op.symbol()));
+            out.add(new Slot(i, 0, null));
+            if (roll.sidesOf(i) == 100) out.add(new Slot(i, 1, null));
+        }
+        return out;
+    }
+
+    /** {@code slots} in rows of at most {@code most} dice (a sum stays with the die after it). */
+    static List<List<Slot>> rows(List<Slot> slots, float die, int most) {
+        List<List<Slot>> out = new ArrayList<>();
+        List<Slot> row = new ArrayList<>();
+        int dice = 0;
+        for (Slot sl : slots) {
+            boolean full = dice >= most && (sl.glyph() || row.isEmpty() || !row.get(row.size() - 1).glyph());
+            if (full) {
+                out.add(row);
+                row = new ArrayList<>();
+                dice = 0;
+            }
+            row.add(sl);
+            if (!sl.glyph()) dice++;
+        }
+        if (!row.isEmpty()) out.add(row);
+        return out;
+    }
+
+    private static float width(List<Slot> row, float die, float gap) {
+        float w = 0;
+        for (Slot sl : row) w += sl.width(die) + gap;
+        return Math.max(0, w - gap);
+    }
+
+    /** A sum between dice (+ − × ÷ %), centred in its place. */
+    private static void glyph(Ui ui, String op, float x, float y, float w, float h, float fade) {
+        var font = h >= 40 ? ui.large : ui.body;
+        ui.textShadowed(font, op, x + (w - font.width(op)) / 2, y + (h - font.lineHeight()) / 2,
+                Theme.withAlpha(Theme.TITLE, fade));
     }
 
     /**
@@ -282,6 +369,37 @@ public final class CombatHud {
                     player.breath() <= 0 ? "Drowning!" : "Breath " + (int) Math.ceil(player.breath()) + " s",
                     player.breath() < 5);
         }
+    }
+
+    /**
+     * How easily she is noticed ({@link Stealth}), over the health bar while
+     * she is crouched, hidden or it is dark: a meter emptying the quieter she is.
+     */
+    public void drawStealth(Ui ui, World world, float cy) {
+        Player p = world.player();
+        Stealth s = world.stealth();
+        if (!p.crouched() && !s.hidden() && s.dark() < 0.5 && !p.underWater()) return;
+        float w = 150, h = 6;
+        float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44 - 30;
+        int rgb = s.hidden() ? STEALTH_HIDDEN : s.score() > 1.2 ? 0xFF9A5A : 0xE8E0C8;
+        String label = (s.hidden() ? "Hidden - sneak attacks ×" + trim(Stealth.SNEAK_DAMAGE) : s.label())
+                + (s.grass() ? " · in the grass" : "") + (s.dark() > 0.5 ? " · dark" : "");
+        bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), rgb, rgb, label, false);
+    }
+
+    /** The stealth meter's colour when she is hidden: a dusk green. */
+    static final int STEALTH_HIDDEN = 0x9FD8A0;
+
+    /** What the cards she played are doing for her, a line each, down the left under the dice. */
+    public void drawBuffs(Ui ui, Player p, float x, float y) {
+        for (Buffs.Active a : p.buffs().active()) {
+            ui.textShadowed(ui.small, a.source + ": " + a.describe(), x, y, CombatColours.rgba(Combat.CARD_RGB, 1f));
+            y += ui.small.lineHeight() + 2;
+        }
+    }
+
+    private static String trim(double d) {
+        return d == Math.rint(d) ? String.valueOf((long) d) : String.valueOf(d);
     }
 
     private static void bar(Ui ui, float x, float y, float w, float h, double fill, int rgb, int light, String label,

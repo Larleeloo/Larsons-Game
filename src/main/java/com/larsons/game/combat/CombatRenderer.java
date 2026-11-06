@@ -67,8 +67,9 @@ public final class CombatRenderer {
      */
     public void shadows(World world, Shadows out) {
         Terrain ground = world.terrain();
-        for (Dummy d : world.dummies()) out.at(d.position(), 0.5, 0.42f);
+        for (Dummy d : world.dummies()) if (!d.hidden()) out.at(d.position(), 0.5, 0.42f);
         for (FlyingDummy f : world.fliers()) {
+            if (f.hidden()) continue;
             Vec3 at = ground.onGround(f.position());
             double h = Math.max(0, f.position().y() - at.y());
             double k = Math.min(1, h / 8);
@@ -92,6 +93,7 @@ public final class CombatRenderer {
         Vec3 eye = camera.eye(), right = camera.right(), up = camera.up(), forward = camera.forward();
         SpriteProfile framing = objects.profile(Dummy.SPRITES);
         for (Dummy d : world.dummies()) {
+            if (d.hidden()) continue;
             Vec3 pivot = d.position().add(0, framing.pivotHeight(), 0);
             SpriteView view = SpriteView.of(eye, pivot, d.heading(), camera.yaw());
             ObjectStack.Result r = ObjectStack.resolve(sprites, objects, Dummy.SPRITES, d.sheet(), d.loops(),
@@ -112,6 +114,7 @@ public final class CombatRenderer {
 
         SpriteProfile flying = objects.profile(FlyingDummy.SPRITES);
         for (FlyingDummy f : world.fliers()) {
+            if (f.hidden()) continue;
             Vec3 pivot = f.position().add(0, flying.pivotHeight(), 0);
             SpriteView view = SpriteView.of(eye, pivot, f.heading(), camera.yaw());
             ObjectStack.Result r = ObjectStack.resolve(sprites, objects, FlyingDummy.SPRITES, f.sheet(), f.loops(),
