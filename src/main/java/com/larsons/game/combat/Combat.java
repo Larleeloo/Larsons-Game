@@ -7,7 +7,9 @@ import com.larsons.game.sprite.Stance;
 import com.larsons.game.world.Border;
 import com.larsons.game.world.Buffs;
 import com.larsons.game.world.Stealth;
+import com.larsons.game.world.Ammo;
 import com.larsons.game.world.Forged;
+import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
@@ -276,6 +278,21 @@ public final class Combat {
             sounds.add(new Sound("combat/fizzle", p.ground()));
             if (move.kind() == Move.Kind.SPELL) return new Swing(move, weapon, null, at, 0, null);
         }
+        // its ammunition: one use of it (none left: no shot, no spell - or a dull blade)
+        Ammo.Use ammo = plain ? Ammo.Use.FREE
+                : world.ammo().use(weapon, p.inventory(), buffs.has(Buffs.Kind.AMMO_FREE));
+        if (ammo == Ammo.Use.EMPTY) {
+            mana = Math.min(tuning.maxMana, mana + (paid ? cost : 0));
+            ItemDef needs = Ammo.of(weapon.def());
+            popups.add(new Popup("Out of " + Ammo.said(needs), AMMO_RGB, p.ground(), 2.0, now, true));
+            sounds.add(new Sound("combat/out_of_ammo", p.ground()));
+            return new Swing(move, weapon, null, at, 0, null);
+        }
+        if (ammo == Ammo.Use.RELOADED) {
+            popups.add(new Popup(Ammo.of(weapon.def()).name() + " used", AMMO_RGB, p.ground(), 1.4, now, true));
+            sounds.add(new Sound("combat/reload", p.ground()));
+        }
+        boolean dull = ammo == Ammo.Use.DULL;
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
         boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
@@ -291,20 +308,22 @@ public final class Combat {
         // hidden, a blow is a sneak attack (or a card makes it one)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
         double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
-        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1);
+        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1);
         Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random), mystic && paid, plain, sneak, times, what);
         List<Note> notes = notes(strike, aimed);
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
         if (extra > 0) notes.add(new Note("Cards +" + extra + (extra == 1 ? " die" : " dice"), CARD_RGB));
         if (Math.abs(cards - 1) > 1e-9) notes.add(new Note("Cards ×" + trim(cards), CARD_RGB));
         if (sneak) notes.add(new Note("Sneak attack ×" + trim(Stealth.SNEAK_DAMAGE), SNEAK_RGB));
+        if (dull) notes.add(new Note("Dull: no " + Ammo.said(Ammo.of(weapon.def())) + " ×" + trim(Ammo.DULL),
+                AMMO_RGB));
         show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
         sounds.add(new Sound("combat/dice_roll", p.ground()));
         return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
     }
 
-    /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green. */
-    public static final int CARD_RGB = 0xC8A8FF, SNEAK_RGB = 0x9FD8A0;
+    /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green; ammunition's, a steel grey. */
+    public static final int CARD_RGB = 0xC8A8FF, SNEAK_RGB = 0x9FD8A0, AMMO_RGB = 0xB8C0CC;
 
     /** Which blows a move's are, for the cards that help only some. */
     static Buffs.Only what(Move move) {
@@ -720,7 +739,9 @@ public final class Combat {
      * shot makes its own).
      */
     private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
+        boolean was = t.alive();
         t.hurt(d, from, true);
+        if (was && !t.alive() && world != null) world.felled(t);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
         if (world != null && t.living()) cards(s, t, d, from);
         if (s.has(Border.VENOM) && d > 0) {

@@ -217,8 +217,31 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.equipSelected();
         world.setScenery(shownScenery());
         world.startDay();
+        world.ammo().setEnabled(true);
+        startHero();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
+
+    /**
+     * Her class, as she chose it before - its deck dealt - or, the first time,
+     * the class picker over the game; and the supplies she starts with: some
+     * ammunition for every kind of weapon, a reshuffle scroll, an upgrade
+     * ingot, a few coins.
+     */
+    private void startHero() {
+        Player p = world.player();
+        String cls = game.settings().heroClass;
+        if (com.larsons.game.cards.CardBook.get().hero(cls) != null) p.hero().choose(cls, p);
+        else choosing = true;
+        if (!world.ammo().enabled()) return;
+        for (ItemDef a : com.larsons.game.world.Supplies.AMMO) p.inventory().put(Item.of(a), 2, true);
+        p.inventory().put(Item.of(com.larsons.game.world.Supplies.RESHUFFLE_SCROLL), 1, true);
+        p.inventory().put(Item.of(com.larsons.game.world.Supplies.UPGRADE_INGOT), 1, true);
+        p.addCoins(15);
+    }
+
+    /** Whether the class picker is up (the game standing still until she chooses). */
+    private boolean choosing;
 
     /**
      * Play {@code level} (Creative Mode's play-test, or a saved level from
@@ -246,6 +269,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             p.snapHeading(heading);
         }
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
+        startHero();
         world.equipSelected();
         camera.setDesiredYaw(p.heading());
         camera.snapTo(pivot());
@@ -332,7 +356,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         fade = Math.max(0, fade - dt * 2.8);
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
-        if (pause.open()) {
+        if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
         }
@@ -351,6 +375,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             return;
         }
         if (in.pressed(GLFW_KEY_I)) inventory.toggle();
+        if (in.pressed(GLFW_KEY_J)) inventory.toggleCards();
         Player p = world.player();
         for (int key = GLFW_KEY_KP_0; key <= GLFW_KEY_KP_9; key++) {
             if (in.pressed(key) && debugCode.type(DebugCode.digit(key), world.time())) toggleDebug();
@@ -448,7 +473,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             Sounds.play(SoundKeys.ui("error"), 0.6);
             game.toast("Heavy attack ready in " + (int) Math.ceil(p.heavyWait()) + " s", Theme.HINT);
         }
-        p.update(dt, intent, durations());
+        // her own inventory open - her cards, a weapon's tiers - the game stands still
+        boolean still = inventory.pausing();
+        if (!still) p.update(dt, intent, durations());
         if (scriptRoll && p.action() != AnimState.DASH) scriptRoll = false;   // rolling (or it never started)
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again
@@ -457,7 +484,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 scripted = null;
             }
         }
-        world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
+        if (!still) world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
@@ -1071,19 +1098,43 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawHeavy(ui, world.player(), hotbar - 34);
                 combatHud.drawVitals(ui, world.player(), hotbar - 34);
                 combatHud.drawStealth(ui, world, hotbar - 34);
+                combatHud.drawSupplies(ui, world, hotbar - 34);
                 combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!game.importer().visible()) inventory.draw(ui);
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
+        if (choosing && !pause.open()) chooseClass(ui);
         ui.end();
+    }
+
+    /** The class picker, over the game at its start: the nine classes; a click is hers. */
+    private void chooseClass(Ui ui) {
+        ui.scrim();
+        float w = Math.min(1100, ui.width() - 40), h = Math.min(660, ui.height() - 40);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        ui.textCentered(ui.large, "Choose your class", x + w / 2, y + 14, Theme.TITLE);
+        ui.textCentered(ui.small, "Your class gives you a deck of 8 cards: 4 in hand to start, one more every 5 minutes. "
+                + "J or the inventory's Cards button plays them. Change it any time in Pause → Class.",
+                x + w / 2, y + 50, Theme.HINT);
+        String pick = ClassPicker.draw(ui, game.pointers(), null, x + 20, y + 80, w - 40, h - 100);
+        if (pick == null) return;
+        Player p = world.player();
+        p.hero().choose(pick, p);
+        game.settings().heroClass = pick;
+        game.settings().save();
+        choosing = false;
+        Sounds.play(SoundKeys.ui("card_shuffle"));
+        game.toast("You are a " + com.larsons.game.cards.CardBook.get().hero(pick).name() + " - press J for your cards",
+                Theme.ACCENT);
     }
 
     /** The help bar along the bottom of the HUD. */
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
+            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · J cards · 1-5 or wheel hotbar · click with food: eat · "
                     + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
             "L lock on · K next target · walk into vines: climb (off their top: climb down) · deep water: swim, C dive, Space up · "
                     + "Alt/Z in the air: land in a roll · "

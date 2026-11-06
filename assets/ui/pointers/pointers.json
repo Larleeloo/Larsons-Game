@@ -1,0 +1,51 @@
+{
+  "hotspot": {
+    "wand": [
+      1,
+      1
+    ],
+    "lute": [
+      1,
+      1
+    ],
+    "sword": [
+      1,
+      1
+    ],
+    "axe": [
+      1,
+      1
+    ],
+    "gloved_hand": [
+      1,
+      1
+    ],
+    "leafy_branch": [
+      1,
+      1
+    ],
+    "dagger": [
+      1,
+      1
+    ],
+    "arrow": [
+      1,
+      1
+    ],
+    "holy_symbol": [
+      1,
+      1
+    ]
+  },
+  "order": [
+    "wand",
+    "lute",
+    "sword",
+    "axe",
+    "gloved_hand",
+    "leafy_branch",
+    "dagger",
+    "arrow",
+    "holy_symbol"
+  ]
+}

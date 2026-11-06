@@ -24,10 +24,10 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, SETTINGS, SOUNDS, CONTROLS, IMPORT }
+    enum Page { MAIN, WARDROBE, CLASS, SETTINGS, SOUNDS, CONTROLS, IMPORT }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Settings", "Sounds", "Controls", "Import sprite sheets", "Main menu", "Quit"};
+            "Resume", "Wardrobe", "Class", "Settings", "Sounds", "Controls", "Import sprite sheets", "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
 
@@ -159,6 +159,7 @@ final class PauseMenu {
             switch (pick) {
                 case "Resume" -> close();
                 case "Wardrobe" -> page = Page.WARDROBE;
+                case "Class" -> page = Page.CLASS;
                 case "Settings" -> page = Page.SETTINGS;
                 case "Sounds" -> {
                     page = Page.SOUNDS;
@@ -191,6 +192,7 @@ final class PauseMenu {
         ui.panel(x, y, w, h);
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
+            case CLASS -> "Class and pointer";
             case SETTINGS -> "Settings";
             case SOUNDS -> "Sounds";
             case CONTROLS -> "Controls";
@@ -204,12 +206,52 @@ final class PauseMenu {
         }
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
+            case CLASS -> heroClass(ui, cx, cy, cw, ch);
             case SETTINGS -> settings(ui, cx, cy);
             case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
             case CONTROLS -> controls(ui, cx, cy, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }
         }
+    }
+
+    /**
+     * Her class - the nine, as tiles; a new one starts her deck afresh - and
+     * under them the mouse pointer: her class's, any of the nine, a custom
+     * picture, or the system's arrow.
+     */
+    private void heroClass(Ui ui, float x, float y, float w, float h) {
+        var s = game.settings();
+        var hero = world.player().hero();
+        ui.text(ui.small, "A new class starts your deck afresh with its 8 cards (your level and perk points are kept).",
+                x, y - 4, Theme.ITEM_DISABLED);
+        String pick = ClassPicker.draw(ui, game.pointers(), hero.heroClass(), x, y + 18, w, h - 110);
+        if (pick != null && !pick.equals(hero.heroClass())) {
+            hero.choose(pick, world.player());
+            s.heroClass = pick;
+            s.save();
+            Sounds.play(SoundKeys.ui("card_shuffle"));
+            game.toast("You are a " + com.larsons.game.cards.CardBook.get().hero(pick).name()
+                    + ": a fresh deck of 8, a hand of " + hero.deck().hand().size(), Theme.ACCENT);
+        }
+        float py = y + h - 80;
+        ui.text(ui.body, "Mouse pointer", x, py, Theme.ITEM);
+        List<String> options = new ArrayList<>();
+        options.add(com.larsons.game.ui.Pointers.CLASS);
+        options.addAll(com.larsons.game.ui.Pointers.NAMES);
+        options.add(com.larsons.game.ui.Pointers.CUSTOM);
+        options.add(com.larsons.game.ui.Pointers.SYSTEM);
+        float bw = (w - (options.size() - 1) * 4) / options.size();
+        for (int i = 0; i < options.size(); i++) {
+            String o = options.get(i);
+            float bx = x + i * (bw + 4), by = py + 26;
+            if (ui.button(com.larsons.game.ui.Pointers.label(o), bx, by, bw, 30, o.equals(s.pointer), true)) {
+                s.pointer = o;
+                s.save();
+            }
+        }
+        ui.text(ui.small, "Custom: drop a picture in assets/ui/pointers/custom.png (its top-left corner points).",
+                x, py + 62, Theme.ITEM_DISABLED);
     }
 
     private void settings(Ui ui, float x, float y) {

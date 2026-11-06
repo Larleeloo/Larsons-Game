@@ -429,6 +429,10 @@ public final class Player {
 
     /** What the cards she has played are doing for her. */
     private final Buffs buffs = new Buffs();
+    /** The coins in her purse. */
+    private int coins;
+    /** Her class, her cards, her experience and perks. */
+    private final com.larsons.game.cards.Hero hero = new com.larsons.game.cards.Hero(new java.util.Random());
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private final Inventory inventory;
@@ -451,6 +455,7 @@ public final class Player {
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
         buffs.tick(dt);
+        hero.deck().tick(dt);
         if (health > 0) health = Math.min(MAX_HEALTH, health + buffs.plus(Buffs.Kind.REGEN_HEALTH) * dt);
         stamina = Math.min(MAX_STAMINA, stamina + buffs.plus(Buffs.Kind.REGEN_STAMINA) * dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
@@ -1178,6 +1183,29 @@ public final class Player {
 
     /** What the cards she has played are doing for her now. */
     public Buffs buffs() { return buffs; }
+
+    /** Her class, her deck of cards, her experience and perks ({@link com.larsons.game.cards.Hero}). */
+    public com.larsons.game.cards.Hero hero() { return hero; }
+
+    /** Her breath back in full (a card, coming up). */
+    public void refillBreath() {
+        breath = MAX_BREATH;
+    }
+
+    /** The coins in her purse. */
+    public int coins() { return coins; }
+
+    /** {@code n} more coins in her purse. */
+    public void addCoins(int n) {
+        coins = Math.max(0, coins + n);
+    }
+
+    /** Pay {@code n} coins: whether she had them (and paid). */
+    public boolean spend(int n) {
+        if (n > coins) return false;
+        coins -= n;
+        return true;
+    }
 
     /** Whether she is swimming (in water too deep to wade), and under it. */
     public boolean swimming() { return swimming; }

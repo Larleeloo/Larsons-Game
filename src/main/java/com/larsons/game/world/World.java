@@ -543,6 +543,11 @@ public final class World {
     /** What the cards she has played are doing for her ({@link Player#buffs}). */
     public Buffs buffs() { return player.buffs(); }
 
+    /** Her weapons' ammunition in use ({@link Ammo}). */
+    public Ammo ammo() { return ammo; }
+
+    private final Ammo ammo = new Ammo();
+
     public List<Dummy> dummies() { return dummies; }
 
     public Dummy addDummy(Dummy dummy) {
@@ -1042,6 +1047,8 @@ public final class World {
         switch (e.outcome()) {
             case WARNED -> combat.say("!", 0xFFD27A, a.position(), a.height() + 0.25, false);
             case STRUCK -> {
+                double thorns = player.buffs().plus(Buffs.Kind.THORNS);
+                if (thorns > 0 && e.damage() > 0 && a.alive()) a.hurt(e.damage() * thorns, player.ground(), true);
                 combat.say(struck(a.kind()) + " -" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
                 combat.sound("combat/player_hurt", at);
             }
@@ -1067,8 +1074,32 @@ public final class World {
         }
     }
 
+    /**
+     * {@code t} felled by her blow: experience for it ({@link
+     * com.larsons.game.cards.Hero}) and, for a dummy or a flier, a few coins
+     * where it stood (an animal leaves what it leaves when it falls: {@link #hunted}).
+     */
+    public void felled(com.larsons.game.combat.Target t) {
+        if (t instanceof Animal) return;
+        int xp = t instanceof FlyingDummy ? com.larsons.game.cards.Hero.XP_FLIER : com.larsons.game.cards.Hero.XP_FELLED;
+        earn(xp);
+        int coins = 2 + new Random(Double.doubleToLongBits(t.position().x() * 31 + t.position().z() + time))
+                .nextInt(5);
+        Vec3 at = t.position();
+        spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
+    }
+
+    /** {@code xp} experience earned; a level up said over her. */
+    public void earn(double xp) {
+        if (player.hero().gain(xp, player.buffs())) {
+            combat.say("Level " + player.hero().level() + "! A perk point", 0xFFD27A, player.ground(), 2.4, false);
+            combat.sound("ui/level_up", player.ground());
+        }
+    }
+
     /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
     void hunted(Animal a) {
+        earn(com.larsons.game.cards.Hero.XP_HUNTED);
         java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
                 + time));
         int i = 0;
@@ -1213,7 +1244,19 @@ public final class World {
      */
     private void opened(Chest c) {
         for (GroundItem g : items) if (g.source == c) return;
-        List<Item> lot = loot.roll(random);
+        earn(com.larsons.game.cards.Hero.XP_CHEST);
+        List<Item> lot = new ArrayList<>(loot.roll(random));
+        List<Integer> amounts = new ArrayList<>();
+        for (int i = 0; i < lot.size(); i++) amounts.add(1);
+        // and coins, and some supplies: ammunition, now and then an upgrade ingot or a reshuffle scroll
+        Random extra = new Random(Double.doubleToLongBits(c.position().x() * 131 + c.position().z() * 7 + time));
+        lot.add(Item.of(Supplies.COINS));
+        amounts.add(5 + extra.nextInt(16));
+        double roll = extra.nextDouble();
+        ItemDef supply = roll < 0.2 ? Supplies.UPGRADE_INGOT : roll < 0.3 ? Supplies.RESHUFFLE_SCROLL
+                : Supplies.AMMO.get(extra.nextInt(Supplies.AMMO.size()));
+        lot.add(Item.of(supply));
+        amounts.add(Supplies.isAmmo(supply) ? 2 + extra.nextInt(3) : 1);
         Vec3 lid = c.position().add(0, 0.55, 0);
         int n = lot.size();
         for (int i = 0; i < n; i++) {
@@ -1223,8 +1266,10 @@ public final class World {
                     + (random.nextDouble() - 0.5) * 0.15;
             double r = 1.35 + (i % 2) * 0.55 + random.nextDouble() * 0.2;
             Vec3 land = terrain.onGround(landing(c, a, r));
-            items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
-                    time + FIRST_THROW + NEXT_THROW * i));
+            GroundItem g = new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
+                    time + FIRST_THROW + NEXT_THROW * i);
+            g.amount = amounts.get(i);
+            items.add(g);
         }
     }
 
@@ -1499,6 +1544,12 @@ public final class World {
      * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
+        if (item.def == Supplies.COINS) {
+            // coins go into her purse, never a slot (a card may make them more)
+            player.addCoins((int) Math.round(item.amount * player.buffs().times(Buffs.Kind.COINS)));
+            items.remove(item);
+            return true;
+        }
         if (item.def.isFood()) {
             // a heap of pickings: as many as there is room for, onto their stacks; the rest stays
             int took = 0;

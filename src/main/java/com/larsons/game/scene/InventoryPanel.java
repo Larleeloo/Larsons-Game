@@ -120,10 +120,35 @@ final class InventoryPanel {
     private int shownSelected = -1;
     private Item shownHeld;
     private double nameTimer;
+    /** Beside the inventory instead of a store: the tiers of the weapon in this slot (-1: none), or her cards. */
+    private int tiersOf = -1;
+    private boolean cards;
+    private final SidePanels side;
 
     InventoryPanel(Game game, World world) {
         this.game = game;
         this.world = world;
+        this.side = new SidePanels(game, world);
+    }
+
+    /** Open the screen with her cards beside it (J), or shut them. */
+    void toggleCards() {
+        if (open && cards) {
+            close();
+            return;
+        }
+        if (open && store != null) close();
+        show();
+        cards = true;
+        tiersOf = -1;
+    }
+
+    /**
+     * Whether the game stands still: her own inventory is open - her cards,
+     * a weapon's tiers - and no barrel, crate or chest beside it.
+     */
+    boolean pausing() {
+        return open && store == null;
     }
 
     boolean open() { return open; }
@@ -176,6 +201,8 @@ final class InventoryPanel {
             world.equipSelected();
         }
         store = null;
+        tiersOf = -1;
+        cards = false;
         Sounds.play(SoundKeys.ui("inventory_close"));
     }
 
@@ -309,7 +336,9 @@ final class InventoryPanel {
             return;
         }
         Inventory inv = inventory();
-        float[][] both = store == null ? null : panels(ui.width(), ui.height());
+        if (tiersOf >= 0 && !com.larsons.game.world.Upgrades.has(inv.get(tiersOf))) tiersOf = -1;
+        boolean beside = store != null || tiersOf >= 0 || cards;
+        float[][] both = beside ? panels(ui.width(), ui.height()) : null;
         float[] p = both == null ? panel(ui.width(), ui.height()) : both[0];
         float px = p[0], py = p[1], pw = p[2], ph = p[3];
         ui.rect(0, 0, ui.width(), ui.height(), Theme.withAlpha(Theme.SCRIM, 0.35f));
@@ -349,6 +378,25 @@ final class InventoryPanel {
             if (ui.button("Take all", qx + qw / 2 - bw - 6, qy + qh * 0.84f, bw, bh)) takeAll();
             if (ui.button("Put all in", qx + qw / 2 + 6, qy + qh * 0.84f, bw, bh)) putAll();
             inside |= ui.hover(qx, qy, qw, qh);
+        } else if (tiersOf >= 0) {
+            float[] q = both[1];
+            if (!side.tiers(ui, inv, tiersOf, q[0], q[1], q[2], q[3])) tiersOf = -1;
+            inside |= ui.hover(q[0], q[1], q[2], q[3]);
+        } else if (cards) {
+            float[] q = both[1];
+            if (!side.cards(ui, q[0], q[1], q[2], q[3])) cards = false;
+            inside |= ui.hover(q[0], q[1], q[2], q[3]);
+        }
+        if (store == null) {
+            // her cards, beside the inventory (J)
+            float bw = 96, bh = 30;
+            float bx = px >= bw + 16 ? px - bw - 8 : px + pw / 2 - bw / 2;
+            float by = px >= bw + 16 ? py + 8 : py + ph * 0.035f + 50;
+            if (ui.button(cards ? "Cards ◂" : "Cards (J)", bx, by, bw, bh, cards, true)) {
+                cards = !cards;
+                tiersOf = -1;
+            }
+            inside |= ui.hover(bx, by, bw, bh);
         }
 
         // --- the pointer: pick up, put down, move, drop ------------------------------
@@ -378,7 +426,12 @@ final class InventoryPanel {
             if (hovered >= 0 && cursor == null) {
                 Item there = inv.get(hovered);
                 if (there != null && there.def().edible() && !shift) eat(hovered);
-                else if (held != null) transfer(inv, hovered, held, false);
+                else if (held == null && !shift && com.larsons.game.world.Upgrades.has(there)) {
+                    // a weapon with tiers: them, beside the inventory
+                    tiersOf = tiersOf == hovered ? -1 : hovered;
+                    cards = false;
+                    Sounds.play(SoundKeys.ui("click"));
+                } else if (held != null) transfer(inv, hovered, held, false);
                 else quickMove(hovered);
             } else if (hoveredStore >= 0 && cursor == null) {
                 transfer(held, hoveredStore, inv, true);
@@ -392,6 +445,7 @@ final class InventoryPanel {
             String hint = into != null ? (there.def().edible() ? "Right-click: eat one · " : "")
                     + "Shift-click: put in " + into
                     : there.def().edible() ? "Right-click: eat one · Shift-click: move"
+                    : com.larsons.game.world.Upgrades.has(there) ? "Right-click: its upgrade tiers · Shift-click: move"
                     : Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
             tooltip(ui, there, inv.amount(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
         } else if (hoveredStore >= 0 && held.get(hoveredStore) != null && cursor == null) {
@@ -406,8 +460,8 @@ final class InventoryPanel {
         String help = store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "
                 + "E, I or Esc: close"
-                : "Click: pick up / put down · Right-click: to / from the hotbar, or eat · "
-                + "Click outside: drop · A–Z / Rarity: sort · I or Esc: close";
+                : "Click: pick up / put down · Right-click: eat, or a weapon's tiers · Shift-click: to / from the hotbar · "
+                + "Click outside: drop · J: cards · I or Esc: close";
         ui.textCentered(ui.small, help, ui.width() / 2f, py + ph + 10, Theme.HINT);
     }
 

@@ -1,0 +1,4408 @@
+{
+  "format": 1,
+  "drawAtStart": 4,
+  "handMost": 8,
+  "drawEverySeconds": 300,
+  "classes": {
+    "mage": {
+      "name": "Mage",
+      "colour": "#5d86fa",
+      "pointer": "wand",
+      "about": "Wands and staffs: cheaper spells, frozen and transfigured foes, mana into health.",
+      "deck": [
+        {
+          "card": "cast",
+          "copies": 4
+        },
+        {
+          "card": "bind",
+          "copies": 2
+        },
+        {
+          "card": "transfigure",
+          "copies": 1
+        },
+        {
+          "card": "healing_spell",
+          "copies": 1
+        }
+      ]
+    },
+    "bard": {
+      "name": "Bard",
+      "colour": "#f0a830",
+      "pointer": "lute",
+      "about": "Mobility: speed, lighter stamina, higher jumps, songs that rest and lull.",
+      "deck": [
+        {
+          "card": "quickstep",
+          "copies": 4
+        },
+        {
+          "card": "lightfoot",
+          "copies": 2
+        },
+        {
+          "card": "soaring_verse",
+          "copies": 1
+        },
+        {
+          "card": "ballad_of_rest",
+          "copies": 1
+        }
+      ]
+    },
+    "knight": {
+      "name": "Knight",
+      "colour": "#c8ccd8",
+      "pointer": "sword",
+      "about": "Armour and melee: damage taken down, wards, stronger swings.",
+      "deck": [
+        {
+          "card": "shield_wall",
+          "copies": 4
+        },
+        {
+          "card": "valor",
+          "copies": 2
+        },
+        {
+          "card": "aegis",
+          "copies": 1
+        },
+        {
+          "card": "second_wind",
+          "copies": 1
+        }
+      ]
+    },
+    "warrior": {
+      "name": "Warrior",
+      "colour": "#d84a32",
+      "pointer": "axe",
+      "about": "Raw melee: fury, cleaving extra dice, life drawn from blows.",
+      "deck": [
+        {
+          "card": "fury",
+          "copies": 4
+        },
+        {
+          "card": "cleave",
+          "copies": 2
+        },
+        {
+          "card": "bloodlust",
+          "copies": 1
+        },
+        {
+          "card": "war_cry",
+          "copies": 1
+        }
+      ]
+    },
+    "warlock": {
+      "name": "Warlock",
+      "colour": "#8a3cc8",
+      "pointer": "gloved_hand",
+      "about": "Dark spells: hexes, drained souls, poison, health traded for mana.",
+      "deck": [
+        {
+          "card": "hex",
+          "copies": 4
+        },
+        {
+          "card": "soul_drain",
+          "copies": 2
+        },
+        {
+          "card": "blight",
+          "copies": 1
+        },
+        {
+          "card": "dark_pact",
+          "copies": 1
+        }
+      ]
+    },
+    "druid": {
+      "name": "Druid",
+      "colour": "#4aa040",
+      "pointer": "leafy_branch",
+      "about": "Nature: regrowth, thorns, entangling roots, foes turned into beasts.",
+      "deck": [
+        {
+          "card": "regrowth",
+          "copies": 4
+        },
+        {
+          "card": "thornhide",
+          "copies": 2
+        },
+        {
+          "card": "entangling_roots",
+          "copies": 1
+        },
+        {
+          "card": "wild_shape",
+          "copies": 1
+        }
+      ]
+    },
+    "rogue": {
+      "name": "Rogue",
+      "colour": "#506070",
+      "pointer": "dagger",
+      "about": "Stealth: hidden longer, sneak attacks anywhere, poison, fuller purses.",
+      "deck": [
+        {
+          "card": "shadowstep",
+          "copies": 4
+        },
+        {
+          "card": "backstab",
+          "copies": 2
+        },
+        {
+          "card": "envenom",
+          "copies": 1
+        },
+        {
+          "card": "pickpocket",
+          "copies": 1
+        }
+      ]
+    },
+    "ranger": {
+      "name": "Ranger",
+      "colour": "#6a8a3a",
+      "pointer": "arrow",
+      "about": "Bows and crossbows: steadier aim, arrows spared, volleys of extra dice.",
+      "deck": [
+        {
+          "card": "steady_aim",
+          "copies": 4
+        },
+        {
+          "card": "quiver_of_plenty",
+          "copies": 2
+        },
+        {
+          "card": "volley",
+          "copies": 1
+        },
+        {
+          "card": "hunter_s_camouflage",
+          "copies": 1
+        }
+      ]
+    },
+    "cleric": {
+      "name": "Cleric",
+      "colour": "#f4e8b0",
+      "pointer": "holy_symbol",
+      "about": "Healing and protection: blessings, sanctuaries, divine light.",
+      "deck": [
+        {
+          "card": "blessing",
+          "copies": 4
+        },
+        {
+          "card": "sanctuary",
+          "copies": 2
+        },
+        {
+          "card": "divine_light",
+          "copies": 1
+        },
+        {
+          "card": "holy_smite",
+          "copies": 1
+        }
+      ]
+    }
+  },
+  "cards": [
+    {
+      "id": "cast",
+      "name": "Cast",
+      "class": "mage",
+      "rarity": "common",
+      "text": "Spells cost half the mana for 5 minutes.",
+      "effects": [
+        {
+          "kind": "mana_cost",
+          "value": 0.5,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "bind",
+      "name": "Bind",
+      "class": "mage",
+      "rarity": "common",
+      "text": "Spells freeze what they hit for 3 s, for 5 minutes.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 3.0,
+          "seconds": 300.0,
+          "only": "spell"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "transfigure",
+      "name": "Transfigure",
+      "class": "mage",
+      "rarity": "common",
+      "text": "The next 3 foes your spells hit become animals for 5 minutes.",
+      "effects": [
+        {
+          "kind": "transfigure",
+          "value": 300.0,
+          "charges": 3,
+          "only": "spell"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "healing_spell",
+      "name": "Healing Spell",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "All your mana turned into health.",
+      "effects": [
+        {
+          "kind": "mana_to_health"
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "arcane_focus",
+      "name": "Arcane Focus",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "Spell damage x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "mana_spring",
+      "name": "Mana Spring",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "2 mana a second for 2 minutes.",
+      "effects": [
+        {
+          "kind": "regen_mana",
+          "value": 2.0,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "twin_sparks",
+      "name": "Twin Sparks",
+      "class": "mage",
+      "rarity": "rare",
+      "text": "A die more on every spell for 3 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 1.0,
+          "seconds": 180.0,
+          "only": "spell"
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "frost_lance",
+      "name": "Frost Lance",
+      "class": "mage",
+      "rarity": "rare",
+      "text": "The next 3 spells freeze for 5 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 5.0,
+          "charges": 3,
+          "only": "spell"
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "leyline_tap",
+      "name": "Leyline Tap",
+      "class": "mage",
+      "rarity": "epic",
+      "text": "60 mana at once.",
+      "effects": [
+        {
+          "kind": "mana",
+          "value": 60.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "runic_barrier",
+      "name": "Runic Barrier",
+      "class": "mage",
+      "rarity": "epic",
+      "text": "A ward soaking up 35 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 35.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "spellweave",
+      "name": "Spellweave",
+      "class": "mage",
+      "rarity": "legendary",
+      "text": "Spell damage x1.6 for a minute.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.6,
+          "seconds": 60.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "polymorph_storm",
+      "name": "Polymorph Storm",
+      "class": "mage",
+      "rarity": "legendary",
+      "text": "The next 5 foes your spells hit become animals for 2 minutes.",
+      "effects": [
+        {
+          "kind": "transfigure",
+          "value": 120.0,
+          "charges": 5,
+          "only": "spell"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "starfall",
+      "name": "Starfall",
+      "class": "mage",
+      "rarity": "legendary",
+      "text": "Three dice more on spells for 30 s.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 3.0,
+          "seconds": 30.0,
+          "only": "spell"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "ember_script",
+      "name": "Ember Script",
+      "class": "mage",
+      "rarity": "common",
+      "text": "Spell damage x1.2 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.2,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "quillbright_ward",
+      "name": "Quillbright Ward",
+      "class": "mage",
+      "rarity": "common",
+      "text": "A ward soaking up 20 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 20.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "aether_draught",
+      "name": "Aether Draught",
+      "class": "mage",
+      "rarity": "common",
+      "text": "40 mana at once.",
+      "effects": [
+        {
+          "kind": "mana",
+          "value": 40.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "scholar_s_lamp",
+      "name": "Scholar's Lamp",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "Experience x1.5 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.5,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "crystal_resonance",
+      "name": "Crystal Resonance",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "Spells cost a quarter less for 10 minutes.",
+      "effects": [
+        {
+          "kind": "mana_cost",
+          "value": 0.75,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "glyph_of_haste",
+      "name": "Glyph of Haste",
+      "class": "mage",
+      "rarity": "uncommon",
+      "text": "Speed x1.2 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.2,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "wandwright_s_trick",
+      "name": "Wandwright's Trick",
+      "class": "mage",
+      "rarity": "rare",
+      "text": "No crystals used for 5 minutes.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "moonlit_missive",
+      "name": "Moonlit Missive",
+      "class": "mage",
+      "rarity": "rare",
+      "text": "1 mana a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_mana",
+          "value": 1.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "prismatic_burst",
+      "name": "Prismatic Burst",
+      "class": "mage",
+      "rarity": "rare",
+      "text": "Two dice more on spells for a minute.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 60.0,
+          "only": "spell"
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "quickstep",
+      "name": "Quickstep",
+      "class": "bard",
+      "rarity": "common",
+      "text": "Speed x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "lightfoot",
+      "name": "Lightfoot",
+      "class": "bard",
+      "rarity": "common",
+      "text": "Half the stamina spent for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.5,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "soaring_verse",
+      "name": "Soaring Verse",
+      "class": "bard",
+      "rarity": "common",
+      "text": "Jumps x1.5 higher for 3 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.5,
+          "seconds": 180.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "ballad_of_rest",
+      "name": "Ballad of Rest",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "100 stamina, then 3 a second for a minute.",
+      "effects": [
+        {
+          "kind": "stamina",
+          "value": 100.0
+        },
+        {
+          "kind": "regen_stamina",
+          "value": 3.0,
+          "seconds": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "allegro",
+      "name": "Allegro",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "Speed x1.5 for a minute.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.5,
+          "seconds": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "tumbler_s_refrain",
+      "name": "Tumbler's Refrain",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "A quarter of the stamina spent for 2 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.25,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "skylark_s_aria",
+      "name": "Skylark's Aria",
+      "class": "bard",
+      "rarity": "rare",
+      "text": "Jumps twice as high for a minute.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 2.0,
+          "seconds": 60.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "rhapsody_of_wind",
+      "name": "Rhapsody of Wind",
+      "class": "bard",
+      "rarity": "rare",
+      "text": "Speed x1.25 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.25,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "lullaby",
+      "name": "Lullaby",
+      "class": "bard",
+      "rarity": "epic",
+      "text": "The next 3 foes hit stand frozen 4 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 4.0,
+          "charges": 3
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "encore",
+      "name": "Encore",
+      "class": "bard",
+      "rarity": "epic",
+      "text": "Draw a card.",
+      "effects": [
+        {
+          "kind": "draw",
+          "value": 1.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "minstrel_s_purse",
+      "name": "Minstrel's Purse",
+      "class": "bard",
+      "rarity": "legendary",
+      "text": "Coins x2 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "coins",
+          "value": 2.0,
+          "seconds": 600.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "siren_s_breath",
+      "name": "Siren's Breath",
+      "class": "bard",
+      "rarity": "legendary",
+      "text": "Breath lasts x3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "breath",
+          "value": 3.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "grand_finale",
+      "name": "Grand Finale",
+      "class": "bard",
+      "rarity": "legendary",
+      "text": "Damage x1.5 for a minute.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.5,
+          "seconds": 60.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "wandering_tune",
+      "name": "Wandering Tune",
+      "class": "bard",
+      "rarity": "common",
+      "text": "Speed x1.15 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.15,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "jester_s_leap",
+      "name": "Jester's Leap",
+      "class": "bard",
+      "rarity": "common",
+      "text": "Jumps x1.3 higher for 5 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "traveler_s_hum",
+      "name": "Traveler's Hum",
+      "class": "bard",
+      "rarity": "common",
+      "text": "1.5 stamina a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_stamina",
+          "value": 1.5,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "coin_song",
+      "name": "Coin Song",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "25 coins at once.",
+      "effects": [
+        {
+          "kind": "coins_now",
+          "value": 25.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "echoing_chord",
+      "name": "Echoing Chord",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "A die more on every roll for 2 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 1.0,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "tavern_cheer",
+      "name": "Tavern Cheer",
+      "class": "bard",
+      "rarity": "uncommon",
+      "text": "25 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 25.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "duet_of_dodges",
+      "name": "Duet of Dodges",
+      "class": "bard",
+      "rarity": "rare",
+      "text": "Damage taken x0.8 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.8,
+          "seconds": 120.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "hymn_of_tides",
+      "name": "Hymn of Tides",
+      "class": "bard",
+      "rarity": "rare",
+      "text": "Breath lasts twice as long for 10 minutes.",
+      "effects": [
+        {
+          "kind": "breath",
+          "value": 2.0,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "ditty_of_luck",
+      "name": "Ditty of Luck",
+      "class": "bard",
+      "rarity": "rare",
+      "text": "Experience x1.3 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.3,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "shield_wall",
+      "name": "Shield Wall",
+      "class": "knight",
+      "rarity": "common",
+      "text": "Damage taken x0.7 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.7,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "valor",
+      "name": "Valor",
+      "class": "knight",
+      "rarity": "common",
+      "text": "Melee damage x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis",
+      "class": "knight",
+      "rarity": "common",
+      "text": "A ward soaking up 40 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 40.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "second_wind",
+      "name": "Second Wind",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "40 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 40.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "bulwark",
+      "name": "Bulwark",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "Damage taken halved for a minute.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.5,
+          "seconds": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "oathblade",
+      "name": "Oathblade",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "Melee damage x1.5 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.5,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "squire_s_polish",
+      "name": "Squire's Polish",
+      "class": "knight",
+      "rarity": "rare",
+      "text": "No whetstones, wedges or studs used for 10 minutes.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "rampart",
+      "name": "Rampart",
+      "class": "knight",
+      "rarity": "rare",
+      "text": "A ward soaking up 80 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 80.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "charge",
+      "name": "Charge",
+      "class": "knight",
+      "rarity": "epic",
+      "text": "Speed x1.4 and melee damage x1.3 for 30 s.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.4,
+          "seconds": 30.0
+        },
+        {
+          "kind": "melee_damage",
+          "value": 1.3,
+          "seconds": 30.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "steadfast",
+      "name": "Steadfast",
+      "class": "knight",
+      "rarity": "epic",
+      "text": "1 health a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 1.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "heavy_blow",
+      "name": "Heavy Blow",
+      "class": "knight",
+      "rarity": "legendary",
+      "text": "Two dice more on swings for 2 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 120.0,
+          "only": "melee"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "iron_resolve",
+      "name": "Iron Resolve",
+      "class": "knight",
+      "rarity": "legendary",
+      "text": "Stamina spent x0.6 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.6,
+          "seconds": 300.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "crusader_s_vow",
+      "name": "Crusader's Vow",
+      "class": "knight",
+      "rarity": "legendary",
+      "text": "Damage x1.4 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.4,
+          "seconds": 180.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "polished_plate",
+      "name": "Polished Plate",
+      "class": "knight",
+      "rarity": "common",
+      "text": "Damage taken x0.85 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.85,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "tourney_lance",
+      "name": "Tourney Lance",
+      "class": "knight",
+      "rarity": "common",
+      "text": "Melee damage x1.2 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.2,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "banner_of_the_keep",
+      "name": "Banner of the Keep",
+      "class": "knight",
+      "rarity": "common",
+      "text": "A ward soaking up 25 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 25.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "knight_s_ration",
+      "name": "Knight's Ration",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "20 health and 30 stamina at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 20.0
+        },
+        {
+          "kind": "stamina",
+          "value": 30.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "gauntlet_grip",
+      "name": "Gauntlet Grip",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "A die more on swings for 3 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 1.0,
+          "seconds": 180.0,
+          "only": "melee"
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "herald_s_call",
+      "name": "Herald's Call",
+      "class": "knight",
+      "rarity": "uncommon",
+      "text": "Experience x1.4 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.4,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "watchman_s_rest",
+      "name": "Watchman's Rest",
+      "class": "knight",
+      "rarity": "rare",
+      "text": "Half a health a second for 10 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 0.5,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "barbican",
+      "name": "Barbican",
+      "class": "knight",
+      "rarity": "rare",
+      "text": "Damage taken x0.6 for 30 s.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.6,
+          "seconds": 30.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "lance_rest",
+      "name": "Lance Rest",
+      "class": "knight",
+      "rarity": "rare",
+      "text": "Stamina spent x0.75 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.75,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "fury",
+      "name": "Fury",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "Melee damage x1.25 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.25,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "cleave",
+      "name": "Cleave",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "A die more on swings for 3 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 1.0,
+          "seconds": 180.0,
+          "only": "melee"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "bloodlust",
+      "name": "Bloodlust",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "A fifth of the melee damage you deal back as health, 3 minutes.",
+      "effects": [
+        {
+          "kind": "lifesteal",
+          "value": 0.2,
+          "seconds": 180.0,
+          "only": "melee"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "war_cry",
+      "name": "War Cry",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "Damage x1.5 for a minute.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.5,
+          "seconds": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "berserk",
+      "name": "Berserk",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "Melee damage x1.8, damage taken x1.2, for 30 s.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.8,
+          "seconds": 30.0
+        },
+        {
+          "kind": "defense",
+          "value": 1.2,
+          "seconds": 30.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "rending_strikes",
+      "name": "Rending Strikes",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "Swings poison for 30% more, 3 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.3,
+          "seconds": 180.0,
+          "only": "melee"
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "battle_trance",
+      "name": "Battle Trance",
+      "class": "warrior",
+      "rarity": "rare",
+      "text": "Half the stamina spent for 3 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.5,
+          "seconds": 180.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "earthshaker",
+      "name": "Earthshaker",
+      "class": "warrior",
+      "rarity": "rare",
+      "text": "Three dice more on swings for 30 s.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 3.0,
+          "seconds": 30.0,
+          "only": "melee"
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "thick_hide",
+      "name": "Thick Hide",
+      "class": "warrior",
+      "rarity": "epic",
+      "text": "Damage taken x0.8 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.8,
+          "seconds": 300.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "warlord_s_shout",
+      "name": "Warlord's Shout",
+      "class": "warrior",
+      "rarity": "epic",
+      "text": "Damage x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "unstoppable",
+      "name": "Unstoppable",
+      "class": "warrior",
+      "rarity": "legendary",
+      "text": "A ward soaking up 50 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 50.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "bone_breaker",
+      "name": "Bone Breaker",
+      "class": "warrior",
+      "rarity": "legendary",
+      "text": "The next 5 swings freeze for 2 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 2.0,
+          "charges": 5,
+          "only": "melee"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "rage_fuel",
+      "name": "Rage Fuel",
+      "class": "warrior",
+      "rarity": "legendary",
+      "text": "35% of the melee damage back as health for a minute.",
+      "effects": [
+        {
+          "kind": "lifesteal",
+          "value": 0.35,
+          "seconds": 60.0,
+          "only": "melee"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "whetted_edge",
+      "name": "Whetted Edge",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "Melee damage x1.15 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.15,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "mead_of_might",
+      "name": "Mead of Might",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "30 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 30.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "brawler_s_wrap",
+      "name": "Brawler's Wrap",
+      "class": "warrior",
+      "rarity": "common",
+      "text": "Damage taken x0.9 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.9,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "axe_grinder",
+      "name": "Axe Grinder",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "No wedges, studs or whetstones used for 5 minutes.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "iron_gut",
+      "name": "Iron Gut",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "0.8 health a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 0.8,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "trophy_hunter",
+      "name": "Trophy Hunter",
+      "class": "warrior",
+      "rarity": "uncommon",
+      "text": "Experience x1.5 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.5,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "sundering_swing",
+      "name": "Sundering Swing",
+      "class": "warrior",
+      "rarity": "rare",
+      "text": "Two dice more on swings for a minute.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 60.0,
+          "only": "melee"
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "thunder_stomp",
+      "name": "Thunder Stomp",
+      "class": "warrior",
+      "rarity": "rare",
+      "text": "The next 2 foes hit stand frozen 2 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 2.0,
+          "charges": 2
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "wolf_s_pace",
+      "name": "Wolf's Pace",
+      "class": "warrior",
+      "rarity": "rare",
+      "text": "Speed x1.2 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.2,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "hex",
+      "name": "Hex",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "Spell damage x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "soul_drain",
+      "name": "Soul Drain",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "A quarter of the spell damage back as health, 3 minutes.",
+      "effects": [
+        {
+          "kind": "lifesteal",
+          "value": 0.25,
+          "seconds": 180.0,
+          "only": "spell"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "blight",
+      "name": "Blight",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "Spells poison for half again, 3 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.5,
+          "seconds": 180.0,
+          "only": "spell"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "dark_pact",
+      "name": "Dark Pact",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "30 health traded for mana.",
+      "effects": [
+        {
+          "kind": "health_to_mana",
+          "value": 30.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "curse_of_frailty",
+      "name": "Curse of Frailty",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "Damage x1.4 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.4,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "shadow_bolt",
+      "name": "Shadow Bolt",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "Two dice more on spells for 2 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 120.0,
+          "only": "spell"
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "withering_touch",
+      "name": "Withering Touch",
+      "class": "warlock",
+      "rarity": "rare",
+      "text": "Every blow poisons for 80% more, a minute.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.8,
+          "seconds": 60.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "eldritch_ward",
+      "name": "Eldritch Ward",
+      "class": "warlock",
+      "rarity": "rare",
+      "text": "A ward soaking up 45 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 45.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "soul_siphon",
+      "name": "Soul Siphon",
+      "class": "warlock",
+      "rarity": "epic",
+      "text": "40% of the damage back as health for a minute.",
+      "effects": [
+        {
+          "kind": "lifesteal",
+          "value": 0.4,
+          "seconds": 60.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "void_gaze",
+      "name": "Void Gaze",
+      "class": "warlock",
+      "rarity": "epic",
+      "text": "The next 3 spells freeze for 4 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 4.0,
+          "charges": 3,
+          "only": "spell"
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "pact_of_plenty",
+      "name": "Pact of Plenty",
+      "class": "warlock",
+      "rarity": "legendary",
+      "text": "3 mana a second for a minute.",
+      "effects": [
+        {
+          "kind": "regen_mana",
+          "value": 3.0,
+          "seconds": 60.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "abyssal_grasp",
+      "name": "Abyssal Grasp",
+      "class": "warlock",
+      "rarity": "legendary",
+      "text": "The next 2 foes hit become animals for a minute.",
+      "effects": [
+        {
+          "kind": "transfigure",
+          "value": 60.0,
+          "charges": 2
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "demon_s_bargain",
+      "name": "Demon's Bargain",
+      "class": "warlock",
+      "rarity": "legendary",
+      "text": "Spell damage doubled for 30 s.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 2.0,
+          "seconds": 30.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "grim_candle",
+      "name": "Grim Candle",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "Spell damage x1.15 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.15,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "bone_charm",
+      "name": "Bone Charm",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "A ward soaking up 20 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 20.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "ink_of_night",
+      "name": "Ink of Night",
+      "class": "warlock",
+      "rarity": "common",
+      "text": "Noticed x0.7 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.7,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "blood_rune",
+      "name": "Blood Rune",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "50 mana at once.",
+      "effects": [
+        {
+          "kind": "mana",
+          "value": 50.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "whispering_skull",
+      "name": "Whispering Skull",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "Experience x1.4 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.4,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "witchfire",
+      "name": "Witchfire",
+      "class": "warlock",
+      "rarity": "uncommon",
+      "text": "Every blow poisons for 30% more, 5 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "black_mirror",
+      "name": "Black Mirror",
+      "class": "warlock",
+      "rarity": "rare",
+      "text": "A quarter of every blow you take dealt back, 5 minutes.",
+      "effects": [
+        {
+          "kind": "thorns",
+          "value": 0.25,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "coven_s_gift",
+      "name": "Coven's Gift",
+      "class": "warlock",
+      "rarity": "rare",
+      "text": "Spells cost a fifth less for 10 minutes.",
+      "effects": [
+        {
+          "kind": "mana_cost",
+          "value": 0.8,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "ashen_veil",
+      "name": "Ashen Veil",
+      "class": "warlock",
+      "rarity": "rare",
+      "text": "Damage taken x0.85 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.85,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "regrowth",
+      "name": "Regrowth",
+      "class": "druid",
+      "rarity": "common",
+      "text": "1.5 health a second for 2 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 1.5,
+          "seconds": 120.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "thornhide",
+      "name": "Thornhide",
+      "class": "druid",
+      "rarity": "common",
+      "text": "30% of every blow you take dealt back, 5 minutes.",
+      "effects": [
+        {
+          "kind": "thorns",
+          "value": 0.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "entangling_roots",
+      "name": "Entangling Roots",
+      "class": "druid",
+      "rarity": "common",
+      "text": "The next 5 foes hit stand frozen 3 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 3.0,
+          "charges": 5
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "wild_shape",
+      "name": "Wild Shape",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "The next 2 foes hit become animals for 2 minutes.",
+      "effects": [
+        {
+          "kind": "transfigure",
+          "value": 120.0,
+          "charges": 2
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "barkskin",
+      "name": "Barkskin",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "Damage taken x0.6 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.6,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "moonwell",
+      "name": "Moonwell",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "2 mana a second for 2 minutes.",
+      "effects": [
+        {
+          "kind": "regen_mana",
+          "value": 2.0,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "swarm",
+      "name": "Swarm",
+      "class": "druid",
+      "rarity": "rare",
+      "text": "Every blow poisons for half again, 2 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.5,
+          "seconds": 120.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "stag_s_bound",
+      "name": "Stag's Bound",
+      "class": "druid",
+      "rarity": "rare",
+      "text": "Jumps x1.6 and speed x1.2 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.6,
+          "seconds": 120.0
+        },
+        {
+          "kind": "speed",
+          "value": 1.2,
+          "seconds": 120.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "verdant_bloom",
+      "name": "Verdant Bloom",
+      "class": "druid",
+      "rarity": "epic",
+      "text": "50 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 50.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "bramble_wall",
+      "name": "Bramble Wall",
+      "class": "druid",
+      "rarity": "epic",
+      "text": "A 40 ward, and 40% of blows dealt back for a minute.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 40.0
+        },
+        {
+          "kind": "thorns",
+          "value": 0.4,
+          "seconds": 60.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "feral_strength",
+      "name": "Feral Strength",
+      "class": "druid",
+      "rarity": "legendary",
+      "text": "Melee damage x1.4 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.4,
+          "seconds": 180.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "oakheart",
+      "name": "Oakheart",
+      "class": "druid",
+      "rarity": "legendary",
+      "text": "2.5 health a second for a minute.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 2.5,
+          "seconds": 60.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "gift_of_the_grove",
+      "name": "Gift of the Grove",
+      "class": "druid",
+      "rarity": "legendary",
+      "text": "Draw two cards.",
+      "effects": [
+        {
+          "kind": "draw",
+          "value": 2.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "herbal_poultice",
+      "name": "Herbal Poultice",
+      "class": "druid",
+      "rarity": "common",
+      "text": "25 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 25.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "mossy_cloak",
+      "name": "Mossy Cloak",
+      "class": "druid",
+      "rarity": "common",
+      "text": "Noticed x0.7 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.7,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "fern_tea",
+      "name": "Fern Tea",
+      "class": "druid",
+      "rarity": "common",
+      "text": "50 stamina at once.",
+      "effects": [
+        {
+          "kind": "stamina",
+          "value": 50.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "spore_pouch",
+      "name": "Spore Pouch",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "Every blow poisons for a quarter more, 5 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.25,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "acorn_charm",
+      "name": "Acorn Charm",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "Experience x1.3 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.3,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "river_spirit",
+      "name": "River Spirit",
+      "class": "druid",
+      "rarity": "uncommon",
+      "text": "Breath lasts x3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "breath",
+          "value": 3.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "sunleaf_tonic",
+      "name": "Sunleaf Tonic",
+      "class": "druid",
+      "rarity": "rare",
+      "text": "0.6 health a second for 10 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 0.6,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "owl_s_wisdom",
+      "name": "Owl's Wisdom",
+      "class": "druid",
+      "rarity": "rare",
+      "text": "30 mana at once.",
+      "effects": [
+        {
+          "kind": "mana",
+          "value": 30.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "seedling_ward",
+      "name": "Seedling Ward",
+      "class": "druid",
+      "rarity": "rare",
+      "text": "A ward soaking up 15 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 15.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "shadowstep",
+      "name": "Shadowstep",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "Noticed x0.6 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.6,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "backstab",
+      "name": "Backstab",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "The next 2 blows land as sneak attacks, wherever you are.",
+      "effects": [
+        {
+          "kind": "sneak",
+          "value": 1.0,
+          "charges": 2
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "envenom",
+      "name": "Envenom",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "Swings poison for 40% more, 3 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.4,
+          "seconds": 180.0,
+          "only": "melee"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "pickpocket",
+      "name": "Pickpocket",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "Coins x1.5 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "coins",
+          "value": 1.5,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "vanish",
+      "name": "Vanish",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "Noticed x0.3 for 30 s.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.3,
+          "seconds": 30.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "assassinate",
+      "name": "Assassinate",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "The next blow a sneak attack, melee damage doubled for 30 s.",
+      "effects": [
+        {
+          "kind": "sneak",
+          "value": 1.0,
+          "charges": 1
+        },
+        {
+          "kind": "melee_damage",
+          "value": 2.0,
+          "seconds": 30.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "smoke_bomb",
+      "name": "Smoke Bomb",
+      "class": "rogue",
+      "rarity": "rare",
+      "text": "The next 3 foes hit stand frozen 3 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 3.0,
+          "charges": 3
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "nimble_fingers",
+      "name": "Nimble Fingers",
+      "class": "rogue",
+      "rarity": "rare",
+      "text": "Coins x2 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "coins",
+          "value": 2.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "deadly_toxins",
+      "name": "Deadly Toxins",
+      "class": "rogue",
+      "rarity": "epic",
+      "text": "Swings poison for 80% more, a minute.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.8,
+          "seconds": 60.0,
+          "only": "melee"
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "fleet_foot",
+      "name": "Fleet Foot",
+      "class": "rogue",
+      "rarity": "epic",
+      "text": "Speed x1.35 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.35,
+          "seconds": 180.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "twin_daggers",
+      "name": "Twin Daggers",
+      "class": "rogue",
+      "rarity": "legendary",
+      "text": "Two dice more on swings for 2 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 120.0,
+          "only": "melee"
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "shadow_cloak",
+      "name": "Shadow Cloak",
+      "class": "rogue",
+      "rarity": "legendary",
+      "text": "Noticed x0.5 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.5,
+          "seconds": 600.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "cutthroat",
+      "name": "Cutthroat",
+      "class": "rogue",
+      "rarity": "legendary",
+      "text": "The next 4 blows land as sneak attacks.",
+      "effects": [
+        {
+          "kind": "sneak",
+          "value": 1.0,
+          "charges": 4
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "lockpick_set",
+      "name": "Lockpick Set",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "30 coins at once.",
+      "effects": [
+        {
+          "kind": "coins_now",
+          "value": 30.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "black_hood",
+      "name": "Black Hood",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "Noticed x0.8 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.8,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "viper_oil",
+      "name": "Viper Oil",
+      "class": "rogue",
+      "rarity": "common",
+      "text": "Every blow poisons for a fifth more, 10 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.2,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "gambler_s_coin",
+      "name": "Gambler's Coin",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "Experience and coins x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.3,
+          "seconds": 300.0
+        },
+        {
+          "kind": "coins",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "quiet_boots",
+      "name": "Quiet Boots",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "Noticed x0.75 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.75,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "flash_powder",
+      "name": "Flash Powder",
+      "class": "rogue",
+      "rarity": "uncommon",
+      "text": "The next 2 foes hit stand frozen 2 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 2.0,
+          "charges": 2
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "thieves_cant",
+      "name": "Thieves' Cant",
+      "class": "rogue",
+      "rarity": "rare",
+      "text": "Draw a card.",
+      "effects": [
+        {
+          "kind": "draw",
+          "value": 1.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "silk_rope",
+      "name": "Silk Rope",
+      "class": "rogue",
+      "rarity": "rare",
+      "text": "Jumps x1.3 higher for 5 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "rooftop_run",
+      "name": "Rooftop Run",
+      "class": "rogue",
+      "rarity": "rare",
+      "text": "Stamina spent x0.7 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.7,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "steady_aim",
+      "name": "Steady Aim",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "Arrow and bolt damage x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "ranged_damage",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "quiver_of_plenty",
+      "name": "Quiver of Plenty",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "No arrows or bolts used for 2 minutes.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 120.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "volley",
+      "name": "Volley",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "Two dice more on shots for 2 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 120.0,
+          "only": "ranged"
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "hunter_s_camouflage",
+      "name": "Hunter's Camouflage",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "Noticed x0.5 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.5,
+          "seconds": 180.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "eagle_eye",
+      "name": "Eagle Eye",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "Shot damage x1.6 for a minute.",
+      "effects": [
+        {
+          "kind": "ranged_damage",
+          "value": 1.6,
+          "seconds": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "pinning_shot",
+      "name": "Pinning Shot",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "The next 3 shots freeze for 3 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 3.0,
+          "charges": 3,
+          "only": "ranged"
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "barbed_arrows",
+      "name": "Barbed Arrows",
+      "class": "ranger",
+      "rarity": "rare",
+      "text": "Shots poison for 40% more, 3 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.4,
+          "seconds": 180.0,
+          "only": "ranged"
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "trailblazer",
+      "name": "Trailblazer",
+      "class": "ranger",
+      "rarity": "rare",
+      "text": "Speed x1.3 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.3,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "rain_of_arrows",
+      "name": "Rain of Arrows",
+      "class": "ranger",
+      "rarity": "epic",
+      "text": "Four dice more on shots for 30 s.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 4.0,
+          "seconds": 30.0,
+          "only": "ranged"
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "fletcher_s_bounty",
+      "name": "Fletcher's Bounty",
+      "class": "ranger",
+      "rarity": "epic",
+      "text": "No arrows or bolts used for 10 minutes.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 600.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "falcon_s_call",
+      "name": "Falcon's Call",
+      "class": "ranger",
+      "rarity": "legendary",
+      "text": "Damage x1.3 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.3,
+          "seconds": 180.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "ghillie",
+      "name": "Ghillie",
+      "class": "ranger",
+      "rarity": "legendary",
+      "text": "Noticed x0.4 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.4,
+          "seconds": 120.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "beast_bond",
+      "name": "Beast Bond",
+      "class": "ranger",
+      "rarity": "legendary",
+      "text": "1 health a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 1.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "waxed_string",
+      "name": "Waxed String",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "Shot damage x1.15 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "ranged_damage",
+          "value": 1.15,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "trail_rations",
+      "name": "Trail Rations",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "20 health and 20 stamina at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 20.0
+        },
+        {
+          "kind": "stamina",
+          "value": 20.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "hawk_feather",
+      "name": "Hawk Feather",
+      "class": "ranger",
+      "rarity": "common",
+      "text": "Jumps x1.2 higher for 5 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.2,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "tracker_s_map",
+      "name": "Tracker's Map",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "Experience x1.4 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.4,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "bodkin_points",
+      "name": "Bodkin Points",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "A die more on shots for 5 minutes.",
+      "effects": [
+        {
+          "kind": "extra_dice",
+          "value": 1.0,
+          "seconds": 300.0,
+          "only": "ranged"
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "forest_paint",
+      "name": "Forest Paint",
+      "class": "ranger",
+      "rarity": "uncommon",
+      "text": "Noticed x0.75 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.75,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "snare_trap",
+      "name": "Snare Trap",
+      "class": "ranger",
+      "rarity": "rare",
+      "text": "The next 2 foes hit stand frozen 2 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 2.0,
+          "charges": 2
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "spare_quiver",
+      "name": "Spare Quiver",
+      "class": "ranger",
+      "rarity": "rare",
+      "text": "No arrows or bolts used for a minute.",
+      "effects": [
+        {
+          "kind": "ammo_free",
+          "seconds": 60.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "windreader",
+      "name": "Windreader",
+      "class": "ranger",
+      "rarity": "rare",
+      "text": "Shot damage x1.4 for a minute.",
+      "effects": [
+        {
+          "kind": "ranged_damage",
+          "value": 1.4,
+          "seconds": 60.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "blessing",
+      "name": "Blessing",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "1 health a second for 5 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 1.0,
+          "seconds": 300.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "sanctuary",
+      "name": "Sanctuary",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "A ward soaking up 30 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 30.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "divine_light",
+      "name": "Divine Light",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "60 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 60.0
+        }
+      ],
+      "price": 30,
+      "source": "start"
+    },
+    {
+      "id": "holy_smite",
+      "name": "Holy Smite",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "Damage x1.4 for 2 minutes.",
+      "effects": [
+        {
+          "kind": "damage",
+          "value": 1.4,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "start"
+    },
+    {
+      "id": "prayer_of_mending",
+      "name": "Prayer of Mending",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "2 health a second for 2 minutes.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 2.0,
+          "seconds": 120.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "halo",
+      "name": "Halo",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "A ward soaking up 60 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 60.0
+        }
+      ],
+      "price": 50,
+      "source": "perk"
+    },
+    {
+      "id": "radiance",
+      "name": "Radiance",
+      "class": "cleric",
+      "rarity": "rare",
+      "text": "Spell damage x1.4 and melee x1.2 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 1.4,
+          "seconds": 180.0
+        },
+        {
+          "kind": "melee_damage",
+          "value": 1.2,
+          "seconds": 180.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "resurgence",
+      "name": "Resurgence",
+      "class": "cleric",
+      "rarity": "rare",
+      "text": "100 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 100.0
+        }
+      ],
+      "price": 80,
+      "source": "perk"
+    },
+    {
+      "id": "consecrate",
+      "name": "Consecrate",
+      "class": "cleric",
+      "rarity": "epic",
+      "text": "Every blow poisons for 40% more, 2 minutes.",
+      "effects": [
+        {
+          "kind": "poison",
+          "value": 0.4,
+          "seconds": 120.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "purity",
+      "name": "Purity",
+      "class": "cleric",
+      "rarity": "epic",
+      "text": "Damage taken x0.6 for 3 minutes.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.6,
+          "seconds": 180.0
+        }
+      ],
+      "price": 120,
+      "source": "perk"
+    },
+    {
+      "id": "holy_bind",
+      "name": "Holy Bind",
+      "class": "cleric",
+      "rarity": "legendary",
+      "text": "The next 3 foes hit stand frozen 4 s.",
+      "effects": [
+        {
+          "kind": "freeze",
+          "value": 4.0,
+          "charges": 3
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "miracle",
+      "name": "Miracle",
+      "class": "cleric",
+      "rarity": "legendary",
+      "text": "50 health, 50 mana and 50 stamina at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 50.0
+        },
+        {
+          "kind": "mana",
+          "value": 50.0
+        },
+        {
+          "kind": "stamina",
+          "value": 50.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "martyr_s_grace",
+      "name": "Martyr's Grace",
+      "class": "cleric",
+      "rarity": "legendary",
+      "text": "Half of every blow you take dealt back, 3 minutes.",
+      "effects": [
+        {
+          "kind": "thorns",
+          "value": 0.5,
+          "seconds": 180.0
+        }
+      ],
+      "price": 200,
+      "source": "perk"
+    },
+    {
+      "id": "prayer_beads",
+      "name": "Prayer Beads",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "1 mana a second for 10 minutes.",
+      "effects": [
+        {
+          "kind": "regen_mana",
+          "value": 1.0,
+          "seconds": 600.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "votive_candle",
+      "name": "Votive Candle",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "A ward soaking up 15 damage.",
+      "effects": [
+        {
+          "kind": "ward",
+          "value": 15.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "holy_water",
+      "name": "Holy Water",
+      "class": "cleric",
+      "rarity": "common",
+      "text": "30 health at once.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 30.0
+        }
+      ],
+      "price": 30,
+      "source": "shop"
+    },
+    {
+      "id": "pilgrim_s_staff",
+      "name": "Pilgrim's Staff",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "Stamina spent x0.8 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "stamina_cost",
+          "value": 0.8,
+          "seconds": 600.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "tithe",
+      "name": "Tithe",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "20 coins at once.",
+      "effects": [
+        {
+          "kind": "coins_now",
+          "value": 20.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "psalm_of_light",
+      "name": "Psalm of Light",
+      "class": "cleric",
+      "rarity": "uncommon",
+      "text": "Experience x1.5 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "xp",
+          "value": 1.5,
+          "seconds": 300.0
+        }
+      ],
+      "price": 50,
+      "source": "shop"
+    },
+    {
+      "id": "censer_smoke",
+      "name": "Censer Smoke",
+      "class": "cleric",
+      "rarity": "rare",
+      "text": "Noticed x0.8 for 5 minutes.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.8,
+          "seconds": 300.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "sacred_oil",
+      "name": "Sacred Oil",
+      "class": "cleric",
+      "rarity": "rare",
+      "text": "Melee damage x1.15 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 1.15,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "angel_s_feather",
+      "name": "Angel's Feather",
+      "class": "cleric",
+      "rarity": "rare",
+      "text": "Jumps x1.4 higher for 2 minutes.",
+      "effects": [
+        {
+          "kind": "jump",
+          "value": 1.4,
+          "seconds": 120.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "fortune_s_favor",
+      "name": "Fortune's Favor",
+      "class": null,
+      "rarity": "rare",
+      "text": "Coins x2 and experience x1.2 for 10 minutes.",
+      "effects": [
+        {
+          "kind": "coins",
+          "value": 2.0,
+          "seconds": 600.0
+        },
+        {
+          "kind": "xp",
+          "value": 1.2,
+          "seconds": 600.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "joker_s_gambit",
+      "name": "Joker's Gambit",
+      "class": null,
+      "rarity": "rare",
+      "text": "Draw two cards.",
+      "effects": [
+        {
+          "kind": "draw",
+          "value": 2.0
+        }
+      ],
+      "price": 80,
+      "source": "shop"
+    }
+  ],
+  "perks": {
+    "mage": [
+      {
+        "id": "mage_perk_arcane_focus",
+        "name": "Arcane Focus",
+        "row": 0,
+        "cost": 1,
+        "card": "arcane_focus"
+      },
+      {
+        "id": "mage_perk_mana_spring",
+        "name": "Mana Spring",
+        "row": 0,
+        "cost": 1,
+        "card": "mana_spring"
+      },
+      {
+        "id": "mage_deep_reserves",
+        "name": "Deep Reserves",
+        "text": "For good: 0.3 mana a second.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "regen_mana",
+            "value": 0.3
+          }
+        ]
+      },
+      {
+        "id": "mage_perk_twin_sparks",
+        "name": "Twin Sparks",
+        "row": 1,
+        "cost": 1,
+        "card": "twin_sparks"
+      },
+      {
+        "id": "mage_perk_frost_lance",
+        "name": "Frost Lance",
+        "row": 1,
+        "cost": 1,
+        "card": "frost_lance"
+      },
+      {
+        "id": "mage_arcane_mastery",
+        "name": "Arcane Mastery",
+        "text": "For good: spell damage x1.1.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "spell_damage",
+            "value": 1.1
+          }
+        ]
+      },
+      {
+        "id": "mage_perk_leyline_tap",
+        "name": "Leyline Tap",
+        "row": 2,
+        "cost": 2,
+        "card": "leyline_tap"
+      },
+      {
+        "id": "mage_perk_runic_barrier",
+        "name": "Runic Barrier",
+        "row": 2,
+        "cost": 2,
+        "card": "runic_barrier"
+      },
+      {
+        "id": "mage_efficient_casting",
+        "name": "Efficient Casting",
+        "text": "For good: spells cost a tenth less.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "mana_cost",
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "id": "mage_perk_spellweave",
+        "name": "Spellweave",
+        "row": 3,
+        "cost": 3,
+        "card": "spellweave"
+      },
+      {
+        "id": "mage_perk_polymorph_storm",
+        "name": "Polymorph Storm",
+        "row": 3,
+        "cost": 3,
+        "card": "polymorph_storm"
+      },
+      {
+        "id": "mage_perk_starfall",
+        "name": "Starfall",
+        "row": 3,
+        "cost": 3,
+        "card": "starfall"
+      }
+    ],
+    "bard": [
+      {
+        "id": "bard_perk_allegro",
+        "name": "Allegro",
+        "row": 0,
+        "cost": 1,
+        "card": "allegro"
+      },
+      {
+        "id": "bard_perk_tumbler_s_refrain",
+        "name": "Tumbler's Refrain",
+        "row": 0,
+        "cost": 1,
+        "card": "tumbler_s_refrain"
+      },
+      {
+        "id": "bard_light_step",
+        "name": "Light Step",
+        "text": "For good: speed x1.08.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "speed",
+            "value": 1.08
+          }
+        ]
+      },
+      {
+        "id": "bard_perk_skylark_s_aria",
+        "name": "Skylark's Aria",
+        "row": 1,
+        "cost": 1,
+        "card": "skylark_s_aria"
+      },
+      {
+        "id": "bard_perk_rhapsody_of_wind",
+        "name": "Rhapsody of Wind",
+        "row": 1,
+        "cost": 1,
+        "card": "rhapsody_of_wind"
+      },
+      {
+        "id": "bard_endurance",
+        "name": "Endurance",
+        "text": "For good: a tenth less stamina spent.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "stamina_cost",
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "id": "bard_perk_lullaby",
+        "name": "Lullaby",
+        "row": 2,
+        "cost": 2,
+        "card": "lullaby"
+      },
+      {
+        "id": "bard_perk_encore",
+        "name": "Encore",
+        "row": 2,
+        "cost": 2,
+        "card": "encore"
+      },
+      {
+        "id": "bard_spring_heel",
+        "name": "Spring Heel",
+        "text": "For good: jumps x1.1 higher.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "jump",
+            "value": 1.1
+          }
+        ]
+      },
+      {
+        "id": "bard_perk_minstrel_s_purse",
+        "name": "Minstrel's Purse",
+        "row": 3,
+        "cost": 3,
+        "card": "minstrel_s_purse"
+      },
+      {
+        "id": "bard_perk_siren_s_breath",
+        "name": "Siren's Breath",
+        "row": 3,
+        "cost": 3,
+        "card": "siren_s_breath"
+      },
+      {
+        "id": "bard_perk_grand_finale",
+        "name": "Grand Finale",
+        "row": 3,
+        "cost": 3,
+        "card": "grand_finale"
+      }
+    ],
+    "knight": [
+      {
+        "id": "knight_perk_bulwark",
+        "name": "Bulwark",
+        "row": 0,
+        "cost": 1,
+        "card": "bulwark"
+      },
+      {
+        "id": "knight_perk_oathblade",
+        "name": "Oathblade",
+        "row": 0,
+        "cost": 1,
+        "card": "oathblade"
+      },
+      {
+        "id": "knight_plate_training",
+        "name": "Plate Training",
+        "text": "For good: damage taken x0.92.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "defense",
+            "value": 0.92
+          }
+        ]
+      },
+      {
+        "id": "knight_perk_squire_s_polish",
+        "name": "Squire's Polish",
+        "row": 1,
+        "cost": 1,
+        "card": "squire_s_polish"
+      },
+      {
+        "id": "knight_perk_rampart",
+        "name": "Rampart",
+        "row": 1,
+        "cost": 1,
+        "card": "rampart"
+      },
+      {
+        "id": "knight_swordsmanship",
+        "name": "Swordsmanship",
+        "text": "For good: melee damage x1.1.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "melee_damage",
+            "value": 1.1
+          }
+        ]
+      },
+      {
+        "id": "knight_perk_charge",
+        "name": "Charge",
+        "row": 2,
+        "cost": 2,
+        "card": "charge"
+      },
+      {
+        "id": "knight_perk_steadfast",
+        "name": "Steadfast",
+        "row": 2,
+        "cost": 2,
+        "card": "steadfast"
+      },
+      {
+        "id": "knight_vigor",
+        "name": "Vigor",
+        "text": "For good: 0.15 health a second.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "regen_health",
+            "value": 0.15
+          }
+        ]
+      },
+      {
+        "id": "knight_perk_heavy_blow",
+        "name": "Heavy Blow",
+        "row": 3,
+        "cost": 3,
+        "card": "heavy_blow"
+      },
+      {
+        "id": "knight_perk_iron_resolve",
+        "name": "Iron Resolve",
+        "row": 3,
+        "cost": 3,
+        "card": "iron_resolve"
+      },
+      {
+        "id": "knight_perk_crusader_s_vow",
+        "name": "Crusader's Vow",
+        "row": 3,
+        "cost": 3,
+        "card": "crusader_s_vow"
+      }
+    ],
+    "warrior": [
+      {
+        "id": "warrior_perk_berserk",
+        "name": "Berserk",
+        "row": 0,
+        "cost": 1,
+        "card": "berserk"
+      },
+      {
+        "id": "warrior_perk_rending_strikes",
+        "name": "Rending Strikes",
+        "row": 0,
+        "cost": 1,
+        "card": "rending_strikes"
+      },
+      {
+        "id": "warrior_brute_force",
+        "name": "Brute Force",
+        "text": "For good: melee damage x1.12.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "melee_damage",
+            "value": 1.12
+          }
+        ]
+      },
+      {
+        "id": "warrior_perk_battle_trance",
+        "name": "Battle Trance",
+        "row": 1,
+        "cost": 1,
+        "card": "battle_trance"
+      },
+      {
+        "id": "warrior_perk_earthshaker",
+        "name": "Earthshaker",
+        "row": 1,
+        "cost": 1,
+        "card": "earthshaker"
+      },
+      {
+        "id": "warrior_thick_skull",
+        "name": "Thick Skull",
+        "text": "For good: damage taken x0.93.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "defense",
+            "value": 0.93
+          }
+        ]
+      },
+      {
+        "id": "warrior_perk_thick_hide",
+        "name": "Thick Hide",
+        "row": 2,
+        "cost": 2,
+        "card": "thick_hide"
+      },
+      {
+        "id": "warrior_perk_warlord_s_shout",
+        "name": "Warlord's Shout",
+        "row": 2,
+        "cost": 2,
+        "card": "warlord_s_shout"
+      },
+      {
+        "id": "warrior_battle_hardened",
+        "name": "Battle-Hardened",
+        "text": "For good: half a stamina a second.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "regen_stamina",
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "id": "warrior_perk_unstoppable",
+        "name": "Unstoppable",
+        "row": 3,
+        "cost": 3,
+        "card": "unstoppable"
+      },
+      {
+        "id": "warrior_perk_bone_breaker",
+        "name": "Bone Breaker",
+        "row": 3,
+        "cost": 3,
+        "card": "bone_breaker"
+      },
+      {
+        "id": "warrior_perk_rage_fuel",
+        "name": "Rage Fuel",
+        "row": 3,
+        "cost": 3,
+        "card": "rage_fuel"
+      }
+    ],
+    "warlock": [
+      {
+        "id": "warlock_perk_curse_of_frailty",
+        "name": "Curse of Frailty",
+        "row": 0,
+        "cost": 1,
+        "card": "curse_of_frailty"
+      },
+      {
+        "id": "warlock_perk_shadow_bolt",
+        "name": "Shadow Bolt",
+        "row": 0,
+        "cost": 1,
+        "card": "shadow_bolt"
+      },
+      {
+        "id": "warlock_dark_knowledge",
+        "name": "Dark Knowledge",
+        "text": "For good: spell damage x1.1.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "spell_damage",
+            "value": 1.1
+          }
+        ]
+      },
+      {
+        "id": "warlock_perk_withering_touch",
+        "name": "Withering Touch",
+        "row": 1,
+        "cost": 1,
+        "card": "withering_touch"
+      },
+      {
+        "id": "warlock_perk_eldritch_ward",
+        "name": "Eldritch Ward",
+        "row": 1,
+        "cost": 1,
+        "card": "eldritch_ward"
+      },
+      {
+        "id": "warlock_leech",
+        "name": "Leech",
+        "text": "For good: 5% of spell damage back as health.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "lifesteal",
+            "value": 0.05,
+            "only": "spell"
+          }
+        ]
+      },
+      {
+        "id": "warlock_perk_soul_siphon",
+        "name": "Soul Siphon",
+        "row": 2,
+        "cost": 2,
+        "card": "soul_siphon"
+      },
+      {
+        "id": "warlock_perk_void_gaze",
+        "name": "Void Gaze",
+        "row": 2,
+        "cost": 2,
+        "card": "void_gaze"
+      },
+      {
+        "id": "warlock_mana_font",
+        "name": "Mana Font",
+        "text": "For good: 0.3 mana a second.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "regen_mana",
+            "value": 0.3
+          }
+        ]
+      },
+      {
+        "id": "warlock_perk_pact_of_plenty",
+        "name": "Pact of Plenty",
+        "row": 3,
+        "cost": 3,
+        "card": "pact_of_plenty"
+      },
+      {
+        "id": "warlock_perk_abyssal_grasp",
+        "name": "Abyssal Grasp",
+        "row": 3,
+        "cost": 3,
+        "card": "abyssal_grasp"
+      },
+      {
+        "id": "warlock_perk_demon_s_bargain",
+        "name": "Demon's Bargain",
+        "row": 3,
+        "cost": 3,
+        "card": "demon_s_bargain"
+      }
+    ],
+    "druid": [
+      {
+        "id": "druid_perk_barkskin",
+        "name": "Barkskin",
+        "row": 0,
+        "cost": 1,
+        "card": "barkskin"
+      },
+      {
+        "id": "druid_perk_moonwell",
+        "name": "Moonwell",
+        "row": 0,
+        "cost": 1,
+        "card": "moonwell"
+      },
+      {
+        "id": "druid_nature_s_ward",
+        "name": "Nature's Ward",
+        "text": "For good: 0.2 health a second.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "regen_health",
+            "value": 0.2
+          }
+        ]
+      },
+      {
+        "id": "druid_perk_swarm",
+        "name": "Swarm",
+        "row": 1,
+        "cost": 1,
+        "card": "swarm"
+      },
+      {
+        "id": "druid_perk_stag_s_bound",
+        "name": "Stag's Bound",
+        "row": 1,
+        "cost": 1,
+        "card": "stag_s_bound"
+      },
+      {
+        "id": "druid_wild_heart",
+        "name": "Wild Heart",
+        "text": "For good: a tenth less stamina spent.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "stamina_cost",
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "id": "druid_perk_verdant_bloom",
+        "name": "Verdant Bloom",
+        "row": 2,
+        "cost": 2,
+        "card": "verdant_bloom"
+      },
+      {
+        "id": "druid_perk_bramble_wall",
+        "name": "Bramble Wall",
+        "row": 2,
+        "cost": 2,
+        "card": "bramble_wall"
+      },
+      {
+        "id": "druid_briarskin",
+        "name": "Briarskin",
+        "text": "For good: a tenth of every blow dealt back.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "thorns",
+            "value": 0.1
+          }
+        ]
+      },
+      {
+        "id": "druid_perk_feral_strength",
+        "name": "Feral Strength",
+        "row": 3,
+        "cost": 3,
+        "card": "feral_strength"
+      },
+      {
+        "id": "druid_perk_oakheart",
+        "name": "Oakheart",
+        "row": 3,
+        "cost": 3,
+        "card": "oakheart"
+      },
+      {
+        "id": "druid_perk_gift_of_the_grove",
+        "name": "Gift of the Grove",
+        "row": 3,
+        "cost": 3,
+        "card": "gift_of_the_grove"
+      }
+    ],
+    "rogue": [
+      {
+        "id": "rogue_perk_vanish",
+        "name": "Vanish",
+        "row": 0,
+        "cost": 1,
+        "card": "vanish"
+      },
+      {
+        "id": "rogue_perk_assassinate",
+        "name": "Assassinate",
+        "row": 0,
+        "cost": 1,
+        "card": "assassinate"
+      },
+      {
+        "id": "rogue_light_fingers",
+        "name": "Light Fingers",
+        "text": "For good: coins x1.15.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "coins",
+            "value": 1.15
+          }
+        ]
+      },
+      {
+        "id": "rogue_perk_smoke_bomb",
+        "name": "Smoke Bomb",
+        "row": 1,
+        "cost": 1,
+        "card": "smoke_bomb"
+      },
+      {
+        "id": "rogue_perk_nimble_fingers",
+        "name": "Nimble Fingers",
+        "row": 1,
+        "cost": 1,
+        "card": "nimble_fingers"
+      },
+      {
+        "id": "rogue_soft_steps",
+        "name": "Soft Steps",
+        "text": "For good: noticed x0.9.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "stealth",
+            "value": 0.9
+          }
+        ]
+      },
+      {
+        "id": "rogue_perk_deadly_toxins",
+        "name": "Deadly Toxins",
+        "row": 2,
+        "cost": 2,
+        "card": "deadly_toxins"
+      },
+      {
+        "id": "rogue_perk_fleet_foot",
+        "name": "Fleet Foot",
+        "row": 2,
+        "cost": 2,
+        "card": "fleet_foot"
+      },
+      {
+        "id": "rogue_quick_hands",
+        "name": "Quick Hands",
+        "text": "For good: melee damage x1.08.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "melee_damage",
+            "value": 1.08
+          }
+        ]
+      },
+      {
+        "id": "rogue_perk_twin_daggers",
+        "name": "Twin Daggers",
+        "row": 3,
+        "cost": 3,
+        "card": "twin_daggers"
+      },
+      {
+        "id": "rogue_perk_shadow_cloak",
+        "name": "Shadow Cloak",
+        "row": 3,
+        "cost": 3,
+        "card": "shadow_cloak"
+      },
+      {
+        "id": "rogue_perk_cutthroat",
+        "name": "Cutthroat",
+        "row": 3,
+        "cost": 3,
+        "card": "cutthroat"
+      }
+    ],
+    "ranger": [
+      {
+        "id": "ranger_perk_eagle_eye",
+        "name": "Eagle Eye",
+        "row": 0,
+        "cost": 1,
+        "card": "eagle_eye"
+      },
+      {
+        "id": "ranger_perk_pinning_shot",
+        "name": "Pinning Shot",
+        "row": 0,
+        "cost": 1,
+        "card": "pinning_shot"
+      },
+      {
+        "id": "ranger_keen_eye",
+        "name": "Keen Eye",
+        "text": "For good: shot damage x1.1.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "ranged_damage",
+            "value": 1.1
+          }
+        ]
+      },
+      {
+        "id": "ranger_perk_barbed_arrows",
+        "name": "Barbed Arrows",
+        "row": 1,
+        "cost": 1,
+        "card": "barbed_arrows"
+      },
+      {
+        "id": "ranger_perk_trailblazer",
+        "name": "Trailblazer",
+        "row": 1,
+        "cost": 1,
+        "card": "trailblazer"
+      },
+      {
+        "id": "ranger_pathfinder",
+        "name": "Pathfinder",
+        "text": "For good: speed x1.06.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "speed",
+            "value": 1.06
+          }
+        ]
+      },
+      {
+        "id": "ranger_perk_rain_of_arrows",
+        "name": "Rain of Arrows",
+        "row": 2,
+        "cost": 2,
+        "card": "rain_of_arrows"
+      },
+      {
+        "id": "ranger_perk_fletcher_s_bounty",
+        "name": "Fletcher's Bounty",
+        "row": 2,
+        "cost": 2,
+        "card": "fletcher_s_bounty"
+      },
+      {
+        "id": "ranger_woodland_stamina",
+        "name": "Woodland Stamina",
+        "text": "For good: 0.4 stamina a second.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "regen_stamina",
+            "value": 0.4
+          }
+        ]
+      },
+      {
+        "id": "ranger_perk_falcon_s_call",
+        "name": "Falcon's Call",
+        "row": 3,
+        "cost": 3,
+        "card": "falcon_s_call"
+      },
+      {
+        "id": "ranger_perk_ghillie",
+        "name": "Ghillie",
+        "row": 3,
+        "cost": 3,
+        "card": "ghillie"
+      },
+      {
+        "id": "ranger_perk_beast_bond",
+        "name": "Beast Bond",
+        "row": 3,
+        "cost": 3,
+        "card": "beast_bond"
+      }
+    ],
+    "cleric": [
+      {
+        "id": "cleric_perk_prayer_of_mending",
+        "name": "Prayer of Mending",
+        "row": 0,
+        "cost": 1,
+        "card": "prayer_of_mending"
+      },
+      {
+        "id": "cleric_perk_halo",
+        "name": "Halo",
+        "row": 0,
+        "cost": 1,
+        "card": "halo"
+      },
+      {
+        "id": "cleric_faith",
+        "name": "Faith",
+        "text": "For good: 0.25 health a second.",
+        "row": 0,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "regen_health",
+            "value": 0.25
+          }
+        ]
+      },
+      {
+        "id": "cleric_perk_radiance",
+        "name": "Radiance",
+        "row": 1,
+        "cost": 1,
+        "card": "radiance"
+      },
+      {
+        "id": "cleric_perk_resurgence",
+        "name": "Resurgence",
+        "row": 1,
+        "cost": 1,
+        "card": "resurgence"
+      },
+      {
+        "id": "cleric_devotion",
+        "name": "Devotion",
+        "text": "For good: 0.25 mana a second.",
+        "row": 1,
+        "cost": 1,
+        "passive": [
+          {
+            "kind": "regen_mana",
+            "value": 0.25
+          }
+        ]
+      },
+      {
+        "id": "cleric_perk_consecrate",
+        "name": "Consecrate",
+        "row": 2,
+        "cost": 2,
+        "card": "consecrate"
+      },
+      {
+        "id": "cleric_perk_purity",
+        "name": "Purity",
+        "row": 2,
+        "cost": 2,
+        "card": "purity"
+      },
+      {
+        "id": "cleric_shielded_soul",
+        "name": "Shielded Soul",
+        "text": "For good: damage taken x0.92.",
+        "row": 2,
+        "cost": 2,
+        "passive": [
+          {
+            "kind": "defense",
+            "value": 0.92
+          }
+        ]
+      },
+      {
+        "id": "cleric_perk_holy_bind",
+        "name": "Holy Bind",
+        "row": 3,
+        "cost": 3,
+        "card": "holy_bind"
+      },
+      {
+        "id": "cleric_perk_miracle",
+        "name": "Miracle",
+        "row": 3,
+        "cost": 3,
+        "card": "miracle"
+      },
+      {
+        "id": "cleric_perk_martyr_s_grace",
+        "name": "Martyr's Grace",
+        "row": 3,
+        "cost": 3,
+        "card": "martyr_s_grace"
+      }
+    ]
+  }
+}

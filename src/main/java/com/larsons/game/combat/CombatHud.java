@@ -9,7 +9,10 @@ import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.OrbitCamera;
+import com.larsons.game.world.Ammo;
 import com.larsons.game.world.Buffs;
+import com.larsons.game.world.Item;
+import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Stealth;
 import com.larsons.game.world.Rarity;
@@ -387,12 +390,37 @@ public final class CombatHud {
         bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), rgb, rgb, label, false);
     }
 
+    /**
+     * Under the mana bar: the ammunition of what she holds - the uses left of
+     * the one in use, and how many more she carries - and the coins in her purse.
+     */
+    public void drawSupplies(Ui ui, World world, float cy) {
+        float x = ui.width() / 2f + 2 * 64 + 28 + 26, y = cy + 12;
+        Player p = world.player();
+        Item held = world.wielded();
+        ItemDef ammo = held == null ? null : Ammo.of(held.def());
+        if (ammo != null && world.ammo().enabled()) {
+            int left = world.ammo().left(held), carried = world.ammo().carried(held, p.inventory());
+            boolean out = left == 0 && carried == 0;
+            String line = out ? (Ammo.shoots(held.def()) ? "Out of " + Ammo.said(ammo) : "Dull: no " + Ammo.said(ammo))
+                    : ammo.name() + ": " + left + (left == 1 ? " use" : " uses") + " · " + carried + " more";
+            if (world.buffs().has(Buffs.Kind.AMMO_FREE)) line = ammo.name() + ": none used (a card)";
+            ui.textShadowed(ui.small, line, x, y, CombatColours.rgba(out ? 0xFF8A6E : Combat.AMMO_RGB, 1f));
+            y += ui.small.lineHeight() + 2;
+        }
+        ui.textShadowed(ui.small, p.coins() + (p.coins() == 1 ? " coin" : " coins"), x, y,
+                CombatColours.rgba(COIN_RGB, 1f));
+    }
+
+    static final int COIN_RGB = 0xF0C030;
+
     /** The stealth meter's colour when she is hidden: a dusk green. */
     static final int STEALTH_HIDDEN = 0x9FD8A0;
 
     /** What the cards she played are doing for her, a line each, down the left under the dice. */
     public void drawBuffs(Ui ui, Player p, float x, float y) {
         for (Buffs.Active a : p.buffs().active()) {
+            if (a.source.startsWith("Perk: ") && a.left() == Double.POSITIVE_INFINITY) continue;   // for good
             ui.textShadowed(ui.small, a.source + ": " + a.describe(), x, y, CombatColours.rgba(Combat.CARD_RGB, 1f));
             y += ui.small.lineHeight() + 2;
         }

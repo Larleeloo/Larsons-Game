@@ -140,10 +140,13 @@ public final class ObjectTypes {
                 (o, b) -> b.plant(o)));
         register(new ObjectType(ITEM, "Item", Category.ITEMS,
                 List.of(Prop.choice("item", "Item", "sword", o -> itemIds()),
-                        Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf)), 0.45, 1.2, 0xE0C080, false,
+                        Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf),
+                        Prop.number("count", "How many (a stack, coins)", 1, 1, 999, 1)), 0.45, 1.2, 0xE0C080, false,
                 (o, b) -> {
                     Item item = item(o);
-                    if (item != null) b.world().spawn(item, b.onGround(o));
+                    int n = item == null || item.def().stack() <= 1 && !item.is(com.larsons.game.world.Supplies.COINS)
+                            ? 1 : (int) Math.max(1, Math.round(o.num("count", 1)));
+                    if (item != null) b.world().spawn(item, b.onGround(o), n);
                 }));
         // a chest: of loot (it throws out what the level's loot gives, once) or for keeping things in (Store)
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
@@ -489,6 +492,7 @@ public final class ObjectTypes {
         for (ItemDef d : Wearables.ALL) out.add(d.id());
         for (ItemDef d : Pickings.ALL) out.add(d.id());
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
+        for (ItemDef d : com.larsons.game.world.Supplies.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
         for (Forged f : Forged.all()) out.add(f.key());
         return out;
@@ -567,6 +571,11 @@ public final class ObjectTypes {
         }
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
             out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+        }
+        // ammunition, upgrade ingots, reshuffle scrolls, coins
+        for (ItemDef d : com.larsons.game.world.Supplies.ALL) {
+            out.add(new Entry(d.name(), Category.ITEMS, ITEM, d == com.larsons.game.world.Supplies.COINS
+                    ? Map.of("item", d.id(), "count", 10.0) : Map.of("item", d.id(), "count", 5.0)));
         }
         for (CritterKind k : CritterKind.values()) {
             out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",

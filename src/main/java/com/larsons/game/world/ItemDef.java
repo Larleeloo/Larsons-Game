@@ -132,6 +132,8 @@ public record ItemDef(String id, String name, Slot carrySlot, double worldSize,
         ItemDef p = Pickings.byId(id);
         if (p != null) return p;
         ItemDef h = Hunted.byId(id);
-        return h != null ? h : Tack.byId(id);
+        if (h != null) return h;
+        ItemDef s = Supplies.byId(id);
+        return s != null ? s : Tack.byId(id);
     }
 }
