@@ -2021,7 +2021,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             n = n.withHeight(widgets.slider(ui, "bd-height", "Height (°)", n.height(), 0.5, 30, "%.1f", x, y + 10, w));
             y += 40;
         } else {
-            n = n.withDistance(widgets.slider(ui, "bd-dist", "Shore (m)", n.distance(), 10, 600, "%.0f", x, y + 10, w));
+            n = n.withDistance(widgets.slider(ui, "bd-dist", "Shore (m past the edge)", n.distance(), 0, 600, "%.0f",
+                    x, y + 10, w));
             y += 40;
         }
         n = n.withHaze(widgets.slider(ui, "bd-haze", "Haze", n.haze(), 0, 1, "%.2f", x, y + 10, w));

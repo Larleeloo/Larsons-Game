@@ -50,6 +50,18 @@ public final class BuildingProfile {
         }
     }
 
+    /**
+     * Something of it she walks up onto - a porch's deck, the step at a
+     * door, a flight of stairs a step at a time: a box {@code w × d} round
+     * {@code (x, y)}, its top {@code top} metres up.
+     */
+    public record Step(double x, double y, double w, double d, double top) {
+        /** Whether {@code (mx, my)} (its own metres) is over it. */
+        public boolean over(double mx, double my) {
+            return Math.abs(mx - x) <= w / 2 && Math.abs(my - y) <= d / 2;
+        }
+    }
+
     /** The turning part: frames in its strip, degrees over them, degrees a second. */
     public record Anim(int frames, double degrees, double speed) {}
 
@@ -68,6 +80,8 @@ public final class BuildingProfile {
     private double[] flame;
     /** A light's fitting that stands on the ground (not hung up or set on something). */
     private boolean stands;
+    /** What she walks up onto: its porch, its steps, its stairs. */
+    private List<Step> steps = List.of();
 
     public BuildingProfile(String key, String label, double pixel, double texel, double depthMin, double depthStep,
                            Map<Elevation, Frame> frames, List<Part> parts, List<Shape> footprint, double[] door,
@@ -133,6 +147,15 @@ public final class BuildingProfile {
 
     /** What of it is solid, in its own metres. */
     public List<Shape> footprint() { return footprint; }
+
+    /** What of it she walks up onto - a porch, a step, stairs - in its own metres. */
+    public List<Step> steps() { return steps; }
+
+    /** As it comes, with {@code steps} to walk up onto. */
+    public BuildingProfile withSteps(List<Step> steps) {
+        this.steps = steps == null ? List.of() : List.copyOf(steps);
+        return this;
+    }
 
     /** Where she stands to go in, in its own metres ({@code x}, {@code y}), or null. */
     public double[] door() { return door == null ? null : door.clone(); }
@@ -238,6 +261,16 @@ public final class BuildingProfile {
                     ((Number) f.get(2)).doubleValue()};
         }
         p.stands = Json.bool(o, "stands", false);
+        List<Step> steps = new ArrayList<>();
+        if (o.get("steps") instanceof List<?> sl) {
+            for (Object x : sl) {
+                if (!(x instanceof List<?> st) || st.size() < 6) continue;
+                steps.add(new Step(((Number) st.get(1)).doubleValue(), ((Number) st.get(2)).doubleValue(),
+                        ((Number) st.get(3)).doubleValue(), ((Number) st.get(4)).doubleValue(),
+                        ((Number) st.get(5)).doubleValue()));
+            }
+        }
+        p.steps = List.copyOf(steps);
         return p;
     }
 }

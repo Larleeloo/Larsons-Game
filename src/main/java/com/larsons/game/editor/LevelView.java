@@ -47,6 +47,8 @@ final class LevelView {
         this.tuning = tuning;
         this.world = new World(wardrobe);
         world.player().preview(AnimState.IDLE);
+        // the animals stand where they are put until the level is played: where each lives is plain to see
+        world.animals().setStill(true);
         refresh();
     }
 

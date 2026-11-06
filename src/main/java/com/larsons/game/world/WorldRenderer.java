@@ -247,6 +247,7 @@ public final class WorldRenderer implements AutoCloseable {
             }
         } else {
             voidRenderer.useGround(world.ground());
+            voidRenderer.setEdges(world.bounds());       // (the backdrops stand round the level's edges)
             // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
             float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
             voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);

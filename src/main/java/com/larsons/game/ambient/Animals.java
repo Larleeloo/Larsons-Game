@@ -144,6 +144,7 @@ public final class Animals {
     private Random random = new Random(20261102);
     private double survey, thin;
     private boolean enabled = true;
+    private boolean still;
 
     public Animals() {
         for (AnimalKind k : AnimalKind.values()) share.put(k, 0.0);
@@ -160,6 +161,19 @@ public final class Animals {
     public void setLife(Life l) {
         life = l == null ? new Life() : l;
     }
+
+    /**
+     * Whether they stand still where they are put - Creative Mode's view,
+     * where nobody plays: every herd all there at once, each one standing on
+     * its own spot (a single one just where it was placed) facing its way and
+     * going nowhere until the level is played, so where they live is plain to
+     * see; and a kind turned off there (none to come by) gone at once.
+     */
+    public void setStill(boolean on) {
+        still = on;
+    }
+
+    public boolean still() { return still; }
 
     /** Whether any come at all (off: none, and those about are gone). */
     public void setEnabled(boolean on) {
@@ -235,6 +249,10 @@ public final class Animals {
             double fade = a.mode == Animal.Mode.RUN_OFF || a.mode == Animal.Mode.DOWN ? 2.6 : 1.2;
             a.alpha = fading ? Math.max(0, a.alpha - dt / fade) : Math.min(1, a.alpha + dt / 0.8);
             if (a.alpha <= 0 && fading) a.gone = true;
+            if (still) {
+                stand(a, place);
+                continue;
+            }
             react(a, q, place, voice, focus);
             behave(a, dt, time, q, place, voice, focus);
             dress(a);
@@ -266,10 +284,28 @@ public final class Animals {
         for (AnimalKind k : AnimalKind.values()) share.put(k, sum.get(k) / n);
     }
 
+    /** One standing still where it was put (the editor's view): its idle (a bird on the water floats), at rest. */
+    private static void stand(Animal a, Place place) {
+        a.vx = a.vz = 0;
+        if (!a.leaving) a.alpha = 1;
+        if (a.mode != Animal.Mode.REST) a.enter(Animal.Mode.REST);
+        settle(a, place);
+        dress(a);
+    }
+
     private void populate(double dt, double day, Vec3 focus, Place place) {
         thin -= dt;
         for (AnimalKind k : AnimalKind.values()) {
             long want = Math.round(wanted(k, day));
+            if (life.density(k) <= 0) {
+                // turned off: none come by, and those about go - at once where nobody plays
+                for (Animal a : live) {
+                    if (a.kind != k || a.herd != null || a.saddled || a.ridden) continue;
+                    if (still) a.gone = true;
+                    else a.leaving = true;
+                }
+                continue;
+            }
             int have = 0;
             for (Animal a : live) if (a.kind == k && a.herd == null && !a.leaving && !a.saddled) have++;
             if (have < want && spawnFree(k, focus, place)) have++;
@@ -301,7 +337,16 @@ public final class Animals {
         }
         for (Herd h : herds) {
             boolean near = Math.hypot(h.at().x() - focus.x(), h.at().z() - focus.z()) < HERD_REACH;
-            int want = near ? (int) Math.round(h.count() * when(h, day)) : 0;
+            int want = near ? (int) Math.round(h.count() * (still ? 1 : when(h, day))) : 0;
+            if (still && near) {
+                // the editor's view: the whole herd there at once, where each will stand
+                int have = 0;
+                for (Animal a : live) if (h.equals(a.herd) && !a.leaving) have++;
+                for (int tries = 0; have < want && tries < want * 3; tries++) {
+                    if (spawnIn(h, focus, place)) have++;
+                }
+                continue;
+            }
             int have = 0;
             Animal extra = null;
             for (Animal a : live) {
@@ -376,7 +421,7 @@ public final class Animals {
         return false;
     }
 
-    private void spawnIn(Herd h, Vec3 focus, Place place) {
+    private boolean spawnIn(Herd h, Vec3 focus, Place place) {
         AnimalKind k = h.kind();
         if (h.single()) {
             // one animal, just where it was put, facing the way it was turned
@@ -386,15 +431,16 @@ public final class Animals {
             an.roam = Math.max(0.5, h.radius());
             an.timer = 3 + random.nextDouble() * 4;
             if (h.saddled() && k == AnimalKind.HORSE) an.saddled = true;
+            if (still) an.alpha = 1;
             live.add(an);
-            return;
+            return true;
         }
         for (int t = 0; t < 8; t++) {
             double a = random.nextDouble() * Math.PI * 2, r = h.radius() * Math.sqrt(random.nextDouble());
             double x = h.at().x() + Math.cos(a) * r, z = h.at().z() + Math.sin(a) * r;
             // not in deep water (unless it swims), nor in a tree, nor under her nose: somewhere else
             if (t < 7 && !passable(k, x, z, place)) continue;
-            if (t < 5 && Math.hypot(x - focus.x(), z - focus.z()) < 8) continue;
+            if (!still && t < 5 && Math.hypot(x - focus.x(), z - focus.z()) < 8) continue;
             Animal an = make(k, h, h.temperament() == null ? k.temperament() : h.temperament(), x, z, place);
             an.homeX = h.at().x();
             an.homeZ = h.at().z();
@@ -403,9 +449,11 @@ public final class Animals {
                 an.saddled = true;
                 an.roam = Math.min(an.roam, Animal.STAY * 2);
             }
+            if (still) an.alpha = 1;
             live.add(an);
-            return;
+            return true;
         }
+        return false;
     }
 
     private Animal make(AnimalKind k, Herd herd, Temperament t, double x, double z, Place place) {

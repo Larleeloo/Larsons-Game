@@ -863,6 +863,9 @@ public final class World {
         public double top(double x, double z, double below) {
             double best = Double.NaN;
             for (Building b : buildings) {
+                // a building's porch, the step at its door, its stairs: walked up onto
+                double st = b.stepTop(x, z, below);
+                if (!Double.isNaN(st) && !(st <= best)) best = st;
                 if (!climbable(b)) continue;
                 double t = b.position().y() + b.profile().height();
                 if (t > below || t <= best) continue;

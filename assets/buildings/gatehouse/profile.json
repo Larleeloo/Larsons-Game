@@ -102,5 +102,6 @@
   0.75
  ],
  "interior": true,
- "anim": null
+ "anim": null,
+ "steps": []
 }

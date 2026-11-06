@@ -83,6 +83,8 @@ public final class VoidRenderer implements AutoCloseable {
             uniform vec4 uBdA[8];       // kind, height (degrees), haze, seed
             uniform vec4 uBdB[8];       // colour (rgb), snow
             uniform vec4 uBdC[8];       // from, to (degrees from north; equal: all round), the sea's shore (m), 0
+            uniform vec4 uEdges;        // the level's edges x0, x1, z0, z1 - the backdrops stand round them
+                                        // (x1 <= x0: no edges, the backdrops at no distance)
             // --- the time of day (DayCycle.Daylight) ---
             uniform vec3 uSunDir;       // the way to the sun
             uniform vec3 uSunColour;
@@ -392,6 +394,35 @@ public final class VoidRenderer implements AutoCloseable {
                 return 0.0;
             }
 
+            vec4 backdropsAt(float az, float el, vec3 horizon);
+
+            // whether the level has edges: then the backdrops stand round them
+            bool edged() {
+                return uEdges.y > uEdges.x;
+            }
+
+            // how far along dir from the eye it leaves the level going out over its far edge (metres); -1 when it
+            // never crosses the level (from outside it, the backdrops on the near edges are not drawn)
+            float edgeAlong(vec3 dir) {
+                vec2 d = vec2(abs(dir.x) < 1e-6 ? 1e-6 : dir.x, abs(dir.z) < 1e-6 ? 1e-6 : dir.z);
+                vec2 a = (vec2(uEdges.x, uEdges.z) - uEye.xz) / d, b = (vec2(uEdges.y, uEdges.w) - uEye.xz) / d;
+                vec2 lo = min(a, b), hi = max(a, b);
+                float tin = max(lo.x, lo.y), tout = min(hi.x, hi.y);
+                return tout < max(tin, 0.0) ? -1.0 : tout;
+            }
+
+            // a point on the level's edge as a backdrop sees it: round the edge from the level's middle (degrees from
+            // north through east), and how high over the ground as seen from there (degrees) - so a backdrop h
+            // degrees high stands as high over the whole edge as it looks from the middle, nearer as she goes nearer
+            vec2 edgeView(vec3 at) {
+                vec2 mid = vec2(uEdges.x + uEdges.y, uEdges.z + uEdges.w) * 0.5;
+                float halfSize = max(uEdges.y - uEdges.x, uEdges.w - uEdges.z) * 0.5;
+                float az = degrees(atan(at.x - mid.x, -(at.z - mid.y)));
+                if (az < 0.0) az += 360.0;
+                // (its height from 2 m up, about her eyes: from the middle, set h degrees high is h degrees high)
+                return vec2(az, degrees(atan(max(at.y - 2.0, 0.0), halfSize)));
+            }
+
             // the backdrops over the sky (or the far ground) seen along dir; a = 0 where there are none
             vec4 backdrops(vec3 dir, vec3 horizon, bool ground) {
                 vec4 c = vec4(0.0);
@@ -399,6 +430,19 @@ public final class VoidRenderer implements AutoCloseable {
                 float az = degrees(atan(dir.x, -dir.z));
                 if (az < 0.0) az += 360.0;
                 float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
+                return backdropsAt(az, el, horizon);
+            }
+
+            // the backdrops standing round the level's edge, where dir crosses it at `at`; a = 0 where none is
+            vec4 backdropsOnEdge(vec3 at, vec3 horizon) {
+                if (uBackdrops == 0 || at.y < 0.0) return vec4(0.0);
+                vec2 v = edgeView(at);
+                return backdropsAt(v.x, v.y, horizon);
+            }
+
+            // the backdrops at azimuth az and elevation el (degrees); a = 0 where there are none
+            vec4 backdropsAt(float az, float el, vec3 horizon) {
+                vec4 c = vec4(0.0);
                 float px = max(uBdPixel, 0.02);
                 float qaz = (floor(az / px) + 0.5) * px, qel = (floor(el / px) + 0.5) * px;
                 if (qel < -1.5) return c;
@@ -443,8 +487,18 @@ public final class VoidRenderer implements AutoCloseable {
                 for (int i = 0; i < 8; i++) {
                     if (i >= uBackdrops) break;
                     if (int(uBdA[i].x + 0.5) != 4) continue;
-                    if (bdArc(az, uBdC[i].x, uBdC[i].y) <= 0.5) continue;
-                    if (length(p.xz) < uBdC[i].z) continue;
+                    if (edged()) {
+                        // its shore that far out past the level's edge, all round it (the arc round the middle)
+                        vec2 mid = vec2(uEdges.x + uEdges.y, uEdges.z + uEdges.w) * 0.5;
+                        float a = degrees(atan(p.x - mid.x, -(p.z - mid.y)));
+                        if (a < 0.0) a += 360.0;
+                        if (bdArc(a, uBdC[i].x, uBdC[i].y) <= 0.5) continue;
+                        vec2 past = max(vec2(uEdges.x, uEdges.z) - p.xz, p.xz - vec2(uEdges.y, uEdges.w));
+                        if (max(past.x, past.y) < uBdC[i].z) continue;
+                    } else {
+                        if (bdArc(az, uBdC[i].x, uBdC[i].y) <= 0.5) continue;
+                        if (length(p.xz) < uBdC[i].z) continue;
+                    }
                     vec2 cell = floor(p.xz / vec2(1.6, 0.6));
                     float wave = bdHash(cell.x * 7.0 + cell.y * 131.0 + floor(uTime * 1.5 + bdHash(cell.y) * 9.0));
                     vec3 col = uBdB[i].rgb * uAmbient * (wave > 0.93 ? 1.45 : wave > 0.7 ? 1.12 : 1.0);
@@ -495,22 +549,45 @@ public final class VoidRenderer implements AutoCloseable {
                 vec3 grass = uGroundTile > 0.0 ? groundColour(p.xz) : vec3(0.0);
                 if (uGroundTile > 0.0) grass = groundTint(grass, p.xz);
 
+                // the level's edges: the backdrops stand round them, from the ground up
+                bool edges = edged() && uBackdrops > 0;
+                float te = edges ? edgeAlong(dir) : 1e9;
+                vec3 atEdge = uEye + dir * max(te, 0.0);
                 if (dir.y >= -1e-4 || uEye.y <= 0.0) {
                     vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
-                    vec4 far = backdrops(dir, uHorizon, false);
+                    vec4 far = !edges ? backdrops(dir, uHorizon, false)
+                            : te >= 0.0 ? backdropsOnEdge(atEdge, uHorizon) : vec4(0.0);
                     fragColor = vec4(mix(sky, far.rgb, far.a), 1.0);
+                    if (edges && far.a > 0.5) {
+                        vec4 clip = uViewProj * vec4(atEdge, 1.0);
+                        gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
+                    }
                     return;
+                }
+                if (edges && t > te && te >= 0.0) {
+                    // out over the edge before the ground: a backdrop stands there, or beyond it the far plain
+                    vec4 far = backdropsOnEdge(atEdge, uHorizon);
+                    if (far.a > 0.5) {
+                        fragColor = vec4(far.rgb, 1.0);
+                        vec4 clip = uViewProj * vec4(atEdge, 1.0);
+                        gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
+                        return;
+                    }
                 }
                 vec3 c = uGroundTile > 0.0 ? grass : studioFloor(p);
                 c *= sceneLight(p);
                 c = mix(c, uMistColour, sceneMist(p));
                 float fog = 1.0 - exp(-pow(t / uFogDistance, 2.0));
+                // beyond the edges, behind the backdrops, the far plain is all in the haze
+                if (edges && (p.x < uEdges.x || p.x > uEdges.y || p.z < uEdges.z || p.z > uEdges.w)) fog = 1.0;
                 c = mix(c, uHorizon, fog);
                 vec4 water = sea(dir, p, t, uHorizon);
                 c = mix(c, water.rgb, water.a);
                 // a backdrop's foot, just under the horizon, over the ground faded into it
-                vec4 far = backdrops(dir, uHorizon, true);
-                c = mix(c, far.rgb, far.a * fog);
+                if (!edges) {
+                    vec4 far = backdrops(dir, uHorizon, true);
+                    c = mix(c, far.rgb, far.a * fog);
+                }
                 fragColor = vec4(c, 1.0);
 
                 // its depth a little behind itself, as the hills' is - but none where the hills draw the ground
@@ -533,6 +610,19 @@ public final class VoidRenderer implements AutoCloseable {
         shader = new Shader("void", VERTEX, FRAGMENT);
         vao = glGenVertexArrays();
         this.ground = ground;
+    }
+
+    /** The level's edges (x from, x to, z from, z to) its backdrops stand round; null: none, at no distance. */
+    private double[] edges;
+
+    /**
+     * Stand the backdrops round {@code bounds} - a level's edges, x from, x
+     * to, z from, z to - from the next draw: as high from the middle as they
+     * are set, nearer and taller as one goes nearer them, the plain beyond them
+     * hidden; null: none, round the horizon at no distance.
+     */
+    public void setEdges(double[] bounds) {
+        edges = bounds == null || bounds.length < 4 || bounds[1] <= bounds[0] ? null : bounds.clone();
     }
 
     /** Draw the ground as {@code map} has it from now on ({@link GroundTexture#use}). */
@@ -590,6 +680,11 @@ public final class VoidRenderer implements AutoCloseable {
             shader.set("uBdC[" + i + "]", (float) b.from(), (float) b.to(), (float) b.distance(), 0);
         }
         shader.set("uBackdrops", n);
+        if (edges != null) {
+            shader.set("uEdges", (float) edges[0], (float) edges[1], (float) edges[2], (float) edges[3]);
+        } else {
+            shader.set("uEdges", 0f, 0f, 0f, 0f);
+        }
         // the time of day
         set("uSunDir", light.sun());
         float[] sc = light.sunColour(), glow = light.glow();

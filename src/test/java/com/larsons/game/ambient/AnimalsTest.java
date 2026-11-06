@@ -119,6 +119,70 @@ class AnimalsTest {
     }
 
     @Test
+    void turnedOffInTheEditorTheyAreGoneAtOnce() {
+        Animals a = fresh(11);
+        a.setStill(true);
+        Animals.Place p = place(Biome.PLAINS, 0);
+        run(a, p, null, 30, new ArrayList<>());
+        assertFalse(a.live().isEmpty(), "some come by in the editor's view");
+        Life off = new Life();
+        for (AnimalKind k : AnimalKind.values()) off.setDensity(k, 0);
+        a.setLife(off);
+        a.tick(0.05, 30, 1, Vec3.ZERO, null, p, (key, at, volume) -> { });
+        assertTrue(a.live().isEmpty(), "spawning off: none left standing about, " + a.live().size());
+        run(a, p, null, 20, new ArrayList<>());
+        assertTrue(a.live().isEmpty(), "and none come");
+
+        // in play, they go too - wherever they are, not only once far off
+        Animals play = fresh(11);
+        run(play, p, null, 30, new ArrayList<>());
+        assertFalse(play.live().isEmpty());
+        play.setLife(off);
+        run(play, p, null, 4, new ArrayList<>());
+        assertTrue(play.live().isEmpty(), "faded away: " + play.live().size());
+    }
+
+    @Test
+    void inTheEditorAHerdStandsOnItsSpotsUntilPlayed() {
+        Animals a = fresh(12);
+        a.setStill(true);
+        Life none = new Life();
+        for (AnimalKind k : AnimalKind.values()) none.setDensity(k, 0);
+        a.setLife(none);
+        Animals.Herd cows = new Animals.Herd(AnimalKind.COW, new Vec3(-10, 0, 0), 5, 6, null,
+                Critters.When.NIGHT);
+        Animals.Herd one = new Animals.Herd(AnimalKind.HORSE, new Vec3(12, 0, -3), 1, 3, null,
+                Critters.When.ITS_TIME, false, List.of(), 1, 1, true, 1.0);
+        a.herds().add(cows);
+        a.herds().add(one);
+        Animals.Place p = place(Biome.PLAINS, 0);
+        a.tick(0.05, 0, 1, Vec3.ZERO, null, p, (key, at, volume) -> { });
+        assertEquals(5, a.count(AnimalKind.COW), "the whole herd at once, whatever the hour");
+        assertEquals(1, a.count(AnimalKind.HORSE));
+        java.util.Map<Animal, Vec3> where = new java.util.HashMap<>();
+        for (Animal an : a.live()) {
+            where.put(an, an.position());
+            assertEquals(1, an.alpha(), 1e-9, "all there, not fading in");
+        }
+        Animal horse = a.live().stream().filter(an -> an.kind() == AnimalKind.HORSE).findFirst().orElseThrow();
+        assertEquals(12, horse.position().x(), 1e-9);
+        assertEquals(-3, horse.position().z(), 1e-9);
+        assertEquals(1.0, horse.heading(), 1e-9, "facing the way it was turned");
+        run(a, p, null, 60, new ArrayList<>());
+        assertEquals(5, a.count(AnimalKind.COW));
+        for (Animal an : a.live()) {
+            assertEquals(where.get(an), an.position(), an.kind() + " has not moved off its spot");
+            assertEquals(1.0, an.kind() == AnimalKind.HORSE ? an.heading() : 1.0, 1e-9);
+        }
+        // played, they go about as ever
+        a.setStill(false);
+        run(a, p, null, 40, new ArrayList<>());
+        boolean moved = false;
+        for (Animal an : a.live()) if (where.containsKey(an) && !where.get(an).equals(an.position())) moved = true;
+        assertTrue(moved, "they wander once played");
+    }
+
+    @Test
     void theLevelsDensitySaysHowMany() {
         Animals none = fresh(6);
         Life l = new Life();
