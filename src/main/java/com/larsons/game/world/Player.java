@@ -137,6 +137,21 @@ public final class Player {
     /** Faster than this (m/s), a dodge leaves afterimages behind her. */
     public static final double AFTERIMAGE_SPEED = 6;
 
+    /**
+     * The jump attack ({@link AnimState#JUMP_ATTACK}), started in the air with
+     * the attack key: the weapon drawn up over her head to its frame {@link
+     * #PLUNGE_DIVE} - a little lift as she does - then she drops at {@link
+     * #PLUNGE_SPEED} held on frame {@link #PLUNGE_HOLD} until she lands, and the
+     * blow strikes the ground all round her on frame {@link #PLUNGE_IMPACT} (a
+     * die more than a swing: {@code combat.Move}). Frames of the sheet's 24,
+     * the same as {@code feminine_model_jump_attack.py}'s.
+     */
+    public static final int PLUNGE_DIVE = 5, PLUNGE_HOLD = 8, PLUNGE_IMPACT = 11, PLUNGE_FRAMES = 24;
+    /** How fast she drops in the jump attack, m/s, and how high she must be (metres) to start one. */
+    public static final double PLUNGE_SPEED = 14, PLUNGE_MIN = 0.2;
+    /** A jump attack lands unhurt from up to this high (metres): she drives into it. */
+    public static final double PLUNGE_SAFE = 8;
+
     /** Her health and stamina when full. */
     public static final double MAX_HEALTH = 100, MAX_STAMINA = 100;
     /** A fall from higher than this (metres, feet to feet) hurts: {@link #FALL_DAMAGE} for each metre beyond. */
@@ -240,6 +255,8 @@ public final class Player {
             FALL,
             /** Landed unhurt, from a jump or a drop of {@code amount} metres. */
             LANDED,
+            /** Landed a jump attack, from {@code amount} metres up. */
+            PLUNGED,
             /** Landed in a roll from a fall that would have hurt ({@code amount}: what it would have). */
             ROLLED,
             /** Stepped up over the top of a wall. */
@@ -322,6 +339,8 @@ public final class Player {
     private boolean handsEmpty;
     private boolean crouched;
     private boolean jumping, launched;
+    /** In the air in a jump attack (until she lands), and in the air loosing a shot. */
+    private boolean plunging, aerial;
     /** The jump under way: the stance's own (they all leave the ground on the same frames). */
     private AnimState jumpState = AnimState.JUMP;
     /** The one-shot under way (null: none), and how long it lasts. */
@@ -459,6 +478,20 @@ public final class Player {
         // --- starting something ----------------------------------------------------------
         boolean blocking = false;
         if (!grounded && in.dodge()) rollPrimed = true;                     // she will land in a roll
+        if (!grounded && in.attack() && action == null && height > PLUNGE_MIN && st.attack(false) != null) {
+            // in the air: a bow or a crossbow looses a shot down at what is below; anything else, the jump attack
+            jumping = false;
+            crouched = false;
+            if (st == Stance.BOW || st == Stance.CROSSBOW) {
+                aerial = true;
+                start(st.release(false), durations);
+            } else {
+                plunging = true;
+                vy = Math.max(vy, 1.5);
+                start(AnimState.JUMP_ATTACK, durations);
+            }
+            busy = true;
+        }
         if (!busy && grounded) {
             AnimState next = null;
             if (in.dodge() && dodgeWait <= 0) {
@@ -566,6 +599,12 @@ public final class Player {
         setState(next);
         if (falling) stateTime = FALL_POSE * durations.applyAsDouble(next);    // held in the air
         else stateTime += dt;
+        if (plunging) {
+            // the draw over her head, then down: held on the drop until she lands
+            if (stateTime >= plungeAt(PLUNGE_DIVE)) vy = Math.min(vy, -PLUNGE_SPEED);
+            if (airborne()) stateTime = Math.min(stateTime, plungeAt(PLUNGE_HOLD));
+        }
+        if (aerial && (action == null || !airborne())) aerial = false;
 
         // The dash: held through its push-off, it turns into the roll - at
         // the frame it has reached, the two being the same until then.
@@ -605,6 +644,7 @@ public final class Player {
         action = null;
         drawing = false;
         jumping = false;
+        plunging = aerial = false;
         grab = null;
         crouched = false;
         rollPrimed = false;
@@ -904,6 +944,16 @@ public final class Player {
         double drop = fallFrom - position.y();
         vy = 0;
         double hurt = drop > SAFE_FALL ? FALL_DAMAGE * (drop - SAFE_FALL) : 0;
+        if (plunging) {
+            // the jump attack strikes down: unhurt from as high as PLUNGE_SAFE, the blow landing as she does
+            plunging = false;
+            rollPrimed = false;
+            velocity = Vec3.ZERO;
+            hurt = drop > PLUNGE_SAFE ? FALL_DAMAGE * (drop - PLUNGE_SAFE) : 0;
+            if (hurt > 0) hurt(Math.round(hurt));
+            events.add(new Event(Event.Kind.PLUNGED, drop));
+            return;
+        }
         if (rollPrimed && drop >= ROLL_FALL) {
             jumping = false;
             drawing = false;
@@ -969,6 +1019,7 @@ public final class Player {
         drawing = false;
         action = null;
         jumping = false;
+        plunging = aerial = false;
         airborne = false;
         rollPrimed = false;
         vy = 0;
@@ -1143,6 +1194,7 @@ public final class Player {
         Vec3 start = pathAt(mantleF0);
         mantleFrom = new Vec3(position.x() - start.x(), 0, position.z() - start.z());
         jumping = false;
+        plunging = aerial = false;
         action = null;
         drawing = false;
         grab = null;
@@ -1228,6 +1280,17 @@ public final class Player {
         }
         return d / AnimState.DEFAULT_FPS;
     }
+
+    /** When the jump attack's frame {@code frame} (of its {@link #PLUNGE_FRAMES}) comes, seconds into it. */
+    private double plungeAt(int frame) {
+        return actionDuration * frame / PLUNGE_FRAMES;
+    }
+
+    /** Whether she is in the air in a jump attack, dropping onto what is under her. */
+    public boolean plunging() { return plunging; }
+
+    /** Whether she is in the air loosing a shot (a jump's bow or crossbow shot). */
+    public boolean aerialShot() { return aerial; }
 
     private void start(AnimState s, ToDoubleFunction<AnimState> durations) {
         if (s == null) return;
@@ -1374,6 +1437,7 @@ public final class Player {
             ledge = null;
             mantling = false;
             jumping = false;
+            plunging = aerial = false;
             action = null;
             drawing = false;
             grab = null;
@@ -1511,6 +1575,7 @@ public final class Player {
         action = null;
         drawing = false;
         jumping = false;
+        plunging = aerial = false;
         grab = null;
         crouched = false;
         velocity = Vec3.ZERO;
@@ -1526,6 +1591,7 @@ public final class Player {
         mantling = false;
         action = null;
         jumping = false;
+        plunging = aerial = false;
         height = Math.max(0, metres);
         vy = 0;
         airborne = height > 0;

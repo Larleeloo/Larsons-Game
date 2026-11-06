@@ -102,7 +102,7 @@ public final class Combat {
 
     /** What a hit throws off: a spark, or a spell's burst in its colour. */
     public record Effect(Kind kind, Vec3 at, double born, int colour) {
-        public enum Kind { SPARK, BURST }
+        public enum Kind { SPARK, BURST, SLAM }
     }
 
     /** A line under the dice: what the weapon's border adds. */
@@ -240,6 +240,14 @@ public final class Combat {
         popups.removeIf(pp -> now - pp.born() > POPUP_SECONDS);
         effects.removeIf(e -> now - e.born() > EFFECT_SECONDS);
         if (show != null && now > show.end()) show = null;
+    }
+
+    /**
+     * A jump attack's landing at {@code at}: a ring of dust thrown up round her
+     * - a burst of its spell's colour for a weapon that casts.
+     */
+    public void slam(Vec3 at, Item weapon) {
+        effects.add(new Effect(Effect.Kind.SLAM, at, now, casts(weapon) ? spellColour(weapon) : 0xC8B89A));
     }
 
     /** A swing (or a shot) starts: pay for it, roll its dice. */

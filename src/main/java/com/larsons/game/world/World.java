@@ -1092,6 +1092,10 @@ public final class World {
                         combat.sound(SoundKeys.player(body, "land"), at, Math.min(1, 0.45 + e.amount() * 0.35));
                     }
                 }
+                case PLUNGED -> {
+                    combat.sound("combat/plunge", at);
+                    combat.slam(at, wielded());
+                }
                 case ROLLED -> {
                     combat.say(e.amount() > 0 ? "Rolled out of the fall" : "Roll", 0x9CC4FF, at, 2.1, true);
                     combat.sound(SoundKeys.player(body, "landing_roll"), at);

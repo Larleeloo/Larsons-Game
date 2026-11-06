@@ -56,6 +56,11 @@ public record Move(Kind kind, double at, double reach, double arc, boolean heavy
         TABLE.put(AnimState.STAFF_SPIN_ATTACK, swing(0.5, 2.0, 360));
         TABLE.put(AnimState.STAFF_CROUCH_ATTACK, swing(0.5, 2.0, 160));
 
+        // the jump attack: the blow struck into the ground all round her as she lands, a die more
+        TABLE.put(AnimState.JUMP_ATTACK, new Move(Kind.SWING,
+                com.larsons.game.world.Player.PLUNGE_IMPACT / (double) com.larsons.game.world.Player.PLUNGE_FRAMES,
+                2.3, 360, true));
+
         // aimed up: as their level ones (the same frames, the upper body leant back)
         TABLE.put(AnimState.BOW_FIRE_UP, shot(Kind.ARROW, 0.02));
         TABLE.put(AnimState.CROSSBOW_FIRE_UP, shot(Kind.BOLT, 0.33));
