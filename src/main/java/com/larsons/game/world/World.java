@@ -1092,6 +1092,11 @@ public final class World {
                         combat.sound(SoundKeys.player(body, "land"), at, Math.min(1, 0.45 + e.amount() * 0.35));
                     }
                 }
+                case SURFACED -> {
+                    if (e.amount() > 4) combat.sound(SoundKeys.player(body, "gasp"), at);
+                    combat.sound("player/surface", at);
+                }
+                case LEFT_WATER -> combat.sound("player/wade_out", at);
                 case PLUNGED -> {
                     combat.sound("combat/plunge", at);
                     combat.slam(at, wielded());

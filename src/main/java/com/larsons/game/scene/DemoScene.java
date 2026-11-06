@@ -1051,6 +1051,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
+        if (world.player().underWater()) {
+            // under the water: the world seen through it, darker the deeper she is
+            float deep = (float) Math.min(1, world.player().diveDepth() / 6);
+            ui.rect(0, 0, ui.width(), ui.height(), new float[]{0.06f, 0.24f + 0.1f * (1 - deep), 0.38f,
+                    0.38f + 0.3f * deep});
+        }
         if (fade > 0) ui.rect(0, 0, ui.width(), ui.height(), new float[]{0, 0, 0, (float) Math.min(1, fade * 1.4)});
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
@@ -1077,7 +1083,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
             "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
                     + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
-            "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
+            "L lock on · K next target · walk into vines: climb (off their top: climb down) · deep water: swim, C dive, Space up · "
                     + "Alt/Z in the air: land in a roll · "
                     + "the hills are up the north path",
             "Tab height · O auto height · Right-drag orbit · +/- zoom · N (held) time-lapse · H HUD · "
