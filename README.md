@@ -616,6 +616,11 @@ they held round where they stood, clear of the walls. A pot breaks at a
 touch, a barrel takes 30, a crate 22, a storage chest 40. A loot chest does
 not break.
 
+<p align="center">
+  <img src="docs/screenshots/pot-shatters.png" width="49%" alt="A pot by the market stall shattering: its shards thrown up and out">
+  <img src="docs/screenshots/barrel-shatters.png" width="49%" alt="A barrel breaking into splinters and staves">
+</p>
+
 In Creative Mode a barrel, a crate, a pot, a large pot (Place → Inside) or a **Storage chest**
 (Place → Inside) has **Holds**: a list of items, each with how many -
 `wild berries x6, sage, longbow perfect, forged:duskfang` - names as the
@@ -868,6 +873,11 @@ everything round her (a little over a metre and a half) and rolls **a die
 more** than a swing - dust (or a spell's colour) thrown out in a ring where
 she came down. The bow and the crossbow loose a shot from the air instead.
 
+<p align="center">
+  <img src="docs/screenshots/jump-attack.png" width="49%" alt="In the air, the sword raised two-handed over a training dummy">
+  <img src="docs/screenshots/jump-attack-landing.png" width="49%" alt="Landing: the blow rings out round her and three dice roll">
+</p>
+
 ### Dice that add, subtract, multiply, divide or scale
 
 A forged weapon's roll can be more than one kind of die. After its own dice,
@@ -888,6 +898,10 @@ water** (0.25); more running, sprinting, riding or swinging. At **0.45 or
 less she is hidden** - an eye shut over the stamina bar says so - a skittish
 animal lets her come nearly up to it, and her blows are **sneak attacks**:
 twice the damage, said under the dice. A card's cloak hides her better still.
+
+<p align="center">
+  <img src="docs/screenshots/sneaking.png" width="70%" alt="Crouched by the training dummies: the eye over the stamina bar says she is hidden, her blows sneak attacks">
+</p>
 
 ### Ammunition
 
@@ -922,6 +936,10 @@ A tier set as a **mystery** shows as **???** until it is reached (the last
 of the chart's tiers is one unless the Forge says otherwise). Upgraded, it
 changes colour as its tier says. In scripts, `forged:<id>:<tier>`.
 
+<p align="center">
+  <img src="docs/screenshots/weapon-tiers.png" width="70%" alt="A sword right-clicked in the inventory: its five tiers beside it, the second marked as the one it is at, the last a mystery, and the Upgrade button">
+</p>
+
 ### Tuning
 
 The numbers are in **`assets/combat/combat.json`**, read when the demo
@@ -946,7 +964,10 @@ in its colour, what it is about and its starting deck - and the one clicked
 is hers; **Pause → Class** chooses again (a new class starts her deck
 afresh and gives back her perk points). Her class is kept between runs.
 
-<!-- screenshot: class picker -->
+<p align="center">
+  <img src="docs/screenshots/class-picker.png" width="49%" alt="The class picker: the nine classes, each with its pointer, what it is about and its starting deck">
+  <img src="docs/screenshots/cards-hand.png" width="49%" alt="The Mage's hand of four beside the inventory: Healing Spell, Cast, Cast and Bind, the piles and the Reshuffle button">
+</p>
 
 ### The deck
 
@@ -994,6 +1015,11 @@ left (*Plenty*: it never runs out) and its price, and a **Buy** button. A
 card bought goes onto her discard pile. A shop that **buys** takes what she
 sells for **half what it is worth**: right-click (or Shift-click) one of her
 things to sell one. The demo has a striped stall off to her left at the start.
+
+<p align="center">
+  <img src="docs/screenshots/market-stall.png" width="49%" alt="The striped market stall in the demo, E to shop at it">
+  <img src="docs/screenshots/shop-panel.png" width="49%" alt="The stall's stock beside her inventory: supplies, ingots and scrolls, each with how many are left, its price and Buy">
+</p>
 
 In Creative Mode a shop is Place → **Town**: a stall of supplies, a card
 seller's, a smith's counter, any stall, or a keeper's spot at a counter
@@ -1066,6 +1092,10 @@ camera looks (W A S D, Space up, C down), the view tinted and muffled, and a
 **drowns**, a little at a time, until she reaches the air. A fall into deep
 water does not hurt her. Out of it, she wades onto the shallows with water
 running off her.
+
+<p align="center">
+  <img src="docs/screenshots/swimming-under-water.png" width="70%" alt="Diving: she swims under the water, seen down through it in its colour, her breath bar going">
+</p>
 
 ### Climbing and stamina
 
@@ -1851,6 +1881,19 @@ inside: the shop house has a **shop** downstairs - a counter and its shelves
 of jars, a keeper's spot to buy and sell at - the workshop its boiler,
 lightning coil and alchemy table, the foundry its cauldrons, boilers and
 still.
+
+<p align="center">
+  <img src="docs/screenshots/town-square.png" width="49%" alt="The sample town by day: the two market stalls in the square, narrow town houses, the shop house, the clock tower, the workshop and the foundry">
+  <img src="docs/screenshots/town-night.png" width="49%" alt="The town at night: windows lit, the lantern posts and the foundry glowing">
+</p>
+<p align="center">
+  <img src="docs/screenshots/town-houses.png" width="49%" alt="The three narrow town houses, each dressed differently, the shop house and the clock tower">
+  <img src="docs/screenshots/shop-house-inside.png" width="49%" alt="Inside the shop house: its counter and scales, E to shop at it, the stairs, a rug, a crate and a barrel">
+</p>
+<p align="center">
+  <img src="docs/screenshots/workshop-inside.png" width="49%" alt="Inside the steam workshop: its lab gear, a table and stools, crates and barrels">
+  <img src="docs/screenshots/foundry-inside.png" width="49%" alt="Inside the foundry: cauldrons bubbling, boilers, a still and crates">
+</p>
 
 `assets/levels/town` is a sample to play and to open in the editor: a market
 square with both stalls selling (supplies at one, cards at the other), pots,
