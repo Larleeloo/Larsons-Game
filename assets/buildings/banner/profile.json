@@ -1,0 +1,37 @@
+{
+ "key": "banner",
+ "label": "Banner (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 3.08,
+ "model": true,
+ "parts": [
+  {
+   "key": "pole",
+   "label": "Pole",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "cloth",
+   "label": "Cloth",
+   "colour": "#8a2a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "emblem",
+   "label": "Emblem",
+   "colour": "#e0b040",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -105,7 +105,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge"), CARDS("Cards");
 
         final String label;
 
@@ -187,7 +187,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private boolean snap;
     // --- the forge: the weapon being made, and which of its parts (or its dice) the swatches colour
     private Forged forging = Forged.fresh("New weapon");
+    private CardsTool cards;
+
+    private CardsTool cardsTool() {
+        if (cards == null) cards = new CardsTool(game, widgets);
+        return cards;
+    }
     private int forgeColour;
+    /** The Forge's page: 0 the weapon, 1 its dice and ammunition, 2 its upgrade tiers; and the tier being edited. */
+    private int forgePage, forgeTier = 1, tierColour;
     // --- select
     private final List<LevelObject> selection = new ArrayList<>();
     private final List<LevelObject> clipboard = new ArrayList<>();
@@ -1261,7 +1269,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private boolean rightPanelShown() {
         return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty()
-                || tool == Tool.FORGE;
+                || tool == Tool.FORGE || tool == Tool.CARDS;
     }
 
     private void topBar(Ui ui) {
@@ -1439,7 +1447,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
-                    + "effects, its parts' colours · Save it, then Place it (it is in Place → Items from then on)";
+                    + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
+            case CARDS -> "Every card of every class: its name, words, rarity, price and effects · a class's first deck "
+                    + "and its perk tree · Save writes assets/cards/cards.json";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
                 + "Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1471,6 +1481,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
             case FORGE -> forgePanel(ui, px, py, pw);
+            case CARDS -> cardsTool().panel(ui, px, py, pw);
         }
     }
 
@@ -1612,6 +1623,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             forgeColour = 0;
         }
         y += 36;
+        String[] pages = {"Weapon", "Dice & ammo", "Tiers (" + forging.tiers() + ")"};
+        float pw = (w - 8) / 3;
+        for (int i = 0; i < pages.length; i++) {
+            if (ui.button(pages[i], x + i * (pw + 4), y, pw, 28, forgePage == i, true)) forgePage = i;
+        }
+        y += 38;
+        if (forgePage == 1) {
+            forgeDice(ui, x, y, w);
+            return;
+        }
+        if (forgePage == 2) {
+            forgeTiers(ui, x, y, w);
+            return;
+        }
         String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
         if (!name.strip().equals(forging.name()) && !name.isBlank()) forging = forging.withName(name);
         y += 36;
@@ -1680,10 +1705,161 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         y += 34;
 
+        forgeButtons(ui, x, y, w);
+    }
+
+    /** The Forge's Save, Place it and Delete buttons, at {@code y}. */
+    private void forgeButtons(Ui ui, float x, float y, float w) {
         float bw = (w - 8) / 3;
         if (ui.button("Save", x, y, bw, 30)) saveForged(false);
         if (ui.button("Place it", x + bw + 4, y, bw, 30)) saveForged(true);
         if (ui.button("Delete", x + 2 * (bw + 4), y, bw, 30, false, forging.id() != null)) deleteForged();
+    }
+
+    /**
+     * The Forge's second page: more dice after its own - each group so many
+     * of a kind, adding, taking away, multiplying, dividing or scaling by a
+     * percent what came before (the dice are worked out left to right) - and
+     * how many swings, shots or spells one of its ammunition lasts.
+     */
+    private void forgeDice(Ui ui, float x, float y, float w) {
+        ui.text(ui.small, "Rolls " + forging.diceText(), x, y, Theme.ACCENT);
+        y += 24;
+        ui.paragraph(ui.small, "More dice, worked out left to right after its own: + adds, − takes away, × multiplies, "
+                + "÷ divides, % adds that percent of the total so far.", x, y, w, Theme.ITEM_DISABLED);
+        y += 44;
+        List<com.larsons.game.combat.DiceRoll.Group> groups = new ArrayList<>(forging.extra());
+        int remove = -1;
+        for (int g = 0; g < groups.size(); g++) {
+            com.larsons.game.combat.DiceRoll.Group gr = groups.get(g);
+            if (ui.button(gr.op().symbol() + " " + gr.op().word(), x, y, 96, 28)) {
+                groups.set(g, new com.larsons.game.combat.DiceRoll.Group(gr.count(), gr.sides(), gr.op().next()));
+            }
+            if (ui.button("-", x + 102, y, 26, 28)) {
+                groups.set(g, new com.larsons.game.combat.DiceRoll.Group(gr.count() - 1, gr.sides(), gr.op()));
+            }
+            ui.textCentered(ui.small, String.valueOf(gr.count()), x + 145, y + 6, Theme.TITLE);
+            if (ui.button("+", x + 162, y, 26, 28)) {
+                groups.set(g, new com.larsons.game.combat.DiceRoll.Group(gr.count() + 1, gr.sides(), gr.op()));
+            }
+            int si = 0;
+            for (int i = 0; i < Forged.SIDES.length; i++) if (Forged.SIDES[i] == gr.sides()) si = i;
+            if (ui.button(Forged.die(gr.sides()), x + 194, y, w - 194 - 34, 28)) {
+                groups.set(g, new com.larsons.game.combat.DiceRoll.Group(gr.count(),
+                        Forged.SIDES[(si + 1) % Forged.SIDES.length], gr.op()));
+            }
+            if (ui.button("x", x + w - 28, y, 28, 28)) remove = g;
+            y += 34;
+        }
+        if (remove >= 0) groups.remove(remove);
+        if (groups.size() < 4 && ui.button("Add dice", x, y, w, 28)) {
+            groups.add(new com.larsons.game.combat.DiceRoll.Group(1, 6, com.larsons.game.combat.DiceRoll.Op.ADD));
+        }
+        if (!groups.equals(forging.extra())) forging = forging.withExtra(groups);
+        y += 44;
+        int every = (int) Math.round(widgets.stepper(ui, "Ammo lasts", forging.at(0).ammoEvery(), 1, 1, 200, "%.0f uses",
+                x, y, w));
+        if (every != forging.at(0).ammoEvery()) forging = forging.withAmmoEvery(every);
+        y += 30;
+        ItemDef ammo = com.larsons.game.world.Ammo.of(forging.def());
+        if (ammo != null) {
+            ui.paragraph(ui.small, "One " + ammo.name().toLowerCase(java.util.Locale.ROOT) + " is used up every "
+                    + every + (every == 1 ? " use" : " uses") + " (each tier can change it).", x, y, w,
+                    Theme.ITEM_DISABLED);
+        }
+        y += 50;
+        forgeButtons(ui, x, y, w);
+    }
+
+    /**
+     * The Forge's third page: its upgrade tiers, 1 (as forged) to 10 - each
+     * after the first with its own name, rarity, dice, colours, ammunition
+     * and price in upgrade ingots, and whether it is a mystery (???) in the
+     * inventory until it is reached.
+     */
+    private void forgeTiers(Ui ui, float x, float y, float w) {
+        List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
+        int n = (int) Math.round(widgets.stepper(ui, "Tiers", ups.size() + 1, 1, 1, Forged.MAX_TIERS, "%.0f", x, y, w));
+        while (ups.size() + 1 < n) {
+            // a tier more: the one before it, a rarity rarer, a die more, a little dearer
+            Forged last = forging.at(ups.size());
+            Rarity r = Rarity.values()[Math.min(Rarity.values().length - 1, last.rarity().ordinal() + 1)];
+            ups.add(new Forged.Upgrade("", r, Math.min(Forged.MAX_DICE, last.dice() + 1), last.sides(), last.extra(),
+                    last.diceRgb(), Map.of(), last.ammoEvery() + com.larsons.game.world.Ammo.EVERY_STEP,
+                    com.larsons.game.world.Upgrades.cost(r), false));
+        }
+        while (ups.size() + 1 > n) ups.remove(ups.size() - 1);
+        if (!ups.equals(forging.upgrades())) forging = forging.withUpgrades(ups);
+        y += 36;
+        if (ups.isEmpty()) {
+            ui.paragraph(ui.small, "One tier: it stays as forged. Add tiers to let it be upgraded with upgrade ingots "
+                    + "(right-click it in the inventory to see them all).", x, y, w, Theme.ITEM_DISABLED);
+            forgeButtons(ui, x, y + 60, w);
+            return;
+        }
+        forgeTier = Math.max(1, Math.min(ups.size(), forgeTier));
+        float tw = Math.min(40, (w - (ups.size() - 1) * 3) / ups.size());
+        for (int i = 1; i <= ups.size(); i++) {
+            if (ui.button(String.valueOf(i + 1), x + (i - 1) * (tw + 3), y, tw, 26, forgeTier == i, true)) forgeTier = i;
+        }
+        y += 34;
+        Forged.Upgrade u = ups.get(forgeTier - 1);
+        Forged.Upgrade was = u;
+        String tname = widgets.text(ui, "tier-name-" + forgeTier, "Name", u.name().isEmpty()
+                ? forging.baseName() + " +" + forgeTier : u.name(), x, y, w);
+        if (!tname.strip().equals(forging.baseName() + " +" + forgeTier) && !tname.strip().equals(u.name())) {
+            u = u.withName(tname);
+        }
+        y += 34;
+        List<String> rarities = new ArrayList<>();
+        for (Rarity r : Rarity.values()) rarities.add(r.label());
+        int ri = widgets.choice(ui, "Rarity", rarities, u.rarity().ordinal(), x, y, w, 0.36f);
+        if (ri != u.rarity().ordinal()) u = u.withRarity(Rarity.values()[ri]);
+        y += 34;
+        int dn = (int) Math.round(widgets.stepper(ui, "Dice", u.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
+        if (dn != u.dice()) u = u.withDice(dn);
+        y += 32;
+        int kinds = Forged.SIDES.length;
+        float dw = (w - (kinds - 1) * 3) / kinds;
+        for (int i = 0; i < kinds; i++) {
+            if (ui.button(Forged.die(Forged.SIDES[i]), x + i * (dw + 3), y, dw, 26, u.sides() == Forged.SIDES[i], true)) {
+                u = u.withSides(Forged.SIDES[i]);
+            }
+        }
+        y += 32;
+        int cost = (int) Math.round(widgets.stepper(ui, "Costs", u.cost(), 1, 0, 99, "%.0f ingots", x, y, w));
+        if (cost != u.cost()) u = u.withCost(cost);
+        y += 32;
+        int every = (int) Math.round(widgets.stepper(ui, "Ammo lasts", u.ammoEvery(), 1, 1, 200, "%.0f uses", x, y, w));
+        if (every != u.ammoEvery()) u = u.withAmmoEvery(every);
+        y += 32;
+        if (widgets.toggle(ui, "Mystery (???)", u.mystery(), x, y, w)) u = u.withMystery(!u.mystery());
+        y += 34;
+        // its colours: a part (or all of it) recoloured as it reaches this tier, or its dice
+        List<String> parts = game.items().parts(forging.base());
+        List<String> targets = new ArrayList<>();
+        for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
+        targets.add("The dice");
+        tierColour = Math.floorMod(tierColour, targets.size());
+        tierColour = widgets.choice(ui, "Colour", targets, tierColour, x, y, w, 0.36f);
+        y += 32;
+        boolean dice = tierColour == targets.size() - 1;
+        String part = dice ? null : parts.get(tierColour);
+        int current = dice ? u.diceRgb() : u.tints().getOrDefault(part, -1);
+        int cols = 16;
+        float size = Math.min(14, w / cols);
+        int picked = widgets.swatches(ui, colours, current, x, y, cols, size);
+        if (picked >= 0) u = dice ? u.withDiceRgb(picked) : u.withTint(part, picked);
+        y += Widgets.swatchesHeight(colours.length, cols, size) + 4;
+        if (ui.button(dice ? "Its rarity's colour" : "As before", x, y, w, 24, false, current >= 0)) {
+            u = dice ? u.withDiceRgb(-1) : u.withTint(part, -1);
+        }
+        y += 32;
+        if (!u.equals(was)) {
+            ups.set(forgeTier - 1, u);
+            forging = forging.withUpgrades(ups);
+        }
+        forgeButtons(ui, x, y, w);
     }
 
     /** Keep the weapon being forged; {@code place}: and take up placing it. */
@@ -1746,20 +1922,46 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 28;
         ItemDef base = f.def();
         ui.text(ui.small, f.rarity().label() + " - forged " + base.name().toLowerCase(java.util.Locale.ROOT)
-                + " - rolls " + f.notation(), x, y, Theme.ITEM);
+                + " - rolls " + f.diceText(), x, y, Theme.ITEM);
         y += 22;
         for (Border e : f.effects()) {
             y += ui.paragraph(ui.small, e.label() + ": " + e.effect(), x, y, w, e.colour(1f)) + 2;
         }
         y += 8;
-        // its dice, come up highest (a d% as its tens and its ones)
-        int[] values = new int[Math.min(f.dice(), 6)];
-        for (int i = 0; i < values.length; i++) values[i] = Math.max(1, f.sides() - i);
+        // its dice, come up highest (a d% as its tens and its ones), and any more doing their sums
+        com.larsons.game.combat.DiceRoll roll = highest(f);
         int[] pal = com.larsons.game.combat.CombatColours.diePalette(f.rarity(),
                 f.effects().isEmpty() ? null : f.effects().iterator().next(), f.diceRgb());
-        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), f.sides(), values, pal,
-                x + w / 2, y, Math.min(48, (w - 12) / Math.max(4, values.length * (f.sides() == 100 ? 2 : 1))),
-                ui.scale());
+        int across = 0;
+        for (int i = 0; i < roll.count(); i++) across += roll.sidesOf(i) == 100 ? 2 : 1;
+        float size = Math.min(48, (w - 12) / Math.max(4, Math.min(12, across + 1)));
+        com.larsons.game.combat.CombatHud.landed(ui, game.worldRenderer().combat().fx(), roll, pal,
+                x + w / 2, y, size, ui.scale());
+    }
+
+    /** {@code f}'s dice come up as high as they go (its first six, and each more group's first three). */
+    static com.larsons.game.combat.DiceRoll highest(Forged f) {
+        List<Integer> faces = new ArrayList<>(), sides = new ArrayList<>();
+        List<com.larsons.game.combat.DiceRoll.Op> ops = new ArrayList<>();
+        for (int i = 0; i < Math.min(f.dice(), 6); i++) {
+            faces.add(Math.max(1, f.sides() - i));
+            sides.add(f.sides());
+            ops.add(com.larsons.game.combat.DiceRoll.Op.ADD);
+        }
+        for (com.larsons.game.combat.DiceRoll.Group g : f.extra()) {
+            for (int i = 0; i < Math.min(g.count(), 3); i++) {
+                faces.add(Math.max(1, g.sides() - i));
+                sides.add(g.sides());
+                ops.add(g.op());
+            }
+        }
+        int[] fa = new int[faces.size()], si = new int[faces.size()];
+        for (int i = 0; i < fa.length; i++) {
+            fa[i] = faces.get(i);
+            si[i] = sides.get(i);
+        }
+        return new com.larsons.game.combat.DiceRoll(f.sides(), fa, si,
+                ops.toArray(new com.larsons.game.combat.DiceRoll.Op[0]));
     }
 
     private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
@@ -2021,7 +2223,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             n = n.withHeight(widgets.slider(ui, "bd-height", "Height (°)", n.height(), 0.5, 30, "%.1f", x, y + 10, w));
             y += 40;
         } else {
-            n = n.withDistance(widgets.slider(ui, "bd-dist", "Shore (m)", n.distance(), 10, 600, "%.0f", x, y + 10, w));
+            n = n.withDistance(widgets.slider(ui, "bd-dist", "Shore (m past the edge)", n.distance(), 0, 600, "%.0f",
+                    x, y + 10, w));
             y += 40;
         }
         n = n.withHaze(widgets.slider(ui, "bd-haze", "Haze", n.haze(), 0, 1, "%.2f", x, y + 10, w));
@@ -2472,6 +2675,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float px = x + 12, pw = w - 24, py = y + 10;
         if (tool == Tool.FORGE) {
             forgePreview(ui, px, py, pw);
+            return;
+        }
+        if (tool == Tool.CARDS) {
+            cardsTool().preview(ui, px, py, pw);
             return;
         }
         if (tool == Tool.PLACE) {

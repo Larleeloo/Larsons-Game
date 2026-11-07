@@ -40,6 +40,51 @@ class ClimbOntoTest {
     }
 
     @Test
+    void sheWalksUpOntoTheCabinsPorchAndRoundItsPosts() {
+        World w = new World(new Wardrobe());
+        BuildingProfile p = BuildingCatalog.get().profile("cabin");
+        assertFalse(p.steps().isEmpty(), "the cabin's porch is walked on");
+        // the cabin facing her (heading 0: its front towards -z ... its back away), its middle 8 m north
+        Building cabin = new Building(1, p, new Vec3(0, 0, -8), Math.PI, null, null);
+        w.addBuilding(cabin);
+        Vec3 door = cabin.door();
+        // from in front of the porch, walking straight at the door: up onto the deck
+        Vec3 front = cabin.toWorld(-1.1, -6.5);
+        w.player().setPosition(new Vec3(front.x(), 0, front.z()));
+        Vec3 d0 = door.sub(w.player().ground());
+        Vec3 to = new Vec3(d0.x(), 0, d0.z()).normalize();
+        play(w, walk(to.x(), to.z(), false), 1.6);
+        double deck = 0.3 * 1.25;
+        assertEquals(deck, w.player().ground().y(), 0.02, "up on the porch, not walking through it");
+        assertTrue(w.player().ground().horizontalDistance(door) < 1.5, "at the door: "
+                + w.player().ground().horizontalDistance(door));
+        // a porch post is solid
+        BuildingProfile.Shape post = p.footprint().get(p.footprint().size() - 1);
+        Vec3 at = cabin.toWorld(post.x(), post.y());
+        assertTrue(cabin.blocks(at.x(), at.z(), 0.01), "a post stands there");
+    }
+
+    @Test
+    void sheClimbsTheKeepsStepsAStepAtATime() {
+        World w = new World(new Wardrobe());
+        BuildingProfile p = BuildingCatalog.get().profile("keep");
+        Building keep = new Building(1, p, new Vec3(0, 0, 0), 0, null, null);
+        w.addBuilding(keep);
+        Vec3 below = keep.toWorld(0, -9.5);
+        w.player().setPosition(below);
+        Vec3 dir = keep.axisY();                       // towards its back: up the steps to its door
+        double highest = 0;
+        for (int f = 0; f < 120; f++) {
+            w.player().update(DT, walk(dir.x(), dir.z(), false), DUR);
+            w.tick(DT);
+            highest = Math.max(highest, w.player().ground().y());
+        }
+        assertTrue(highest > 0.6, "up the steps: " + highest);
+        assertTrue(highest < 0.75, "no higher than the top step: " + highest);
+        assertFalse(keep.blocks(w.player().ground().x(), w.player().ground().z(), 0.2), "and at its wall, not in it");
+    }
+
+    @Test
     void furnitureIsAsTallAsItsModel() {
         double table = BuildingCatalog.get().profile("table").height();
         assertTrue(table > 0.6 && table < 1.0, "a table's top: " + table);

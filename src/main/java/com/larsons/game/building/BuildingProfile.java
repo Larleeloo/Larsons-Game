@@ -37,7 +37,8 @@ public final class BuildingProfile {
     }
 
     /** What kind of thing it is: a building, a piece of furniture, or a piece of a room ({@link Room}). */
-    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture";
+    public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture",
+            TOWN = "town";
 
     /** A view's size in pixels and the pixel its ground point is at. */
     public record Frame(int width, int height, double anchorX, double anchorY, double angle) {}
@@ -47,6 +48,18 @@ public final class BuildingProfile {
         /** How far from the building's middle it reaches. */
         public double reach() {
             return circle ? Math.hypot(x, y) + w : Math.hypot(Math.abs(x) + w / 2, Math.abs(y) + d / 2);
+        }
+    }
+
+    /**
+     * Something of it she walks up onto - a porch's deck, the step at a
+     * door, a flight of stairs a step at a time: a box {@code w × d} round
+     * {@code (x, y)}, its top {@code top} metres up.
+     */
+    public record Step(double x, double y, double w, double d, double top) {
+        /** Whether {@code (mx, my)} (its own metres) is over it. */
+        public boolean over(double mx, double my) {
+            return Math.abs(mx - x) <= w / 2 && Math.abs(my - y) <= d / 2;
         }
     }
 
@@ -64,10 +77,14 @@ public final class BuildingProfile {
     private final Anim anim;
     /** A model-only kind's height (no views to measure), or NaN. */
     private double modelHeight = Double.NaN;
+    /** Whether it is only ever a 3D model: no views of it were drawn. */
+    private boolean modelOnly;
     /** A light's fitting: where its flame is (its own metres: x, y, z up), or null. */
     private double[] flame;
     /** A light's fitting that stands on the ground (not hung up or set on something). */
     private boolean stands;
+    /** What she walks up onto: its porch, its steps, its stairs. */
+    private List<Step> steps = List.of();
 
     public BuildingProfile(String key, String label, double pixel, double texel, double depthMin, double depthStep,
                            Map<Elevation, Frame> frames, List<Part> parts, List<Shape> footprint, double[] door,
@@ -134,6 +151,15 @@ public final class BuildingProfile {
     /** What of it is solid, in its own metres. */
     public List<Shape> footprint() { return footprint; }
 
+    /** What of it she walks up onto - a porch, a step, stairs - in its own metres. */
+    public List<Step> steps() { return steps; }
+
+    /** As it comes, with {@code steps} to walk up onto. */
+    public BuildingProfile withSteps(List<Step> steps) {
+        this.steps = steps == null ? List.of() : List.copyOf(steps);
+        return this;
+    }
+
     /** Where she stands to go in, in its own metres ({@code x}, {@code y}), or null. */
     public double[] door() { return door == null ? null : door.clone(); }
 
@@ -158,6 +184,12 @@ public final class BuildingProfile {
 
     /** Whether it is a light's fitting (filed with the lights, not placed on its own). */
     public boolean fixture() { return group.equals(FIXTURE); }
+
+    /** Whether it is only ever drawn as its 3D model (it has no views). */
+    public boolean modelOnly() { return modelOnly; }
+
+    /** Whether it is the town's: a market stall, a town house, a workshop, a clock tower, a foundry. */
+    public boolean town() { return group.equals(TOWN); }
 
     /** Measure it by its model: {@code top} metres tall (when it has no height of its own written). */
     void measured(double top) {
@@ -233,11 +265,22 @@ public final class BuildingProfile {
                 Json.num(depth, "min", -10), Json.num(depth, "step", 0.08), frames, parts, shapes, door,
                 Json.bool(o, "interior", false), anim);
         if (o.get("height") instanceof Number h) p.modelHeight = h.doubleValue();
+        p.modelOnly = Json.bool(o, "model", false);
         if (o.get("flame") instanceof List<?> f && f.size() >= 3) {
             p.flame = new double[]{((Number) f.get(0)).doubleValue(), ((Number) f.get(1)).doubleValue(),
                     ((Number) f.get(2)).doubleValue()};
         }
         p.stands = Json.bool(o, "stands", false);
+        List<Step> steps = new ArrayList<>();
+        if (o.get("steps") instanceof List<?> sl) {
+            for (Object x : sl) {
+                if (!(x instanceof List<?> st) || st.size() < 6) continue;
+                steps.add(new Step(((Number) st.get(1)).doubleValue(), ((Number) st.get(2)).doubleValue(),
+                        ((Number) st.get(3)).doubleValue(), ((Number) st.get(4)).doubleValue(),
+                        ((Number) st.get(5)).doubleValue()));
+            }
+        }
+        p.steps = List.copyOf(steps);
         return p;
     }
 }

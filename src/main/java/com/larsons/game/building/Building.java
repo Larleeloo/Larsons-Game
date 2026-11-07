@@ -88,6 +88,27 @@ public final class Building {
     /** How far from its middle its footprint reaches. */
     public double reach() { return profile.reach(); }
 
+    /**
+     * The top of the highest of its steps - its porch, the step at its door,
+     * its stairs - over {@code (x, z)} no higher than {@code below} (world
+     * heights), or NaN when none is.
+     */
+    public double stepTop(double x, double z, double below) {
+        List<BuildingProfile.Step> steps = profile.steps();
+        if (steps.isEmpty()) return Double.NaN;
+        double dx = x - position.x(), dz = z - position.z();
+        double r = profile.reach() + 4;
+        if (dx * dx + dz * dz > r * r) return Double.NaN;
+        double[] m = toModel(x, z);
+        double best = Double.NaN;
+        for (BuildingProfile.Step s : steps) {
+            double t = position.y() + s.top();
+            if (t > below || !(Double.isNaN(best) || t > best) || !s.over(m[0], m[1])) continue;
+            best = t;
+        }
+        return best;
+    }
+
     /** Whether a circle of {@code radius} round {@code (x, z)} overlaps its footprint. */
     public boolean blocks(double x, double z, double radius) {
         double dx = x - position.x(), dz = z - position.z();

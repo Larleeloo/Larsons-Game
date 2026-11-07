@@ -12,6 +12,7 @@ import com.larsons.game.world.Border;
 import com.larsons.game.world.Forged;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
+import com.larsons.game.world.Shop;
 import com.larsons.game.world.Store;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Wearables;
@@ -96,6 +97,7 @@ final class InventoryPanel {
     private static final float[] SLOT_HOVER = Theme.rgb(255, 255, 255, 0.16f);
     private static final float[] BORDER = Theme.rgb(255, 255, 255, 1f);
     private static final float[] SELECTED = Theme.ACCENT;
+    private static final float[] COIN = Theme.rgb(240, 192, 48, 1f);
     /** How much of its rarity's colour a full slot is tinted with, its inner edge, and the glow round the item. */
     private static final float RARITY_FILL = 0.14f, RARITY_EDGE = 0.85f, RARITY_GLOW = 0.5f;
     /** How long a turning icon takes to go once round, in seconds. */
@@ -120,10 +122,46 @@ final class InventoryPanel {
     private int shownSelected = -1;
     private Item shownHeld;
     private double nameTimer;
+    /** Beside the inventory instead of a store: the tiers of the weapon in this slot (-1: none), or her cards. */
+    private int tiersOf = -1;
+    private boolean cards;
+    private final SidePanels side;
+    /** The shop open beside the inventory, or null; how far down its stock is scrolled. */
+    private Shop shop;
+    private int shopScroll;
 
     InventoryPanel(Game game, World world) {
         this.game = game;
         this.world = world;
+        this.side = new SidePanels(game, world);
+    }
+
+    /** Open the screen with her cards beside it (J), or shut them. */
+    void toggleCards() {
+        if (open && cards) {
+            close();
+            return;
+        }
+        if (open && (store != null || shop != null)) close();
+        show();
+        cards = true;
+        tiersOf = -1;
+    }
+
+    /** Open the screen with the tiers of the weapon in {@code slot} beside it. */
+    void showTiers(int slot) {
+        if (open && (store != null || shop != null)) close();
+        show();
+        cards = false;
+        tiersOf = slot;
+    }
+
+    /**
+     * Whether the game stands still: her own inventory is open - her cards,
+     * a weapon's tiers - and no barrel, crate or chest beside it.
+     */
+    boolean pausing() {
+        return open && store == null;
     }
 
     boolean open() { return open; }
@@ -149,6 +187,19 @@ final class InventoryPanel {
 
     /** The barrel, crate or chest open beside the inventory, or null. */
     Store store() { return open ? store : null; }
+
+    /** Open the screen with {@code s}'s stock beside the inventory, to buy and sell. */
+    void showShop(Shop s) {
+        if (open && shop == s) return;
+        if (open) close();
+        shop = s;
+        shopScroll = 0;
+        show();
+        Sounds.play(SoundKeys.ui("shop_open"));
+    }
+
+    /** The shop open beside the inventory, or null. */
+    Shop shop() { return open ? shop : null; }
 
     /**
      * Shut the screen (and the store beside it); an item still on the
@@ -176,6 +227,9 @@ final class InventoryPanel {
             world.equipSelected();
         }
         store = null;
+        shop = null;
+        tiersOf = -1;
+        cards = false;
         Sounds.play(SoundKeys.ui("inventory_close"));
     }
 
@@ -309,7 +363,10 @@ final class InventoryPanel {
             return;
         }
         Inventory inv = inventory();
-        float[][] both = store == null ? null : panels(ui.width(), ui.height());
+        if (tiersOf >= 0 && !com.larsons.game.world.Upgrades.has(inv.get(tiersOf))) tiersOf = -1;
+        if (shop != null && !world.shops().contains(shop)) shop = null;
+        boolean beside = store != null || shop != null || tiersOf >= 0 || cards;
+        float[][] both = beside ? panels(ui.width(), ui.height()) : null;
         float[] p = both == null ? panel(ui.width(), ui.height()) : both[0];
         float px = p[0], py = p[1], pw = p[2], ph = p[3];
         ui.rect(0, 0, ui.width(), ui.height(), Theme.withAlpha(Theme.SCRIM, 0.35f));
@@ -349,6 +406,32 @@ final class InventoryPanel {
             if (ui.button("Take all", qx + qw / 2 - bw - 6, qy + qh * 0.84f, bw, bh)) takeAll();
             if (ui.button("Put all in", qx + qw / 2 + 6, qy + qh * 0.84f, bw, bh)) putAll();
             inside |= ui.hover(qx, qy, qw, qh);
+        } else if (shop != null) {
+            float[] q = both[1];
+            if (!shopPanel(ui, q[0], q[1], q[2], q[3])) {
+                close();
+                return;
+            }
+            inside |= ui.hover(q[0], q[1], q[2], q[3]);
+        } else if (tiersOf >= 0) {
+            float[] q = both[1];
+            if (!side.tiers(ui, inv, tiersOf, q[0], q[1], q[2], q[3])) tiersOf = -1;
+            inside |= ui.hover(q[0], q[1], q[2], q[3]);
+        } else if (cards) {
+            float[] q = both[1];
+            if (!side.cards(ui, q[0], q[1], q[2], q[3])) cards = false;
+            inside |= ui.hover(q[0], q[1], q[2], q[3]);
+        }
+        if (store == null && shop == null) {
+            // her cards, beside the inventory (J)
+            float bw = 96, bh = 30;
+            float bx = px >= bw + 16 ? px - bw - 8 : px + pw / 2 - bw / 2;
+            float by = px >= bw + 16 ? py + 8 : py + ph * 0.035f + 50;
+            if (ui.button(cards ? "Cards ◂" : "Cards (J)", bx, by, bw, bh, cards, true)) {
+                cards = !cards;
+                tiersOf = -1;
+            }
+            inside |= ui.hover(bx, by, bw, bh);
         }
 
         // --- the pointer: pick up, put down, move, drop ------------------------------
@@ -356,7 +439,9 @@ final class InventoryPanel {
         boolean shift = in.down(GLFW_KEY_LEFT_SHIFT) || in.down(GLFW_KEY_RIGHT_SHIFT);
         if (in.mousePressed(GLFW_MOUSE_BUTTON_LEFT)) {
             in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
-            if (hovered >= 0) {
+            if (hovered >= 0 && shop != null && shift && cursor == null) {
+                sell(hovered);
+            } else if (hovered >= 0) {
                 click(inv, hovered, false, shift);
             } else if (hoveredStore >= 0) {
                 click(held, hoveredStore, true, shift);
@@ -377,8 +462,14 @@ final class InventoryPanel {
             in.consumeMouse(GLFW_MOUSE_BUTTON_RIGHT);
             if (hovered >= 0 && cursor == null) {
                 Item there = inv.get(hovered);
-                if (there != null && there.def().edible() && !shift) eat(hovered);
-                else if (held != null) transfer(inv, hovered, held, false);
+                if (shop != null && there != null) sell(hovered);
+                else if (there != null && there.def().edible() && !shift) eat(hovered);
+                else if (held == null && !shift && com.larsons.game.world.Upgrades.has(there)) {
+                    // a weapon with tiers: them, beside the inventory
+                    tiersOf = tiersOf == hovered ? -1 : hovered;
+                    cards = false;
+                    Sounds.play(SoundKeys.ui("click"));
+                } else if (held != null) transfer(inv, hovered, held, false);
                 else quickMove(hovered);
             } else if (hoveredStore >= 0 && cursor == null) {
                 transfer(held, hoveredStore, inv, true);
@@ -389,9 +480,13 @@ final class InventoryPanel {
         String into = store == null ? null : "the " + store.kind().label().toLowerCase(java.util.Locale.ROOT);
         if (hovered >= 0 && inv.get(hovered) != null && cursor == null) {
             Item there = inv.get(hovered);
-            String hint = into != null ? (there.def().edible() ? "Right-click: eat one · " : "")
+            int pay = shop == null ? 0 : shop.offerFor(there);
+            String hint = shop != null ? (pay > 0 ? "Right-click or Shift-click: sell one for " + coins(pay)
+                    : shop.buys() ? "The shop will not take this" : "This shop buys nothing")
+                    : into != null ? (there.def().edible() ? "Right-click: eat one · " : "")
                     + "Shift-click: put in " + into
                     : there.def().edible() ? "Right-click: eat one · Shift-click: move"
+                    : com.larsons.game.world.Upgrades.has(there) ? "Right-click: its upgrade tiers · Shift-click: move"
                     : Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
             tooltip(ui, there, inv.amount(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
         } else if (hoveredStore >= 0 && held.get(hoveredStore) != null && cursor == null) {
@@ -403,11 +498,13 @@ final class InventoryPanel {
             icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
             count(ui, cursorAmount, (float) in.mouseX(), (float) in.mouseY(), r);
         }
-        String help = store != null
+        String help = shop != null
+                ? "Buy: its button · Right-click or Shift-click an item of yours: sell one · E, I or Esc: close"
+                : store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "
                 + "E, I or Esc: close"
-                : "Click: pick up / put down · Right-click: to / from the hotbar, or eat · "
-                + "Click outside: drop · A–Z / Rarity: sort · I or Esc: close";
+                : "Click: pick up / put down · Right-click: eat, or a weapon's tiers · Shift-click: to / from the hotbar · "
+                + "Click outside: drop · J: cards · I or Esc: close";
         ui.textCentered(ui.small, help, ui.width() / 2f, py + ph + 10, Theme.HINT);
     }
 
@@ -697,6 +794,127 @@ final class InventoryPanel {
             });
         }
         return f.effectsText() + ": " + String.join(", ", out);
+    }
+
+    // --- a shop -----------------------------------------------------------------------
+
+    static String coins(int n) {
+        return n + (n == 1 ? " coin" : " coins");
+    }
+
+    /**
+     * The shop's stock beside the inventory, a row each: what it is (an
+     * item's picture, a card's colours), how many are left, its price and
+     * the Buy button - her purse above, what the shop buys below. Returns
+     * false when it is to close.
+     */
+    private boolean shopPanel(Ui ui, float x, float y, float w, float h) {
+        var player = world.player();
+        String heroClass = player.hero() == null ? null : player.hero().heroClass();
+        List<Shop.Offer> stock = shop.stock(heroClass);
+        ui.rect(x, y, w, h, Theme.withAlpha(Theme.PANEL, 0.96f));
+        ui.outline(x, y, w, h, 1, Theme.PANEL_EDGE);
+        ui.textCentered(ui.large, shop.name(), x + w / 2, y + 12, Theme.TITLE);
+        ui.textCentered(ui.body, "Your purse: " + coins(player.coins()), x + w / 2, y + 48, COIN);
+        float top = y + 82, rowH = 50, listH = h - 82 - 118;
+        int rows = Math.max(1, (int) (listH / rowH));
+        var in = ui.input();
+        if (ui.hover(x, top, w, rows * rowH) && in.scroll() != 0) {
+            shopScroll -= (int) Math.signum(in.scroll());
+            in.consumeScroll();
+        }
+        shopScroll = Math.max(0, Math.min(Math.max(0, stock.size() - rows), shopScroll));
+        Shop.Offer hot = null;
+        float hotY = 0;
+        for (int k = 0; k < rows && k + shopScroll < stock.size(); k++) {
+            Shop.Offer o = stock.get(k + shopScroll);
+            float ry = top + k * rowH, rx = x + 12, rw = w - 24;
+            boolean over = ui.hover(rx, ry, rw, rowH - 4);
+            if (over) {
+                hot = o;
+                hotY = ry;
+            }
+            float[] rc = o.rarity().colour(1f);
+            ui.rect(rx, ry, rw, rowH - 4, Theme.withAlpha(over ? Theme.BUTTON_HOVER : Theme.BUTTON, 0.9f));
+            ui.outline(rx, ry, rw, rowH - 4, 1, o.soldOut() ? Theme.PANEL_EDGE : o.rarity().colour(0.7f));
+            float ix = rx + 24, iy = ry + (rowH - 4) / 2;
+            if (o.card() != null) {
+                // a card: a little card in its rarity's colour
+                ui.rect(ix - 11, iy - 16, 22, 32, o.rarity().colour(0.85f));
+                ui.outline(ix - 11, iy - 16, 22, 32, 1, Theme.TITLE);
+                ui.rect(ix - 7, iy - 11, 14, 9, Theme.rgb(250, 240, 210, 0.9f));
+            } else {
+                ui.diamond(ix, iy, 19, o.rarity().colour(RARITY_FILL));
+                icon(ui, o.item(), ix, iy, 19, o.soldOut() ? 0.4f : 1f, over);
+            }
+            String name = (o.card() != null ? "Card: " : "") + o.name();
+            ui.text(ui.body, name, rx + 52, ry + 3, o.soldOut() ? Theme.ITEM_DISABLED : rc);
+            String left = o.soldOut() ? "Sold out" : o.left() < 0 ? "Plenty" : o.left() + " left";
+            ui.text(ui.small, left + " · " + coins(o.price()), rx + 52, ry + 3 + ui.body.lineHeight(),
+                    o.soldOut() ? Theme.ITEM_DISABLED : Theme.HINT);
+            boolean can = !o.soldOut() && player.coins() >= o.price()
+                    && (o.card() == null || heroClass != null);
+            float bw = 64, bx = rx + rw - bw - 6;
+            if (ui.button("Buy", bx, ry + 8, bw, rowH - 20, false, can)) buy(o);
+        }
+        if (stock.isEmpty()) {
+            ui.textCentered(ui.body, "Nothing for sale", x + w / 2, top + 20, Theme.HINT);
+        }
+        if (stock.size() > rows) {
+            ui.textCentered(ui.small, (shopScroll + 1) + "-" + Math.min(stock.size(), shopScroll + rows) + " of "
+                    + stock.size() + " · scroll for more", x + w / 2, top + rows * rowH + 2, Theme.ITEM_DISABLED);
+        }
+        float fy = y + h - 112;
+        String buys = shop.buys() ? "Buys what you sell for half its worth: right-click an item of yours"
+                : "Buys nothing";
+        ui.paragraph(ui.small, buys, x + 20, fy, w - 40, Theme.HINT);
+        if (hot != null && hot.card() != null) {
+            com.larsons.game.cards.Card c = com.larsons.game.cards.CardBook.get().card(hot.card());
+            if (c != null) {
+                String text = c.name() + " (" + c.rarity().label() + "): " + c.text()
+                        + (heroClass == null ? " · choose a class to buy cards" : " · goes onto your discard pile");
+                float tw = Math.min(w + 40, 360), tx = Math.min(x + w + 8, ui.width() - tw - 4);
+                float th = ui.small.lineHeight() * 4 + 12;
+                ui.rect(tx, hotY, tw, th, Theme.withAlpha(Theme.PANEL, 0.97f));
+                ui.outline(tx, hotY, tw, th, 1, c.rarity().colour(0.9f));
+                ui.paragraph(ui.small, text, tx + 8, hotY + 6, tw - 16, Theme.TITLE);
+            }
+        } else if (hot != null && cursor == null) {
+            tooltip(ui, hot.item(), 1, coins(hot.price()) + (hot.left() > 0 ? " · " + hot.left() + " left" : ""),
+                    (float) in.mouseX() + 16, (float) in.mouseY() + 12);
+        }
+        return !ui.button("Close", x + w / 2 - 60, y + h - 44, 120, 30);
+    }
+
+    private void buy(Shop.Offer o) {
+        Shop.Deal d = shop.buy(o, world.player());
+        switch (d) {
+            case DONE -> {
+                Sounds.play(SoundKeys.ui("shop_buy"));
+                game.toast("Bought " + o.name() + (o.card() != null ? ": it is on your discard pile" : "")
+                        + " for " + coins(o.price()), o.rarity().colour(1f));
+                world.equipSelected();
+            }
+            case POOR -> game.toast("Not enough coins", Theme.WARNING);
+            case NO_ROOM -> game.toast("Your inventory is full", Theme.WARNING);
+            case SOLD_OUT -> game.toast("Sold out", Theme.WARNING);
+            default -> { }
+        }
+    }
+
+    /** Sell one of what is in her slot {@code slot} to the shop that is open. */
+    private void sell(int slot) {
+        Item it = inventory().get(slot);
+        int pay = shop.offerFor(it);
+        Shop.Deal d = shop.sell(world.player(), slot);
+        if (d == Shop.Deal.DONE) {
+            Sounds.play(SoundKeys.ui("shop_sell"));
+            game.toast("Sold " + it.fullName() + " for " + coins(pay), COIN);
+            world.equipSelected();
+            game.saveWardrobe();
+        } else if (d == Shop.Deal.WONT_BUY) {
+            game.toast(shop.buys() ? "The shop will not take that" : "This shop buys nothing", Theme.WARNING);
+        }
     }
 
     /**

@@ -105,5 +105,6 @@
   "frames": 8,
   "degrees": 90.0,
   "speed": 40.0
- }
+ },
+ "steps": []
 }

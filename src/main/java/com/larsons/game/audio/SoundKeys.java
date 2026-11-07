@@ -87,10 +87,10 @@ public final class SoundKeys {
     public static final List<String> PLAYER_SOUNDS = List.of("footstep_grass", "footstep_dirt", "footstep_gravel",
             "footstep_forest", "footstep_sand", "footstep_mud", "footstep_snow", "footstep_stone", "footstep_water",
             "footstep_crystal", "land", "hard_landing", "landing_roll", "crouch", "stand", "climb_grip",
-            "climb_top", "let_go", "hurt", "knocked_out", "out_of_breath");
+            "climb_top", "let_go", "surface", "wade_out", "hurt", "knocked_out", "out_of_breath", "gasp");
 
     /** The voice among {@link #PLAYER_SOUNDS} (the rest are movement). */
-    public static final List<String> VOICE_SOUNDS = List.of("hurt", "knocked_out", "out_of_breath");
+    public static final List<String> VOICE_SOUNDS = List.of("hurt", "knocked_out", "out_of_breath", "gasp");
 
     /** The chests in the world (their sprite folder names under {@code assets/sprites/objects/}). */
     public static final List<String> CHESTS_IN_GAME = List.of("ornate_chest");
@@ -117,7 +117,8 @@ public final class SoundKeys {
     public static final List<String> UI_SOUNDS = List.of("click", "hover", "back", "pause", "resume",
             "inventory_open", "inventory_close", "hotbar_select", "item_pick", "item_place", "sort", "wear",
             "error", "screenshot", "secret", "dialogue",
-            "select", "place", "remove", "rotate", "brush", "undo", "save", "playtest");
+            "select", "place", "remove", "rotate", "brush", "undo", "save", "playtest",
+            "level_up", "upgrade", "card_play", "card_shuffle", "perk", "shop_open", "shop_buy", "shop_sell");
 
     /** The training dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
     public static final List<String> DUMMIES_IN_GAME = List.of("attack_dummy");
@@ -144,7 +145,7 @@ public final class SoundKeys {
      */
     public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
             "arrow_stick", "spell_cast", "spell_hit", "spell_burst", "fizzle", "venom_tick", "player_hurt",
-            "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off");
+            "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off", "plunge", "out_of_ammo", "reload");
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
@@ -154,7 +155,8 @@ public final class SoundKeys {
      */
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
             "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
-            "saddle_on", "mount", "dismount", "barrel_break", "crate_break");
+            "saddle_on", "mount", "dismount", "barrel_break", "crate_break", "chest_break", "pot_break",
+            "large_pot_break");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -228,11 +230,11 @@ public final class SoundKeys {
             AnimState.SHIELD_BASH, AnimState.AXE_ATTACK, AnimState.AXE_HEAVY_ATTACK, AnimState.AXE_SPIN_ATTACK,
             AnimState.BOW_DRAW, AnimState.BOW_FIRE, AnimState.CROSSBOW_FIRE, AnimState.STAFF_ATTACK,
             AnimState.STAFF_HEAVY_ATTACK, AnimState.WAND_ATTACK, AnimState.WAND_HEAVY_ATTACK, AnimState.MACE_ATTACK,
-            AnimState.MACE_HEAVY_ATTACK, AnimState.DAGGER_ATTACK, AnimState.DAGGER_HEAVY_ATTACK);
+            AnimState.MACE_HEAVY_ATTACK, AnimState.DAGGER_ATTACK, AnimState.DAGGER_HEAVY_ATTACK, AnimState.JUMP_ATTACK);
 
     /** The animations of a body's moving about with a sound of their own, shared by both bodies. */
     static final List<AnimState> MOVEMENT_MOVES = List.of(AnimState.JUMP, AnimState.DASH, AnimState.ROLL,
-            AnimState.LEDGE_UP, AnimState.LEDGE_DOWN, AnimState.PICKUP);
+            AnimState.LEDGE_UP, AnimState.LEDGE_DOWN, AnimState.PICKUP, AnimState.SWIM, AnimState.SWIM_UNDER);
 
     /**
      * One catalogue row: what it belongs to, the pack folder its file goes
@@ -498,7 +500,7 @@ public final class SoundKeys {
             if (s == AnimState.JUMP) continue;
             out.add(row(SoundCategory.MOVEMENT, "player/" + s.key(), moveName(s), s.key()));
         }
-        for (String s : List.of("climb_grip", "climb_top", "let_go")) {
+        for (String s : List.of("climb_grip", "climb_top", "let_go", "surface", "wade_out")) {
             out.add(row(SoundCategory.MOVEMENT, "player/" + s, playerName(s), s));
         }
         for (String body : BODIES) {
@@ -657,6 +659,9 @@ public final class SoundKeys {
             case "hurt" -> "Hurt";
             case "knocked_out" -> "Knocked out";
             case "out_of_breath" -> "Out of breath";
+            case "surface" -> "Coming up for air";
+            case "wade_out" -> "Wading out of the water";
+            case "gasp" -> "Gasping for air";
             default -> s;
         };
     }
@@ -677,6 +682,9 @@ public final class SoundKeys {
             case "block" -> "A dive blocked";
             case "parry" -> "A dive parried";
             case "dodge" -> "A dive dodged";
+            case "plunge" -> "A jump attack landing";
+            case "out_of_ammo" -> "Out of ammunition";
+            case "reload" -> "Ammunition used up: a fresh one";
             default -> s;
         };
     }
@@ -781,6 +789,9 @@ public final class SoundKeys {
             case "dismount" -> "Getting down off a horse";
             case "barrel_break" -> "A barrel broken open";
             case "crate_break" -> "A crate broken open";
+            case "chest_break" -> "A storage chest broken open";
+            case "pot_break" -> "A pot shattering";
+            case "large_pot_break" -> "A large pot shattering";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")
@@ -846,6 +857,14 @@ public final class SoundKeys {
             case "undo" -> "Editor: undo";
             case "save" -> "Saved";
             case "playtest" -> "Editor: into or out of a play-test";
+            case "level_up" -> "A level gained";
+            case "upgrade" -> "A weapon upgraded";
+            case "card_play" -> "A card played";
+            case "card_shuffle" -> "Cards reshuffled";
+            case "perk" -> "A perk taken";
+            case "shop_open" -> "A shop opened";
+            case "shop_buy" -> "Something bought";
+            case "shop_sell" -> "Something sold";
             default -> s;
         };
     }

@@ -50,5 +50,6 @@
  ],
  "door": null,
  "interior": false,
- "anim": null
+ "anim": null,
+ "steps": []
 }

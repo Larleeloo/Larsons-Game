@@ -56,7 +56,10 @@ public final class BuildingCatalog {
             "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire",
             // the furniture
             "bed", "table", "chair", "bench", "stool", "bookshelf", "cupboard", "wardrobe", "fireplace", "counter",
-            "barrel", "crate",
+            "barrel", "crate", "pot", "large_pot", "shop_counter", "rug", "painting", "grandfather_clock", "banner",
+            "potted_plant", "alchemy_table", "boiler", "tesla_coil", "distiller", "cauldron",
+            // the town's
+            "market_stall", "market_stall_awning", "row_house", "shop_house", "workshop", "clocktower", "foundry",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
             "lantern_post");

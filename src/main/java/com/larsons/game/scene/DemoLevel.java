@@ -60,6 +60,9 @@ public final class DemoLevel {
                 SpriteView.headingShowing(Facing.SOUTH_WEST, START_YAW), Map.of("sprite", DemoScene.CHEST));
         level.add(ObjectTypes.CHEST, DemoScene.PLATEAU_CHEST_AT.x(), DemoScene.PLATEAU_CHEST_AT.z(),
                 SpriteView.headingOf(-0.6, 1), Map.of("sprite", DemoScene.CHEST));
+        level.add(ObjectTypes.SHOP, DemoScene.STALL_AT.x(), DemoScene.STALL_AT.z(),
+                SpriteView.headingOf(-DemoScene.STALL_AT.x(), -DemoScene.STALL_AT.z()),
+                Map.of("name", "Market stall", "stall", "market_stall_awning", "stock", "", "buys", true));
         for (Vec3 at : DemoScene.DUMMIES_AT) {
             level.add(ObjectTypes.DUMMY, at.x(), at.z(), SpriteView.headingOf(-at.x(), -at.z()), Map.of("health", 100));
         }

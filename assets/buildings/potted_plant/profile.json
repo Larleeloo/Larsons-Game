@@ -1,0 +1,51 @@
+{
+ "key": "potted_plant",
+ "label": "Potted plant",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.999,
+ "model": true,
+ "parts": [
+  {
+   "key": "pot",
+   "label": "Pot",
+   "colour": "#a85a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "soil",
+   "label": "Soil",
+   "colour": "#4a3020",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Leaves",
+   "colour": "#4e8a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves2",
+   "label": "Lighter leaves",
+   "colour": "#7ab04a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.242
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -67,8 +67,9 @@ public final class CombatRenderer {
      */
     public void shadows(World world, Shadows out) {
         Terrain ground = world.terrain();
-        for (Dummy d : world.dummies()) out.at(d.position(), 0.5, 0.42f);
+        for (Dummy d : world.dummies()) if (!d.hidden()) out.at(d.position(), 0.5, 0.42f);
         for (FlyingDummy f : world.fliers()) {
+            if (f.hidden()) continue;
             Vec3 at = ground.onGround(f.position());
             double h = Math.max(0, f.position().y() - at.y());
             double k = Math.min(1, h / 8);
@@ -92,6 +93,7 @@ public final class CombatRenderer {
         Vec3 eye = camera.eye(), right = camera.right(), up = camera.up(), forward = camera.forward();
         SpriteProfile framing = objects.profile(Dummy.SPRITES);
         for (Dummy d : world.dummies()) {
+            if (d.hidden()) continue;
             Vec3 pivot = d.position().add(0, framing.pivotHeight(), 0);
             SpriteView view = SpriteView.of(eye, pivot, d.heading(), camera.yaw());
             ObjectStack.Result r = ObjectStack.resolve(sprites, objects, Dummy.SPRITES, d.sheet(), d.loops(),
@@ -112,6 +114,7 @@ public final class CombatRenderer {
 
         SpriteProfile flying = objects.profile(FlyingDummy.SPRITES);
         for (FlyingDummy f : world.fliers()) {
+            if (f.hidden()) continue;
             Vec3 pivot = f.position().add(0, flying.pivotHeight(), 0);
             SpriteView view = SpriteView.of(eye, pivot, f.heading(), camera.yaw());
             ObjectStack.Result r = ObjectStack.resolve(sprites, objects, FlyingDummy.SPRITES, f.sheet(), f.loops(),
@@ -162,6 +165,10 @@ public final class CombatRenderer {
         }
 
         for (Combat.Effect e : combat.effects()) {
+            if (e.kind() == Combat.Effect.Kind.SLAM) {
+                slam(world, batch, world.terrain(), e, out, eye, forward, right, up);
+                continue;
+            }
             boolean burst = e.kind() == Combat.Effect.Kind.BURST;
             String folder = burst ? "magic_burst" : "hit_spark";
             SheetTexture sheet = fx.sheet(folder, "burst");
@@ -179,6 +186,35 @@ public final class CombatRenderer {
             });
         }
     }
+
+    /**
+     * A jump attack's landing: bursts of dust (or of its spell's colour)
+     * thrown out in a ring round where she came down, spreading as they fade.
+     */
+    private void slam(World world, Batch batch, Terrain ground, Combat.Effect e, Draws out, Vec3 eye, Vec3 forward,
+                      Vec3 right, Vec3 up) {
+        SheetTexture sheet = fx.sheet("magic_burst", "burst");
+        if (sheet == null) return;
+        SpriteProfile prof = fx.profile("magic_burst");
+        double age = world.time() - e.born();
+        int frame = (int) Math.floor(age * prof.fps());
+        if (frame >= sheet.frameCount()) return;
+        int[] palette = CombatColours.spellPalette(sheet.sharedPalette(), e.colour());
+        double t = age / Combat.EFFECT_SECONDS;
+        double radius = 0.5 + 1.7 * Math.min(1, t), s = prof.frameWorldSize() * 0.55;
+        for (int i = 0; i < SLAM_BURSTS; i++) {
+            double a = 2 * Math.PI * i / SLAM_BURSTS;
+            Vec3 at = e.at().add(Math.cos(a) * radius, 0.25, Math.sin(a) * radius);
+            Vec3 tl = at.sub(right.scale(s / 2)).add(up.scale(s / 2));
+            out.add(at.sub(eye).dot(forward) - 0.3, () -> {
+                batch.depthAnchor(ground.onGround(at));
+                region(batch, sheet, frame, palette, tl, right.scale(s), up.scale(-s), 0.9f);
+            });
+        }
+    }
+
+    /** How many bursts a jump attack's landing throws out round her. */
+    private static final int SLAM_BURSTS = 10;
 
     /**
      * A sheet drawn head-first along {@code dir} as it crosses the screen:

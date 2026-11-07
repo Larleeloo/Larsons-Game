@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "stone": [
+   0,
+   1
+  ],
+  "leather": [
+   2
+  ]
+ },
+ "materials": [
+  "stone",
+  "stone",
+  "leather"
+ ]
+}

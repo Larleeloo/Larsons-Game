@@ -93,9 +93,15 @@ public final class LevelWorld {
         world.setWeather(level.weather());
         world.setCover(level.cover());
         world.setLife(level.life());
+        world.ammo().setEnabled(usesAmmo(level));
         world.startDay();
         double h = level.half();
         world.setBounds(-h, h, -h, h);
+    }
+
+    /** Whether weapons use up ammunition in {@code level} (its {@code ammo} setting; yes unless it says no). */
+    public static boolean usesAmmo(Level level) {
+        return !Boolean.FALSE.equals(level.extra().get("ammo"));
     }
 
     /**

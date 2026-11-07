@@ -71,12 +71,47 @@ class StoreTest {
     }
 
     @Test
-    void aChestDoesNotBreak() {
-        Store chest = new Store(4, Store.Kind.CHEST, Vec3.ZERO, 0);
-        assertFalse(chest.alive(), "not something to hit");
-        chest.hurt(1000, Vec3.ZERO, true);
-        assertFalse(chest.broken());
-        assertEquals(20, chest.items().size());
+    void aStorageChestShattersAndSpillsWhatItHeld() {
+        World w = new World(new Wardrobe());
+        Chest c = w.addChest(new Chest("ornate_chest", new Vec3(0, 0, -3), Math.PI));
+        Store s = w.addStore(new Store(4, Store.Kind.CHEST, c.position(), Math.PI));
+        c.setStore(s);
+        s.fill("sage x2");
+        assertTrue(s.alive(), "something to hit");
+        assertEquals(20, s.items().size());
+        s.hurt(1000, Vec3.ZERO, true);
+        w.tick(0.01);
+        assertFalse(w.chests().contains(c), "the chest is gone");
+        assertFalse(w.stores().contains(s));
+        assertEquals(Store.Kind.CHEST.pieces(), w.shards().pieces().size(), "in pieces");
+        assertEquals(1, w.items().size(), "the sage spilled out");
+    }
+
+    @Test
+    void piecesFallSettleAndFade() {
+        Shards shards = new Shards();
+        shards.burst(new Vec3(0, 0, 0), 0.3, 0.9, new int[]{0x8A5A30, 0x5A5A60}, 20, 0.12, Terrain.FLAT);
+        assertEquals(20, shards.pieces().size());
+        double highest = 0;
+        for (int i = 0; i < 30; i++) {
+            shards.tick(0.02, Terrain.FLAT);
+            for (Shards.Piece p : shards.pieces()) highest = Math.max(highest, p.at().y());
+        }
+        assertTrue(highest > 0.9, "thrown up");
+        for (int i = 0; i < 300; i++) shards.tick(0.02, Terrain.FLAT);
+        for (Shards.Piece p : shards.pieces()) assertEquals(p.lift(), p.at().y(), 1e-9, "lying on the ground");
+        for (int i = 0; i < 300; i++) shards.tick(0.02, Terrain.FLAT);
+        assertTrue(shards.pieces().isEmpty(), "faded away");
+    }
+
+    @Test
+    void aPotShattersAtATouch() {
+        assertEquals(Store.Kind.POT, Store.Kind.ofBuilding("pot"));
+        assertEquals(Store.Kind.LARGE_POT, Store.Kind.ofBuilding("large_pot"));
+        Store pot = new Store(2, Store.Kind.POT, Vec3.ZERO, 0);
+        pot.hurt(8, Vec3.ZERO, true);
+        assertTrue(pot.broken());
+        assertTrue(Store.Kind.POT.clay());
     }
 
     @Test

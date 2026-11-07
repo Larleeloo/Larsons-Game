@@ -1,0 +1,45 @@
+{
+ "key": "grandfather_clock",
+ "label": "Tall clock",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.398,
+ "model": true,
+ "parts": [
+  {
+   "key": "case",
+   "label": "Case",
+   "colour": "#5a3220",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "face",
+   "label": "Face",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.572,
+   0.396
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

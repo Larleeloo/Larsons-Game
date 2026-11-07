@@ -67,6 +67,8 @@ public final class Game implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Ui ui;
+    /** The mouse pointer: her class's, or the one chosen ({@link Pointers}). */
+    private final com.larsons.game.ui.Pointers pointers;
     private final SpriteLibrary sprites;
     private final ObjectSprites objects;
     private final ItemSprites items;
@@ -127,6 +129,7 @@ public final class Game implements AutoCloseable {
         long t1 = System.nanoTime();
         batch = new Batch();
         ui = new Ui(window, batch);
+        pointers = new com.larsons.game.ui.Pointers(settings.assets);
         long uiNs = System.nanoTime() - t1;
 
         // From here on the loading screen is up, showing each step as it runs.
@@ -477,6 +480,7 @@ public final class Game implements AutoCloseable {
             } else {
                 sprites.pump();
                 if (!importer.visible()) scene.update(dt);
+                pointers.apply(window, settings.pointer, settings.heroClass);
             }
 
             glViewport(0, 0, window.framebufferWidth(), window.framebufferHeight());
@@ -653,6 +657,8 @@ public final class Game implements AutoCloseable {
 
     public Ui ui() { return ui; }
 
+    public com.larsons.game.ui.Pointers pointers() { return pointers; }
+
     public Batch batch() { return batch; }
 
     public SpriteLibrary sprites() { return sprites; }
@@ -711,6 +717,7 @@ public final class Game implements AutoCloseable {
         voidRenderer.close();
         groundTexture.close();
         sprites.close();
+        pointers.close();
         ui.close();
         batch.close();
         window.close();

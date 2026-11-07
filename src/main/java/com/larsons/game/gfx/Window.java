@@ -267,6 +267,9 @@ public final class Window implements AutoCloseable {
     public int framebufferHeight() { return fbHeight; }
 
     /** Device pixels per logical pixel. */
+    /** GLFW's handle for the window (its pointer, ...). */
+    public long handle() { return handle; }
+
     public float scale() {
         return fbWidth / (float) width;
     }

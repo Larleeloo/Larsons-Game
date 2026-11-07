@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "fletching": [
+   0
+  ],
+  "wood": [
+   1
+  ],
+  "iron": [
+   2
+  ]
+ },
+ "materials": [
+  "fletching",
+  "wood",
+  "iron"
+ ]
+}

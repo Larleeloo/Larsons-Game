@@ -130,6 +130,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
     /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
     static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
+    /**
+     * The market stall: off to her left at the start, facing where she
+     * starts - supplies, upgrade ingots, reshuffle scrolls and her class's
+     * cards for her coins.
+     */
+    static final Vec3 STALL_AT = new Vec3(-6.2, 0, -4.4);
     /** The chest: behind her at the start, between the axe and the sword, its front three-quarters on. */
     static final Vec3 CHEST_AT = new Vec3(-0.3, 0, -3.4);
     static final String CHEST = "ornate_chest";
@@ -139,7 +145,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * the fan its loot lands in (up to 2.1 m out, {@code World}) and room to
      * walk; round a dummy, room to circle it and swing.
      */
-    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8;
+    private static final double SPAWN_CLEAR = 1.2, CHEST_CLEAR = 2.6, ITEM_CLEAR = 0.6, DUMMY_CLEAR = 1.8,
+            STALL_CLEAR = 3.2;
 
     private final Game game;
     private final World world;
@@ -212,13 +219,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         world.addChest(new Chest(CHEST, world.terrain().onGround(PLATEAU_CHEST_AT),
                 SpriteView.headingOf(-0.6, 1)));
+        addStall();
         for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(shownScenery());
         world.startDay();
+        world.ammo().setEnabled(true);
+        startHero();
         p.snapHeading(SpriteView.headingShowing(Facing.SOUTH_EAST, camera.yaw()));
     }
+
+    /**
+     * Her class, as she chose it before - its deck dealt - or, the first time,
+     * the class picker over the game; and the supplies she starts with: some
+     * ammunition for every kind of weapon, a reshuffle scroll, an upgrade
+     * ingot, a few coins.
+     */
+    private void startHero() {
+        Player p = world.player();
+        String cls = game.settings().heroClass;
+        if (com.larsons.game.cards.CardBook.get().hero(cls) != null) p.hero().choose(cls, p);
+        else choosing = true;
+        if (!world.ammo().enabled()) return;
+        for (ItemDef a : com.larsons.game.world.Supplies.AMMO) p.inventory().put(Item.of(a), 2, true);
+        p.inventory().put(Item.of(com.larsons.game.world.Supplies.RESHUFFLE_SCROLL), 1, true);
+        p.inventory().put(Item.of(com.larsons.game.world.Supplies.UPGRADE_INGOT), 1, true);
+        p.addCoins(15);
+    }
+
+    /** Whether the class picker is up (the game standing still until she chooses). */
+    private boolean choosing;
 
     /**
      * Play {@code level} (Creative Mode's play-test, or a saved level from
@@ -246,6 +277,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             p.snapHeading(heading);
         }
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
+        startHero();
         world.equipSelected();
         camera.setDesiredYaw(p.heading());
         camera.snapTo(pivot());
@@ -273,6 +305,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 t.dummyHealth, t.dummyDownSeconds));
     }
 
+    /** The market stall, facing where she starts (its shop alone, at a counter's height, if it has no model). */
+    private void addStall() {
+        Vec3 at = world.terrain().onGround(STALL_AT);
+        double facing = SpriteView.headingOf(-STALL_AT.x(), -STALL_AT.z());
+        var profile = com.larsons.game.building.BuildingCatalog.get().profile("market_stall_awning");
+        Vec3 counter = at;
+        if (profile != null) {
+            var b = world.addBuilding(new com.larsons.game.building.Building(-2, profile, at, facing, null, null));
+            counter = b.toWorld(0, com.larsons.game.level.ObjectTypes.front(profile));
+        }
+        world.addShop(new com.larsons.game.world.Shop(-2, "Market stall", counter, facing, "", true));
+    }
+
     /** A flying dummy on its rounds round {@code centre}, starting {@code start} radians round them. */
     private FlyingDummy addFlier(Vec3 centre, double start) {
         CombatTuning t = world.combat().tuning();
@@ -296,6 +341,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Vec3 at : DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         for (Vec3 at : HIGHLAND_DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         clear.add(new SceneryLayout.Clearing(PLATEAU_CHEST_AT.x(), PLATEAU_CHEST_AT.z(), CHEST_CLEAR));
+        clear.add(new SceneryLayout.Clearing(STALL_AT.x(), STALL_AT.z(), STALL_CLEAR));
         // room to land below the ledge, and to stand at the foot of the cliff
         Terrain t = Terrain.highlands();
         for (String place : new String[]{"cliff", "hollow"}) {
@@ -332,7 +378,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         fade = Math.max(0, fade - dt * 2.8);
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
-        if (pause.open()) {
+        if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
         }
@@ -351,6 +397,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             return;
         }
         if (in.pressed(GLFW_KEY_I)) inventory.toggle();
+        if (in.pressed(GLFW_KEY_J)) inventory.toggleCards();
         Player p = world.player();
         for (int key = GLFW_KEY_KP_0; key <= GLFW_KEY_KP_9; key++) {
             if (in.pressed(key) && debugCode.type(DebugCode.digit(key), world.time())) toggleDebug();
@@ -437,7 +484,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // --- items, the chest -----------------------------------------------------------
         keepStoreInReach();
         if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
-        else if (in.pressed(GLFW_KEY_E) && inventory.store() != null) inventory.close();
+        else if (in.pressed(GLFW_KEY_E) && (inventory.store() != null || inventory.shop() != null)) inventory.close();
         if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
@@ -448,7 +495,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             Sounds.play(SoundKeys.ui("error"), 0.6);
             game.toast("Heavy attack ready in " + (int) Math.ceil(p.heavyWait()) + " s", Theme.HINT);
         }
-        p.update(dt, intent, durations());
+        // her own inventory open - her cards, a weapon's tiers - the game stands still
+        boolean still = inventory.pausing();
+        if (!still) p.update(dt, intent, durations());
         if (scriptRoll && p.action() != AnimState.DASH) scriptRoll = false;   // rolling (or it never started)
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again
@@ -457,7 +506,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 scripted = null;
             }
         }
-        world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
+        if (!still) world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
@@ -583,7 +632,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, STORE, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
     private Chest storeChest;
@@ -611,6 +660,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
         if (d != null && dd < dc && dd < ds && dd < dg && dd < db) return Use.DOOR;
         if (st != null && ds < dc && ds < dg && ds <= db) return Use.STORE;
+        com.larsons.game.world.Shop sh = world.reachableShop();
+        if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
         return b != null ? Use.BUSH : Use.NOTHING;
@@ -628,6 +679,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 else toggleChest(c);
             }
             case STORE -> lookIn(world.reachableStore(), null);
+            case SHOP -> {
+                com.larsons.game.world.Shop sh = world.reachableShop();
+                Vec3 d = sh.position().sub(world.player().ground());
+                world.player().turnTo(SpriteView.headingOf(d.x(), d.z()));
+                inventory.showShop(sh);
+            }
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
             case DOOR -> goThrough(usableDoor());
@@ -1051,6 +1108,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
+        if (world.player().underWater()) {
+            // under the water: the world seen through it, darker the deeper she is
+            float deep = (float) Math.min(1, world.player().diveDepth() / 6);
+            ui.rect(0, 0, ui.width(), ui.height(), new float[]{0.06f, 0.24f + 0.1f * (1 - deep), 0.38f,
+                    0.38f + 0.3f * deep});
+        }
         if (fade > 0) ui.rect(0, 0, ui.width(), ui.height(), new float[]{0, 0, 0, (float) Math.min(1, fade * 1.4)});
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
@@ -1064,24 +1127,50 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawMana(ui, world.combat(), hotbar - 34);
                 combatHud.drawHeavy(ui, world.player(), hotbar - 34);
                 combatHud.drawVitals(ui, world.player(), hotbar - 34);
+                combatHud.drawStealth(ui, world, hotbar - 34);
+                combatHud.drawSupplies(ui, world, hotbar - 34);
+                combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!game.importer().visible()) inventory.draw(ui);
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
+        if (choosing && !pause.open()) chooseClass(ui);
         ui.end();
+    }
+
+    /** The class picker, over the game at its start: the nine classes; a click is hers. */
+    private void chooseClass(Ui ui) {
+        ui.scrim();
+        float w = Math.min(1100, ui.width() - 40), h = Math.min(660, ui.height() - 40);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        ui.textCentered(ui.large, "Choose your class", x + w / 2, y + 14, Theme.TITLE);
+        ui.textCentered(ui.small, "Your class gives you a deck of 8 cards: 4 in hand to start, one more every 5 minutes.",
+                x + w / 2, y + 48, Theme.HINT);
+        ui.textCentered(ui.small, "J or the inventory's Cards button plays them. Change it any time in Pause → Class.",
+                x + w / 2, y + 48 + ui.small.lineHeight() + 3, Theme.HINT);
+        String pick = ClassPicker.draw(ui, game.pointers(), null, x + 20, y + 92, w - 40, h - 112);
+        if (pick == null) return;
+        Player p = world.player();
+        p.hero().choose(pick, p);
+        game.settings().heroClass = pick;
+        game.settings().save();
+        choosing = false;
+        Sounds.play(SoundKeys.ui("card_shuffle"));
+        game.toast("You are a " + com.larsons.game.cards.CardBook.get().hero(pick).name() + " - press J for your cards",
+                Theme.ACCENT);
     }
 
     /** The help bar along the bottom of the HUD. */
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · 1-5 or wheel hotbar · click with food: eat · "
-                    + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
-            "L lock on · K next target · walk into vines: climb (off their top: climb down) · "
-                    + "Alt/Z in the air: land in a roll · "
-                    + "the hills are up the north path",
-            "Tab height · O auto height · Right-drag orbit · +/- zoom · N (held) time-lapse · H HUD · "
-                    + "F9 classic/new animations · F11 full screen · Esc menu"};
+            "E pick up / open / shop / go in, out, up, down / ride · G drop · I inventory · J cards · "
+                    + "1-5 or wheel hotbar · click with food: eat · F1-F4 emote · [ ] preview · Backspace live",
+            "L lock on · K next target · walk into vines: climb (off their top: climb down) · deep water: swim, "
+                    + "C dive, Space up · attack in the air: plunge · Alt/Z in the air: land in a roll",
+            "Tab height · O auto height · Right-drag orbit · +/- zoom · , . turn · T turntable · N (held) time-lapse · "
+                    + "H HUD · F9 classic/new animations · F11 full screen · Esc menu · the hills are up the north path"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;
@@ -1101,6 +1190,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             Chest c = world.reachableChest();
             text = "E   " + (c.store() != null ? "Look in the chest"
                     : c.isOpen() ? "Close the chest" : "Open the chest");
+        } else if (use == Use.SHOP) {
+            text = "E   Shop at ";
+            name = world.reachableShop().name();
+            edge = nameColour = Theme.rgb(240, 192, 48, 1f);
         } else if (use == Use.STORE) {
             text = "E   Look in the " + world.reachableStore().kind().label().toLowerCase();
         } else if (use == Use.ITEM) {
@@ -1419,11 +1512,58 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     toggleChest(c);
                 }
             }
-            // the first barrel, crate or storage chest: goto (beside it), fill <what>, open, hit (break it)
+            // her class: hero <class> (chosen, its deck dealt), hero picker (the class picker up)
+            case "hero" -> {
+                String a = argument.trim();
+                if (a.equals("picker")) choosing = true;
+                else if (com.larsons.game.cards.CardBook.get().hero(a) == null) return false;
+                else {
+                    p.hero().choose(a, p);
+                    choosing = false;
+                }
+            }
+            // her cards beside the inventory (J); a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
+            case "cards" -> inventory.toggleCards();
+            case "tiers" -> {
+                String[] a = argument.trim().split("\\s+");
+                int slot = Integer.parseInt(a[0]) - 1;
+                if (!com.larsons.game.world.Upgrades.has(p.inventory().get(slot))) return false;
+                if (a.length > 1 && a[1].equals("up")) com.larsons.game.world.Upgrades.upgrade(p.inventory(), slot);
+                else inventory.showTiers(slot);
+            }
+            // the nearest shop: shop goto (at its counter, facing it), shop (open it, or shut it)
+            case "shop" -> {
+                if (world.shops().isEmpty()) return false;
+                com.larsons.game.world.Shop sh = world.shops().get(0);
+                for (com.larsons.game.world.Shop o : world.shops()) {
+                    if (o.position().horizontalDistance(p.ground()) < sh.position().horizontalDistance(p.ground())) {
+                        sh = o;
+                    }
+                }
+                if (argument.trim().equals("goto")) {
+                    Vec3 at = sh.position().add(SpriteView.headingVector(sh.heading()).scale(0.9));
+                    p.setPosition(at);
+                    p.snapHeading(SpriteView.headingOf(sh.position().x() - at.x(), sh.position().z() - at.z()));
+                    camera.snapTo(follow());
+                } else if (inventory.shop() == sh) {
+                    inventory.close();
+                } else {
+                    inventory.showShop(sh);
+                }
+            }
+            // a barrel, crate, pot or storage chest (the first, or store <n> ...): goto (beside it), fill <what>,
+            // open, hit (break it)
             case "store" -> {
                 if (world.stores().isEmpty()) return false;
-                Store st = world.stores().get(0);
                 String a = argument.trim();
+                int n = 0;
+                if (a.matches("\\d+.*")) {
+                    int sp = a.indexOf(' ');
+                    n = Integer.parseInt(sp < 0 ? a : a.substring(0, sp)) - 1;
+                    a = sp < 0 ? "" : a.substring(sp + 1).trim();
+                }
+                if (n < 0 || n >= world.stores().size()) return false;
+                Store st = world.stores().get(n);
                 if (a.equals("goto")) {
                     Vec3 at = st.position().add(SpriteView.headingVector(st.heading()).scale(st.radius() + 0.8));
                     p.setPosition(at);

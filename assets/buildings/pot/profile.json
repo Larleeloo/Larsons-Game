@@ -1,0 +1,62 @@
+{
+ "key": "pot",
+ "label": "Pot",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "elevations": {
+  "side": {
+   "width": 30,
+   "height": 36,
+   "anchorX": 15.0,
+   "anchorY": 31.160000000000004,
+   "angle": 0.0
+  },
+  "middle": {
+   "width": 30,
+   "height": 38,
+   "anchorX": 15.0,
+   "anchorY": 28.097576686914532,
+   "angle": 45.0
+  },
+  "top": {
+   "width": 30,
+   "height": 30,
+   "anchorX": 15.0,
+   "anchorY": 14.850666666666669,
+   "angle": 90.0
+  }
+ },
+ "depth": {
+  "min": -0.6456099797474383,
+  "step": 0.005083543147617624
+ },
+ "parts": [
+  {
+   "key": "clay",
+   "label": "Clay",
+   "colour": "#b0643c",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "band",
+   "label": "Painted band",
+   "colour": "#5a2e1e",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.22
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

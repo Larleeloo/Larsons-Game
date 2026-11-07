@@ -1,0 +1,104 @@
+{
+ "key": "foundry",
+ "label": "Foundry",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 14.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#7a3a2e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#7a3a2e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4a4a52",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#3e2e22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Furnace glow",
+   "colour": "#f09038",
+   "texture": "panes",
+   "glow": "always"
+  },
+  {
+   "key": "stacks",
+   "label": "Chimneys",
+   "colour": "#5a3a30",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Pipes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#6e6a64",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   12.5,
+   8.75
+  ],
+  [
+   "box",
+   -4.0,
+   4.875,
+   1.5,
+   1.5
+  ],
+  [
+   "box",
+   4.0,
+   4.875,
+   1.5,
+   1.5
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -5.625
+ ],
+ "interior": true,
+ "anim": null
+}

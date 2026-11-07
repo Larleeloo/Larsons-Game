@@ -61,6 +61,8 @@ public final class Animal implements Target {
     double health;
     double sinceHurt = Double.MAX_VALUE;
     double timer, modeTime, angry, cooldown, phase, lift;
+    /** Seconds it stands frozen still (a card's Freeze). */
+    double frozen;
     double toX, toZ;
     double vx, vy, vz;
     double fleeX, fleeZ;                    // what it runs from
@@ -227,6 +229,14 @@ public final class Animal implements Target {
 
     @Override
     public double height() { return kind.height() * size; }
+
+    @Override
+    public void freeze(double seconds) {
+        frozen = Math.max(frozen, seconds);
+    }
+
+    @Override
+    public boolean frozen() { return frozen > 0; }
 
     @Override
     public boolean alive() {

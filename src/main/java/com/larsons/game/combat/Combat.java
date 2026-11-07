@@ -5,7 +5,11 @@ import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.world.Border;
+import com.larsons.game.world.Buffs;
+import com.larsons.game.world.Stealth;
+import com.larsons.game.world.Ammo;
 import com.larsons.game.world.Forged;
+import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
@@ -102,7 +106,7 @@ public final class Combat {
 
     /** What a hit throws off: a spark, or a spell's burst in its colour. */
     public record Effect(Kind kind, Vec3 at, double born, int colour) {
-        public enum Kind { SPARK, BURST }
+        public enum Kind { SPARK, BURST, SLAM }
     }
 
     /** A line under the dice: what the weapon's border adds. */
@@ -165,6 +169,8 @@ public final class Combat {
 
     private CombatTuning tuning;
     private Random random = new Random();
+    /** The world it was last ticked in: whose cards help, whose animals a blow can turn things into. */
+    private World world;
     private double mana;
     private double now;
 
@@ -207,7 +213,9 @@ public final class Combat {
      * landing, the shots in flight, the poison, mana filling back up.
      */
     public void tick(double dt, World world) {
+        this.world = world;
         now = world.time();
+        mana = Math.min(tuning.maxMana, mana + world.buffs().plus(Buffs.Kind.REGEN_MANA) * dt);
         mana = Math.min(tuning.maxMana, mana + tuning.manaRegen * dt);
         Player p = world.player();
         List<Target> targets = world.targets();
@@ -242,6 +250,14 @@ public final class Combat {
         if (show != null && now > show.end()) show = null;
     }
 
+    /**
+     * A jump attack's landing at {@code at}: a ring of dust thrown up round her
+     * - a burst of its spell's colour for a weapon that casts.
+     */
+    public void slam(Vec3 at, Item weapon) {
+        effects.add(new Effect(Effect.Kind.SLAM, at, now, casts(weapon) ? spellColour(weapon) : 0xC8B89A));
+    }
+
     /** A swing (or a shot) starts: pay for it, roll its dice. */
     private Swing begin(AnimState state, World world, List<Target> targets) {
         Item weapon = world.wielded();
@@ -252,7 +268,9 @@ public final class Combat {
 
         boolean plain = plainBlow(weapon, move);
         boolean mystic = !plain && weapon != null && weapon.has(Border.MYSTIC);
-        double cost = plain ? 0 : manaCost(weapon, move);
+        Buffs buffs = world.buffs();
+        Buffs.Only what = what(move);
+        double cost = plain ? 0 : manaCost(weapon, move) * buffs.times(Buffs.Kind.MANA_COST);
         boolean paid = cost <= mana + 1e-9;
         if (paid) mana -= cost;
         if (!paid) {
@@ -260,6 +278,21 @@ public final class Combat {
             sounds.add(new Sound("combat/fizzle", p.ground()));
             if (move.kind() == Move.Kind.SPELL) return new Swing(move, weapon, null, at, 0, null);
         }
+        // its ammunition: one use of it (none left: no shot, no spell - or a dull blade)
+        Ammo.Use ammo = plain ? Ammo.Use.FREE
+                : world.ammo().use(weapon, p.inventory(), buffs.has(Buffs.Kind.AMMO_FREE));
+        if (ammo == Ammo.Use.EMPTY) {
+            mana = Math.min(tuning.maxMana, mana + (paid ? cost : 0));
+            ItemDef needs = Ammo.of(weapon.def());
+            popups.add(new Popup("Out of " + Ammo.said(needs), AMMO_RGB, p.ground(), 2.0, now, true));
+            sounds.add(new Sound("combat/out_of_ammo", p.ground()));
+            return new Swing(move, weapon, null, at, 0, null);
+        }
+        if (ammo == Ammo.Use.RELOADED) {
+            popups.add(new Popup(Ammo.of(weapon.def()).name() + " used", AMMO_RGB, p.ground(), 1.4, now, true));
+            sounds.add(new Sound("combat/reload", p.ground()));
+        }
+        boolean dull = ammo == Ammo.Use.DULL;
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
         boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
@@ -269,13 +302,46 @@ public final class Combat {
                 : (weapon == null ? tuning.unarmedDice : forged != null ? forged.dice() : tuning.dice(weapon.rarity()))
                 + (move.heavy() ? tuning.heavyExtra : 0);
         if (high) n += HIGH_DICE;
+        int extra = (int) Math.round(buffs.plus(Buffs.Kind.EXTRA_DICE, what));
+        n += extra;
         int sides = forged != null ? forged.sides() : tuning.sides;
-        Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, random), mystic && paid, plain);
+        // hidden, a blow is a sneak attack (or a card makes it one)
+        boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
+        double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
+        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1);
+        Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random), mystic && paid, plain, sneak, times, what);
         List<Note> notes = notes(strike, aimed);
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
+        if (extra > 0) notes.add(new Note("Cards +" + extra + (extra == 1 ? " die" : " dice"), CARD_RGB));
+        if (Math.abs(cards - 1) > 1e-9) notes.add(new Note("Cards ×" + trim(cards), CARD_RGB));
+        if (sneak) notes.add(new Note("Sneak attack ×" + trim(Stealth.SNEAK_DAMAGE), SNEAK_RGB));
+        if (dull) notes.add(new Note("Dull: no " + Ammo.said(Ammo.of(weapon.def())) + " ×" + trim(Ammo.DULL),
+                AMMO_RGB));
         show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
         sounds.add(new Sound("combat/dice_roll", p.ground()));
         return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
+    }
+
+    /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green; ammunition's, a steel grey. */
+    public static final int CARD_RGB = 0xC8A8FF, SNEAK_RGB = 0x9FD8A0, AMMO_RGB = 0xB8C0CC;
+
+    /** Which blows a move's are, for the cards that help only some. */
+    static Buffs.Only what(Move move) {
+        return switch (move.kind()) {
+            case SWING -> Buffs.Only.MELEE;
+            case ARROW, BOLT -> Buffs.Only.RANGED;
+            case SPELL -> Buffs.Only.SPELL;
+        };
+    }
+
+    /** The damage help for blows of {@code what}. */
+    private static Buffs.Kind damageKind(Buffs.Only what) {
+        return switch (what) {
+            case MELEE -> Buffs.Kind.MELEE_DAMAGE;
+            case RANGED -> Buffs.Kind.RANGED_DAMAGE;
+            case SPELL -> Buffs.Kind.SPELL_DAMAGE;
+            case ANY -> Buffs.Kind.DAMAGE;
+        };
     }
 
     /** The swing under way stops before its blow: its mana back, its dice taken down. */
@@ -663,6 +729,7 @@ public final class Combat {
         double d = s.roll().total();
         if (s.mystic()) d *= Border.MYSTIC_DAMAGE;
         if (s.has(Border.BONDED)) d *= 1 + Border.BONDED_PER_HIT * bondedCount(s.weapon(), t);
+        d *= s.times();
         return Math.round(d);
     }
 
@@ -672,8 +739,11 @@ public final class Combat {
      * shot makes its own).
      */
     private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
+        boolean was = t.alive();
         t.hurt(d, from, true);
+        if (was && !t.alive() && world != null) world.felled(t);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
+        if (world != null && t.living()) cards(s, t, d, from);
         if (s.has(Border.VENOM) && d > 0) {
             int ticks = (int) Math.round(Border.VENOM_SECONDS);
             dots.add(new Dot(t, d * Border.VENOM_SHARE / ticks, ticks, now + 1, from));
@@ -684,6 +754,32 @@ public final class Combat {
             effects.add(new Effect(Effect.Kind.SPARK,
                     t.position().add(0, t.height() * 0.62, 0).add(toward.scale(t.radius())), now, 0));
             sounds.add(new Sound("combat/blow", t.position()));
+        }
+    }
+
+    /**
+     * What the cards she has played do as {@code s} lands on {@code t} for
+     * {@code d}: her life drained back, poison, the target frozen or turned
+     * into an animal.
+     */
+    private void cards(Strike s, Target t, double d, Vec3 from) {
+        Buffs buffs = world.buffs();
+        double drain = buffs.plus(Buffs.Kind.LIFESTEAL, s.what());
+        if (drain > 0 && d > 0) world.player().heal(d * drain);
+        double venom = buffs.plus(Buffs.Kind.POISON, s.what());
+        if (venom > 0 && d > 0) {
+            int ticks = (int) Math.round(Border.VENOM_SECONDS);
+            dots.add(new Dot(t, d * venom / ticks, ticks, now + 1, from));
+        }
+        double freeze = buffs.use(Buffs.Kind.FREEZE, s.what());
+        if (freeze > 0 && t.alive()) {
+            t.freeze(freeze);
+            popups.add(new Popup("Frozen", 0x9CDCFF, t.position(), t.height() + 0.6, now, true));
+        }
+        double turn = buffs.use(Buffs.Kind.TRANSFIGURE, s.what());
+        if (turn > 0 && t.alive() && world.transfigure(t, turn)) {
+            popups.add(new Popup("Transfigured!", 0xE0A0FF, t.position(), t.height() + 0.6, now, false));
+            effects.add(new Effect(Effect.Kind.BURST, t.position().add(0, t.height() * 0.5, 0), now, 0xE0A0FF));
         }
     }
 

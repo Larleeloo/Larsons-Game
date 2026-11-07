@@ -96,7 +96,8 @@ public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops,
      * @param seed     which of the endless ranges of its kind it is
      * @param from     where round the horizon it starts, degrees from north (0) through east (90)
      * @param to       where it ends; {@code from == to}: all the way round
-     * @param distance the sea: metres out its shore lies (the other kinds are at no distance)
+     * @param distance the sea: metres out past the level's edges its shore lies (with no edges, from the
+     *                 middle); the other kinds stand round the edges (with none, at no distance)
      * @param snow     mountains: whether their peaks are white
      */
     public record Backdrop(Kind kind, int colour, double height, double haze, int seed, double from, double to,
@@ -105,12 +106,12 @@ public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops,
         public Backdrop {
             height = Math.max(0, Math.min(40, height));
             haze = Math.max(0, Math.min(1, haze));
-            distance = Math.max(10, distance);
+            distance = Math.max(0, distance);
         }
 
         /** One of {@code kind}, all the way round, in its usual colour and size. */
         public static Backdrop of(Kind kind) {
-            return new Backdrop(kind, kind.colour, kind.height, kind.haze, 1, 0, 0, 90, kind == Kind.MOUNTAINS);
+            return new Backdrop(kind, kind.colour, kind.height, kind.haze, 1, 0, 0, 0, kind == Kind.MOUNTAINS);
         }
 
         /** Whether it goes all the way round. */

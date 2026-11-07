@@ -137,6 +137,51 @@ public final class Player {
     /** Faster than this (m/s), a dodge leaves afterimages behind her. */
     public static final double AFTERIMAGE_SPEED = 6;
 
+    /**
+     * The jump attack ({@link AnimState#JUMP_ATTACK}), started in the air with
+     * the attack key: the weapon drawn up over her head to its frame {@link
+     * #PLUNGE_DIVE} - a little lift as she does - then she drops at {@link
+     * #PLUNGE_SPEED} held on frame {@link #PLUNGE_HOLD} until she lands, and the
+     * blow strikes the ground all round her on frame {@link #PLUNGE_IMPACT} (a
+     * die more than a swing: {@code combat.Move}). Frames of the sheet's 24,
+     * the same as {@code feminine_model_jump_attack.py}'s.
+     */
+    public static final int PLUNGE_DIVE = 5, PLUNGE_HOLD = 8, PLUNGE_IMPACT = 11, PLUNGE_FRAMES = 24;
+    /** How fast she drops in the jump attack, m/s, and how high she must be (metres) to start one. */
+    public static final double PLUNGE_SPEED = 14, PLUNGE_MIN = 0.2;
+    /** A jump attack lands unhurt from up to this high (metres): she drives into it. */
+    public static final double PLUNGE_SAFE = 8;
+
+    /**
+     * Swimming: water deeper than {@link #SWIM_DEPTH} she swims in (her weapon
+     * stowed), treading water ({@link AnimState#SWIM_IDLE}) or swimming the
+     * breaststroke on the surface ({@link AnimState#SWIM}); the crouch key
+     * dives - {@link #DIVE_STEP} deeper each press - and the jump key comes back
+     * up, a step at a time ({@link AnimState#SWIM_UNDER}). Under the water her
+     * breath runs down over {@link #MAX_BREATH} seconds, then she drowns {@link
+     * #DROWN} health a second until she comes up; at the surface it comes back
+     * {@link #BREATH_BACK} times as fast. The run and sprint keys swim faster,
+     * for stamina.
+     */
+    public static final double SWIM_DEPTH = 1.2;
+    /**
+     * Where the water's surface is on her sprite, metres over its ground:
+     * treading water, and swimming on the surface; and the middle of her body
+     * swimming - the sheets' {@code WATERLINE} and {@code SWIM_MIDDLE}
+     * ({@code feminine_model_swim.py}).
+     */
+    public static final double TREAD_LINE = 1.32, SURFACE_LINE = 1.02, SWIM_MIDDLE = 0.9;
+    /** How fast she swims, m/s: the breaststroke, faster (the run key), and under the water. */
+    public static final double SWIM_SPEED = 1.2, SWIM_FAST = 2.1, SWIM_UNDER_SPEED = 1.0;
+    /** Stamina a second swimming fast. */
+    public static final double SWIM_COST = 7;
+    /** How far a press of the dive key takes her down, and how fast she goes up or down, m and m/s. */
+    public static final double DIVE_STEP = 1.5, DIVE_SPEED = 1.1;
+    /** How far under (her middle below the surface) she is at the least, diving, and above the bottom at the most. */
+    public static final double DIVE_MIN = 0.6, OFF_BOTTOM = 0.55;
+    /** Her breath, seconds; how much faster it comes back than it ran out; health a second drowning. */
+    public static final double MAX_BREATH = 20, BREATH_BACK = 4, DROWN = 6;
+
     /** Her health and stamina when full. */
     public static final double MAX_HEALTH = 100, MAX_STAMINA = 100;
     /** A fall from higher than this (metres, feet to feet) hurts: {@link #FALL_DAMAGE} for each metre beyond. */
@@ -240,6 +285,12 @@ public final class Player {
             FALL,
             /** Landed unhurt, from a jump or a drop of {@code amount} metres. */
             LANDED,
+            /** Came up for air after {@code amount} seconds under. */
+            SURFACED,
+            /** Out of the water onto her feet. */
+            LEFT_WATER,
+            /** Landed a jump attack, from {@code amount} metres up. */
+            PLUNGED,
             /** Landed in a roll from a fall that would have hurt ({@code amount}: what it would have). */
             ROLLED,
             /** Stepped up over the top of a wall. */
@@ -322,6 +373,11 @@ public final class Player {
     private boolean handsEmpty;
     private boolean crouched;
     private boolean jumping, launched;
+    /** In the air in a jump attack (until she lands), and in the air loosing a shot. */
+    private boolean plunging, aerial;
+    /** Swimming, and under the water; how deep her middle is under the surface, and how deep she is going. */
+    private boolean swimming, under;
+    private double diveDepth, diveTo, breath = MAX_BREATH, drowned;
     /** The jump under way: the stance's own (they all leave the ground on the same frames). */
     private AnimState jumpState = AnimState.JUMP;
     /** The one-shot under way (null: none), and how long it lasts. */
@@ -371,6 +427,12 @@ public final class Player {
     private String horseSheet = "idle";
     private double horseTime, horseRate = 1;
 
+    /** What the cards she has played are doing for her. */
+    private final Buffs buffs = new Buffs();
+    /** The coins in her purse. */
+    private int coins;
+    /** Her class, her cards, her experience and perks. */
+    private final com.larsons.game.cards.Hero hero = new com.larsons.game.cards.Hero(new java.util.Random());
     private final Wardrobe wardrobe;
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private final Inventory inventory;
@@ -392,6 +454,10 @@ public final class Player {
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
+        buffs.tick(dt);
+        hero.deck().tick(dt);
+        if (health > 0) health = Math.min(MAX_HEALTH, health + buffs.plus(Buffs.Kind.REGEN_HEALTH) * dt);
+        stamina = Math.min(MAX_STAMINA, stamina + buffs.plus(Buffs.Kind.REGEN_STAMINA) * dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
         if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
@@ -425,6 +491,11 @@ public final class Player {
             climbOnto(dt, durations);
             return;
         }
+        if (swimming) {
+            swim(dt, in);
+            return;
+        }
+        breathe(dt);
 
         boolean grounded = height <= 1e-6 && vy <= 0;
         Stance st = stance();
@@ -459,6 +530,20 @@ public final class Player {
         // --- starting something ----------------------------------------------------------
         boolean blocking = false;
         if (!grounded && in.dodge()) rollPrimed = true;                     // she will land in a roll
+        if (!grounded && in.attack() && action == null && height > PLUNGE_MIN && st.attack(false) != null) {
+            // in the air: a bow or a crossbow looses a shot down at what is below; anything else, the jump attack
+            jumping = false;
+            crouched = false;
+            if (st == Stance.BOW || st == Stance.CROSSBOW) {
+                aerial = true;
+                start(st.release(false), durations);
+            } else {
+                plunging = true;
+                vy = Math.max(vy, 1.5);
+                start(AnimState.JUMP_ATTACK, durations);
+            }
+            busy = true;
+        }
         if (!busy && grounded) {
             AnimState next = null;
             if (in.dodge() && dodgeWait <= 0) {
@@ -527,7 +612,7 @@ public final class Player {
                 return;
             }
         }
-        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish));
+        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED));
         if (dodging()) {
             velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
         } else {
@@ -542,11 +627,15 @@ public final class Player {
         if (jumping) {
             if (!launched && stateTime >= JUMP_LAUNCH * actionDuration) {
                 launched = true;
-                vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2;
+                vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2 * Math.sqrt(buffs.times(Buffs.Kind.JUMP));
             }
             if (launched && stateTime >= actionDuration) jumping = false;
         }
         fall(dt, durations);
+        if (intoDeepWater()) {
+            startSwimming();
+            return;
+        }
         // in the air, coming up against the edge of something low with its top in reach: she climbs up onto it
         if (airborne && height > 0.15 && wish.length() > 0.5 && startClimbOnto(in, 0.05)) {
             climbOnto(0, durations);
@@ -566,6 +655,12 @@ public final class Player {
         setState(next);
         if (falling) stateTime = FALL_POSE * durations.applyAsDouble(next);    // held in the air
         else stateTime += dt;
+        if (plunging) {
+            // the draw over her head, then down: held on the drop until she lands
+            if (stateTime >= plungeAt(PLUNGE_DIVE)) vy = Math.min(vy, -PLUNGE_SPEED);
+            if (airborne()) stateTime = Math.min(stateTime, plungeAt(PLUNGE_HOLD));
+        }
+        if (aerial && (action == null || !airborne())) aerial = false;
 
         // The dash: held through its push-off, it turns into the roll - at
         // the frame it has reached, the two being the same until then.
@@ -605,6 +700,7 @@ public final class Player {
         action = null;
         drawing = false;
         jumping = false;
+        plunging = aerial = false;
         grab = null;
         crouched = false;
         rollPrimed = false;
@@ -858,7 +954,7 @@ public final class Player {
         if (!water.isEmpty()) {
             // water too deep to wade: not in, unless she is in it already (then only towards the shallows)
             double there = water.depth(x, z, terrain.height(x, z));
-            if (there > WaterMap.TOO_DEEP && there > waterDepth() - 1e-6) return false;
+            if (riding != Riding.NO && there > WaterMap.TOO_DEEP && there > waterDepth() - 1e-6) return false;
         }
         double rise = groundAt(x, z, feetY + (grounded ? STEP_UP : 0.02)) - feetY;
         if (rise <= 0.02) return true;                           // level, or down
@@ -904,6 +1000,16 @@ public final class Player {
         double drop = fallFrom - position.y();
         vy = 0;
         double hurt = drop > SAFE_FALL ? FALL_DAMAGE * (drop - SAFE_FALL) : 0;
+        if (plunging) {
+            // the jump attack strikes down: unhurt from as high as PLUNGE_SAFE, the blow landing as she does
+            plunging = false;
+            rollPrimed = false;
+            velocity = Vec3.ZERO;
+            hurt = drop > PLUNGE_SAFE ? FALL_DAMAGE * (drop - PLUNGE_SAFE) : 0;
+            if (hurt > 0) hurt(Math.round(hurt));
+            events.add(new Event(Event.Kind.PLUNGED, drop));
+            return;
+        }
         if (rollPrimed && drop >= ROLL_FALL) {
             jumping = false;
             drawing = false;
@@ -945,6 +1051,173 @@ public final class Player {
         return airborne && !jumping && action == null && height > 0.3;
     }
 
+    // --- swimming ----------------------------------------------------------------------
+
+    /** Whether her feet have gone into water too deep to wade: she swims. */
+    private boolean intoDeepWater() {
+        if (water.isEmpty() || riding != Riding.NO || wall != null) return false;
+        double depth = waterDepth();
+        if (depth <= SWIM_DEPTH) return false;
+        double surface = water.surface(position.x(), position.z(), position.y());
+        return position.y() + height <= surface - SURFACE_LINE + 0.3;
+    }
+
+    /** Into the water: what she was doing stops, her weapon stowed; she comes up treading water. */
+    private void startSwimming() {
+        swimming = true;
+        double surface = water.surface(position.x(), position.z(), position.y());
+        double feetY = position.y() + height;
+        // dropped in from high, she goes under a little way and comes back up
+        under = feetY < surface - TREAD_LINE - 0.4 && vy < -6;
+        diveDepth = under ? Math.min(surface - feetY - SWIM_MIDDLE, maxDive()) : 0;
+        diveTo = 0;
+        action = null;
+        drawing = jumping = plunging = aerial = false;
+        crouched = false;
+        rollPrimed = false;
+        airborne = false;
+        vy = 0;
+        grab = null;
+        velocity = new Vec3(velocity.x() * 0.4, 0, velocity.z() * 0.4);
+        setState(under ? AnimState.SWIM_UNDER : AnimState.SWIM_IDLE);
+        placeInWater(surface);
+    }
+
+    /** As deep as her middle can go here: {@link #OFF_BOTTOM} over the bottom. */
+    private double maxDive() {
+        return Math.max(0, waterDepth() - OFF_BOTTOM);
+    }
+
+    /** Swimming: her stroke, the dive key and the jump key, her breath; out onto the shallows or a low bank. */
+    private void swim(double dt, Intent in) {
+        // diving down a step, coming up a step
+        if (in.crouch()) {
+            diveTo = (under ? diveTo : 0) + DIVE_STEP;
+            under = true;
+        }
+        if (in.jump() && under) diveTo = Math.max(0, diveTo - DIVE_STEP);
+        diveTo = Math.min(diveTo, Math.max(DIVE_MIN, maxDive()));
+        if (under) {
+            double want = Math.max(diveTo, 0);
+            double d = want - diveDepth, step = DIVE_SPEED * dt;
+            diveDepth += Math.max(-step, Math.min(step, d));
+            if (diveTo <= 0 && diveDepth <= 0.05) {
+                under = false;               // up: a breath
+                diveDepth = 0;
+                events.add(new Event(Event.Kind.SURFACED, MAX_BREATH - breath));
+            }
+        }
+        breathe(dt);
+
+        Vec3 wish = new Vec3(in.moveX(), 0, in.moveZ());
+        if (wish.length() > 1) wish = wish.normalize();
+        boolean fast = (in.run() || in.sprint()) && stamina > 1 && wish.length() > 0.3;
+        if (fast) {
+            stamina = Math.max(0, stamina - SWIM_COST * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
+            sinceTired = 0;
+        }
+        double speed = (under ? SWIM_UNDER_SPEED : SWIM_SPEED) * (fast ? SWIM_FAST / SWIM_SPEED : 1)
+                * buffs.times(Buffs.Kind.SPEED);
+        velocity = velocity.lerp(wish.scale(speed), 1 - Math.exp(-dt * 3));
+        Vec3 step = velocity.scale(dt);
+        if (step.horizontalLength() > 1e-9) {
+            double x = position.x() + step.x(), z = position.z() + step.z();
+            double ground = terrain.height(x, z);
+            double surface = water.surface(position.x(), position.z(), position.y());
+            double there = water.depth(x, z, ground);
+            if (ground > surface + 0.6) {
+                velocity = Vec3.ZERO;                                // a bank too high to climb out onto
+            } else if (!under && there < SWIM_DEPTH - 0.15) {
+                // into the shallows, or up onto a low bank: on her feet
+                swimming = false;
+                position = new Vec3(x, groundAt(x, z, surface + 0.6), z);
+                height = 0;
+                vy = 0;
+                setState(stance().idle(false));
+                events.add(new Event(Event.Kind.LEFT_WATER, 0));
+                return;
+            } else {
+                position = new Vec3(x, ground, z);
+                diveDepth = Math.min(diveDepth, maxDive());
+            }
+        }
+        if (in.moving()) wantHeading = SpriteView.headingOf(wish.x(), wish.z());
+        turnToward(dt);
+        AnimState next = under ? AnimState.SWIM_UNDER
+                : velocity.horizontalLength() > 0.3 ? AnimState.SWIM : AnimState.SWIM_IDLE;
+        setState(next);
+        stateTime += dt * (next == AnimState.SWIM_IDLE ? 1 : Math.max(0.6, velocity.horizontalLength()
+                / (under ? SWIM_UNDER_SPEED : SWIM_SPEED)));
+        placeInWater(water.surface(position.x(), position.z(), position.y()));
+    }
+
+    /** Her sprite's ground where her state puts the water's surface on her (or her middle under it). */
+    private void placeInWater(double surface) {
+        double feetY;
+        if (under) {
+            feetY = surface - SWIM_MIDDLE - Math.max(diveDepth, 0);
+        } else {
+            double t = Math.min(1, velocity.horizontalLength() / SWIM_SPEED);
+            feetY = surface - (TREAD_LINE + (SURFACE_LINE - TREAD_LINE) * t);
+        }
+        height = Math.max(0, feetY - position.y());
+    }
+
+    /** Her breath: running out under the water (then drowning), coming back above it. */
+    private void breathe(double dt) {
+        if (swimming && under) {
+            breath = Math.max(0, breath - dt / buffs.times(Buffs.Kind.BREATH));
+            if (breath <= 0) {
+                drowned += DROWN * dt;
+                if (drowned >= 1) {
+                    double d = Math.floor(drowned);
+                    drowned -= d;
+                    hurt(d);
+                }
+            }
+        } else {
+            breath = Math.min(MAX_BREATH, breath + BREATH_BACK * dt);
+            drowned = 0;
+        }
+    }
+
+    /** What the cards she has played are doing for her now. */
+    public Buffs buffs() { return buffs; }
+
+    /** Her class, her deck of cards, her experience and perks ({@link com.larsons.game.cards.Hero}). */
+    public com.larsons.game.cards.Hero hero() { return hero; }
+
+    /** Her breath back in full (a card, coming up). */
+    public void refillBreath() {
+        breath = MAX_BREATH;
+    }
+
+    /** The coins in her purse. */
+    public int coins() { return coins; }
+
+    /** {@code n} more coins in her purse. */
+    public void addCoins(int n) {
+        coins = Math.max(0, coins + n);
+    }
+
+    /** Pay {@code n} coins: whether she had them (and paid). */
+    public boolean spend(int n) {
+        if (n > coins) return false;
+        coins -= n;
+        return true;
+    }
+
+    /** Whether she is swimming (in water too deep to wade), and under it. */
+    public boolean swimming() { return swimming; }
+
+    public boolean underWater() { return swimming && under; }
+
+    /** Her breath left, seconds ({@link #MAX_BREATH} full). */
+    public double breath() { return breath; }
+
+    /** How far her middle is under the water's surface, diving (0 on it). */
+    public double diveDepth() { return under ? diveDepth : 0; }
+
     // --- climbing ----------------------------------------------------------------------
 
     /** Take hold of the wall she is walking into, if there is one in reach: true if she does. */
@@ -969,6 +1242,7 @@ public final class Player {
         drawing = false;
         action = null;
         jumping = false;
+        plunging = aerial = false;
         airborne = false;
         rollPrimed = false;
         vy = 0;
@@ -1005,7 +1279,7 @@ public final class Player {
         position = new Vec3(at.x(), ground, at.z());
         heading = wantHeading = w.facing();
         boolean moving = Math.abs(up) > 0.1 || Math.abs(side) > 0.1;
-        stamina = Math.max(0, stamina - (moving ? CLIMB_COST : HANG_COST) * dt);
+        stamina = Math.max(0, stamina - (moving ? CLIMB_COST : HANG_COST) * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
         sinceTired = 0;
         setState(AnimState.CLIMB);
         stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
@@ -1084,7 +1358,7 @@ public final class Player {
     private void overLip(double dt, ToDoubleFunction<AnimState> durations) {
         Terrain.Wall w = wall;
         ledgeTime += dt;
-        stamina = Math.max(0, stamina - CLIMB_COST * dt);
+        stamina = Math.max(0, stamina - CLIMB_COST * buffs.times(Buffs.Kind.STAMINA_COST) * dt);
         sinceTired = 0;
         velocity = Vec3.ZERO;
         double last = LEDGE_PATH[LEDGE_PATH.length - 1][0];
@@ -1143,6 +1417,7 @@ public final class Player {
         Vec3 start = pathAt(mantleF0);
         mantleFrom = new Vec3(position.x() - start.x(), 0, position.z() - start.z());
         jumping = false;
+        plunging = aerial = false;
         action = null;
         drawing = false;
         grab = null;
@@ -1228,6 +1503,17 @@ public final class Player {
         }
         return d / AnimState.DEFAULT_FPS;
     }
+
+    /** When the jump attack's frame {@code frame} (of its {@link #PLUNGE_FRAMES}) comes, seconds into it. */
+    private double plungeAt(int frame) {
+        return actionDuration * frame / PLUNGE_FRAMES;
+    }
+
+    /** Whether she is in the air in a jump attack, dropping onto what is under her. */
+    public boolean plunging() { return plunging; }
+
+    /** Whether she is in the air loosing a shot (a jump's bow or crossbow shot). */
+    public boolean aerialShot() { return aerial; }
 
     private void start(AnimState s, ToDoubleFunction<AnimState> durations) {
         if (s == null) return;
@@ -1374,6 +1660,7 @@ public final class Player {
             ledge = null;
             mantling = false;
             jumping = false;
+            plunging = aerial = false;
             action = null;
             drawing = false;
             grab = null;
@@ -1421,6 +1708,7 @@ public final class Player {
     /** Put her standing at {@code p} (on the ground there, off any wall and any horse, not falling). */
     public void setPosition(Vec3 p) {
         unseat();
+        swimming = under = false;
         position = terrain.onGround(p);
         height = 0;
         vy = 0;
@@ -1471,6 +1759,11 @@ public final class Player {
 
     public double health() { return health; }
 
+    /** {@code amount} health back (no more than full; not once knocked out). */
+    public void heal(double amount) {
+        if (health > 0 && amount > 0) health = Math.min(MAX_HEALTH, health + amount);
+    }
+
     public double stamina() { return stamina; }
 
     /** Seconds since she was last hurt (a lot: never). */
@@ -1494,6 +1787,8 @@ public final class Player {
      */
     public double hurt(double damage) {
         if (damage <= 0 || health <= 0) return 0;
+        damage = buffs.soak(damage * buffs.times(Buffs.Kind.DEFENSE));
+        if (damage <= 0) return 0;
         double took = Math.min(health, damage);
         health -= took;
         sinceHurt = 0;
@@ -1511,6 +1806,9 @@ public final class Player {
         action = null;
         drawing = false;
         jumping = false;
+        plunging = aerial = false;
+        swimming = under = false;
+        breath = MAX_BREATH;
         grab = null;
         crouched = false;
         velocity = Vec3.ZERO;
@@ -1526,6 +1824,7 @@ public final class Player {
         mantling = false;
         action = null;
         jumping = false;
+        plunging = aerial = false;
         height = Math.max(0, metres);
         vy = 0;
         airborne = height > 0;

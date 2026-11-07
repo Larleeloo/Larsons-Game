@@ -200,7 +200,16 @@ public enum AnimState {
     // the gallop - drawn over the horse, her sprite's ground {@code RideTrack.SEAT_Z} below
     // its seat
     RIDE("ride", "Ride", true, 24, Stance.FREE, 0, "crouch_idle"),
-    RIDE_RUN("ride_run", "Ride, gallop", true, 18, Stance.FREE, 0, "ride");
+    RIDE_RUN("ride_run", "Ride, gallop", true, 18, Stance.FREE, 0, "ride"),
+    // --- the jump attack, with whatever is in her hands: a plunging strike from the
+    // air - the weapon drawn up, driven down as she falls (held on {@code
+    // Player.PLUNGE_HOLD}), struck into the ground as she lands ({@code Player.PLUNGE_IMPACT})
+    JUMP_ATTACK("jump_attack", "Jump attack", false, 24, Stance.ALL, 0, "jump"),
+    // --- swimming, empty hands (the weapon stowed): treading water, the
+    // breaststroke on the surface, and under the water
+    SWIM_IDLE("swim_idle", "Tread water", true, 32, Stance.FREE, 0, "idle"),
+    SWIM("swim", "Swim", true, 28, Stance.FREE, 1.2, "swim_idle"),
+    SWIM_UNDER("swim_under", "Swim under water", true, 32, Stance.FREE, 1.0, "swim");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

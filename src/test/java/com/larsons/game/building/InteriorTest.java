@@ -143,7 +143,8 @@ class InteriorTest {
                 for (Building b : w.buildings()) {
                     Room.Spec r = b.profile().room();
                     if (r == null) {
-                        if (!b.profile().fixture()) furniture.add(b);            // (not a candle on its table)
+                        // (not a candle on its table, nor a rug underfoot or a painting on the wall)
+                        if (!b.profile().fixture() && !b.profile().footprint().isEmpty()) furniture.add(b);
                     } else if (r.piece() == Room.Piece.WALL) walls.add(b);
                     if (r != null && (r.piece() == Room.Piece.EXIT || r.piece() == Room.Piece.STAIRS)) doors.add(b);
                 }

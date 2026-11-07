@@ -62,6 +62,14 @@ public final class Settings {
     /** Print the frame numbers to the console ({@code -Dlarsons.fps.log}). */
     public final boolean logFrames;
     public boolean showHud = true;
+    /** Her class (Mage, Bard ... Cleric: {@link com.larsons.game.cards.CardBook}), "" before she has chosen one. */
+    public String heroClass = "";
+    /**
+     * The mouse pointer: "class" (her class's: a wand for a Mage, a lute for
+     * a Bard ...), one of the pointers by name ({@code assets/ui/pointers/<name>.png}),
+     * "custom" ({@code assets/ui/pointers/custom.png}, any picture dropped in) or "system".
+     */
+    public String pointer = "class";
     /**
      * Show the scenery - the trees, grass tufts and rocks (P). Saved as
      * {@code showProps}, the name it had when they were 3D props.
@@ -134,6 +142,8 @@ public final class Settings {
                 if (!scaleGiven) s.spriteScale = Json.num(j, "spriteScale", 1.0);
                 s.savedFps = Math.max(0, (int) Json.num(j, "fps", FramePacer.DEFAULT_FPS));
                 s.showHud = Json.bool(j, "showHud", true);
+                s.heroClass = Json.str(j, "heroClass", "");
+                s.pointer = Json.str(j, "pointer", "class");
                 s.showProps = Json.bool(j, "showProps", true);
                 s.autoCamera = Json.bool(j, "autoCamera", true);
                 s.seeThrough = Json.bool(j, "seeThrough", true);
@@ -166,6 +176,8 @@ public final class Settings {
         j.put("spriteScale", spriteScale);
         j.put("fps", savedFps);
         j.put("showHud", showHud);
+        j.put("heroClass", heroClass);
+        j.put("pointer", pointer);
         j.put("showProps", showProps);
         j.put("autoCamera", autoCamera);
         j.put("seeThrough", seeThrough);

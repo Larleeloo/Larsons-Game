@@ -138,7 +138,15 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border, Forged 
         String[] parts = text.trim().split("[:\\s]+");
         if (parts[0].equals("forged")) {
             Forged f = parts.length > 1 ? Forged.byId(parts[1]) : null;
-            return f == null ? null : f.item();
+            if (f == null) return null;
+            if (parts.length > 2) {
+                try {
+                    f = f.at(Integer.parseInt(parts[2]));
+                } catch (NumberFormatException ignored) {
+                    // a word, not a tier: the first
+                }
+            }
+            return f.item();
         }
         ItemDef def = ItemDef.byId(parts[0]);
         if (def == null) return null;

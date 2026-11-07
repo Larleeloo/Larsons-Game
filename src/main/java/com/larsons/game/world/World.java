@@ -184,12 +184,19 @@ public final class World {
     private final List<Building> buildings = new ArrayList<>();
     /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
     private final List<Store> stores = new ArrayList<>();
+    /** The market stalls and shop counters: what each sells, and what is left of it. */
+    private final List<Shop> shops = new ArrayList<>();
+    /** The pieces what she breaks shatters into. */
+    private final Shards shards = new Shards();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
     private final Loot loot = Tack.addTo(Wearables.addTo(new Loot()));
     private final List<Dummy> dummies = new ArrayList<>();
     private final List<FlyingDummy> fliers = new ArrayList<>();
     private final List<SoundSpot> soundSpots = new ArrayList<>();
     private final Combat combat = new Combat(CombatTuning.defaults());
+    /** How easily she is noticed now, worked out a few times a second. */
+    private Stealth stealth = Stealth.OPEN;
+    private double stealthClock, lastHidden = Double.NEGATIVE_INFINITY;
     private Terrain terrain = Terrain.FLAT;
     private Vec3 spawnPoint = Vec3.ZERO;
     private Random random = new Random();
@@ -237,6 +244,7 @@ public final class World {
         private final List<Chest> chests;
         private final List<Building> buildings;
         private final List<Store> stores;
+        private final List<Shop> shops;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -259,6 +267,7 @@ public final class World {
             chests = List.copyOf(w.chests);
             buildings = List.copyOf(w.buildings);
             stores = List.copyOf(w.stores);
+            shops = List.copyOf(w.shops);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -295,6 +304,8 @@ public final class World {
         chests.clear();
         buildings.clear();
         stores.clear();
+        shops.clear();
+        shards.clear();
         dummies.clear();
         fliers.clear();
         soundSpots.clear();
@@ -323,6 +334,8 @@ public final class World {
         buildings.addAll(p.buildings);
         stores.clear();
         stores.addAll(p.stores);
+        shops.clear();
+        shops.addAll(p.shops);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -401,6 +414,30 @@ public final class World {
     /** The barrels, crates and storage chests. */
     public List<Store> stores() { return stores; }
 
+    /** Keep {@code s} in the world: a market stall or a shop's counter. */
+    public Shop addShop(Shop s) {
+        shops.add(s);
+        return s;
+    }
+
+    /** The market stalls and shop counters. */
+    public List<Shop> shops() { return shops; }
+
+    /** The nearest shop she can reach, or null. */
+    public Shop reachableShop() {
+        Shop best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Shop s : shops) {
+            if (!s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
     /** The store that is level object {@code id}, or null. */
     public Store store(int id) {
         for (Store s : stores) if (s.id() == id) return s;
@@ -429,11 +466,21 @@ public final class World {
      */
     void smash(Store s) {
         stores.remove(s);
+        int[] colours = null;
+        for (Building b : buildings) {
+            if (b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null) {
+                colours = partColours(b);
+                break;
+            }
+        }
         buildings.removeIf(b -> b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null);
+        chests.removeIf(c -> c.store() == s);
         Vec3 at = s.position();
+        shards.burst(at, s.radius() * 0.8, s.height(), colours == null ? CHEST_COLOURS : colours, s.kind().pieces(),
+                s.kind().pieceSize(), terrain);
         combat.sound("world/" + s.kind().key() + "_break", at, 1);
-        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT) + " breaks", 0xE8D8A8, at,
-                s.height() + 0.4, true);
+        combat.say("The " + s.kind().label().toLowerCase(java.util.Locale.ROOT)
+                + (s.kind().clay() ? " shatters" : " breaks"), 0xE8D8A8, at, s.height() + 0.4, true);
         Inventory held = s.items();
         int k = 0;
         for (int i = 0; i < held.size(); i++) {
@@ -449,6 +496,23 @@ public final class World {
             k++;
         }
     }
+
+    /** A storage chest's pieces: its wood, its darker boards, its brass. */
+    private static final int[] CHEST_COLOURS = {0x7A4A2A, 0x7A4A2A, 0x5A3A22, 0xC8A050};
+
+    /** {@code b}'s parts' colours, as it is coloured - its first part (its body) the most of them. */
+    private static int[] partColours(Building b) {
+        var parts = b.profile().parts();
+        if (parts.isEmpty()) return null;
+        int[] out = new int[parts.size() + 2];
+        for (int i = 0; i < parts.size(); i++) out[i] = b.look().colour(parts.get(i));
+        out[parts.size()] = out[0];
+        out[parts.size() + 1] = out[0];
+        return out;
+    }
+
+    /** The pieces flying and lying about from what she has broken. */
+    public Shards shards() { return shards; }
 
     /** The building that is level object {@code id}, or null. */
     public Building building(int id) {
@@ -472,6 +536,79 @@ public final class World {
     /** The fighting: the dice, the damage, the shots in flight, her mana. */
     public Combat combat() { return combat; }
 
+    // --- a card's Transfigure ------------------------------------------------------
+
+    /** What a Transfigure turns things into: animals that walk the ground. */
+    public static final AnimalKind[] TRANSFIGURE_INTO = {AnimalKind.SHEEP, AnimalKind.PIG, AnimalKind.RABBIT,
+            AnimalKind.CAT, AnimalKind.DOG, AnimalKind.FOX, AnimalKind.DUCK, AnimalKind.GOOSE, AnimalKind.PHEASANT,
+            AnimalKind.IGUANA, AnimalKind.COW, AnimalKind.DEER};
+
+    /** Something turned into an animal: what it was (an animal's kind; null: a dummy, hidden meanwhile), and until when. */
+    private record Turned(AnimalKind was, com.larsons.game.ambient.Temperament temper, Animal as, double until) {}
+
+    private final List<Turned> turned = new ArrayList<>();
+
+    /**
+     * Turn {@code t} into an animal picked at random for {@code seconds}: a
+     * dummy (or a flier) goes for that long and is back when it is over; an
+     * animal becomes another, and turns back where that one is then. False
+     * when it cannot be (a ridden horse, a barrel).
+     */
+    public boolean transfigure(Target t, double seconds) {
+        Vec3 at = terrain.onGround(t.position());
+        AnimalKind into = TRANSFIGURE_INTO[random.nextInt(TRANSFIGURE_INTO.length)];
+        AnimalKind was = null;
+        com.larsons.game.ambient.Temperament temper = null;
+        if (t instanceof Dummy d) {
+            d.hide(seconds);
+        } else if (t instanceof FlyingDummy f) {
+            f.hide(seconds);
+        } else if (t instanceof Animal a && !a.ridden() && !a.saddled()) {
+            if (a.kind() == into) into = into == AnimalKind.SHEEP ? AnimalKind.PIG : AnimalKind.SHEEP;
+            was = a.kind();
+            temper = a.temperament();
+            animals.remove(a);
+        } else {
+            return false;
+        }
+        Animal as = animals.add(into, at, com.larsons.game.ambient.Temperament.CALM, place());
+        turned.add(new Turned(was, temper, as, time + seconds));
+        return true;
+    }
+
+    /** The Transfigures run out: the stand-ins go, the animals turn back. */
+    private void turnBack() {
+        for (java.util.Iterator<Turned> it = turned.iterator(); it.hasNext(); ) {
+            Turned tu = it.next();
+            if (time < tu.until()) continue;
+            it.remove();
+            Vec3 at = tu.as() != null ? tu.as().position() : null;
+            if (tu.as() != null) animals.remove(tu.as());
+            if (tu.was() != null && at != null) animals.add(tu.was(), terrain.onGround(at), tu.temper(), place());
+        }
+    }
+
+    /** How easily she is noticed now ({@link Stealth}). */
+    public Stealth stealth() { return stealth; }
+
+    /**
+     * Whether a blow she starts now is a sneak attack: she was hidden a
+     * moment ago ({@link #SNEAK_GRACE} s) - standing up to swing gives her away
+     * only once the blow has landed.
+     */
+    public boolean sneaky() { return time - lastHidden <= SNEAK_GRACE; }
+
+    /** How long after she was last hidden a blow she starts is still a sneak attack, seconds. */
+    public static final double SNEAK_GRACE = 0.6;
+
+    /** What the cards she has played are doing for her ({@link Player#buffs}). */
+    public Buffs buffs() { return player.buffs(); }
+
+    /** Her weapons' ammunition in use ({@link Ammo}). */
+    public Ammo ammo() { return ammo; }
+
+    private final Ammo ammo = new Ammo();
+
     public List<Dummy> dummies() { return dummies; }
 
     public Dummy addDummy(Dummy dummy) {
@@ -494,8 +631,9 @@ public final class World {
 
     /** Everything that can be hit: the dummies, the fliers, the animals about (but the horse she rides). */
     public List<Target> targets() {
-        List<Target> out = new ArrayList<>(dummies);
-        out.addAll(fliers);
+        List<Target> out = new ArrayList<>();
+        for (Dummy d : dummies) if (!d.hidden()) out.add(d);
+        for (FlyingDummy f : fliers) if (!f.hidden()) out.add(f);
         for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         return out;
@@ -684,6 +822,7 @@ public final class World {
             s.tick(dt);
             if (s.broken()) smash(s);
         }
+        shards.tick(dt, terrain);
         for (Dummy d : dummies) {
             d.tick(dt);
             if (!player.passesThrough()) player.keepOut(d.position(), Dummy.RADIUS);   // (she rolls through them)
@@ -705,7 +844,14 @@ public final class World {
             }
         }
         if (bounds != null) player.keepWithin(bounds[0], bounds[1], bounds[2], bounds[3]);
+        stealthClock -= dt;
+        if (stealthClock <= 0) {
+            stealth = Stealth.of(this);
+            stealthClock = 0.2;
+        }
+        if (stealth.hidden()) lastHidden = time;
         combat.tick(dt, this);
+        turnBack();
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
@@ -863,6 +1009,9 @@ public final class World {
         public double top(double x, double z, double below) {
             double best = Double.NaN;
             for (Building b : buildings) {
+                // a building's porch, the step at its door, its stairs: walked up onto
+                double st = b.stepTop(x, z, below);
+                if (!Double.isNaN(st) && !(st <= best)) best = st;
                 if (!climbable(b)) continue;
                 double t = b.position().y() + b.profile().height();
                 if (t > below || t <= best) continue;
@@ -947,6 +1096,9 @@ public final class World {
 
             @Override
             public boolean down() { return player.health() <= 0; }
+
+            @Override
+            public double conspicuous() { return stealth.score(); }
         };
     }
 
@@ -957,6 +1109,8 @@ public final class World {
         switch (e.outcome()) {
             case WARNED -> combat.say("!", 0xFFD27A, a.position(), a.height() + 0.25, false);
             case STRUCK -> {
+                double thorns = player.buffs().plus(Buffs.Kind.THORNS);
+                if (thorns > 0 && e.damage() > 0 && a.alive()) a.hurt(e.damage() * thorns, player.ground(), true);
                 combat.say(struck(a.kind()) + " -" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
                 combat.sound("combat/player_hurt", at);
             }
@@ -982,8 +1136,32 @@ public final class World {
         }
     }
 
+    /**
+     * {@code t} felled by her blow: experience for it ({@link
+     * com.larsons.game.cards.Hero}) and, for a dummy or a flier, a few coins
+     * where it stood (an animal leaves what it leaves when it falls: {@link #hunted}).
+     */
+    public void felled(com.larsons.game.combat.Target t) {
+        if (t instanceof Animal) return;
+        int xp = t instanceof FlyingDummy ? com.larsons.game.cards.Hero.XP_FLIER : com.larsons.game.cards.Hero.XP_FELLED;
+        earn(xp);
+        int coins = 2 + new Random(Double.doubleToLongBits(t.position().x() * 31 + t.position().z() + time))
+                .nextInt(5);
+        Vec3 at = t.position();
+        spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
+    }
+
+    /** {@code xp} experience earned; a level up said over her. */
+    public void earn(double xp) {
+        if (player.hero().gain(xp, player.buffs())) {
+            combat.say("Level " + player.hero().level() + "! A perk point", 0xFFD27A, player.ground(), 2.4, false);
+            combat.sound("ui/level_up", player.ground());
+        }
+    }
+
     /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
     void hunted(Animal a) {
+        earn(com.larsons.game.cards.Hero.XP_HUNTED);
         java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
                 + time));
         int i = 0;
@@ -1089,6 +1267,15 @@ public final class World {
                         combat.sound(SoundKeys.player(body, "land"), at, Math.min(1, 0.45 + e.amount() * 0.35));
                     }
                 }
+                case SURFACED -> {
+                    if (e.amount() > 4) combat.sound(SoundKeys.player(body, "gasp"), at);
+                    combat.sound("player/surface", at);
+                }
+                case LEFT_WATER -> combat.sound("player/wade_out", at);
+                case PLUNGED -> {
+                    combat.sound("combat/plunge", at);
+                    combat.slam(at, wielded());
+                }
                 case ROLLED -> {
                     combat.say(e.amount() > 0 ? "Rolled out of the fall" : "Roll", 0x9CC4FF, at, 2.1, true);
                     combat.sound(SoundKeys.player(body, "landing_roll"), at);
@@ -1119,7 +1306,19 @@ public final class World {
      */
     private void opened(Chest c) {
         for (GroundItem g : items) if (g.source == c) return;
-        List<Item> lot = loot.roll(random);
+        earn(com.larsons.game.cards.Hero.XP_CHEST);
+        List<Item> lot = new ArrayList<>(loot.roll(random));
+        List<Integer> amounts = new ArrayList<>();
+        for (int i = 0; i < lot.size(); i++) amounts.add(1);
+        // and coins, and some supplies: ammunition, now and then an upgrade ingot or a reshuffle scroll
+        Random extra = new Random(Double.doubleToLongBits(c.position().x() * 131 + c.position().z() * 7 + time));
+        lot.add(Item.of(Supplies.COINS));
+        amounts.add(5 + extra.nextInt(16));
+        double roll = extra.nextDouble();
+        ItemDef supply = roll < 0.2 ? Supplies.UPGRADE_INGOT : roll < 0.3 ? Supplies.RESHUFFLE_SCROLL
+                : Supplies.AMMO.get(extra.nextInt(Supplies.AMMO.size()));
+        lot.add(Item.of(supply));
+        amounts.add(Supplies.isAmmo(supply) ? 2 + extra.nextInt(3) : 1);
         Vec3 lid = c.position().add(0, 0.55, 0);
         int n = lot.size();
         for (int i = 0; i < n; i++) {
@@ -1129,8 +1328,10 @@ public final class World {
                     + (random.nextDouble() - 0.5) * 0.15;
             double r = 1.35 + (i % 2) * 0.55 + random.nextDouble() * 0.2;
             Vec3 land = terrain.onGround(landing(c, a, r));
-            items.add(new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
-                    time + FIRST_THROW + NEXT_THROW * i));
+            GroundItem g = new GroundItem(lot.get(i), land, items.size() * 1.7 + i, c, lid,
+                    time + FIRST_THROW + NEXT_THROW * i);
+            g.amount = amounts.get(i);
+            items.add(g);
         }
     }
 
@@ -1405,6 +1606,12 @@ public final class World {
      * when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
+        if (item.def == Supplies.COINS) {
+            // coins go into her purse, never a slot (a card may make them more)
+            player.addCoins((int) Math.round(item.amount * player.buffs().times(Buffs.Kind.COINS)));
+            items.remove(item);
+            return true;
+        }
         if (item.def.isFood()) {
             // a heap of pickings: as many as there is room for, onto their stacks; the rest stays
             int took = 0;

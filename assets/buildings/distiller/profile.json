@@ -1,0 +1,58 @@
+{
+ "key": "distiller",
+ "label": "Copper still",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.812,
+ "model": true,
+ "parts": [
+  {
+   "key": "copper",
+   "label": "Copper",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "bricks",
+   "label": "Hearth",
+   "colour": "#8a4434",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "wood",
+   "label": "Barrel",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#f08030",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.99,
+   0.99
+  ],
+  [
+   "circle",
+   0.935,
+   0.0,
+   0.297
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

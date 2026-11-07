@@ -122,16 +122,18 @@ window could even open).
 | **Space** | jump - with the sword, the axe, the bow, the crossbow, the crystal staff, the wand, the mace or the dagger |
 | **Left Alt** or **Z** | dodge: a tap **dashes** (a low burst of 3.5 m); held, the dash turns into a **combat roll** (4.7 m, nothing can hurt her in it, she rolls through the dummies) - the way she is moving, or facing, with whatever is in her hands ([Dodging](#dodging)); pressed **in the air**, she lands in a roll, unhurt by the fall ([Heights](#heights)) |
 | **L** / **K** | **lock on** to the enemy nearest the middle of the view - a dummy or a flier - (L again: let go) / on to the next one, left to right ([The lock-on](#the-lock-on)) |
+| **deep water** | she **swims**: W A S D, Shift faster; **C** dives under, **Space** comes up - a breath bar shows under the water, and she drowns when it runs out ([Swimming](#swimming)) |
 | walk into the **vines** | **climb** the vine-covered cliff: W up, S down, A / D along it; Space (or the dodge key, or C) lets go - it costs **stamina** ([Climbing](#climbing-and-stamina)) |
 | walk off the **top of the vines** | **climb down**: she turns, steps down over the lip onto the vines and climbs on down while you keep walking out |
 | **Space** by a table, a bench, a crate ... | **climb up onto it** - anything up to about her height; she stands on furniture up to 2 m tall ([Climbing onto furniture](#climbing-onto-furniture)) |
-| **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell |
+| **Left click** or **F** | attack - every blow rolls its [damage dice](#fighting) over her head; with the bow, hold to draw and let go to loose; with a wand or a Magic (or better) staff, cast a spell; **in the air**, a [jump attack](#jump-attacks) |
 | **X** / **R** / **Q** | heavy attack (the axe, the staff, the wand, the mace or the dagger; once every 10 s) / spin attack (all but the bow and the crossbow) / parry |
 | **B** (held) / **V** | block - the shield up, or the weapon held across / shield bash (or attack while blocking) |
 | **1 – 5** or the **mouse wheel** | choose a hotbar slot - what is in it is in her hands: a battle axe, bow, crossbow, crystal staff, wand, mace or dagger in its stance, the sword with the sword and shield - or, with no shield worn, the sword alone; an empty slot, empty hands |
+| **J** | her **cards** beside the inventory: her hand to play from and her perk tree - the game stands still while they are open ([Classes, cards and coins](#classes-cards-and-coins)) |
 | **I** | the inventory - click an item to pick it up, click a slot to put it there, right-click to move it to or from the hotbar, click outside to drop it; 1 – 5 over a slot swaps it into that hotbar slot; **A–Z** / **Rarity** sort it |
 | **F1 – F4** | laugh, cry, surprise, anger |
-| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, look in a barrel, a crate or a storage chest ([storage](#barrels-crates-and-storage-chests)), pick a bush, go in at a door, up or down the stairs or out - whichever is nearest; by a horse, **saddle** it (with a saddle on her) or **ride** it, and on it, **get off** ([Riding](#riding)) / drop what you are holding |
+| **E** / **G** | pick up the item you are standing by (she reaches for it), open / shut the chest, look in a barrel, a crate or a storage chest ([storage](#barrels-crates-and-storage-chests)), pick a bush, go in at a door, up or down the stairs or out, **shop** at a market stall or a shop's counter ([Shops](#shops)) - whichever is nearest; by a horse, **saddle** it (with a saddle on her) or **ride** it, and on it, **get off** ([Riding](#riding)) / drop what you are holding |
 | **W A S D**, **Shift**, **Ctrl** (riding) | steer the horse - it turns no faster than a horse can - at a walk, a canter or a gallop |
 | **Right-drag** (or middle-drag), **arrow keys** | orbit the camera — yaw and height |
 | **+ / −**, the wheel while orbiting | zoom |
@@ -603,12 +605,23 @@ looks in, with none of a loot chest's smoke.
   <img src="docs/screenshots/storage-break.png" width="49%" alt="A barrel broken open, what it held spilled round where it stood">
 </p>
 
-**Barrels and crates break.** Blows and shots land on them (they are never
-locked on to, and never count for Bonded); broken, they splinter with a sound
-of their own and spill what they held round where they stood, clear of the
-walls. A storage chest does not break.
+A **pot** (4 slots) and a **large pot** (6) hold things too.
 
-In Creative Mode a barrel, a crate (Place → Inside) or a **Storage chest**
+**Barrels, crates, pots and storage chests break.** Blows and shots land on
+them (they are never locked on to, and never count for Bonded); broken, they
+**shatter into pieces** (`world/Shards`) - splinters, staves and shards in
+their own colours thrown up and out, tumbling, bouncing and skidding to a
+stop, lying a moment and fading - with a sound of their own, and spill what
+they held round where they stood, clear of the walls. A pot breaks at a
+touch, a barrel takes 30, a crate 22, a storage chest 40. A loot chest does
+not break.
+
+<p align="center">
+  <img src="docs/screenshots/pot-shatters.png" width="49%" alt="A pot by the market stall shattering: its shards thrown up and out">
+  <img src="docs/screenshots/barrel-shatters.png" width="49%" alt="A barrel breaking into splinters and staves">
+</p>
+
+In Creative Mode a barrel, a crate, a pot, a large pot (Place → Inside) or a **Storage chest**
 (Place → Inside) has **Holds**: a list of items, each with how many -
 `wild berries x6, sage, longbow perfect, forged:duskfang` - names as the
 scripts write them. A treasure chest whose **Throws out loot** is off is a
@@ -852,6 +865,81 @@ Items name it `forged:<id>` - in a storage chest's or a barrel's **Holds**, a
 script's `give forged:duskfang`. `assets/forge/duskfang.json` is a sample: an
 Epic sword with a purple blade rolling 3d8 in blue, Venom and Mystic.
 
+### Jump attacks
+
+Attack **in the air** and she drops into a **plunging strike**: the weapon
+brought down two-handed as she falls, landing with a blow that hits
+everything round her (a little over a metre and a half) and rolls **a die
+more** than a swing - dust (or a spell's colour) thrown out in a ring where
+she came down. The bow and the crossbow loose a shot from the air instead.
+
+<p align="center">
+  <img src="docs/screenshots/jump-attack.png" width="49%" alt="In the air, the sword raised two-handed over a training dummy">
+  <img src="docs/screenshots/jump-attack-landing.png" width="49%" alt="Landing: the blow rings out round her and three dice roll">
+</p>
+
+### Dice that add, subtract, multiply, divide or scale
+
+A forged weapon's roll can be more than one kind of die. After its own dice,
+up to four **more groups** each do something to the total so far, left to
+right (`combat/DiceRoll`): **+** adds them, **−** takes them away, **×**
+multiplies, **÷** divides, and **%** scales - a d% adds that many percent of
+the total so far. `2d8 + 1d6 × 1d4` rolls the two d8s, adds the d6, and
+multiplies all of it by the d4. Each die comes up in its colour over her
+head with its sign beside it; the total under them. Set in the Forge's **Dice
+& ammo** tab ([The Forge](#the-forge)).
+
+### Sneaking
+
+How easily she is noticed is a number (`world/Stealth`): 1 walking about in
+the open by day, less **crouched** (0.5 moving, 0.35 still), standing still,
+in **tall grass**, at **night**, in fog or rain or snow, or **under the
+water** (0.25); more running, sprinting, riding or swinging. At **0.45 or
+less she is hidden** - an eye shut over the stamina bar says so - a skittish
+animal lets her come nearly up to it, and her blows are **sneak attacks**:
+twice the damage, said under the dice. A card's cloak hides her better still.
+
+<p align="center">
+  <img src="docs/screenshots/sneaking.png" width="70%" alt="Crouched by the training dummies: the eye over the stamina bar says she is hidden, her blows sneak attacks">
+</p>
+
+### Ammunition
+
+Every weapon uses something up as it is used (`world/Ammo`, `world/Supplies`):
+
+| Weapon | Uses | Weapon | Uses |
+|---|---|---|---|
+| sword, dagger | **whetstones** | wand | **small crystals** |
+| battle axe | **iron wedges** | crystal staff | **large crystals** |
+| mace | **mace studs** | longbow | **arrow bundles** |
+| crossbow | **bolt bundles** | | |
+
+One is taken from her inventory every **12** blows or shots (each tier of a
+weapon can last longer, and the Forge sets it for a forged one) - *Reloaded*
+pops over her head when a fresh one is taken up. With none left, a blade or a
+mace still strikes, **dull**, for half (*Dull: no whetstone*); a bow, a
+crossbow, a wand or a staff will not shoot (*Out of arrow bundles*). The HUD
+shows the one in hand and how many she carries, and her coins. They are found
+in chests, sold in [shops](#shops), and lie about as pickups; she starts the
+demo with two of each. A level uses ammunition unless its `extra` says
+`"ammo": false`.
+
+### Upgrade tiers
+
+A forged weapon has **tiers**: 2 to 10 of them, each its own name, rarity,
+dice, colours and how long its ammunition lasts, set in the Forge's **Tiers**
+tab. **Right-click** it in the inventory and its tiers stand beside it - each
+one's name, rarity, dice and what it costs, the one it is at marked - with
+the **Upgrade** button. An upgrade costs **upgrade ingots**, by the next
+tier's rarity: Common or Uncommon 1, Rare 2, Epic 3, Legendary 5, Mythic 8.
+A tier set as a **mystery** shows as **???** until it is reached (the last
+of the chart's tiers is one unless the Forge says otherwise). Upgraded, it
+changes colour as its tier says. In scripts, `forged:<id>:<tier>`.
+
+<p align="center">
+  <img src="docs/screenshots/weapon-tiers.png" width="70%" alt="A sword right-clicked in the inventory: its five tiers beside it, the second marked as the one it is at, the last a mystery, and the Upgrade button">
+</p>
+
 ### Tuning
 
 The numbers are in **`assets/combat/combat.json`**, read when the demo
@@ -864,6 +952,100 @@ own numbers are `world/Border`'s. The fighting's other sprites are under
 `assets/sprites/combat/`: `arrow/` and `bolt/` (`fly.png`, the head to the
 right), `magic_bolt/` (`fly.png`, 8 frames), `magic_burst/` and `hit_spark/`
 (`burst.png`), each with a `profile.json` saying how big it is in the world.
+
+## Classes, cards and coins
+
+### Choosing a class
+
+She is one of **nine classes** - **Mage, Bard, Knight, Warrior, Warlock,
+Druid, Rogue, Ranger** or **Cleric** (`assets/cards/cards.json`). The first
+time the demo starts, the nine stand as tiles over the game - each its name
+in its colour, what it is about and its starting deck - and the one clicked
+is hers; **Pause → Class** chooses again (a new class starts her deck
+afresh and gives back her perk points). Her class is kept between runs.
+
+<p align="center">
+  <img src="docs/screenshots/class-picker.png" width="49%" alt="The class picker: the nine classes, each with its pointer, what it is about and its starting deck">
+  <img src="docs/screenshots/cards-hand.png" width="49%" alt="The Mage's hand of four beside the inventory: Healing Spell, Cast, Cast and Bind, the piles and the Reshuffle button">
+</p>
+
+### The deck
+
+Each class starts with a **deck of 8 cards** - the Mage's: **4 Cast, 2 Bind,
+Transfigure, Healing Spell** - and **draws 4** of them. Every **5 minutes**
+she draws one more, up to **8** in hand. **J** (or the **Cards** button
+beside the inventory) shows her hand beside the inventory - the game stands
+still - and a click **plays** a card: no slot, no waiting. A played card goes
+to the **discard pile** until she reads a **reshuffle scroll** (the
+**Reshuffle** button), which shuffles her hand and her discards back into the
+deck and deals a fresh hand of four. A card she gains - from her perk tree or
+a shop - goes onto the discard pile.
+
+There are **200 cards**, each with its own name, rarity and what it does, by
+the class: helps for so long or so many blows - more damage, on which blows
+(any, melee, ranged or spells), spells for less mana, faster stamina, armour,
+thorns, lifesteal, poison on her blows, more coins or experience, a cloak to
+hide in - and things at once: health, mana, stamina, mana into health, a card
+drawn, coins, experience, breath. 22 or more for each class, two for any
+class. What a card does stands on its face (`ui/CardFace`), its rarity's
+colour round it; the helps she has show over the HUD with how long they last.
+
+### Experience, levels and perks
+
+Felling a dummy gives **20 experience**, a flying dummy **30**, an animal
+hunted **10**, a chest opened **10**. A level takes **100 × the level** to
+reach, and each gives a **perk point**. The **Perks** tab beside the hand is
+her class's **perk tree**: four rows of three, each a card for her deck or a
+help **for good**, costing 1, 1, 2 and 3 points by its row - a row is open
+once she has one of the row above.
+
+### Coins
+
+Felled dummies drop a few **coins**, chests throw out more, and a card or two
+gives them; picked up, they go into her **purse** (under the ammunition on
+the HUD). She spends them in [shops](#shops).
+
+### Shops
+
+A **market stall** or a **shop's counter** sells things (`world/Shop`): walk
+up to it and **E** (*Shop at Market stall*) - its stock stands beside her
+inventory, the game stands still. Each thing for sale is a row: its picture
+(a card's colours for a card), its name in its rarity's colour, how many are
+left (*Plenty*: it never runs out) and its price, and a **Buy** button. A
+card bought goes onto her discard pile. A shop that **buys** takes what she
+sells for **half what it is worth**: right-click (or Shift-click) one of her
+things to sell one. The demo has a striped stall off to her left at the start.
+
+<p align="center">
+  <img src="docs/screenshots/market-stall.png" width="49%" alt="The striped market stall in the demo, E to shop at it">
+  <img src="docs/screenshots/shop-panel.png" width="49%" alt="The stall's stock beside her inventory: supplies, ingots and scrolls, each with how many are left, its price and Buy">
+</p>
+
+In Creative Mode a shop is Place → **Town**: a stall of supplies, a card
+seller's, a smith's counter, any stall, or a keeper's spot at a counter
+already built. Its **Sells** is a line of what it has - an item, how many,
+its price:
+
+```
+whetstone x20 @3, arrow bundle, upgrade ingot x5, longbow rare @90, card:ember_script @60, cards x4
+```
+
+`x20` is how many (none: it never runs out; a card, one); `@3` its price in
+coins (none: what it is worth); `card:<id>` a card; `cards x4` four of the
+shop cards of whoever is shopping, the same four each time for each class.
+Left empty, a shop sells the seven kinds of ammunition, upgrade ingots,
+reshuffle scrolls and three cards. **Buys** says whether it takes her things.
+
+### The mouse pointer
+
+Her class has its own **pointer**: a wand for a Mage, a lute for a Bard, a
+sword for a Knight, an axe for a Warrior, a gloved hand for a Warlock, a leafy
+branch for a Druid, a dagger for a Rogue, an arrow for a Ranger, a holy symbol
+for a Cleric - 32-pixel pixel art in the 128 colours, doubled on a
+high-density screen (`tools/ui/make_pointers.py`). **Pause → Class** picks
+any of the nine instead, **Custom** (a picture of your own:
+`assets/ui/pointers/custom.png`, its hot spot its top-left corner, taken up
+again when it changes), or the system's arrow.
 
 ## Heights
 
@@ -899,6 +1081,21 @@ about 27. Press the **dodge key in the air** and she lands in a **combat
 roll** instead, unhurt (from 1.2 m up). Her **health** (100) is the red bar
 on the left, over the heavy attack's; it fills again 5 s after she was last hurt, 4 a
 second. At 0 she is **knocked out** and back on her feet at the start.
+
+### Swimming
+
+Water deeper than she stands she **swims** (`world/Player`): treading water
+when still, the breaststroke when moving, Shift faster - stamina going as
+she does. **C dives** under; under the water she swims in any direction the
+camera looks (W A S D, Space up, C down), the view tinted and muffled, and a
+**breath bar** shows; she comes up with a gasp. When the breath is gone she
+**drowns**, a little at a time, until she reaches the air. A fall into deep
+water does not hurt her. Out of it, she wades onto the shallows with water
+running off her.
+
+<p align="center">
+  <img src="docs/screenshots/swimming-under-water.png" width="70%" alt="Diving: she swims under the water, seen down through it in its colour, her breath bar going">
+</p>
 
 ### Climbing and stamina
 
@@ -1662,9 +1859,56 @@ In a level file a building is its kind and the parts changed from how it comes:
 `assets/levels/village` is a sample to play and to open in the editor: the two
 cottages and the two town houses dressed differently, the log cabin, both mills
 and the small castle; `assets/levels/building_lineup` has all twelve in two
-rows. A new building is a class in 3D-Modeling's
-`buildings.py`, rendered (`passes`) and written into `assets/buildings/`
-(`draw`): the palette lists it from its folder.
+rows (the town's seven are below). A new building is a class in 3D-Modeling's
+`buildings.py`; its model is written into `assets/buildings/` by the `mesh`
+step (`python3 buildings/buildings.py mesh <Larsons-Game>/assets/buildings`, no Blender), and
+a small thing drawn from views instead (a pot) is rendered (`passes`) and
+written (`draw`): the palette lists it from its folder.
+
+### The town
+
+The town has its own buildings (Place → **Town**, all 3D models): a **market
+stall** (a canopy over its counter, sacks and crates set out) and a **striped
+stall** (a red and cream awning, a hanging sign), a **narrow town house** (a
+stone ground floor, two timber-framed floors over it, slate roof), a **shop
+house** (a shop window either side of the door under a striped awning, its
+sign, rooms over it), and the steampunk works: a **steam workshop** (brick,
+iron lintels, a great gear turning in its gable, pipes to a banded
+smokestack), a **clock tower** (four clock faces, a steep slate roof and a
+brass finial) and a **foundry** (furnace light glowing in its tall windows
+and the lantern along its ridge, two tall chimneys). Each comes furnished
+inside: the shop house has a **shop** downstairs - a counter and its shelves
+of jars, a keeper's spot to buy and sell at - the workshop its boiler,
+lightning coil and alchemy table, the foundry its cauldrons, boilers and
+still.
+
+<p align="center">
+  <img src="docs/screenshots/town-square.png" width="49%" alt="The sample town by day: the two market stalls in the square, narrow town houses, the shop house, the clock tower, the workshop and the foundry">
+  <img src="docs/screenshots/town-night.png" width="49%" alt="The town at night: windows lit, the lantern posts and the foundry glowing">
+</p>
+<p align="center">
+  <img src="docs/screenshots/town-houses.png" width="49%" alt="The three narrow town houses, each dressed differently, the shop house and the clock tower">
+  <img src="docs/screenshots/shop-house-inside.png" width="49%" alt="Inside the shop house: its counter and scales, E to shop at it, the stairs, a rug, a crate and a barrel">
+</p>
+<p align="center">
+  <img src="docs/screenshots/workshop-inside.png" width="49%" alt="Inside the steam workshop: its lab gear, a table and stools, crates and barrels">
+  <img src="docs/screenshots/foundry-inside.png" width="49%" alt="Inside the foundry: cauldrons bubbling, boilers, a still and crates">
+</p>
+
+`assets/levels/town` is a sample to play and to open in the editor: a market
+square with both stalls selling (supplies at one, cards at the other), pots,
+barrels and crates round them to break, lantern posts, three narrow town houses
+dressed differently, the shop house, the workshop, the clock tower and the
+foundry.
+
+The new furniture (Place → **Inside**): a **shop counter** (with its scales
+and a wall of shelves), a **rug**, a **painting** and a **banner** (both hung
+on a wall), a **tall clock**, a **potted plant**, the **pot** and **large
+pot** (they hold things, and shatter); and the laboratory's: an **alchemy
+table** (flasks glowing green and violet, a retort over its burner), a
+**steam boiler** (its firebox aglow, a gauge, its pipe), a **lightning coil**
+(sparks off its ring), a **copper still** and a **cauldron** bubbling over
+its fire.
 
 ### Going inside
 
@@ -1759,7 +2003,7 @@ editable), and every saved level with **Edit**, **Play**, **Copy** and
 
 The editor shows the level as it will be played - the ground, the scenery, the
 items turning, the dummies, the chests - with what you are about to place
-standing under the pointer. Eleven tools, ten of them on the number keys:
+standing under the pointer. Twelve tools, ten of them on the number keys:
 
 | Tool | What it does |
 |---|---|
@@ -1773,7 +2017,8 @@ standing under the pointer. Eleven tools, ten of them on the number keys:
 | **8 Level** | its name, its size (64, 128, 192, 256, 512, 1024 or 2048 m a side: a great forest, its ground on a coarser grid past 256 m), the **See-through walls** switch, its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
 | **9 Water** | clear, swamp, sea or crystal water, how deep, and either **lying level** from where you press (a pond: sculpt a hollow, fill it from its bottom) or following the ground down (a stream); **Flows** makes it run the way the brush moves, at the current you set. **The sea**, on or off, and its level. Shift dries it up |
 | **0 Life** | how thick the critters and each kind of animal live here, how fast the bushes grow back and what they give |
-| **Forge** | [the Forge](#the-forge): weapons of your own |
+| **Forge** | [the Forge](#the-forge): weapons of your own - their dice, ammunition and upgrade tiers |
+| **Cards** | every card of every class: its name, what it says, its rarity, where it is had (a starting deck, the perk tree, shops), its price, how many are in the class's first deck, and what it does, effect by effect - a help for so long or so many blows, on which blows, or something at once; **New card**, **Delete**, **Save** (`assets/cards/cards.json`). The right panel shows the card as it looks and edits the class's perk tree: each node's cost in points, its row, the card it gives |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
@@ -1800,6 +2045,13 @@ handle; an axe's handle and blade; a bow's body and string ...), or **The
 dice**; **As it is drawn** / **The rarity's colour** takes a colour off. The
 right panel shows it as it will be: turning in its colours, its name in its
 rarity's, what it rolls and does, and its dice come up.
+
+The **Dice & ammo** tab adds up to four more groups of dice, each with what
+it does to the total (**+ − × ÷ %**), how many and of what, and how many
+blows its ammunition lasts. The **Tiers** tab sets how many [upgrade
+tiers](#upgrade-tiers) it has (1 to 10), and for each its name, rarity, dice,
+what it costs in upgrade ingots, how long its ammunition lasts, whether it is
+a mystery, and its colours.
 
 <p align="center">
   <img src="docs/screenshots/creative-forge.png" width="49%" alt="The Forge: Duskfang, an Epic sword with a purple blade, 3d8 in blue, Venom and Mystic">
@@ -2170,7 +2422,10 @@ bow), `crouch [on|off]`, `heavy`, `spin`, `parry`, `block on|off`, `bash`,
 `emote <laugh|cry|surprise|angry>`, `stance <sword|axe|bow|crossbow|staff|wand|mace|dagger|free>` (`free`: empty hands), `teleport`, `pickup`,
 `dropitem`, `inventory [open|close]`, `hotbar <1-5>`, `slots <n>`, `give <item> [tier|rarity]
 [border]` (`give battle_axe crystal venom`), `seed <n>` (the chest's loot and the dice from a seed),
-`chest` (open or shut it), `chest goto`, `door` (go through the door, stairs or door out she is at),
+`chest` (open or shut it), `chest goto`, `store [n] goto|open|hit|fill <what>` (barrel, crate, pot or storage
+chest n), `shop goto` / `shop` (the nearest shop: at its counter / open or shut it), `hero <class>` or
+`hero picker`, `cards` (her hand and perks), `tiers <slot>` (a weapon's tiers; `tiers <slot> up`: upgrade it),
+`door` (go through the door, stairs or door out she is at),
 `enter` (into the nearest building with an inside, wherever it is), `upstairs` / `downstairs` (by the
 nearest stairs), `outside`, `dummy goto [n] [metres] [front|back|left|right]` (stand
 by dummy n, facing it), `dummy add <x> <z>`, `time <hour>` (`time 6:30`), `timelapse on|off|<speed>`, `goto <place|spawn>` (the

@@ -1,0 +1,52 @@
+{
+ "key": "boiler",
+ "label": "Steam boiler",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.714,
+ "model": true,
+ "parts": [
+  {
+   "key": "copper",
+   "label": "Boiler",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#44444c",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "gauge",
+   "label": "Gauge",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Firebox",
+   "colour": "#f08030",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.364,
+   1.364
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

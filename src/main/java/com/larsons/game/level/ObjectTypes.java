@@ -28,6 +28,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Scenery;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.Wearables;
+import com.larsons.game.world.Shop;
 import com.larsons.game.world.Store;
 import com.larsons.game.world.World;
 
@@ -53,7 +54,7 @@ public final class ObjectTypes {
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
             RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
-            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template";
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template", SHOP = "shop";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -140,10 +141,13 @@ public final class ObjectTypes {
                 (o, b) -> b.plant(o)));
         register(new ObjectType(ITEM, "Item", Category.ITEMS,
                 List.of(Prop.choice("item", "Item", "sword", o -> itemIds()),
-                        Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf)), 0.45, 1.2, 0xE0C080, false,
+                        Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf),
+                        Prop.number("count", "How many (a stack, coins)", 1, 1, 999, 1)), 0.45, 1.2, 0xE0C080, false,
                 (o, b) -> {
                     Item item = item(o);
-                    if (item != null) b.world().spawn(item, b.onGround(o));
+                    int n = item == null || item.def().stack() <= 1 && !item.is(com.larsons.game.world.Supplies.COINS)
+                            ? 1 : (int) Math.max(1, Math.round(o.num("count", 1)));
+                    if (item != null) b.world().spawn(item, b.onGround(o), n);
                 }));
         // a chest: of loot (it throws out what the level's loot gives, once) or for keeping things in (Store)
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
@@ -257,6 +261,27 @@ public final class ObjectTypes {
                     Store s = new Store(o.id(), k, building.position(), o.yaw());
                     s.fill(o.str("contents", ""));
                     b.world().addStore(s);
+                }));
+        // a shop: a market stall or a shop's counter (or just a spot, at a counter already built), what it sells
+        // ("whetstone x20 @3, cards x4": Shop), and whether it buys
+        register(new ObjectType(SHOP, "Shop", Category.TOWN,
+                List.of(Prop.text("name", "Name", "Market stall"),
+                        Prop.choice("stall", "Stall", "market_stall", o -> shopStalls()),
+                        Prop.text("stock", "Sells (e.g. whetstone x20 @3, cards x4)", ""),
+                        Prop.toggle("buys", "Buys what she sells (half its worth)", true)),
+                1.4, 2.6, 0xF0C030, false,
+                (o, b) -> {
+                    Vec3 at = b.onGround(o);
+                    String stall = o.str("stall", "market_stall");
+                    BuildingProfile p = stall.equals("none") ? null : BuildingCatalog.get().profile(stall);
+                    Vec3 counter = at;
+                    if (p != null) {
+                        Building building = b.world().addBuilding(new Building(o.id(), p, at, o.yaw(),
+                                BuildingLook.of(o.props().get("look")), null));
+                        counter = building.toWorld(0, front(p));          // she shops at its front
+                    }
+                    b.world().addShop(new Shop(o.id(), o.str("name", "Shop"), counter, o.yaw(), o.str("stock", ""),
+                            o.bool("buys", true)));
                 }));
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
@@ -397,6 +422,23 @@ public final class ObjectTypes {
                 BuildingLook.of(o.props().get("look")), o.str("interior", null));
     }
 
+    /** The front of {@code p}'s footprint (its own metres: the front is towards -y), or 0 when it has none. */
+    public static double front(BuildingProfile p) {
+        double y = 0;
+        for (BuildingProfile.Shape sh : p.footprint()) y = Math.min(y, sh.y() - (sh.circle() ? sh.w() : sh.d() / 2));
+        return y;
+    }
+
+    /** What a shop can stand in: a market stall, a shop's counter - or nothing (a spot at a counter built already). */
+    static List<String> shopStalls() {
+        List<String> out = new ArrayList<>();
+        for (String k : List.of("market_stall", "market_stall_awning", "shop_counter", "counter")) {
+            if (BuildingCatalog.get().profile(k) != null) out.add(k);
+        }
+        out.add("none");
+        return out;
+    }
+
     static List<String> prefabKeys() {
         List<String> out = new ArrayList<>();
         for (Prefab p : Prefab.ALL) out.add(p.key());
@@ -489,6 +531,7 @@ public final class ObjectTypes {
         for (ItemDef d : Wearables.ALL) out.add(d.id());
         for (ItemDef d : Pickings.ALL) out.add(d.id());
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
+        for (ItemDef d : com.larsons.game.world.Supplies.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
         for (Forged f : Forged.all()) out.add(f.key());
         return out;
@@ -568,6 +611,11 @@ public final class ObjectTypes {
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
             out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
         }
+        // ammunition, upgrade ingots, reshuffle scrolls, coins
+        for (ItemDef d : com.larsons.game.world.Supplies.ALL) {
+            out.add(new Entry(d.name(), Category.ITEMS, ITEM, d == com.larsons.game.world.Supplies.COINS
+                    ? Map.of("item", d.id(), "count", 10.0) : Map.of("item", d.id(), "count", 5.0)));
+        }
         for (CritterKind k : CritterKind.values()) {
             out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",
                     (double) (k == CritterKind.FIREFLY ? 14 : 6), "radius", 4.0, "when", Critters.When.ITS_TIME.key())));
@@ -594,8 +642,8 @@ public final class ObjectTypes {
         for (String key : buildings.keys()) {
             BuildingProfile p = buildings.profile(key);
             if (p.fixture()) continue;                  // (a light's fitting: placed as a light)
-            out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : Category.BUILDINGS, BUILDING,
-                    Map.of("kind", key)));
+            out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : p.town() ? Category.TOWN
+                    : Category.BUILDINGS, BUILDING, Map.of("kind", key)));
         }
         for (Prefab p : Prefab.ALL) {
             boolean all = true;
@@ -624,13 +672,27 @@ public final class ObjectTypes {
         }
         out.add(new Entry("Storage chest", Category.INSIDE, CHEST,
                 Map.of("sprite", CHEST_SPRITE, "loot", false, "contents", "")));
+        // shops: a stall of supplies, a card seller's, a smith's counter, a spot at a counter built already
+        Object[][] shops = {
+                {"Market stall: supplies", "Supplies", "market_stall",
+                        "whetstone, iron wedges, mace studs, small crystal, large crystal, arrow bundle, bolt bundle"},
+                {"Market stall: cards", "Card seller", "market_stall_awning", "reshuffle scroll x6, cards x6"},
+                {"Shop counter: smith", "Smithy", "shop_counter",
+                        "upgrade ingot x10, whetstone, iron wedges, mace studs, sword, dagger, mace, battle axe"},
+                {"Shop (any stall)", "Shop", "market_stall", ""},
+                {"Shopkeeper's spot (at a counter)", "Shop", "none", ""}};
+        for (Object[] sh : shops) {
+            if (!sh[2].equals("none") && buildings.profile((String) sh[2]) == null) continue;
+            out.add(new Entry((String) sh[0], Category.TOWN, SHOP, Map.of("name", sh[1], "stall", sh[2],
+                    "stock", sh[3], "buys", true)));
+        }
         out.addAll(templateEntries());
         for (ObjectType t : TYPES.values()) {
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
                     || t.key().equals(STAIRS) || t.key().equals(EXIT) || t.key().equals(TEMPLATE)
-                    || t.key().equals(LIGHT)) continue;
+                    || t.key().equals(LIGHT) || t.key().equals(SHOP)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));
