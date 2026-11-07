@@ -51,4 +51,19 @@ class TownLevelTest {
             assertFalse(b.blocks(world.spawnPoint().x(), world.spawnPoint().z(), 0.5), b.profile().key());
         }
     }
+
+    @Test
+    void theShopHouseHasAShopDownstairs() {
+        BuildingCatalog.use(BuildingCatalog.load(Path.of("assets", "buildings")));
+        Level ground = Interiors.make("shop_house").get(0);
+        World world = new World(new Wardrobe());
+        var t = LevelWorld.stageIndoors(world, ground);
+        LevelWorld.spawnAll(world, ground.objects(), ground, t, ScenerySprites.NONE, CombatTuning.defaults());
+        assertEquals(1, world.shops().size());
+        Shop shop = world.shops().get(0);
+        assertFalse(shop.stock("knight").isEmpty());
+        // standing at its spot, she can reach it
+        world.player().setPosition(shop.position());
+        assertTrue(shop.inReach(world.player().ground()));
+    }
 }

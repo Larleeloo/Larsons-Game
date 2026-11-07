@@ -583,6 +583,21 @@ public final class WorldRenderer implements AutoCloseable {
         // --- the water, over what stands and wades in it ------------------------------
         water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
 
+        // --- she dives: seen down through the water over her, in its colour, dimmer the deeper she is ---
+        if (p.underWater() && steed == null && !stack.layers().isEmpty()) {
+            Vec3 feet = p.feet();
+            double surface = world.water().surface(feet.x(), feet.z(), ground.height(feet.x(), feet.z()));
+            if (!Double.isNaN(surface)) {
+                float deep = (float) Math.min(1, p.diveDepth() / 6);
+                batch.begin(viewProj, fog, 0, fogFar);
+                batch.tint(((int) (110 + 90 * deep) << 24) | 0x1E5A78);
+                batch.depthAnchor(new Vec3(feet.x(), surface, feet.z()));
+                LayerStack.drawBillboard(batch, stack, feet, right, up, 0.85f - 0.35f * deep);
+                batch.tint(0);
+                batch.end();
+            }
+        }
+
         // --- light rays, added over it all (tested against the scenery and the ground) ----
         List<LightRays.Shaft> shafts = LightRays.shafts(world, light, eye, world.time());
         if (!shafts.isEmpty()) {

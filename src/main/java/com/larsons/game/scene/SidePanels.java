@@ -80,7 +80,7 @@ final class SidePanels {
         }
         int cost = Upgrades.nextCost(item);
         int have = inv.total(Item.of(Supplies.UPGRADE_INGOT));
-        float by = y + h - 108;
+        float by = y + h - 116;
         if (cost < 0) {
             ui.textCentered(ui.body, "At its last tier", x + w / 2, by, Theme.ACCENT);
         } else {
@@ -131,15 +131,29 @@ final class SidePanels {
     private void hand(Ui ui, Hero hero, float x, float y, float w, float h) {
         CardBook book = CardBook.get();
         List<String> hand = hero.deck().hand();
-        int cols = 4;
-        float gap = 8, cw = (w - 28 - (cols - 1) * gap) / cols, ch = cw * CardFace.TALL;
-        float cx0 = x + 14;
+        // the cards as big as they fit: four across for a full hand, two across (big enough to read) for a few
+        float gap = 8, room = Math.max(120, h - 250);
+        int cols = 4, rows = 2;
+        float cw = 0;
+        for (int c = 1; c <= 4; c++) {
+            int r = Math.max(1, (hand.size() + c - 1) / c);
+            float fit = Math.min((w - 28 - (c - 1) * gap) / c, (room - (r - 1) * gap) / r / CardFace.TALL);
+            if (fit > cw + 0.5f) {
+                cw = fit;
+                cols = c;
+                rows = r;
+            }
+        }
+        float ch = cw * CardFace.TALL;
+        float cx0 = x + (w - cols * cw - (cols - 1) * gap) / 2;
         int played = -1;
+        Card shown = null;
         for (int i = 0; i < hand.size(); i++) {
             Card c = book.card(hand.get(i));
             if (c == null) continue;
             float cx = cx0 + (i % cols) * (cw + gap), cy = y + (i / cols) * (ch + gap);
             boolean hot = ui.hover(cx, cy, cw, ch);
+            if (hot) shown = c;
             CardFace.draw(ui, c, cx, cy, cw, hot, false);
             if (ui.clicked(cx, cy, cw, ch)) played = i;
         }
@@ -148,7 +162,17 @@ final class SidePanels {
                     + " while the deck has any; a reshuffle scroll deals a fresh hand.", x + 20, y + 10, w - 40,
                     Theme.HINT);
         }
-        float iy = y + 2 * (ch + gap) + 4;
+        // the card under the pointer, its words in full (when the cards in the hand are too small for them)
+        float dy = y + rows * (ch + gap) + 2;
+        if (shown != null && !CardFace.fits(ui, shown, cw)) {
+            ui.text(ui.body, shown.name(), x + 20, dy, shown.rarity().colour(1f));
+            ui.paragraph(ui.small, shown.text(), x + 20, dy + ui.body.lineHeight() + 2, w - 40, Theme.HINT);
+        } else if (!hand.isEmpty()) {
+            Card first = book.card(hand.get(0));
+            ui.textCentered(ui.small, first != null && CardFace.fits(ui, first, cw) ? "Click a card to play it."
+                    : "Point at a card to read it; click it to play it.", x + w / 2, dy + 4, Theme.ITEM_DISABLED);
+        }
+        float iy = dy + 70;
         String piles = "Hand " + hand.size() + " / " + hero.deck().most() + " · deck " + hero.deck().drawPile().size()
                 + " · discarded " + hero.deck().discardPile().size();
         ui.textCentered(ui.small, piles, x + w / 2, iy, Theme.ITEM);

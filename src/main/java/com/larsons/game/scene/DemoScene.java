@@ -1145,10 +1145,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         ui.panel(x, y, w, h);
         ui.textCentered(ui.large, "Choose your class", x + w / 2, y + 14, Theme.TITLE);
-        ui.textCentered(ui.small, "Your class gives you a deck of 8 cards: 4 in hand to start, one more every 5 minutes. "
-                + "J or the inventory's Cards button plays them. Change it any time in Pause → Class.",
-                x + w / 2, y + 50, Theme.HINT);
-        String pick = ClassPicker.draw(ui, game.pointers(), null, x + 20, y + 80, w - 40, h - 100);
+        ui.textCentered(ui.small, "Your class gives you a deck of 8 cards: 4 in hand to start, one more every 5 minutes.",
+                x + w / 2, y + 48, Theme.HINT);
+        ui.textCentered(ui.small, "J or the inventory's Cards button plays them. Change it any time in Pause → Class.",
+                x + w / 2, y + 48 + ui.small.lineHeight() + 3, Theme.HINT);
+        String pick = ClassPicker.draw(ui, game.pointers(), null, x + 20, y + 92, w - 40, h - 112);
         if (pick == null) return;
         Player p = world.player();
         p.hero().choose(pick, p);
@@ -1164,13 +1165,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private static final String[] HELP = {
             "WASD move · Shift run · Ctrl sprint · C crouch · Space jump · Alt/Z dash (hold: roll) · "
                     + "Click/F attack (bow: hold to draw) · X heavy · R spin · Q parry · B block · V bash",
-            "E pick up / open / pick a bush / go in, out, up, down / saddle, ride, get off a horse · G drop · I inventory · J cards · 1-5 or wheel hotbar · click with food: eat · "
-                    + "F1-F4 emote · [ ] preview · Backspace live · , . turn · T turntable",
-            "L lock on · K next target · walk into vines: climb (off their top: climb down) · deep water: swim, C dive, Space up · "
-                    + "Alt/Z in the air: land in a roll · "
-                    + "the hills are up the north path",
-            "Tab height · O auto height · Right-drag orbit · +/- zoom · N (held) time-lapse · H HUD · "
-                    + "F9 classic/new animations · F11 full screen · Esc menu"};
+            "E pick up / open / shop / go in, out, up, down / ride · G drop · I inventory · J cards · "
+                    + "1-5 or wheel hotbar · click with food: eat · F1-F4 emote · [ ] preview · Backspace live",
+            "L lock on · K next target · walk into vines: climb (off their top: climb down) · deep water: swim, "
+                    + "C dive, Space up · attack in the air: plunge · Alt/Z in the air: land in a roll",
+            "Tab height · O auto height · Right-drag orbit · +/- zoom · , . turn · T turntable · N (held) time-lapse · "
+                    + "H HUD · F9 classic/new animations · F11 full screen · Esc menu · the hills are up the north path"};
 
     private void prompt(Ui ui) {
         if (inventory.open()) return;

@@ -55,6 +55,15 @@ public final class Shards {
         }
 
         public boolean gone() { return still > REST + FADE || age > 12; }
+
+        /**
+         * How high its middle is over the ground when it lies there: its
+         * lowest corner just on it, as it is turned (it is drawn upright,
+         * and what of it went under the ground would be hidden).
+         */
+        public double lift() {
+            return 0.5 * (width * Math.abs(Math.sin(angle)) + height * Math.abs(Math.cos(angle))) + 0.005;
+        }
     }
 
     private final List<Piece> pieces = new ArrayList<>();
@@ -103,7 +112,7 @@ public final class Shards {
             Vec3 v = p.velocity.add(0, -GRAVITY * dt, 0);
             Vec3 next = p.at.add(v.scale(dt));
             double floor = !Double.isNaN(p.floor) ? p.floor : terrain == null ? 0 : terrain.height(next.x(), next.z());
-            double lift = p.height * 0.25;
+            double lift = p.lift();
             if (next.y() <= floor + lift) {
                 next = new Vec3(next.x(), floor + lift, next.z());
                 if (Math.abs(v.y()) < 1.2) {

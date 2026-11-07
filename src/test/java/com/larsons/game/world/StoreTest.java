@@ -99,7 +99,7 @@ class StoreTest {
         }
         assertTrue(highest > 0.9, "thrown up");
         for (int i = 0; i < 300; i++) shards.tick(0.02, Terrain.FLAT);
-        for (Shards.Piece p : shards.pieces()) assertTrue(p.at().y() < 0.1, "on the ground");
+        for (Shards.Piece p : shards.pieces()) assertEquals(p.lift(), p.at().y(), 1e-9, "lying on the ground");
         for (int i = 0; i < 300; i++) shards.tick(0.02, Terrain.FLAT);
         assertTrue(shards.pieces().isEmpty(), "faded away");
     }
