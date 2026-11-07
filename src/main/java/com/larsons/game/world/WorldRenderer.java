@@ -590,8 +590,9 @@ public final class WorldRenderer implements AutoCloseable {
             if (!Double.isNaN(surface)) {
                 float deep = (float) Math.min(1, p.diveDepth() / 6);
                 batch.begin(viewProj, fog, 0, fogFar);
-                batch.tint(((int) (110 + 90 * deep) << 24) | 0x1E5A78);
-                batch.depthAnchor(new Vec3(feet.x(), surface, feet.z()));
+                batch.setDepthPlane(eye, upright);
+                batch.tint(((int) (40 + 100 * deep) << 24) | 0x1E5A78);
+                batch.depthAnchor(new Vec3(feet.x(), surface + 0.25, feet.z()));   // (just over the water: drawn over it)
                 LayerStack.drawBillboard(batch, stack, feet, right, up, 0.85f - 0.35f * deep);
                 batch.tint(0);
                 batch.end();
