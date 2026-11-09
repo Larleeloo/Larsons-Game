@@ -91,6 +91,70 @@ public final class BuildingLook {
         return out;
     }
 
+    // --- one building's look onto another --------------------------------------------------
+
+    /** Parts that play the same role in different buildings: walls with walls, roofs with roofs, … */
+    private static final String[][] ROLES = {
+            {"walls", "side_walls", "lower_walls", "body", "case", "fronts"},
+            {"roof", "awning", "top", "canvas"},
+            {"trim", "beams", "frame", "band", "posts", "post", "porch", "mantel"},
+            {"foundation", "base", "stone", "bricks"},
+            {"door", "portcullis"},
+            {"windows", "glass", "slits"},
+            {"shutters"},
+            {"wood", "logs", "staves", "legs", "seat", "shelves", "counter"},
+            {"metal", "iron", "brass", "copper", "hoops", "pipes", "gears"},
+            {"chimney", "stack", "stacks"},
+            {"battlements"},
+            {"flame", "fire", "spark"},
+    };
+
+    /** What {@code key} does in a building - the first of its row in {@link #ROLES} - or itself. */
+    static String role(String key) {
+        String k = key.replaceAll("\\d+$", "");
+        for (String[] row : ROLES) for (String r : row) if (r.equals(k)) return row[0];
+        return k;
+    }
+
+    /**
+     * Which part of {@code from} {@code to}'s part {@code t} takes its look
+     * from: the one of the same name, else of the same label, else the first
+     * that plays the same role (walls, roof, trim …) - or null: none.
+     */
+    public static BuildingProfile.Part match(BuildingProfile from, BuildingProfile.Part t) {
+        BuildingProfile.Part same = from.part(t.key());
+        if (same != null) return same;
+        for (BuildingProfile.Part p : from.parts()) if (p.label().equalsIgnoreCase(t.label())) return p;
+        String role = role(t.key());
+        for (BuildingProfile.Part p : from.parts()) if (role(p.key()).equals(role)) return p;
+        return null;
+    }
+
+    /**
+     * {@code toLook} on a {@code to} with {@code fromLook}'s colours and
+     * patterns (on a {@code from}) carried over part by part, as
+     * {@link #match} pairs them; the parts with no match keep theirs.
+     */
+    public static BuildingLook transfer(BuildingProfile from, BuildingLook fromLook, BuildingProfile to,
+                                        BuildingLook toLook) {
+        BuildingLook out = toLook.copy();
+        for (BuildingProfile.Part t : to.parts()) {
+            BuildingProfile.Part s = match(from, t);
+            if (s == null) continue;
+            out.setColour(t.key(), fromLook.colour(s));
+            String tex = fromLook.texture(s);
+            if (tex != null) out.setTexture(t.key(), tex);
+        }
+        return out;
+    }
+
+    /** How many of {@code to}'s parts {@link #transfer} gives a look from {@code from}. */
+    public static int matches(BuildingProfile from, BuildingProfile to) {
+        int n = 0;
+        for (BuildingProfile.Part t : to.parts()) if (match(from, t) != null) n++;
+        return n;
+    }
+
     // --- the ramp ----------------------------------------------------------------------
 
     /** Steps of lightness (OKLab L) from a colour: line, deep shadow, shadow, the colour, light, highlight. */

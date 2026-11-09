@@ -152,6 +152,29 @@ class BuildingTest {
         assertEquals("panes", back.texture(p.part("windows")));
     }
 
+    @Test
+    void oneBuildingsLookGoesOntoAnotherPartByPart() {
+        BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
+        BuildingProfile cottage = c.profile("cottage"), tower = c.profile("round_tower");
+        assertNotNull(cottage);
+        assertNotNull(tower);
+        BuildingLook mine = new BuildingLook().setColour("walls", 0x7A3B2E).setColour("roof", 0x2E4A7A)
+                .setTexture("walls", "brick");
+        BuildingLook onto = BuildingLook.transfer(cottage, mine, tower, new BuildingLook());
+        // the same parts take its colours and patterns, the parts the cottage has none of keep their own
+        assertEquals(0x7A3B2E, onto.colour(tower.part("walls")));
+        assertEquals("brick", onto.texture(tower.part("walls")));
+        for (BuildingProfile.Part t : tower.parts()) {
+            BuildingProfile.Part from = BuildingLook.match(cottage, t);
+            if (from == null) assertEquals(t.colour(), onto.colour(t), t.key() + " kept");
+            else assertEquals(mine.colour(from), onto.colour(t), t.key() + " from " + from.key());
+        }
+        assertTrue(BuildingLook.matches(cottage, tower) >= 3);
+        // parts named differently but doing the same: side walls take the walls', an awning the roof's
+        assertEquals("walls", BuildingLook.role("side_walls"));
+        assertEquals("roof", BuildingLook.role("awning2"));
+    }
+
     /** What she walks over or what hangs on a wall: nothing in her way. */
     private static final java.util.Set<String> FLAT_OR_HUNG = java.util.Set.of("rug", "painting", "banner");
 

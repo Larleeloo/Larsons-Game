@@ -201,6 +201,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private final List<LevelObject> selection = new ArrayList<>();
     private final List<LevelObject> clipboard = new ArrayList<>();
     private boolean moving, boxing, movedYet;
+    /**
+     * A plain pointer over the tool chosen (a right-click without a drag):
+     * click to pick things and drag them about as the Select tool does,
+     * without leaving the tool's tab; right-click again to go back to it.
+     */
+    private boolean pointer;
+    /** Where and when the right button went down, and whether it has dragged (turning the view) since. */
+    private double rightX, rightY, rightAt;
+    private boolean rightDragged;
     private Vec3 dragFrom;
     private final Map<LevelObject, double[]> origins = new LinkedHashMap<>();
     private float boxX, boxY;
@@ -391,6 +400,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!widgets.typing()) keys(in, dt, ctrl, shift);
         if (game.scene() != this) return;               // (a key took us to the play-test or the menu)
 
+        // --- a right-click (not a drag, which turns the view): a plain pointer, or back to the tool
+        if (in.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            rightX = mx;
+            rightY = my;
+            rightAt = time;
+            rightDragged = false;
+        }
+        if (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) && Math.hypot(mx - rightX, my - rightY) > 5) rightDragged = true;
+        if (in.mouseReleased(GLFW_MOUSE_BUTTON_RIGHT) && !rightDragged && time - rightAt < 0.45 && !overUi) {
+            setPointer(!pointer);
+        }
+
         // --- the camera
         boolean orbiting = in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE);
         if (orbiting) camera.rotate(-in.mouseDX() * 0.008, in.mouseDY() * 0.006);
@@ -406,12 +427,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         // --- what the pointer is over
         Picking.Ray ray = Picking.ray(camera, mx, my, game.ui().width(), game.ui().height());
         cursor = scriptedCursor != null ? view.terrain().onGround(scriptedCursor) : Picking.ground(ray, view.terrain());
-        hover = overUi || brushTool() ? null : pick(ray);
+        hover = overUi || brushTool() && !pointer ? null : pick(ray);
 
         // --- the tools
         boolean press = in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && !overUi;
         boolean held = in.mouseDown(GLFW_MOUSE_BUTTON_LEFT);
-        switch (tool) {
+        switch (pointer ? Tool.SELECT : tool) {
             case PLACE -> {
                 if (press && cursor != null && level.contains(cursor.x(), cursor.z())) place(at(cursor));
             }
@@ -423,7 +444,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             default -> { }
         }
         if (!held) stroking = false;
-        boolean ghost = tool == Tool.PLACE && !overUi && cursor != null && template != null
+        boolean ghost = tool == Tool.PLACE && !pointer && !overUi && cursor != null && template != null
                 && level.contains(cursor.x(), cursor.z());
         if (ghost) {
             Vec3 at = at(cursor);
@@ -452,6 +473,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             in.consumeKey(GLFW_KEY_ESCAPE);
             if (colourPick != null) colourPick = null;
             else if (!selection.isEmpty()) selection.clear();
+            else if (pointer) setPointer(false);
             else leave();
             return;
         }
@@ -546,8 +568,38 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (t == tool || !tools().contains(t)) return;
         if (tool == Tool.LEVEL) preview.pause();
         tool = t;
+        pointer = false;
         moving = boxing = stroking = false;
         widgets.stopTyping();
+    }
+
+    /** Whether a right-click can put a plain pointer over the tool: one that works in the world, not Select's own. */
+    private boolean pointerFits() {
+        return tool != Tool.SELECT && tool != Tool.FORGE && tool != Tool.CARDS;
+    }
+
+    /** A plain pointer over the tool ({@code on}), or back to the tool. */
+    private void setPointer(boolean on) {
+        if (on && !pointerFits() || on == pointer) return;
+        pointer = on;
+        moving = boxing = stroking = false;
+        if (on) {
+            game.toast("Pointer: click to pick, drag to move · right-click to go back to " + tool.label, Theme.HINT);
+        } else {
+            selection.clear();
+            game.toast("Back to " + tool.label, Theme.HINT);
+        }
+        Sounds.play(SoundKeys.ui("select"));
+    }
+
+    /** Whether things are being picked and moved: the Select tool, or the plain pointer over another. */
+    private boolean selecting() {
+        return tool == Tool.SELECT || pointer;
+    }
+
+    /** Whether the right panel shows what is being placed (not, with the pointer, what it picked). */
+    private boolean placingShown() {
+        return tool == Tool.PLACE && template != null && !(pointer && !selection.isEmpty());
     }
 
     private boolean brushTool() {
@@ -738,7 +790,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private void turn(double radians) {
-        if (tool == Tool.PLACE && template != null) {
+        if (tool == Tool.PLACE && template != null && !pointer) {
             template.turnTo(snapTurn(template.yaw() + radians));
             Sounds.play(SoundKeys.ui("rotate"));
             return;
@@ -756,7 +808,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private void lift(double metres) {
-        if (tool == Tool.PLACE && template != null) {
+        if (tool == Tool.PLACE && template != null && !pointer) {
             template.setLift(Math.max(0, template.lift() + metres));
             return;
         }
@@ -1268,7 +1320,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (selection.size() == 1 && !o.type().equals(ObjectTypes.SCENERY)) arrow(o, 0xFFD25A, 1.0);
         }
         if (cursor != null && !hideUi || cursor != null && scriptedCursor != null) {
-            if (brushTool()) {
+            if (pointer) {
+                // a plain pointer: no brush, no ghost
+            } else if (brushTool()) {
                 int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A
                         : tool == Tool.WATER ? 0x5FA8FF : 0x7FD0FF;
                 if (squareBrush && (tool == Tool.SCULPT || tool == Tool.PAINT)) {
@@ -1359,8 +1413,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean rightPanelShown() {
-        return tool == Tool.PLACE && template != null || tool == Tool.SELECT && !selection.isEmpty()
-                || tool == Tool.FORGE || tool == Tool.CARDS;
+        return placingShown() || selecting() && !selection.isEmpty() || tool == Tool.FORGE || tool == Tool.CARDS;
     }
 
     private void topBar(Ui ui) {
@@ -1523,7 +1576,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private void help(Ui ui) {
-        String h = switch (tool) {
+        String h = pointer ? "Pointer: click to pick · Shift+click: add · drag: move · Del: delete · R / Q / E: turn · "
+                + "right-click: back to " + tool.label : switch (tool) {
             case PLACE -> "Click: place · R / Shift+R: turn 15° · Q / E: turn 45° · PgUp / PgDn: lift · G: snap to grid";
             case SELECT -> "Click: select · Shift+click: add · drag: move · drag on the ground: box · Del: delete · "
                     + "Ctrl+D: duplicate · Ctrl+C / V: copy, paste · R / Q / E: turn · F: fly to it";
@@ -1545,8 +1599,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case CARDS -> "Every card of every class: its name, words, rarity, price and effects · a class's first deck "
                     + "and its perk tree · Save writes assets/cards/cards.json";
         };
-        String all = "   ·   WASD fly · Space / C up, down · right-drag turn · wheel zoom · Ctrl+Z / Y undo, redo · "
-                + "Ctrl+S save · F5 play · H hide · Esc menu";
+        String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
+                + "Ctrl+Z / Y undo, redo · Ctrl+S save · F5 play · H hide · Esc menu";
         float y = ui.height() - HELP_H;
         ui.rect(0, y, ui.width(), HELP_H, Theme.withAlpha(Theme.PANEL, 0.92f));
         // whole hints dropped from the end until it fits
@@ -3052,8 +3106,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float w = RIGHT_W - 8, x = ui.width() - RIGHT_W, y = TOP_H + 8, h = ui.height() - TOP_H - HELP_H - 16;
         ui.panel(x, y, w, h);
         // scrolled back to its top for something else
-        Object showing = tool == Tool.SELECT && selection.size() == 1 ? selection.get(0)
-                : tool == Tool.PLACE ? templateLabel : tool;
+        Object showing = placingShown() ? templateLabel : selecting() && selection.size() == 1 ? selection.get(0)
+                : tool;
         if (!java.util.Objects.equals(showing, rightFor)) rightScroll = 0;
         rightFor = showing;
         float py = scrollBegin(ui, x, y, w, h, rightScroll);
@@ -3070,7 +3124,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             cardsTool().preview(ui, px, py, pw);
             return;
         }
-        if (tool == Tool.PLACE) {
+        if (placingShown()) {
             py = heading(ui, "Placing", px, py);
             ui.text(ui.body, Ui.fit(ui.body, templateLabel, pw), px, py, Theme.TITLE);
             py += 32;
@@ -3084,6 +3138,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             for (Map.Entry<String, Integer> e : kinds.entrySet()) {
                 ui.text(ui.small, Ui.fit(ui.small, e.getValue() + " × " + e.getKey(), pw), px, py, Theme.ITEM);
                 py += 20;
+            }
+            if (copiedLook != null) {
+                py += 8;
+                if (ui.button("Paste look on them all", px, py, pw, 30)) pasteLook(new ArrayList<>(selection));
+                ui.text(ui.tiny, Ui.fit(ui.tiny, "Copied: " + copiedName, pw), px, py + 34, Theme.HINT);
             }
             return;
         }
@@ -3374,6 +3433,45 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (ui.button("As it comes", x, y, w, 28, false, o.props().get("look") != null)) {
             edit(o, "Look", () -> o.set("look", null));
         }
+        y += 34;
+        // its colours onto other buildings: copy here, paste on another (or on many selected)
+        float hw = (w - 4) / 2;
+        if (ui.button("Copy look", x, y, hw, 28)) {
+            copiedFrom = p;
+            copiedLook = look.copy();
+            copiedName = ObjectTypes.label(o);
+            game.toast("Copied " + copiedName + "'s look: select another building and Paste look", Theme.HINT);
+        }
+        if (ui.button("Paste look", x + hw + 4, y, hw, 28, false, copiedLook != null)) pasteLook(List.of(o));
+        if (copiedLook != null) {
+            ui.text(ui.tiny, Ui.fit(ui.tiny, "Copied: " + copiedName, w), x, y + 32, Theme.HINT);
+        }
+    }
+
+    /** The look copied (Copy look), what it was copied from, and its name - or null: none. */
+    private BuildingLook copiedLook;
+    private BuildingProfile copiedFrom;
+    private String copiedName;
+
+    /** The look copied put on each of {@code targets} that is a building, part matched to part. */
+    private void pasteLook(List<LevelObject> targets) {
+        if (copiedLook == null) return;
+        List<LevelObject> onto = new ArrayList<>();
+        for (LevelObject t : targets) {
+            BuildingProfile tp = profileOf(t);
+            if (tp != null && ObjectTypes.builds(t.type()) && BuildingLook.matches(copiedFrom, tp) > 0) onto.add(t);
+        }
+        if (onto.isEmpty()) {
+            game.toast("Nothing there shares a part with " + copiedName, Theme.WARNING);
+            return;
+        }
+        undo.before(level, Undo.Part.OBJECTS, "Paste look");
+        for (LevelObject t : onto) {
+            BuildingProfile tp = profileOf(t);
+            setLook(t, tp, BuildingLook.transfer(copiedFrom, copiedLook, tp, BuildingLook.of(t.props().get("look"))));
+        }
+        changed();
+        game.toast(onto.size() == 1 ? "Look pasted" : "Look pasted on " + onto.size() + " buildings", Theme.HINT);
     }
 
     /** {@code o}'s look set to {@code look} (only what differs from how {@code p} comes is kept). */
@@ -3452,6 +3550,24 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         String[] a = argument.isBlank() ? new String[0] : argument.trim().split("\\s+");
         switch (command) {
             case "tool" -> setTool(Tool.valueOf(argument.trim().toUpperCase()));
+            case "pointer" -> setPointer(!argument.trim().equals("off"));
+            case "copylook", "pastelook" -> {
+                // copylook <id> | pastelook <id> [id …]: a building's look onto others
+                List<LevelObject> found = new ArrayList<>();
+                for (String id : a) {
+                    for (LevelObject o : level.objects()) if (String.valueOf(o.id()).equals(id)) found.add(o);
+                }
+                if (found.isEmpty()) return false;
+                if (command.equals("pastelook")) {
+                    pasteLook(found);
+                    return true;
+                }
+                LevelObject o = found.get(0);
+                copiedFrom = profileOf(o);
+                if (copiedFrom == null) return false;
+                copiedLook = BuildingLook.of(o.props().get("look"));
+                copiedName = ObjectTypes.label(o);
+            }
             case "entry" -> {
                 for (int i = 0; i < palette.size(); i++) {
                     ObjectTypes.Entry e = palette.get(i);
@@ -3488,7 +3604,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     }
                     if (best != null) selection.add(best);
                 }
-                setTool(Tool.SELECT);
+                if (!pointer) setTool(Tool.SELECT);
             }
             case "delete" -> deleteSelection();
             case "savetemplate" -> {
