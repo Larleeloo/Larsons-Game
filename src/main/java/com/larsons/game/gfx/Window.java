@@ -54,6 +54,7 @@ public final class Window implements AutoCloseable {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
         glfwWindowHint(GLFW_SAMPLES, Math.max(0, samples));
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);          // (the editor's outlines)
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 
         handle = glfwCreateWindow(width, height, title, MemoryUtil.NULL, MemoryUtil.NULL);

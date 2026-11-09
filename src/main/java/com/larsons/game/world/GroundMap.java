@@ -27,8 +27,10 @@ public final class GroundMap {
 
     public static final int DIRT = 0, FOREST = 1, GRAVEL = 2, MEADOW = 3, SAND = 4, MUD = 5, SNOW = 6, STONE = 7,
             JUNGLE = 8, DRY_GRASS = 9, ASH = 10, CRYSTAL = 11;
+    /** The roads and paths: cobbles, flagstones, bricks, packed earth and gravel. */
+    public static final int COBBLES = 12, FLAGSTONES = 13, BRICKS = 14, PACKED = 15;
     /** How many materials there are beside the grass. */
-    public static final int MATERIALS = 12;
+    public static final int MATERIALS = 16;
     /** How many groups of four they are kept in. */
     public static final int GROUPS = MATERIALS / 4;
     /**
@@ -43,14 +45,15 @@ public final class GroundMap {
     public static final int LAYERS = GROUPS + 2;
     /** The materials' names, as their textures are called in {@code assets/scenery/ground/}. */
     public static final String[] NAMES = {"dirt", "forest_floor", "gravel", "meadow", "sand", "mud", "snow",
-            "stone", "jungle_floor", "dry_grass", "ash", "crystal"};
+            "stone", "jungle_floor", "dry_grass", "ash", "crystal", "cobbles", "flagstones", "brick_path",
+            "packed_path"};
     /**
      * Which lies over which where two meet, the bottom first: the biomes'
      * ground, then the meadow, the forest floor, the gravel and the paths'
      * dirt over everything.
      */
     public static final int[] ORDER = {DRY_GRASS, JUNGLE, SAND, MUD, ASH, STONE, SNOW, CRYSTAL, MEADOW, FOREST,
-            GRAVEL, DIRT};
+            GRAVEL, DIRT, PACKED, BRICKS, FLAGSTONES, COBBLES};
     /** Metres the demo's map spans each way, centred on the origin. */
     public static final double SIZE = 128;
     /** Metres a cell. */
@@ -67,11 +70,17 @@ public final class GroundMap {
     private final double origin, cell;
     /** The weights, a group of four materials an array (null: nothing of them painted), four a cell. */
     private final float[][] w = new float[LAYERS][];
-    private final boolean[] empty = {true, true, true, true, true};
+    private final boolean[] empty = filled(LAYERS);
     private int version;
     private final int[] groupVersion = new int[LAYERS];
     /** Whether the brushes paint squares rather than discs ({@link #square(boolean)}). */
     private boolean square;
+
+    private static boolean[] filled(int n) {
+        boolean[] b = new boolean[n];
+        java.util.Arrays.fill(b, true);
+        return b;
+    }
 
     /** The demo's map: {@value #SIZE} m a side, all grass. */
     public GroundMap() {
@@ -163,6 +172,23 @@ public final class GroundMap {
     /** Paint squares ({@code true}: {@code radius} metres to each side) rather than discs from now on. */
     public GroundMap square(boolean on) {
         square = on;
+        return this;
+    }
+
+    /** How soft the brushes' edges are, 0 (as hard as the cells let it) – 1 (soft from the middle out). */
+    private double feather;
+    /** Where the brushes paint: the editor's filters. */
+    private BrushMask mask = BrushMask.ALL;
+
+    /** Feather the brushes' edges {@code f} (0 – 1) from now on. */
+    public GroundMap feather(double f) {
+        feather = Math.max(0, Math.min(1, f));
+        return this;
+    }
+
+    /** Keep the brushes to where {@code m} says from now on (null: everywhere). */
+    public GroundMap mask(BrushMask m) {
+        mask = m == null ? BrushMask.ALL : m;
         return this;
     }
 
@@ -269,6 +295,13 @@ public final class GroundMap {
                 double d = square ? Math.max(Math.abs(px - (x0 + t * dx)), Math.abs(pz - (z0 + t * dz)))
                         : Math.hypot(px - (x0 + t * dx), pz - (z0 + t * dz));
                 double v = Math.max(0, Math.min(1, 0.5 + (halfWidth - d) / (2 * SOFT)));
+                if (feather > 0 && v > 0) {
+                    // feathered: full only within (1 - feather) of the way out, then falling away smoothly
+                    double inner = halfWidth * (1 - feather), outer = halfWidth + SOFT;
+                    double u = Math.max(0, Math.min(1, (d - inner) / Math.max(1e-9, outer - inner)));
+                    v = Math.min(v, 1 - u * u * (3 - 2 * u));
+                }
+                if (v > 0 && mask != BrushMask.ALL) v *= mask.at(px, pz);
                 if (v > 0) cell.cover((r * cells + c) * 4, v);
             }
         }

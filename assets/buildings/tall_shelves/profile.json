@@ -1,0 +1,45 @@
+{
+ "key": "tall_shelves",
+ "label": "Tall shelves",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.09,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "jars",
+   "label": "Jars",
+   "colour": "#6e8a9a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "crates",
+   "label": "Boxes",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.32,
+   0.44
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

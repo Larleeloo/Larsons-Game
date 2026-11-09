@@ -1,0 +1,46 @@
+{
+ "key": "stove",
+ "label": "Iron stove",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.64,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#ff8a30",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.1,
+   0.66
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

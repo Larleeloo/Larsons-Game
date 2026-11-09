@@ -1,0 +1,38 @@
+{
+ "key": "rocking_chair",
+ "label": "Rocking chair",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.276,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a4c2c",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "seat",
+   "label": "Seat",
+   "colour": "#9a6a3a",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.55,
+   0.99
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

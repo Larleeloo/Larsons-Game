@@ -1,0 +1,38 @@
+{
+ "key": "stocks",
+ "label": "Stocks",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 1.5,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a5030",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.188,
+   2.125,
+   0.875
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

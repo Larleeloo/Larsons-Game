@@ -1,0 +1,45 @@
+{
+ "key": "flower_pot",
+ "label": "Pot of flowers",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.528,
+ "model": true,
+ "parts": [
+  {
+   "key": "pot",
+   "label": "Glazed pot",
+   "colour": "#2e6a8a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Leaves",
+   "colour": "#4e8a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#e8c040",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.187
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

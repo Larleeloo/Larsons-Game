@@ -152,6 +152,7 @@ public final class LevelWorld {
             ObjectType t = ObjectTypes.get(o.type());
             if (t != null && t.spawner() != null) t.spawner().spawn(o, b);
         }
+        world.showRacks();                         // (what the weapon racks hold, up on their pegs)
         world.setScenery(new Scenery(b.scenery, level.ground()));
     }
 

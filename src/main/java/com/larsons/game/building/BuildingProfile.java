@@ -79,12 +79,16 @@ public final class BuildingProfile {
     private double modelHeight = Double.NaN;
     /** Whether it is only ever a 3D model: no views of it were drawn. */
     private boolean modelOnly;
+    /** A piece of furniture's shelf in the editor (kitchen, decor, plants, farm, clutter), or null: furniture. */
+    private String shelf;
     /** A light's fitting: where its flame is (its own metres: x, y, z up), or null. */
     private double[] flame;
     /** A light's fitting that stands on the ground (not hung up or set on something). */
     private boolean stands;
     /** What she walks up onto: its porch, its steps, its stairs. */
     private List<Step> steps = List.of();
+    /** How much wider, deeper and taller than it comes it is made (a placed one's size). */
+    private double sx = 1, sy = 1, sz = 1;
 
     public BuildingProfile(String key, String label, double pixel, double texel, double depthMin, double depthStep,
                            Map<Elevation, Frame> frames, List<Part> parts, List<Shape> footprint, double[] door,
@@ -188,6 +192,9 @@ public final class BuildingProfile {
     /** Whether it is only ever drawn as its 3D model (it has no views). */
     public boolean modelOnly() { return modelOnly; }
 
+    /** Where the editor files a piece of furniture: "kitchen", "decor", "plants", "farm", "clutter" - or null. */
+    public String shelf() { return shelf; }
+
     /** Whether it is the town's: a market stall, a town house, a workshop, a clock tower, a foundry. */
     public boolean town() { return group.equals(TOWN); }
 
@@ -202,6 +209,52 @@ public final class BuildingProfile {
         if (!Double.isNaN(modelHeight)) return modelHeight;
         Frame f = frames.get(Elevation.SIDE);
         return f == null ? 4 : f.anchorY() * pixel;
+    }
+
+    /** How much wider (its own x), deeper (y) and taller (up) than it comes: {sx, sy, sz}. */
+    public double[] scale() { return new double[]{sx, sy, sz}; }
+
+    /** Whether it is made a size other than it comes. */
+    public boolean resized() { return sx != 1 || sy != 1 || sz != 1; }
+
+    /**
+     * It made {@code wide} times as wide (its own x), {@code deep} times as
+     * deep and {@code tall} times as tall: its footprint, its steps, its door
+     * and flame, its height - its model drawn so ({@link #scale}), its views
+     * (which turn with the eye) by the mean of its width and height. The same
+     * kind (key), so the same model and views. As it comes: itself.
+     */
+    public BuildingProfile scaled(double wide, double deep, double tall) {
+        wide = clampScale(wide);
+        deep = clampScale(deep);
+        tall = clampScale(tall);
+        if (wide == 1 && deep == 1 && tall == 1) return this;
+        double u = Math.sqrt(wide * tall);
+        List<Shape> fp = new ArrayList<>();
+        for (Shape sh : footprint) {
+            fp.add(sh.circle() ? new Shape(true, sh.x() * wide, sh.y() * deep, sh.w() * (wide + deep) / 2, sh.d())
+                    : new Shape(false, sh.x() * wide, sh.y() * deep, sh.w() * wide, sh.d() * deep));
+        }
+        double[] dr = door == null ? null : new double[]{door[0] * wide, door[1] * deep};
+        double tallNow = height();
+        BuildingProfile q = new BuildingProfile(key, label, group, room, pixel * u, texel, depthMin * u,
+                depthStep * u, frames, parts, fp, dr, interior, anim);
+        q.modelHeight = tallNow * tall;
+        q.modelOnly = modelOnly;
+        q.shelf = shelf;
+        q.stands = stands;
+        q.flame = flame == null ? null : new double[]{flame[0] * wide, flame[1] * deep, flame[2] * tall};
+        List<Step> st = new ArrayList<>();
+        for (Step s : steps) st.add(new Step(s.x() * wide, s.y() * deep, s.w() * wide, s.d() * deep, s.top() * tall));
+        q.steps = List.copyOf(st);
+        q.sx = sx * wide;
+        q.sy = sy * deep;
+        q.sz = sz * tall;
+        return q;
+    }
+
+    private static double clampScale(double v) {
+        return Double.isNaN(v) ? 1 : Math.max(0.1, Math.min(10, v));
     }
 
     /** Read {@code dir/profile.json}. */
@@ -266,6 +319,7 @@ public final class BuildingProfile {
                 Json.bool(o, "interior", false), anim);
         if (o.get("height") instanceof Number h) p.modelHeight = h.doubleValue();
         p.modelOnly = Json.bool(o, "model", false);
+        p.shelf = o.get("shelf") instanceof String sh ? sh : null;
         if (o.get("flame") instanceof List<?> f && f.size() >= 3) {
             p.flame = new double[]{((Number) f.get(0)).doubleValue(), ((Number) f.get(1)).doubleValue(),
                     ((Number) f.get(2)).doubleValue()};

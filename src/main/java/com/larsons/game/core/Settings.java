@@ -83,12 +83,22 @@ public final class Settings {
      */
     public boolean autoCamera = true;
     /**
-     * Walls cut away when they would hide her (Pause → Settings, and the
-     * editor's Level tool): a room's walls between the camera and her drawn
-     * down to a stub, a building's walls by the camera see-through. Off,
-     * every wall stands whole, however near the camera comes.
+     * How walls stand, as in the Sims ({@link com.larsons.game.building.Walls}):
+     * up, cut away (those between the camera and her down to a stub) or all
+     * down - rooms' walls indoors, buildings outdoors. Buildings stand by
+     * default; rooms' walls are cut away.
      */
-    public boolean seeThrough = true;
+    public String wallsIndoors = "CUTAWAY";
+    public String wallsOutdoors = "UP";
+
+    public com.larsons.game.building.Walls indoors() {
+        return com.larsons.game.building.Walls.of(wallsIndoors, com.larsons.game.building.Walls.CUTAWAY);
+    }
+
+    public com.larsons.game.building.Walls outdoors() {
+        return com.larsons.game.building.Walls.of(wallsOutdoors, com.larsons.game.building.Walls.UP);
+    }
+
     /**
      * Draw the first version of the states animated again (the weapon stances'
      * moves, kept in assets/animations_v1/) instead of the new one - to compare.
@@ -148,7 +158,10 @@ public final class Settings {
                 s.pointer = Json.str(j, "pointer", "class");
                 s.showProps = Json.bool(j, "showProps", true);
                 s.autoCamera = Json.bool(j, "autoCamera", true);
-                s.seeThrough = Json.bool(j, "seeThrough", true);
+                // (before: one switch, "seeThrough" - off kept every wall whole)
+                boolean see = Json.bool(j, "seeThrough", true);
+                s.wallsIndoors = Json.str(j, "wallsIndoors", see ? "CUTAWAY" : "UP");
+                s.wallsOutdoors = Json.str(j, "wallsOutdoors", "UP");
                 s.classicAnimations = Json.bool(j, "classicAnimations", false);
                 s.savedVsync = Json.bool(j, "vsync", true);
                 s.masterVolume = Math.max(0, Math.min(1, Json.num(j, "masterVolume", 1.0)));
@@ -182,7 +195,8 @@ public final class Settings {
         j.put("pointer", pointer);
         j.put("showProps", showProps);
         j.put("autoCamera", autoCamera);
-        j.put("seeThrough", seeThrough);
+        j.put("wallsIndoors", indoors().name());
+        j.put("wallsOutdoors", outdoors().name());
         j.put("classicAnimations", classicAnimations);
         j.put("vsync", savedVsync);
         j.put("masterVolume", masterVolume);

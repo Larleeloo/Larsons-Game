@@ -113,4 +113,41 @@ class SwimmingTest {
         assertTrue(p.swimming());
         assertEquals(health, p.health(), 1e-9, "the water broke her fall");
     }
+
+    @Test
+    void underWaterAtTheEdgeSheComesUpAndOutNeverIntoTheGround() {
+        World w = pool();
+        Player p = w.player();
+        p.setPosition(new Vec3(9, 0, 0));
+        run(w, 0.2, Player.Intent.NONE);
+        once(w, DIVE);
+        once(w, DIVE);
+        run(w, 2, Player.Intent.NONE);
+        assertTrue(p.underWater());
+        for (int i = 0; i < 1200 && p.swimming(); i++) {
+            once(w, WEST);
+            assertTrue(Double.isFinite(p.feet().y()), "never lost under the map");
+            assertTrue(p.feet().y() >= -1e-6, "never under the ground");
+        }
+        assertFalse(p.swimming(), "out of the water");
+        assertFalse(p.underWater());
+        assertEquals(0, p.feet().y(), 1e-6, "on her feet on the bank");
+    }
+
+    @Test
+    void theWaterTakenAwayUnderHerSheStandsOnTheGround() {
+        World w = pool();
+        Player p = w.player();
+        p.setPosition(new Vec3(16, 0, 0));
+        run(w, 0.2, Player.Intent.NONE);
+        once(w, DIVE);
+        run(w, 1, Player.Intent.NONE);
+        assertTrue(p.swimming());
+        WaterMap dry = new WaterMap(96);
+        w.setWater(dry);
+        run(w, 0.5, EAST);
+        assertFalse(p.swimming());
+        assertTrue(Double.isFinite(p.feet().y()));
+        assertEquals(0, p.feet().y(), 1e-6);
+    }
 }

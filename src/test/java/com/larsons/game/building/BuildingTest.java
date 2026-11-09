@@ -152,8 +152,37 @@ class BuildingTest {
         assertEquals("panes", back.texture(p.part("windows")));
     }
 
-    /** What she walks over or what hangs on a wall: nothing in her way. */
-    private static final java.util.Set<String> FLAT_OR_HUNG = java.util.Set.of("rug", "painting", "banner");
+    @Test
+    void oneBuildingsLookGoesOntoAnotherPartByPart() {
+        BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
+        BuildingProfile cottage = c.profile("cottage"), tower = c.profile("round_tower");
+        assertNotNull(cottage);
+        assertNotNull(tower);
+        BuildingLook mine = new BuildingLook().setColour("walls", 0x7A3B2E).setColour("roof", 0x2E4A7A)
+                .setTexture("walls", "brick");
+        BuildingLook onto = BuildingLook.transfer(cottage, mine, tower, new BuildingLook());
+        // the same parts take its colours and patterns, the parts the cottage has none of keep their own
+        assertEquals(0x7A3B2E, onto.colour(tower.part("walls")));
+        assertEquals("brick", onto.texture(tower.part("walls")));
+        for (BuildingProfile.Part t : tower.parts()) {
+            BuildingProfile.Part from = BuildingLook.match(cottage, t);
+            if (from == null) assertEquals(t.colour(), onto.colour(t), t.key() + " kept");
+            else assertEquals(mine.colour(from), onto.colour(t), t.key() + " from " + from.key());
+        }
+        assertTrue(BuildingLook.matches(cottage, tower) >= 3);
+        // parts named differently but doing the same: side walls take the walls', an awning the roof's
+        assertEquals("walls", BuildingLook.role("side_walls"));
+        assertEquals("roof", BuildingLook.role("awning2"));
+    }
+
+    /**
+     * What she walks over or what hangs on a wall, or is small enough to sit
+     * on a table: nothing in her way.
+     */
+    private static final java.util.Set<String> FLAT_OR_HUNG = java.util.Set.of("rug", "painting", "banner",
+            "wall_shelf", "pot_rack", "dish_rack", "mirror", "deer_head", "boar_head", "bear_head", "crossed_swords",
+            "hanging_planter", "window_box", "wheat_field", "cabbage_patch", "pumpkin_patch", "broom", "farm_tools",
+            "book_stack", "tableware", "bottles", "berry_bowl");
 
     @Test
     void theGamesBuildingsAreAllThereWithTheirPatterns() {
@@ -187,17 +216,15 @@ class BuildingTest {
             }
         }
         assertNotNull(c.profile("windmill").anim());
+        assertNotNull(c.profile("waterwheel").anim(), "the waterwheel turns");
     }
 
     @Test
-    void everyBuildingButABarrelAndACrateIsA3DModel() throws IOException {
+    void everyBuildingIsA3DModel() throws IOException {
         BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
         for (String k : c.keys()) {
             BuildingModel m = BuildingModel.load(c.root().resolve(k));
-            if (k.equals("barrel") || k.equals("crate") || k.equals("pot") || k.equals("large_pot")) {
-                assertNull(m, k + ": she opens it, fills it and breaks it - a sprite");
-                continue;
-            }
+            // the barrels, crates and pots too (she opens them, fills them and breaks them as before)
             assertNotNull(m, k);
             assertTrue(m.fixedCorners() > 0 && m.fixedCorners() % 3 == 0, k);
             assertEquals(m.fixedCorners() + m.turningCorners(), m.vertices().length / BuildingModel.FLOATS, k);

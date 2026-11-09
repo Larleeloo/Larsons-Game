@@ -86,7 +86,7 @@ final class ItemRenderer implements AutoCloseable {
      * - bright and pulsing in a beam - laid on the ground by {@code out}.
      */
     void ground(World.GroundItem g, double t, Pools out) {
-        if (!g.out(t)) return;
+        if (!g.out(t) || g.shown()) return;
         Vec3 c = g.centre(t);
         float[] rc = rgb(g.item.rarity().rgb());
         double b = beamStrength(g, t), p = pulse(t, g.phase());
@@ -116,12 +116,12 @@ final class ItemRenderer implements AutoCloseable {
         double length = spin == null ? g.def.worldSize() : spin.length();
         double hs = length * HALO_SIZE;
         float halo = (float) (HALO * (0.9 + 0.1 * pulse(t, g.phase())));
-        batch.glow(dot, corner(c, right, up, hs), right.scale(hs), up.scale(-hs), rc[0], rc[1], rc[2], halo);
+        if (!g.shown()) batch.glow(dot, corner(c, right, up, hs), right.scale(hs), up.scale(-hs), rc[0], rc[1], rc[2], halo);
 
         SheetTexture sheet = spin == null ? null : sheet(id, SpriteView.of(eye, c, 0, yaw).elevation());
-        Border border = g.item.ring();
+        Border border = g.shown() ? null : g.item.ring();
         if (sheet != null) {
-            drawSprite(g, t, c, right, up, spin, sheet, rc, border, pickup);
+            drawSprite(g, t, yaw, c, right, up, spin, sheet, rc, border, pickup);
         } else {
             Texture icon = sprites.icon(g.def.id(), g.def.fallbackIcon());
             double s = g.def.worldSize();
@@ -131,19 +131,21 @@ final class ItemRenderer implements AutoCloseable {
         if (b > 0) sparks(foot, level, right, up, rc, b, t, g.phase());
     }
 
-    private void drawSprite(World.GroundItem g, double t, Vec3 c, Vec3 right, Vec3 up, ItemSprites.Spin spin,
+    private void drawSprite(World.GroundItem g, double t, double yaw, Vec3 c, Vec3 right, Vec3 up, ItemSprites.Spin spin,
                             SheetTexture sheet, float[] rc, Border border, Wearables.Pickup pickup) {
         double w = spin.profile().frameWorldSize(), h = spin.profile().frameWorldHeight();
         double texel = w / Math.max(1, spin.profile().frameWidth());
         Vec3 topLeft = c.sub(right.scale(w / 2)).add(up.scale(h / 2));
         Vec3[] q = LayerStack.regionQuad(topLeft, right.scale(w), up.scale(-h), sheet.region(false));
-        float[] uv = sheet.uv(frame(g.spin(t), sheet.frameCount()), false);
+        // one set out for show stands still: the side of it the camera is round at
+        double turns = g.shown() ? g.spin(t) + yaw / (2 * Math.PI) : g.spin(t);
+        float[] uv = sheet.uv(frame(turns, sheet.frameCount()), false);
         float cu0 = Math.min(uv[0], uv[2]), cv0 = Math.min(uv[1], uv[3]);
         float cu1 = Math.max(uv[0], uv[2]), cv1 = Math.max(uv[1], uv[3]);
 
         // its outline as light, a ring or two out round it; a border's outline, solid
         int silhouette = batch.palette(items.silhouette(sheet.sharedPalette()));
-        for (int ring = 0; ring < OUTLINE_GLOW.length; ring++) {
+        for (int ring = 0; ring < (g.shown() ? 0 : OUTLINE_GLOW.length); ring++) {
             for (double[] d : AROUND) {
                 Vec3 at = q[0].add(right.scale(d[0] * OUTLINE_GLOW[ring] * texel))
                         .add(up.scale(d[1] * OUTLINE_GLOW[ring] * texel));

@@ -208,6 +208,92 @@ public final class WaterMap {
         return this;
     }
 
+    /** The ground's height at a spot (the level's heights). */
+    @FunctionalInterface
+    public interface Ground {
+        double at(double x, double z);
+    }
+
+    /**
+     * How high water poured in at {@code (x, z)} rises before it spills over
+     * the lowest point of the hollow's rim (or the map's edge) - at most
+     * {@code most} metres over the ground there, nor further than {@code
+     * cellsMost} cells round. {@code (x, z)}'s own ground: no hollow.
+     */
+    public double brim(double x, double z, Ground ground, double most, int cellsMost) {
+        int start = index(x, z);
+        if (start < 0) return Double.NaN;
+        double base = groundAt(start, ground);
+        double level = base;
+        java.util.PriorityQueue<double[]> open = new java.util.PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+        java.util.BitSet seen = new java.util.BitSet(cells * cells);
+        open.add(new double[]{base, start});
+        seen.set(start);
+        int count = 0;
+        while (!open.isEmpty()) {
+            double[] e = open.poll();
+            double h = e[0];
+            int i = (int) e[1];
+            if (h < level - 1e-3) return Math.min(level, base + most);     // over the rim and going down: it spills
+            level = Math.max(level, h);
+            if (level - base >= most) return base + most;
+            if (++count > cellsMost) return level;
+            int c = i % cells, r = i / cells;
+            for (int k = 0; k < 4; k++) {
+                int nc = c + (k == 0 ? 1 : k == 1 ? -1 : 0), nr = r + (k == 2 ? 1 : k == 3 ? -1 : 0);
+                if (nc < 0 || nr < 0 || nc >= cells || nr >= cells) return level;   // out over the map's edge
+                int n = nr * cells + nc;
+                if (seen.get(n)) continue;
+                seen.set(n);
+                open.add(new double[]{groundAt(n, ground), n});
+            }
+        }
+        return level;
+    }
+
+    /**
+     * Fill the hollow at {@code (x, z)} with water of {@code kind}, its surface
+     * {@code level} metres high: every cell joined to it whose ground is under
+     * that, at most {@code cellsMost} of them. Returns how many it filled.
+     */
+    public int fill(Kind kind, double level, double x, double z, Ground ground, int cellsMost) {
+        if (this == NONE) throw new UnsupportedOperationException("WaterMap.NONE stays dry");
+        int start = index(x, z);
+        if (start < 0 || groundAt(start, ground) >= level) return 0;
+        java.util.ArrayDeque<Integer> todo = new java.util.ArrayDeque<>();
+        java.util.BitSet seen = new java.util.BitSet(cells * cells);
+        todo.add(start);
+        seen.set(start);
+        int filled = 0;
+        while (!todo.isEmpty() && filled < cellsMost) {
+            int i = todo.poll();
+            surface[i] = (float) level;
+            this.kind[i] = (byte) kind.code();
+            flowX[i] = flowZ[i] = 0;
+            filled++;
+            int c = i % cells, r = i / cells;
+            for (int k = 0; k < 4; k++) {
+                int nc = c + (k == 0 ? 1 : k == 1 ? -1 : 0), nr = r + (k == 2 ? 1 : k == 3 ? -1 : 0);
+                if (nc < 0 || nr < 0 || nc >= cells || nr >= cells) continue;
+                int n = nr * cells + nc;
+                if (seen.get(n)) continue;
+                seen.set(n);
+                // its own cell, and a cell's width round it - so the shore is under water, not a gap
+                if (groundAt(n, ground) < level + 0.02) todo.add(n);
+            }
+        }
+        if (filled > 0) {
+            empty = false;
+            version++;
+        }
+        return filled;
+    }
+
+    private double groundAt(int i, Ground ground) {
+        int c = i % cells, r = i / cells;
+        return ground.at(origin + (c + 0.5) * cell, origin + (r + 0.5) * cell);
+    }
+
     /** Take the painted water away within {@code radius} of {@code (x, z)}. */
     public WaterMap erase(double x, double z, double radius) {
         if (this == NONE) throw new UnsupportedOperationException("WaterMap.NONE stays dry");

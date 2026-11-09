@@ -9,6 +9,7 @@ import com.larsons.game.world.OrbitCamera;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ final class RoomRenderer implements AutoCloseable {
             out vec2 vTex;
             flat out vec2 vPart;
             out float vW;
+            uniform vec2 uShift;           // nudged on the screen (an outline)
             void main() {
                 gl_Position = uViewProj * vec4(aPos, 1.0);
                 vPos = aPos;
@@ -51,6 +53,7 @@ final class RoomRenderer implements AutoCloseable {
                 vTex = aTex;
                 vPart = aPart;
                 vW = gl_Position.w;
+                """ + Outline.SHIFT + """
             }
             """;
 
@@ -71,7 +74,7 @@ final class RoomRenderer implements AutoCloseable {
             uniform int uGlass;            // the part that is glass, or -1
             uniform vec3 uFogColor;
             uniform vec2 uFog;
-            uniform float uFlash;
+            uniform vec4 uSolid;           // one colour (an outline), or 0: as it is
             out vec4 fragColor;
             """ + SceneLight.GLSL + """
             void main() {
@@ -96,8 +99,7 @@ final class RoomRenderer implements AutoCloseable {
                     float f = clamp((vW - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     lit = mix(lit, uFogColor, f * f);
                 }
-                lit = mix(lit, vec3(1.0, 0.92, 0.6), uFlash);
-                fragColor = vec4(lit, 1.0);
+                fragColor = uSolid.a > 0.0 ? vec4(uSolid.rgb, 1.0) : vec4(lit, 1.0);
             }
             """;
 
@@ -140,8 +142,8 @@ final class RoomRenderer implements AutoCloseable {
      * those between the eye and {@code focus} cut down - opaque, writing
      * depth. {@code day} 0 – 1 lights the windows' glass.
      */
-    /** Whether walls between the eye and her are cut down (off: every wall whole). */
-    boolean seeThrough = true;
+    /** How the walls stand: whole, cut down between the eye and her, or all down. */
+    Walls walls = Walls.CUTAWAY;
 
     void draw(List<Building> buildings, OrbitCamera camera, Vec3 focus, Mat4 viewProj, float[] fog, float fogFar,
               SceneLight light, double day, Set<Integer> highlight) {
@@ -174,21 +176,38 @@ final class RoomRenderer implements AutoCloseable {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         Vec3 eye = camera.eye();
         Map<Building, Mesh> seen = new IdentityHashMap<>();
+        List<Building> picked = new ArrayList<>();
         for (Building b : buildings) {
             Room.Spec spec = b.profile().room();
             if (spec == null) continue;
             Mesh m = meshes.get(b);
             if (m == null) m = new Mesh(mesh(b, false), Room.cuts(spec) ? mesh(b, true) : null);
             seen.put(b, m);
-            float[] v = seeThrough && m.cut() != null && Room.cut(b, eye, focus) ? m.cut() : m.whole();
+            float[] v = vertices(b, m, eye, focus);
             if (v.length == 0) continue;
             setLook(b);
-            shader.set("uFlash", highlight != null && highlight.contains(b.id()) ? 0.18f : 0f);
             upload(v);
             glDrawArrays(GL_TRIANGLES, 0, v.length / FLOATS);
+            if (highlight != null && highlight.contains(b.id())) picked.add(b);
         }
         meshes = seen;
+        Outline.draw(shader, picked, b -> {
+            float[] v = vertices(b, seen.get(b), eye, focus);
+            setLook(b);
+            upload(v);
+            glDrawArrays(GL_TRIANGLES, 0, v.length / FLOATS);
+        });
         glBindVertexArray(0);
+    }
+
+    /** {@code b}'s vertices as it is drawn now: whole, or cut down (all down, or cut away between eye and her). */
+    private float[] vertices(Building b, Mesh m, Vec3 eye, Vec3 focus) {
+        boolean down = m.cut() != null && switch (walls) {
+            case UP -> false;
+            case CUTAWAY -> Room.cut(b, eye, focus);
+            case DOWN -> true;
+        };
+        return down ? m.cut() : m.whole();
     }
 
     private void upload(float[] v) {

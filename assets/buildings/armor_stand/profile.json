@@ -1,0 +1,45 @@
+{
+ "key": "armor_stand",
+ "label": "Armour stand",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.002,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "steel",
+   "label": "Armour",
+   "colour": "#9aa0a8",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "cloth",
+   "label": "Cloth",
+   "colour": "#7a2a2a",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.352
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "decor"
+}

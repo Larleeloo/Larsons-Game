@@ -1,0 +1,53 @@
+{
+ "key": "kitchen_sink",
+ "label": "Sink and pump",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.54,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Cupboard",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Basin",
+   "colour": "#b8b0a0",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Pump",
+   "colour": "#3a4a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#5a8ab0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.21,
+   0.66
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

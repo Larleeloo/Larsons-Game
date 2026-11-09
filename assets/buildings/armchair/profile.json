@@ -1,0 +1,38 @@
+{
+ "key": "armchair",
+ "label": "Armchair",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.155,
+ "model": true,
+ "parts": [
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "cloth",
+   "label": "Upholstery",
+   "colour": "#7a3a4a",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.946,
+   0.902
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

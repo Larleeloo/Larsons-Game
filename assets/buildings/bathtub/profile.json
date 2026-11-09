@@ -1,0 +1,46 @@
+{
+ "key": "bathtub",
+ "label": "Bathtub",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.66,
+ "model": true,
+ "parts": [
+  {
+   "key": "tub",
+   "label": "Tub",
+   "colour": "#e8e0d0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "feet",
+   "label": "Feet",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#7aaad0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.76,
+   0.825
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

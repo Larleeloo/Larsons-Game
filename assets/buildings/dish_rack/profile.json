@@ -1,0 +1,38 @@
+{
+ "key": "dish_rack",
+ "label": "Plate rack (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.002,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a5030",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "plates",
+   "label": "Plates",
+   "colour": "#e8e0d0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "cups",
+   "label": "Cups",
+   "colour": "#5a7aa0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

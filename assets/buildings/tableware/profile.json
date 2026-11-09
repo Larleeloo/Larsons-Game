@@ -1,0 +1,38 @@
+{
+ "key": "tableware",
+ "label": "Plates and cups",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.22,
+ "model": true,
+ "parts": [
+  {
+   "key": "china",
+   "label": "Plates",
+   "colour": "#e8e0d0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "cups",
+   "label": "Cups and jug",
+   "colour": "#5a7aa0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "food",
+   "label": "Bread",
+   "colour": "#c8904a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

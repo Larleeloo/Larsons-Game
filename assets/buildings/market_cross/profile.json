@@ -1,0 +1,55 @@
+{
+ "key": "market_cross",
+ "label": "Market cross",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 5.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#a8a090",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "steps",
+   "label": "Steps",
+   "colour": "#8e8a82",
+   "texture": "flagstones",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   3.0,
+   3.0
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   0.0,
+   3.0,
+   3.0,
+   0.25
+  ],
+  [
+   "box",
+   0.0,
+   0.0,
+   2.375,
+   2.375,
+   0.5
+  ]
+ ],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

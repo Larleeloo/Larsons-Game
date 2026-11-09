@@ -1,0 +1,39 @@
+{
+ "key": "grain_sacks",
+ "label": "Sacks of grain",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.902,
+ "model": true,
+ "parts": [
+  {
+   "key": "sacks",
+   "label": "Sacks",
+   "colour": "#c8b088",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "ties",
+   "label": "Ties",
+   "colour": "#8a6a3a",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.1,
+   0.55
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

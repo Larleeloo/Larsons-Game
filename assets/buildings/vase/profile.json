@@ -1,0 +1,45 @@
+{
+ "key": "vase",
+ "label": "Vase of flowers",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.676,
+ "model": true,
+ "parts": [
+  {
+   "key": "china",
+   "label": "Vase",
+   "colour": "#3a6a9a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "stems",
+   "label": "Stems",
+   "colour": "#3a6a2a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#e85a7a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.121
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "decor"
+}

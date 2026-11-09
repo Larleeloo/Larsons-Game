@@ -1,0 +1,38 @@
+{
+ "key": "pot_rack",
+ "label": "Pots and pans (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.013,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Rail",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "copper",
+   "label": "Pots",
+   "colour": "#b8703a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Pans",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

@@ -110,9 +110,18 @@ class InteriorTest {
         }
         assertTrue(c.profile("fireplace").part("fire").always());
         assertFalse(c.profile("cottage").furniture());
-        // filed with what goes inside
-        assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.category()
-                == com.larsons.game.level.ObjectType.Category.INSIDE && e.label().equals("Bed")));
+        // filed by what it is: the furniture, the kitchen and bath, the decor, the plants, the farm, the clutter
+        var palette = ObjectTypes.palette();
+        java.util.function.BiPredicate<com.larsons.game.level.ObjectType.Category, String> filed = (cat, label) ->
+                palette.stream().anyMatch(e -> e.category() == cat && e.label().equals(label));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.FURNITURE, "Bed"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.KITCHEN, "Iron stove"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.DECOR, "Mounted deer head"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.PLANTS, "Small potted plant"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.FARM, "Hay bale"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Pile of gems"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Bear meat (for show)"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.INSIDE, "Storage chest"));
     }
 
     @Test
@@ -236,5 +245,51 @@ class InteriorTest {
         Vec3 out = b.door().sub(b.position());
         Vec3 face = SpriteView.headingVector(b.heading());
         assertTrue(out.x() * face.x() + out.z() * face.z() > 2);
+    }
+    @Test
+    void aRoomMadeBiggerOrSmallerTakesItsWallsAndWhatStandsAgainstThemWithIt() {
+        for (double[] size : new double[][]{{12.2, 8.2}, {6.2, 4.6}}) {
+            Level f = Interiors.make("cottage").get(0);
+            LevelObject floor = f.ofType(ObjectTypes.FLOOR).get(0);
+            LevelObject bed = null;
+            for (LevelObject o : f.ofType(ObjectTypes.BUILDING)) if (o.str("kind", "").equals("bed")) bed = o;
+            assertNotNull(bed);
+            double oldNorth = -(floor.num("depth", 0) / 2 - Room.THICK / 2);
+            double bedGap = bed.z() - oldNorth;
+
+            Interiors.resize(f, floor, size[0], size[1]);
+            assertEquals(size[0], floor.num("width", 0), 1e-6);
+            assertEquals(size[1], floor.num("depth", 0), 1e-6);
+            double hw = size[0] / 2 - Room.THICK / 2, hd = size[1] / 2 - Room.THICK / 2;
+            // each side closed, end to end: its lengths of wall and the door out
+            closed(f, true, -hd, -hw - Room.THICK / 2, hw + Room.THICK / 2);
+            closed(f, true, hd, -hw - Room.THICK / 2, hw + Room.THICK / 2);
+            closed(f, false, -hw, -hd + Room.THICK / 2, hd - Room.THICK / 2);
+            closed(f, false, hw, -hd + Room.THICK / 2, hd - Room.THICK / 2);
+            // the bed still against the north wall
+            assertEquals(bedGap, bed.z() + hd, 1e-6, "the bed keeps to its wall");
+        }
+    }
+
+    /** Whether the walls (and doors out) on the line {@code at} (z for {@code ns}, else x) run from {@code a} to {@code b}, with no gap. */
+    private static void closed(Level f, boolean ns, double at, double a, double b) {
+        List<double[]> runs = new ArrayList<>();
+        for (LevelObject o : f.objects()) {
+            double side = ns ? o.z() : o.x(), run = ns ? o.x() : o.z();
+            if (Math.abs(side - at) > 0.05) continue;
+            if (o.type().equals(ObjectTypes.WALL)) {
+                double len = o.num("length", 0);
+                runs.add(new double[]{run - len / 2, run + len / 2});
+            } else if (o.type().equals(ObjectTypes.EXIT)) {
+                runs.add(new double[]{run - Room.EXIT_W / 2, run + Room.EXIT_W / 2});
+            }
+        }
+        runs.sort((p, q) -> Double.compare(p[0], q[0]));
+        assertFalse(runs.isEmpty(), "walls on " + at);
+        assertEquals(a, runs.get(0)[0], 0.01, "from the corner");
+        for (int i = 1; i < runs.size(); i++) {
+            assertEquals(runs.get(i - 1)[1], runs.get(i)[0], 0.01, "no gap along " + at);
+        }
+        assertEquals(b, runs.get(runs.size() - 1)[1], 0.01, "to the corner");
     }
 }

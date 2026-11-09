@@ -1,0 +1,31 @@
+{
+ "key": "mirror",
+ "label": "Mirror (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.277,
+ "model": true,
+ "parts": [
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glass",
+   "colour": "#c8dce8",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

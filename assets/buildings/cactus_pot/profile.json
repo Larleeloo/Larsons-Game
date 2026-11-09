@@ -1,0 +1,45 @@
+{
+ "key": "cactus_pot",
+ "label": "Cactus in a pot",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.605,
+ "model": true,
+ "parts": [
+  {
+   "key": "pot",
+   "label": "Pot",
+   "colour": "#c07848",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "cactus",
+   "label": "Cactus",
+   "colour": "#5a8a4a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flower",
+   "label": "Flower",
+   "colour": "#e85a7a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.121
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

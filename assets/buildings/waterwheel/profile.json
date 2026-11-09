@@ -1,0 +1,49 @@
+{
+ "key": "waterwheel",
+ "label": "Water wheel",
+ "group": "building",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 5.751,
+ "model": true,
+ "parts": [
+  {
+   "key": "wheel",
+   "label": "Wheel",
+   "colour": "#6e4c30",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Piers",
+   "colour": "#8e8880",
+   "texture": "fieldstone",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   3.0,
+   5.375
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": {
+  "frames": 8,
+  "degrees": 30.0,
+  "speed": 24.0
+ }
+}

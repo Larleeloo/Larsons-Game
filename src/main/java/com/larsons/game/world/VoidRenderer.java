@@ -82,7 +82,8 @@ public final class VoidRenderer implements AutoCloseable {
             uniform int uBackdrops;
             uniform vec4 uBdA[8];       // kind, height (degrees), haze, seed
             uniform vec4 uBdB[8];       // colour (rgb), snow
-            uniform vec4 uBdC[8];       // from, to (degrees from north; equal: all round), the sea's shore (m), 0
+            uniform vec4 uBdC[8];       // from, to (degrees from north; equal: all round), the sea's shore (m), on the edge
+            uniform vec4 uBdD[8];       // its second part's colour (rgb; r < 0: as it comes), how much of it is that
             uniform vec4 uEdges;        // the level's edges x0, x1, z0, z1 - the backdrops stand round them
                                         // (x1 <= x0: no edges, the backdrops at no distance)
             // --- the time of day (DayCycle.Daylight) ---
@@ -323,7 +324,7 @@ public final class VoidRenderer implements AutoCloseable {
             // a range of peaks round the horizon - mountains (straight-sided, craggy) or hills (rounded) -
             // h degrees high at most: at azimuth az and elevation el, whether el is on one (x), on its
             // shadowed side (y), in its snow (z). Peaks nearer the horizon stand in front of taller ones.
-            vec3 bdPeaks(bool round, float az, float el, float h, float seed, bool snowy) {
+            vec3 bdPeaks(bool round, float az, float el, float h, float seed, bool snowy, float extent) {
                 float cells = max(6.0, floor(360.0 / (round ? max(10.0, h * 3.0) : max(8.0, h * 1.4))));
                 float cw = 360.0 / cells, i0 = floor(az / cw);
                 float crag = round ? 0.0
@@ -352,15 +353,27 @@ public final class VoidRenderer implements AutoCloseable {
                     }
                 }
                 if (ownP > 1e8) return vec3(el <= h * 0.12 + crag * 0.5 ? 1.0 : 0.0, 0.0, 0.0);
-                bool shadow = round ? ownD > ownW * 0.25 + (ownP - el) * 0.6
+                // (hills: how much is in shade; mountains: how far down the snow comes - both as set)
+                bool shadow = round ? ownD > ownW * (0.75 - extent) + (ownP - el) * 0.6
                         : ownD > (ownP - el) * 0.35 + h * 0.08 * (bdNoise(az + el * 7.0, 60.0, seed + 3.0) - 0.5);
-                bool snow = snowy && !round && ownP > 0.55 * h
-                        && el > ownP * (0.78 - 0.12 * bdNoise(az, 53.0, seed + 21.0));
+                bool snow = snowy && !round && ownP > h * max(0.0, 0.55 - extent * 0.6)
+                        && el > ownP * (1.0 - extent - 0.12 * bdNoise(az, 53.0, seed + 21.0));
                 return vec3(1.0, shadow ? 1.0 : 0.0, snow ? 1.0 : 0.0);
             }
 
-            // a tree line's or a town's top at azimuth az, 0 to 1 of its height
-            float bdProfile(int kind, float az, float seed) {
+            // whether azimuth az is on a tree's trunk in a tree line (its crowns' cells, as bdProfile has them)
+            bool bdTrunk(float az, float seed) {
+                float cells = floor(360.0 / 1.2), cw = 360.0 / cells, i0 = floor(az / cw);
+                for (int j = -1; j <= 1; j++) {
+                    float i = mod(i0 + float(j), cells);
+                    float a = (i + 0.5 + 0.4 * (bdHash(i + seed * 41.0) - 0.5)) * cw;
+                    if (abs(mod(az - a + 180.0, 360.0) - 180.0) < cw * 0.11) return true;
+                }
+                return false;
+            }
+
+            // a tree line's or a town's top at azimuth az, 0 to 1 of its height (a spire's cap extent of it)
+            float bdProfile(int kind, float az, float seed, float extent) {
                 if (kind == 2) {            // crowns about a degree apart, pointed or round, over a rolling top
                     float cells = floor(360.0 / 1.2), cw = 360.0 / cells, i0 = floor(az / cw);
                     float roll = 0.65 + 0.35 * bdNoise(az, 23.0, seed + 9.0);
@@ -387,14 +400,14 @@ public final class VoidRenderer implements AutoCloseable {
                     float w = 0.12 + 0.18 * bdHash(mod(i, cells) + seed * 23.0);
                     if (abs(f) > w) return town;
                     float tall = 0.45 + 0.55 * bdHash(mod(i, cells) + seed * 29.0);
-                    // a pointed cap on the top fifth
+                    // a pointed cap on its top (as much of it as set)
                     float cap = 1.0 - abs(f) / w;
-                    return max(town, tall * (0.82 + 0.18 * cap));
+                    return max(town, tall * (1.0 - extent + extent * cap));
                 }
                 return 0.0;
             }
 
-            vec4 backdropsAt(float az, float el, vec3 horizon);
+            vec4 backdropsAt(float az, float el, vec3 horizon, bool onEdge);
 
             // whether the level has edges: then the backdrops stand round them
             bool edged() {
@@ -430,18 +443,19 @@ public final class VoidRenderer implements AutoCloseable {
                 float az = degrees(atan(dir.x, -dir.z));
                 if (az < 0.0) az += 360.0;
                 float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
-                return backdropsAt(az, el, horizon);
+                return backdropsAt(az, el, horizon, false);
             }
 
             // the backdrops standing round the level's edge, where dir crosses it at `at`; a = 0 where none is
             vec4 backdropsOnEdge(vec3 at, vec3 horizon) {
                 if (uBackdrops == 0 || at.y < 0.0) return vec4(0.0);
                 vec2 v = edgeView(at);
-                return backdropsAt(v.x, v.y, horizon);
+                return backdropsAt(v.x, v.y, horizon, true);
             }
 
-            // the backdrops at azimuth az and elevation el (degrees); a = 0 where there are none
-            vec4 backdropsAt(float az, float el, vec3 horizon) {
+            // the backdrops at azimuth az and elevation el (degrees) - those round the level's edge (onEdge), or
+            // those far off at the horizon (and any set on the edge of a level that has none); a = 0 where none is
+            vec4 backdropsAt(float az, float el, vec3 horizon, bool onEdge) {
                 vec4 c = vec4(0.0);
                 float px = max(uBdPixel, 0.02);
                 float qaz = (floor(az / px) + 0.5) * px, qel = (floor(el / px) + 0.5) * px;
@@ -450,25 +464,44 @@ public final class VoidRenderer implements AutoCloseable {
                     if (i >= uBackdrops) break;
                     int kind = int(uBdA[i].x + 0.5);
                     if (kind == 4) continue;                 // the sea is drawn on the ground
+                    if ((uBdC[i].w > 0.5 && edged()) != onEdge) continue;
                     float arc = bdArc(qaz, uBdC[i].x, uBdC[i].y);
                     if (arc <= 0.0) continue;
                     // where the arc tapers off at its ends, everything is lower by as much
                     float h = uBdA[i].y, del = qel / arc;
                     vec3 col = uBdB[i].rgb * uAmbient;
+                    float ext = uBdD[i].w;
+                    bool own2 = uBdD[i].r >= 0.0;            // its second part's own colour, or as it comes
+                    vec3 col2 = uBdD[i].rgb * uAmbient;
                     if (kind <= 1) {
                         // the lit side faces the sun (west), the other in shadow, as the art is shaded
-                        vec3 on = bdPeaks(kind == 1, qaz, del, h, uBdA[i].w, uBdB[i].w > 0.5);
+                        vec3 on = bdPeaks(kind == 1, qaz, del, h, uBdA[i].w, uBdB[i].w > 0.5, ext);
                         if (on.x < 0.5) continue;
-                        if (on.z > 0.5) col = on.y > 0.5 ? vec3(0.74, 0.79, 0.88) : vec3(0.93, 0.95, 0.98);
-                        else if (on.y > 0.5) col *= kind == 1 ? 0.84 : 0.74;
+                        if (on.z > 0.5) {
+                            vec3 snow = own2 ? col2 : vec3(0.93, 0.95, 0.98) * uAmbient;
+                            col = on.y > 0.5 ? snow * vec3(0.8, 0.83, 0.9) : snow;
+                        } else if (on.y > 0.5) {
+                            col = kind == 1 && own2 ? col2 : col * (kind == 1 ? 0.84 : 0.74);
+                        }
                     } else {
-                        if (del > h * bdProfile(kind, qaz, uBdA[i].w)) continue;
+                        float top = h * bdProfile(kind, qaz, uBdA[i].w, ext);
+                        if (del > top) continue;
                         if (kind == 3) {
-                            float left = h * bdProfile(kind, qaz - px * 2.0, uBdA[i].w);
-                            float right = h * bdProfile(kind, qaz + px * 2.0, uBdA[i].w);
+                            // the roofs and caps: the top of each, as much of it as set
+                            if (del > top * (1.0 - ext) && top > h * 0.2) col = own2 ? col2 : col * vec3(1.15, 0.8, 0.72);
+                            float left = h * bdProfile(kind, qaz - px * 2.0, uBdA[i].w, ext);
+                            float right = h * bdProfile(kind, qaz + px * 2.0, uBdA[i].w, ext);
                             if (right > left + px * 0.4) col *= 0.74;
                         }
-                        if (kind == 2 && bdHash(floor(qaz / px) + floor(qel / px) * 57.0) > 0.7) col *= 0.82;
+                        if (kind == 2) {
+                            if (del < h * ext * 0.5) {
+                                // the trunks under the crowns, the shade between them
+                                col = bdTrunk(qaz, uBdA[i].w) ? (own2 ? col2 : col * vec3(1.1, 0.8, 0.6))
+                                        : col * 0.62;
+                            } else if (bdHash(floor(qaz / px) + floor(qel / px) * 57.0) > 0.7) {
+                                col *= 0.82;
+                            }
+                        }
                     }
                     // hazier towards its foot, where it meets the horizon
                     float foot = clamp(1.0 - qel / max(uBdA[i].y, 0.5), 0.0, 1.0);
@@ -501,7 +534,10 @@ public final class VoidRenderer implements AutoCloseable {
                     }
                     vec2 cell = floor(p.xz / vec2(1.6, 0.6));
                     float wave = bdHash(cell.x * 7.0 + cell.y * 131.0 + floor(uTime * 1.5 + bdHash(cell.y) * 9.0));
-                    vec3 col = uBdB[i].rgb * uAmbient * (wave > 0.93 ? 1.45 : wave > 0.7 ? 1.12 : 1.0);
+                    // the glints: as many as set, in their own colour or the water's, brighter
+                    float glint = 1.0 - uBdD[i].w * 0.15;
+                    vec3 col = uBdB[i].rgb * uAmbient * (wave > 0.7 ? 1.12 : 1.0);
+                    if (wave > glint) col = uBdD[i].r >= 0.0 ? uBdD[i].rgb * uAmbient : uBdB[i].rgb * uAmbient * 1.45;
                     float haze = clamp(uBdA[i].z + (1.0 - uBdA[i].z) * (1.0 - exp(-t / 900.0)), 0.0, 1.0);
                     return vec4(mix(col, horizon, haze), 1.0);
                 }
@@ -555,13 +591,16 @@ public final class VoidRenderer implements AutoCloseable {
                 vec3 atEdge = uEye + dir * max(te, 0.0);
                 if (dir.y >= -1e-4 || uEye.y <= 0.0) {
                     vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
-                    vec4 far = !edges ? backdrops(dir, uHorizon, false)
-                            : te >= 0.0 ? backdropsOnEdge(atEdge, uHorizon) : vec4(0.0);
-                    fragColor = vec4(mix(sky, far.rgb, far.a), 1.0);
-                    if (edges && far.a > 0.5) {
+                    // far off at the horizon, then - in front of them - those round the level's edge
+                    vec4 far = backdrops(dir, uHorizon, false);
+                    vec3 col = mix(sky, far.rgb, far.a);
+                    vec4 near = edges && te >= 0.0 ? backdropsOnEdge(atEdge, uHorizon) : vec4(0.0);
+                    if (near.a > 0.5) {
+                        col = near.rgb;
                         vec4 clip = uViewProj * vec4(atEdge, 1.0);
                         gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
                     }
+                    fragColor = vec4(col, 1.0);
                     return;
                 }
                 if (edges && t > te && te >= 0.0) {
@@ -583,11 +622,9 @@ public final class VoidRenderer implements AutoCloseable {
                 c = mix(c, uHorizon, fog);
                 vec4 water = sea(dir, p, t, uHorizon);
                 c = mix(c, water.rgb, water.a);
-                // a backdrop's foot, just under the horizon, over the ground faded into it
-                if (!edges) {
-                    vec4 far = backdrops(dir, uHorizon, true);
-                    c = mix(c, far.rgb, far.a * fog);
-                }
+                // a far backdrop's foot, just under the horizon, over the ground faded into it
+                vec4 far = backdrops(dir, uHorizon, true);
+                c = mix(c, far.rgb, far.a * fog);
                 fragColor = vec4(c, 1.0);
 
                 // its depth a little behind itself, as the hills' is - but none where the hills draw the ground
@@ -677,7 +714,9 @@ public final class VoidRenderer implements AutoCloseable {
             float[] c = Sky.rgb(b.colour());
             shader.set("uBdA[" + i + "]", b.kind().ordinal(), (float) b.height(), (float) b.haze(), b.seed());
             shader.set("uBdB[" + i + "]", c[0], c[1], c[2], b.snow() ? 1 : 0);
-            shader.set("uBdC[" + i + "]", (float) b.from(), (float) b.to(), (float) b.distance(), 0);
+            shader.set("uBdC[" + i + "]", (float) b.from(), (float) b.to(), (float) b.distance(), b.edge() ? 1 : 0);
+            float[] c2 = b.colour2() < 0 ? new float[]{-1, -1, -1} : Sky.rgb(b.colour2());
+            shader.set("uBdD[" + i + "]", c2[0], c2[1], c2[2], (float) b.extent());
         }
         shader.set("uBackdrops", n);
         if (edges != null) {

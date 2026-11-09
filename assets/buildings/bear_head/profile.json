@@ -1,0 +1,45 @@
+{
+ "key": "bear_head",
+ "label": "Mounted bear head",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.42,
+ "model": true,
+ "parts": [
+  {
+   "key": "plaque",
+   "label": "Plaque",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "fur",
+   "label": "Fur",
+   "colour": "#5a3a26",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dark",
+   "label": "Eyes and nose",
+   "colour": "#1a1614",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "teeth",
+   "label": "Teeth",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "decor"
+}

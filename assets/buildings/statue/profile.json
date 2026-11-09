@@ -1,0 +1,45 @@
+{
+ "key": "statue",
+ "label": "Statue",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.688,
+ "model": true,
+ "parts": [
+  {
+   "key": "plinth",
+   "label": "Plinth",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Figure",
+   "colour": "#c8c0b0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "bronze",
+   "label": "Sword",
+   "colour": "#7a6a3a",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.75,
+   1.75
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

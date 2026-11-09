@@ -1,0 +1,53 @@
+{
+ "key": "pantry_shelf",
+ "label": "Pantry shelves",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.98,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "jars",
+   "label": "Jars",
+   "colour": "#c8a060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "sacks",
+   "label": "Sacks",
+   "colour": "#c8b088",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "food",
+   "label": "Food",
+   "colour": "#a83a2a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.43,
+   0.495
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

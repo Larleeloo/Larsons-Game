@@ -124,8 +124,21 @@ public final class HeightField {
 
     /** A brush's weight {@code d} metres from its middle, {@code radius} metres round: 1 to 0, smoothly. */
     static double falloff(double d, double radius) {
+        return falloff(d, radius, 1);
+    }
+
+    /**
+     * {@link #falloff(double, double)} feathered {@code feather} (0 – 1) of
+     * the way in: full out to {@code (1 - feather)} of the radius, falling
+     * off smoothly from there to the rim - 1 soft all the way from its
+     * middle, 0 a hard edge (a step, a cut).
+     */
+    static double falloff(double d, double radius, double feather) {
         if (d >= radius) return 0;
-        double t = d / radius;
+        double f = Math.max(0, Math.min(1, feather));
+        double inner = radius * (1 - f);
+        if (d <= inner) return 1;
+        double t = (d - inner) / Math.max(1e-9, radius - inner);
         return 1 - t * t * (3 - 2 * t);
     }
 
@@ -136,9 +149,15 @@ public final class HeightField {
      * plateau, a square pit, has sides, not slopes.
      */
     static double squareFalloff(double dx, double dz, double radius, double step) {
+        return squareFalloff(dx, dz, radius, step, 1);
+    }
+
+    /** {@link #squareFalloff(double, double, double, double)} with its rim {@code feather} (0 – 1) of a fifth of it. */
+    static double squareFalloff(double dx, double dz, double radius, double step, double feather) {
         double d = Math.max(Math.abs(dx), Math.abs(dz));
         if (d >= radius) return 0;
-        double rim = Math.max(step, radius * 0.2);
+        double rim = Math.max(step, radius * 0.2 * Math.max(0, Math.min(1, feather)));
+        rim = Math.min(rim, radius);
         if (d <= radius - rim) return 1;
         double t = (d - (radius - rim)) / rim;
         return 1 - t * t * (3 - 2 * t);
@@ -150,6 +169,23 @@ public final class HeightField {
     /** Sculpt with a square brush ({@code true}) or a round one from now on. */
     public HeightField square(boolean on) {
         square = on;
+        return this;
+    }
+
+    /** How soft the brushes' edges are, 0 (hard) – 1 (soft from the middle out): {@link #falloff(double, double, double)}. */
+    private double feather = 1;
+    /** Where the brushes work: the editor's filters. */
+    private com.larsons.game.world.BrushMask mask = com.larsons.game.world.BrushMask.ALL;
+
+    /** Feather the brushes' edges {@code f} (0 – 1) from now on. */
+    public HeightField feather(double f) {
+        feather = Math.max(0, Math.min(1, f));
+        return this;
+    }
+
+    /** Keep the brushes to where {@code m} says from now on (null: everywhere). */
+    public HeightField mask(com.larsons.game.world.BrushMask m) {
+        mask = m == null ? com.larsons.game.world.BrushMask.ALL : m;
         return this;
     }
 
@@ -165,7 +201,10 @@ public final class HeightField {
         for (int j = Math.max(1, j0); j <= Math.min(n - 2, j1); j++) {
             for (int i = Math.max(1, i0); i <= Math.min(n - 2, i1); i++) {
                 double px = origin + i * step, pz = origin + j * step;
-                double w = square ? squareFalloff(px - x, pz - z, radius, step) : falloff(Math.hypot(px - x, pz - z), radius);
+                double w = square ? squareFalloff(px - x, pz - z, radius, step, feather)
+                        : falloff(Math.hypot(px - x, pz - z), radius, feather);
+                if (w <= 0) continue;
+                if (mask != com.larsons.game.world.BrushMask.ALL) w *= mask.at(px, pz);
                 if (w <= 0) continue;
                 if (before == null) before = h.clone();
                 set(i, j, stroke.apply(i, j, before[j * n + i], w));

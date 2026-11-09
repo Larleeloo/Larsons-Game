@@ -1,0 +1,45 @@
+{
+ "key": "pumpkin_patch",
+ "label": "Pumpkin patch",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.47,
+ "model": true,
+ "parts": [
+  {
+   "key": "soil",
+   "label": "Soil",
+   "colour": "#5a3a26",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "furrow",
+   "label": "Rows",
+   "colour": "#6a4a30",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "vines",
+   "label": "Vines and leaves",
+   "colour": "#3e7a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "pumpkins",
+   "label": "Pumpkins",
+   "colour": "#e07a2a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

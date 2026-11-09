@@ -1,0 +1,45 @@
+{
+ "key": "bucket",
+ "label": "Bucket",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.513,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Staves",
+   "colour": "#8a6038",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "hoops",
+   "label": "Hoops and handle",
+   "colour": "#4a4a50",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#5a8ab0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.176
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}
