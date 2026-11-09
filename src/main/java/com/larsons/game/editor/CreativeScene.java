@@ -1865,17 +1865,19 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void placePanel(Ui ui, float x, float y, float w, float bottom) {
         y = heading(ui, "Place", x, y);
-        Category[] cats = Category.values();
-        float cw = (w - 6) / 2;
-        for (int i = 0; i < cats.length; i++) {
-            float cx = x + (i % 2) * (cw + 6), cy = y + (i / 2) * 32;
-            if (ui.button(cats[i].label(), cx, cy, cw, 28, cats[i] == category, !entriesOf(cats[i]).isEmpty())) {
-                category = cats[i];
-                paletteScroll = 0;
-                choose(firstOf(cats[i]));
-            }
+        // what to place, by kind: a list that drops down (twenty kinds), the arrows stepping through them
+        List<Category> cats = new ArrayList<>();
+        for (Category c : Category.values()) if (!entriesOf(c).isEmpty() || c == category) cats.add(c);
+        List<String> catLabels = new ArrayList<>();
+        for (Category c : cats) catLabels.add(c.label());
+        int ci = Math.max(0, cats.indexOf(category));
+        int picked = widgets.choice(ui, "", catLabels, ci, x, y, w);
+        if (picked != ci) {
+            category = cats.get(picked);
+            paletteScroll = 0;
+            choose(firstOf(category));
         }
-        y += ((cats.length + 1) / 2) * 32 + 8;
+        y += Widgets.ROW + 10;
         List<Integer> entries = entriesOf(category);
         float row = 26;
         int rows = Math.max(1, (int) ((bottom - y - 60) / row));
@@ -3793,8 +3795,22 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 return false;
             }
             case "place" -> {
+                // place x z [turned, degrees] [lift, metres]
                 if (a.length >= 3) template.turnTo(Math.toRadians(Double.parseDouble(a[2])));
-                place(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
+                LevelObject o = place(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
+                if (o != null && a.length >= 4) {
+                    o.setLift(Double.parseDouble(a[3]));
+                    changed();
+                }
+            }
+            case "set" -> {
+                // set key value: on what is selected (a number, on/off, or words)
+                if (a.length < 2) return false;
+                String v = argument.trim().substring(a[0].length()).trim();
+                Object value = v.equals("on") || v.equals("off") ? (Object) v.equals("on")
+                        : v.matches("-?[0-9.]+") ? (Object) Double.parseDouble(v) : v;
+                for (LevelObject o : selection) o.set(a[0], value);
+                changed();
             }
             case "look" -> {
                 focus = new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1]));

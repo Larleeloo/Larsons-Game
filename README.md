@@ -690,8 +690,8 @@ not break.
   <img src="docs/screenshots/barrel-shatters.png" width="49%" alt="A barrel breaking into splinters and staves">
 </p>
 
-In Creative Mode a barrel, a crate, a pot, a large pot (Place → Inside) or a **Storage chest**
-(Place → Inside) has **Holds**: a list of items, each with how many -
+In Creative Mode a barrel, a crate, a pot, a large pot (Place → Clutter), a **Storage chest**
+(Place → Inside) or a **weapon rack** (Place → Decor: what it holds stands on its pegs) has **Holds**: a list of items, each with how many -
 `wild berries x6, sage, longbow perfect, forged:duskfang` - names as the
 scripts write them. A treasure chest whose **Throws out loot** is off is a
 storage chest too. Loot thrown out of a chest never lands in or through a
@@ -2076,20 +2076,24 @@ standing under the pointer. Twelve tools, ten of them on the number keys:
 
 | Tool | What it does |
 |---|---|
-| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the **buildings** (and the small castle, all its pieces at once; each dressed part by part in its **Look** section), the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots, the barrels, crates and storage chests and what each **Holds**, the [forged weapons](#forged-weapons), and the **templates** saved. A tree, rock or tuft has a **Size** (0.2 to 5 times) and a **Tint** (any of the 128 colours, how strongly); a light its **Fitting**; a herd its colours, size, or one animal alone. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
-| **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind). **Save as a template** keeps what is selected - a cottage and its furnished rooms, a market stall and its barrels, a fenced paddock and its horses - in `assets/templates/`, to place again from **Place → Templates** in any level, turned as you like |
-| **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it. A **round** or a **square** brush (a plateau with straight sides, a square pit) |
-| **4 Paint** | **Ground**: any of the twelve grounds - dirt, forest floor, gravel, flower meadow, sand, mud, snow, stone, jungle floor, dry grass, ash, crystal - over the grass. **Biome**: one of the nine biomes - its ground with patches of its second ground worked through it, and (**Sow its plants**, on by default) its plants, trees and rocks sown as you paint. Shift paints back to grass. **Paint over rock faces** shows the paint on ground too steep to walk too (Bare rock takes it off again). **Tint**: any of the 128 colours over the ground, keeping its pattern - autumn's gold, a blighted grey - Shift takes it off |
-| **5 Scatter** | grass, trees or rocks - one sprite, the meadow's mixed, or a biome's plants, trees or rocks - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep, nothing in water but reeds. Shift pulls up what you are sowing |
-| **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range. **Over it**: the open sky, inside (a hall) or a cave ([Halls and caves](#halls-and-caves)) |
+| **1 Place** | the palette: every tree, rock and tuft, every weapon and wearable, the chest, the **buildings** (and the small castle, all its pieces at once; each dressed part by part in its **Look** section, and made wider, deeper or taller with **Width ×**, **Depth ×**, **Height ×**), the furniture in its own tabs - **Furniture**, **Kitchen, bath**, **Decor**, **Plants**, **Farm**, **Clutter** ([Furniture, decor and clutter](#furniture-decor-and-clutter)) - the training and flying dummies, climbing vines, sounds, **lights** (a colour - lantern, candle, fire, moonlight, crystal, magic, fairy, rose, white -, how far it reaches, how bright, how high, glowing or not) and **light rays** (shafts of sunlight in the mist, for clearings and windows), the player's spawn and named spots, the barrels, crates and storage chests and what each **Holds**, the [forged weapons](#forged-weapons), and the **templates** saved. A tree, rock or tuft has a **Size** (0.2 to 5 times) and a **Tint** (any of the 128 colours, how strongly); a light its **Fitting**; a herd its colours, size, or one animal alone. Click to place; R / Shift+R turn 15°, Q / E 45°, PgUp / PgDn lift, G snaps to a half-metre grid. Something small - clutter, a potted plant, an item for show - placed with the pointer over a table, a counter or a shelf's top is set on it. A **wall** or a **floor** is drawn as in the Sims: press where it starts and let go where it ends (a wall end to end, straight or at 45° - Shift: any angle; a floor corner to corner, with **Walls round it** on: its four walls too); a click places one as it is set. **Right-click** (without dragging) anywhere switches to a plain pointer, to select, move and edit without leaving the tool; right-click again, or Esc, to go back The right panel sets what is placed next: its facing, lift and own settings (a dummy's health, an item's tier, a tree's sprite, a sound) |
+| **2 Select** | click, Shift+click to add, drag on the ground to box things in; drag to move, R / Q / E to turn, Del to delete, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (at the pointer), Ctrl+A everything, F flies to it. The right panel edits what is selected (more than one, it counts them by kind). A building's **Look** has **Copy look** and **Paste look**: its colours and patterns onto another building part by part (walls to walls, roofs to roofs - [Copying a look](#copying-a-look)), or onto all of those selected at once. A room's floor has its **Width** and **Depth**: with **Walls follow** on, its walls move with its edges and what stands against them goes with them **Save as a template** keeps what is selected - a cottage and its furnished rooms, a market stall and its barrels, a fenced paddock and its horses - in `assets/templates/`, to place again from **Place → Templates** in any level, turned as you like |
+| **3 Sculpt** | hold to raise, lower, smooth or flatten the ground (Shift: the other way; Ctrl+click picks the height to flatten to). **Speed** is how fast it works, **Feather** how soft its edge is (0 a hard edge, 1 soft all the way in). Steeper than 45° is rock she cannot walk up - put vines on it to climb. The level's edge stays at the height of the flat ground round it. A **round** or a **square** brush (a plateau with straight sides, a square pit) |
+| **4 Paint** | **Ground**: any of the sixteen grounds - dirt, forest floor, gravel, flower meadow, sand, mud, snow, stone, jungle floor, dry grass, ash, crystal, and for roads and paths **cobbles**, **flagstones**, a **brick path** and a **packed path** - over the grass. **Biome**: one of the nine biomes - its ground with patches of its second ground worked through it, and (**Sow its plants**, on by default) its plants, trees and rocks sown as you paint. Shift paints back to grass. **Paint over rock faces** shows the paint on ground too steep to walk too (Bare rock takes it off again). **Tint**: any of the 128 colours over the ground, keeping its pattern - autumn's gold, a blighted grey - Shift takes it off |
+| **5 Scatter** | grass, trees or rocks - one sprite, the meadow's mixed, a biome's plants, trees or rocks, or **a brush of your own** (★: the sprites you pick, how often each, the sizes they come in, how far apart, how thick; **Save brush** keeps it in `assets/brushes/` for every level) - sown under the brush as the demo has them: trees 2.8 m apart, nothing inside a trunk or a rock, nothing on ground too steep, nothing in water but reeds. Shift pulls up what you are sowing |
+| **6 Sky** | the colour overhead and at the horizon (the fog's colour), from the 128-colour palette; how far the fog reaches; and up to eight **distant backgrounds** round the horizon - mountains (snow on the peaks or not), rolling hills, a tree line, towers and spires, the sea - each with its colour, height, haze, an arc of the horizon or all the way round, and a seed for a different range; each in **two parts** with a colour of its own - the rock and its **snow** (how far down the snow line comes), grass and shade, leaves and **trunks**, walls and **roofs**, water and glints - and **Stands** far off at the horizon or **round the level's edge** (a ring of mountains just past where she can go). Drag one up or down the list (or ↑ / ↓) to put it in front of or behind the others **Over it**: the open sky, inside (a hall) or a cave ([Halls and caves](#halls-and-caves)) |
 | **7 Time** | the time of day and the weather: the hour the level starts at (Dawn, Noon, Dusk, Night), how many minutes a day lasts (0: the time stands still) and **Run it here** to watch the day go by in the editor; the planet - where it hangs, how high, how big, its bands, rings or not -; and how cloudy, starry and misty it is, the aurora, how high the mist reaches and the light rays; and the [weather](#weather) - none, by biome or always one, how heavy and how often |
-| **8 Level** | its name, its size (64, 128, 192, 256, 512, 1024 or 2048 m a side: a great forest, its ground on a coarser grid past 256 m), the **See-through walls** switch, its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
-| **9 Water** | clear, swamp, sea or crystal water, how deep, and either **lying level** from where you press (a pond: sculpt a hollow, fill it from its bottom) or following the ground down (a stream); **Flows** makes it run the way the brush moves, at the current you set. **The sea**, on or off, and its level. Shift dries it up |
+| **8 Level** | its name, its size (64, 128, 192, 256, 512, 1024 or 2048 m a side: a great forest, its ground on a coarser grid past 256 m), **Walls indoors** and **Walls outdoors** - Up, Cut away (those between the camera and her drop away) or Down (the game's own setting too, in Pause → Settings), its music (a song, Shuffle all, or None) with a player to listen first (play, pause, a timeline to drag), save, play, back to the menu |
+| **9 Water** | clear, swamp, sea or crystal water, how deep, and either **lying level** from where you press (a pond: sculpt a hollow, fill it from its bottom) or following the ground down (a stream); **Flows** makes it run the way the brush moves, at the current you set. **Fill to brim** fills the hollow you click from its bottom to where it would spill over (a pond in one click); **Fill to depth** fills it that deep. **The sea**, on or off, and its level. Shift dries it up |
 | **0 Life** | how thick the critters and each kind of animal live here, how fast the bushes grow back and what they give |
 | **Forge** | [the Forge](#the-forge): weapons of your own - their dice, ammunition and upgrade tiers |
 | **Cards** | every card of every class: its name, what it says, its rarity, where it is had (a starting deck, the perk tree, shops), its price, how many are in the class's first deck, and what it does, effect by effect - a help for so long or so many blows, on which blows, or something at once; **New card**, **Delete**, **Save** (`assets/cards/cards.json`). The right panel shows the card as it looks and edits the class's perk tree: each node's cost in points, its row, the card it gives |
 
 `[` and `]` (or Shift+wheel) size the brush, Shift+`[` / `]` its strength.
+**Filters** (Sculpt, Paint and Scatter alike, as World Painter has them) keep a
+brush to ground between two slopes, between two heights, only on (or never
+on) one ground, and on dry ground or under water only; each edge fades over a
+degree or two, so the work never stops in a step.
 Everywhere: **WASD** fly, **Space** / **C** up and down (Shift faster),
 right-drag or the arrow keys turn the view, the wheel zooms, **Tab** steps
 through the camera heights, **H** hides the panels, **Ctrl+Z** / **Ctrl+Y**
@@ -2100,6 +2104,47 @@ undo and redo (sixty steps), **Ctrl+S** saves, **Esc** goes back to the menu
 when the level is played (**Shift+F5**: from the pointer) - the whole game,
 fighting, chests, climbing and all. **F5** again, or the pause
 menu's **Back to the editor**, returns to the editor as you left it.
+
+### Furniture, decor and clutter
+
+The furniture is filed by what it is. **Furniture**: beds, tables, chairs,
+side tables, nightstands, armchairs, a settee, a rocking chair, footstools,
+chests of drawers, a writing desk, tall shelves, shelves on a wall, a coat
+rack. **Kitchen, bath**: an iron stove, a bread oven, a sink and pump, a
+butcher's block, pots and pans and a plate rack for the wall, pantry shelves,
+a bathtub, a washstand, a privy seat, a towel rail, a mirror. **Decor**:
+mounted deer, boar and bear heads, a shield and swords, an armour stand, a
+vase of flowers, and a **weapon rack** - hang weapons on it (in Creative Mode
+in its **Holds**, in the game by looking in it with **E**) and they stand on its
+pegs to be seen. **Plants**: small potted plants, pots of flowers, a cactus, a
+fern in an urn, a little tree in a tub, hanging planters and window boxes.
+**Farm**: hay bales, round bales, a haystack, a water trough, an animal pen,
+fields of wheat, cabbages and pumpkins, a scarecrow, a chicken coop, beehives,
+a hand cart. **Clutter**: piles of books, plates and cups, bottles, sacks of
+grain, a basket of apples, firewood, a bucket, a broom, farm tools, a keg on a
+stand, a pile of gems, a bowl of berries, meat on a board - and **anything of
+the game's own set out for show**: bear meat on a counter, berries, a crystal
+on a shelf, a sword on a table (*… (for show)*, or **Any item, for show** and
+its **Item**). It stands still, turned as it is placed, without its glow, and
+is never picked up. The town gains a **stable**, an **outhouse**, a **wishing
+well**, a **fountain**, a **statue**, a **notice board**, **stocks**, a
+**market cross** and stone **flower beds**; and a **water wheel** stands on its
+own, turning, by any stream.
+
+Barrels, crates, pots, large pots and the storage chest are 3D models, opened,
+filled and broken as before; a loot chest is the sprite it always was.
+
+<p align="center">
+  <img src="docs/screenshots/editor-furniture.png" width="49%" alt="The new furniture, kitchen, bath, decor, plants and clutter in rows, a pile of gems and bear meat set out on a table">
+  <img src="docs/screenshots/editor-farm-town.png" width="49%" alt="The farm and town pieces: a stable, an outhouse, a wishing well, a fountain, a statue, hay, fields, a pen and a water wheel">
+</p>
+
+### Copying a look
+
+Select a building and **Copy look** in its Look section; select another (or
+several) and **Paste look**: each of its parts takes the colours and pattern of
+the part that does the same job on the first - walls to walls, roofs to roofs,
+doors to doors, trim to trim - whatever the two are called.
 
 ### The Forge
 
@@ -2515,18 +2560,21 @@ the item's own colours) and
 `scene` also takes `creative` (a new level), `edit:<folder>` and
 `play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
 <place|select|sculpt|paint|scatter|sky|time|level|water|life>`, `entry <sprite|item|kind|label>`
-(the palette's), `place <x> <z> [degrees]`, `cursor <x> <z>`, `look <x> <z>
+(the palette's), `place <x> <z> [degrees] [lift]`, `set <key> <value>` (on what is selected), `pointer on|off`,
+`draw <x0> <z0> <x1> <z1>` (a wall or a room, as dragged), `copylook <id>`, `pastelook <id> [id …]`,
+`roomsize <width> <depth>`, `cursor <x> <z>`, `look <x> <z>
 [distance pitch yaw]`, `select <x> <z>` (the nearest), `delete`, `duplicate`,
 `turn <degrees>`, `dress <part> <#rrggbb|-> [pattern]` (the selected buildings' part, or the one being
 placed), `sculpt <raise|lower|smooth|flatten> <x> <z> <radius>
-<strength> [seconds] [height]`, `paint <0 grass … 12 crystal> <x> <z> <radius>`,
+<strength> [seconds] [height]`, `paint <0 grass … 12 crystal, 13 cobbles … 16 packed path> <x> <z> <radius>`,
 `biome <plains|marsh|mountains|jungle|savannah|ocean|river|waste|crystal> <x> <z> <radius> [0]` (its
 ground, and its plants sown unless 0), `sow <biome> <x> <z> <radius> [dabs] [tuft|tree|rock]`, `water
 <clear|swamp|sea|crystal> <x> <z> <radius> [surface|auto] [flowx flowz]` (`auto`: the ground there and
-the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|off>`,
+the depth), `waterdepth <m>`, `water erase <x> <z> <radius>`, `water sea <level|off>`, `fill <clear|swamp|sea|crystal> <x> <z>
+[depth]`, `feather <0-1>`, `filter off|slope <from> <to>|height <from> <to>|only <ground>|not <ground>|water <0-2>`,
 `scatter <set> <x> <z> <radius> [thickness]`, `sky zenith|horizon <#rrggbb>`,
 `sky fog <m>`, `time <hour>`, `time day <minutes>`, `time run on|off`, `weather <clouds|stars|aurora|mist|misth|rays|planetsize> <0-1 or degrees>`, `weather planet|rings on|off`, `weather planetat <azimuth> <elevation>`, `backdrop <mountains|hills|trees|spires|ocean|clear> [#colour
-height haze seed from to]`, `name`, `size`, `save`, `undo`, `redo`, `ui
+height haze seed from to] [at=horizon|edge] [part=#colour] [extent=0-1]`, `backdrop pick <n> [part]`, `backdrop move <from> <to>`, `name`, `size`, `save`, `undo`, `redo`, `ui
 on|off`, `fog game|thin`, `life <critter|animal|regrow|yield|animals> <n>`, `life reset`, `lifepage
 critters|animals`, `playtest [x z]`, `leave`, and for a building's inside `inside` (edit the selected
 building's), `floor <n>` (1: the ground floor), `addfloor` and `outside`.
