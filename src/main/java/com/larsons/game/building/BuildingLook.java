@@ -116,13 +116,29 @@ public final class BuildingLook {
         double[] base = Variants.Oklab.of(rgb & 0xFFFFFF);
         int[] out = new int[6];
         double[] lab = new double[6];
-        int m = nearest(target(base, 3), F, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-        out[3] = fills[m];
-        lab[3] = F[m][0];
+        // the colour itself in the middle - just the one picked, if it is one of the palette's (a line dark
+        // too), so what is picked is what is drawn; any other, the nearest of the fills
+        int exact = indexOf(fills, rgb);
+        int exactLine = exact >= 0 ? -1 : indexOf(lines, rgb);
+        if (exact >= 0 || exactLine >= 0) {
+            out[3] = rgb & 0xFFFFFF;
+            lab[3] = exact >= 0 ? F[exact][0] : L[exactLine][0];
+        } else {
+            int m = nearest(target(base, 3), F, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+            out[3] = fills[m];
+            lab[3] = F[m][0];
+        }
         for (int i = 2; i >= 1; i--) {
+            // darker fills - or, for a colour as dark as the fills go, darker lines
             int k = nearest(target(base, i), F, Double.NEGATIVE_INFINITY, lab[i + 1] - RAMP_GAP);
-            out[i] = k < 0 ? out[i + 1] : fills[k];
-            lab[i] = k < 0 ? lab[i + 1] : F[k][0];
+            if (k >= 0) {
+                out[i] = fills[k];
+                lab[i] = F[k][0];
+            } else {
+                int j = nearest(target(base, i), L, Double.NEGATIVE_INFINITY, lab[i + 1] - RAMP_GAP);
+                out[i] = j < 0 ? out[i + 1] : lines[j];
+                lab[i] = j < 0 ? lab[i + 1] : L[j][0];
+            }
         }
         int k = nearest(target(base, 0), L, Double.NEGATIVE_INFINITY, lab[1] - RAMP_GAP);
         if (k < 0) k = nearest(target(base, 0), L, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
@@ -134,6 +150,11 @@ public final class BuildingLook {
             lab[i] = j < 0 ? lab[i - 1] : F[j][0];
         }
         return out;
+    }
+
+    private static int indexOf(int[] colours, int rgb) {
+        for (int i = 0; i < colours.length; i++) if ((colours[i] & 0xFFFFFF) == (rgb & 0xFFFFFF)) return i;
+        return -1;
     }
 
     private static double[] target(double[] base, int i) {

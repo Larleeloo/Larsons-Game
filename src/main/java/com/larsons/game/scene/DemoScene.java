@@ -632,7 +632,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, SADDLE, MOUNT, DISMOUNT }
+    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
     private Chest storeChest;
@@ -659,6 +659,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         double db = b == null ? Double.MAX_VALUE : Math.hypot(b.x() - me.x(), b.z() - me.z());
         double dd = d == null ? Double.MAX_VALUE : d.door().horizontalDistance(me) + 0.3;   // (what lies by her first)
         if (d != null && dd < dc && dd < ds && dd < dg && dd < db) return Use.DOOR;
+        // a way through (a wardrobe with a stair at its back, a bookshelf that swings out) - and a wardrobe
+        if (g == null && usablePassage() != null) return Use.PASSAGE;
+        if (g == null && world.reachableWardrobe() != null) return Use.WARDROBE;
         if (st != null && ds < dc && ds < dg && ds <= db) return Use.STORE;
         com.larsons.game.world.Shop sh = world.reachableShop();
         if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
@@ -688,6 +691,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case ITEM -> pickUp();
             case BUSH -> forage(world.reachableBush());
             case DOOR -> goThrough(usableDoor());
+            case PASSAGE -> goThroughPassage(usablePassage());
+            case WARDROBE -> {
+                Sounds.play(SoundKeys.world("door_open"));
+                pause.open(PauseMenu.Page.WARDROBE);
+            }
             case SADDLE -> saddleHorse();
             case MOUNT -> world.mount(world.reachableHorse());
             case DISMOUNT -> {
@@ -744,6 +752,64 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             return next >= 0 && next < inside.floors.size() ? d : null;
         }
         return d;
+    }
+
+    /** The way through ({@link Building.Passage}) she stands at that leads somewhere from here, or null. */
+    private Building usablePassage() {
+        Building b = world.reachablePassage();
+        if (b == null) return null;
+        Building.Passage p = b.passage();
+        return switch (p.way()) {
+            case "spot" -> spotNamed(p.to()) == null ? null : b;
+            case "up", "down" -> {
+                if (inside == null) yield null;
+                int next = inside.floor + (p.way().equals("up") ? 1 : -1);
+                yield next >= 0 && next < inside.floors.size() ? b : null;
+            }
+            case "out" -> inside == null ? null : b;
+            default -> null;
+        };
+    }
+
+    /** The named spot {@code name} where she is (this floor, or outdoors), or null. */
+    private Terrain.Place spotNamed(String name) {
+        if (name == null || name.isBlank()) return null;
+        for (Terrain.Place pl : world.terrain().places()) {
+            if (pl.name().equalsIgnoreCase(name.trim())) return pl;
+        }
+        return null;
+    }
+
+    /** Through {@code b}, a way through: to its spot, up or down a floor, or outside. */
+    private void goThroughPassage(Building b) {
+        if (b == null) return;
+        Building.Passage p = b.passage();
+        switch (p.way()) {
+            case "spot" -> {
+                Terrain.Place to = spotNamed(p.to());
+                if (to == null) return;
+                Sounds.play(SoundKeys.world(p.hidden() ? "door_close" : "door_open"));
+                Player pl = world.player();
+                pl.setPosition(world.terrain().onGround(new Vec3(to.x(), 0, to.z())));
+                arrived();
+            }
+            case "up", "down" -> climb(p.way().equals("up"), b.position());
+            case "out" -> goOut();
+            default -> { }
+        }
+    }
+
+    /** What going through {@code b}, a way through, is called - a hidden one only "look closer". */
+    private static String passageText(Building b) {
+        Building.Passage p = b.passage();
+        String what = b.profile().label().toLowerCase();
+        if (p.hidden()) return "Look closer at the " + what;
+        return switch (p.way()) {
+            case "up" -> "Go up through the " + what;
+            case "down" -> "Go down through the " + what;
+            case "out" -> "Go outside through the " + what;
+            default -> "Go through the " + what;
+        };
     }
 
     /** What going through {@code d} is called. */
@@ -1186,6 +1252,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             text = "E   Get off the horse";
         } else if (use == Use.DOOR) {
             text = "E   " + doorText(usableDoor());
+        } else if (use == Use.PASSAGE) {
+            text = "E   " + passageText(usablePassage());
+        } else if (use == Use.WARDROBE) {
+            text = "E   Change clothes at the " + world.reachableWardrobe().profile().label().toLowerCase();
         } else if (use == Use.CHEST) {
             Chest c = world.reachableChest();
             text = "E   " + (c.store() != null ? "Look in the chest"

@@ -10,6 +10,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +28,10 @@ import static org.lwjgl.opengl.GL33C.*;
  * corner or meets another part - pixel art, in the round. The windows glow
  * at night, a fire always; a mill's sails and its wheel turn.
  *
- * <p>Walls between the eye and her are see-through ({@code seeThrough}): a
- * dithered hole round the line from the eye to her, so the house she walks
- * behind never hides her.
+ * <p>Its walls stand, or come down to a stub ({@link Walls}): cut away
+ * when it stands between the eye and her (the house she walks behind never
+ * hides her), or all down. Furniture always stands. The editor's
+ * selection is ringed round ({@link Outline}).
  */
 final class ModelRenderer implements AutoCloseable {
 
@@ -45,6 +47,8 @@ final class ModelRenderer implements AutoCloseable {
             uniform vec3 uAt, uAx, uAy;         // where it stands, its own x and y in the world
             uniform vec3 uPivot, uAxis;         // what the turning part turns about (its own metres)
             uniform float uTurn;                // how far it has turned (radians; 0: the fixed parts)
+            uniform vec2 uShift;                // nudged on the screen (an outline)
+            uniform vec3 uScale;                // made wider, deeper, taller than it comes (1, 1, 1: as it comes)
             out vec3 vPos;
             flat out vec3 vNormal;
             out vec2 vTex;
@@ -61,9 +65,12 @@ final class ModelRenderer implements AutoCloseable {
                     p = uPivot + turned(p - uPivot);
                     n = turned(n);
                 }
+                p *= uScale;
+                n /= uScale;
                 vec3 w = uAt + uAx * p.x + uAy * p.y + vec3(0.0, p.z, 0.0);
                 vNormal = normalize(uAx * n.x + uAy * n.y + vec3(0.0, n.z, 0.0));
                 gl_Position = uViewProj * vec4(w, 1.0);
+                """ + Outline.SHIFT + """
                 vPos = w;
                 vTex = aTex;
                 vEdge = aCorner * aHeight;      // metres from each of its triangle's edges
@@ -88,34 +95,12 @@ final class ModelRenderer implements AutoCloseable {
             uniform float uGlow[15];
             uniform vec3 uFogColor;
             uniform vec2 uFog;
-            uniform float uFlash;
-            uniform vec3 uEye, uFocus;
-            uniform float uCut;                // the see-through hole's radius round the line to her (0: none)
+            uniform float uClip;               // walls down: nothing above this height (world y) is drawn
+            uniform vec4 uSolid;               // one colour (an outline), or 0: as it is
             out vec4 fragColor;
             """ + SceneLight.GLSL + """
-            float bayer(vec2 f) {
-                ivec2 p = ivec2(mod(f, 4.0));
-                int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-                return (float(m[p.y * 4 + p.x]) + 0.5) / 16.0;
-            }
             void main() {
-                if (uCut > 0.0) {
-                    // between the eye and her: see-through, fading in at the hole's edge
-                    vec3 d = uFocus - uEye;
-                    float L = length(d);
-                    float near = 1.0 - smoothstep(0.6, 1.2, length(vPos - uEye));
-                    float hole = 0.0;
-                    if (L > 0.5) {
-                        vec3 dir = d / L;
-                        float t = dot(vPos - uEye, dir);
-                        if (t > 0.0 && t < L - 0.45) {
-                            float r = length(vPos - uEye - dir * t);
-                            float R = uCut * mix(0.6, 1.0, clamp(t / max(L, 1.0), 0.0, 1.0));
-                            hole = 1.0 - smoothstep(R * 0.7, R, r);
-                        }
-                    }
-                    if (max(near, hole) > bayer(gl_FragCoord.xy)) discard;
-                }
+                if (vPos.y > uClip) discard;
                 int k = int(vPart.x + 0.5);
                 int mask = int(vPart.y + 0.5);
                 // the line along its face's edges, a texel wide, on the texels' grid (near); a pixel or so (far)
@@ -153,8 +138,7 @@ final class ModelRenderer implements AutoCloseable {
                     float f = clamp((vW - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     col = mix(col, uFogColor, f * f);
                 }
-                col = mix(col, vec3(1.0, 0.92, 0.6), uFlash);
-                fragColor = vec4(col, 1.0);
+                fragColor = uSolid.a > 0.0 ? vec4(uSolid.rgb, 1.0) : vec4(col, 1.0);
             }
             """;
 
@@ -163,8 +147,10 @@ final class ModelRenderer implements AutoCloseable {
 
     private static final Gpu NONE = new Gpu(null, 0, 0);
 
-    /** How wide the see-through hole round the line from the eye to her is, metres. */
-    static final float CUT = 1.5f;
+    /** How high a building's walls stand cut down, metres over its foot. */
+    static final double STUB = 0.6;
+    /** Buildings no taller than this (a well, a cart) always stand, cut away or not. */
+    static final double LOW = 2.2;
 
     private final BuildingCatalog catalog;
     private final PixelPalette palette;
@@ -174,7 +160,7 @@ final class ModelRenderer implements AutoCloseable {
     private final float[] ramp = new float[BuildingRenderer.MAX_PARTS * 6 * 3];
     private final int[] layers = new int[BuildingRenderer.MAX_PARTS];
     private final float[] glow = new float[BuildingRenderer.MAX_PARTS];
-    boolean seeThrough = true;
+    Walls walls = Walls.UP;
 
     ModelRenderer(BuildingCatalog catalog, PixelPalette palette, int patterns) {
         this.catalog = catalog;
@@ -251,15 +237,14 @@ final class ModelRenderer implements AutoCloseable {
                 + lz * lz));
         shader.set("uLight", (float) (lx / ll), (float) (ly / ll), (float) (lz / ll));
         Vec3 eye = camera.eye();
-        shader.set("uEye", (float) eye.x(), (float) eye.y(), (float) eye.z());
-        shader.set("uFocus", (float) focus.x(), (float) focus.y() + 0.9f, (float) focus.z());
-        shader.set("uCut", seeThrough ? CUT : 0f);
+        Vec3 her = focus.add(0, 0.9, 0);
         light.bind(shader);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D_ARRAY, patterns);
         double reach = fogFar + 30;
         float n = (float) Math.max(0, Math.min(1, night));
         int drawn = 0;
+        List<Building> picked = new ArrayList<>();
         for (Building b : buildings) {
             BuildingProfile p = b.profile();
             if (p.room() != null) continue;
@@ -267,32 +252,70 @@ final class ModelRenderer implements AutoCloseable {
             if (g == NONE) continue;
             Vec3 at = b.position();
             if (at.sub(eye).horizontalLength() > reach + p.reach()) continue;
-            setLook(b, n);
-            Vec3 ax = b.axisX(), ay = b.axisY();
-            shader.set("uAt", (float) at.x(), (float) at.y(), (float) at.z());
-            shader.set("uAx", (float) ax.x(), (float) ax.y(), (float) ax.z());
-            shader.set("uAy", (float) ay.x(), (float) ay.y(), (float) ay.z());
-            shader.set("uTexel", (float) p.texel());
-            shader.set("uFlash", highlight != null && highlight.contains(b.id()) ? 0.18f : 0f);
-            shader.set("uTurn", 0f);
-            glBindVertexArray(g.vao());
-            BuildingModel m = g.model();
-            if (m.fixedCorners() > 0) glDrawArrays(GL_TRIANGLES, 0, m.fixedCorners());
-            if (m.turningCorners() > 0 && m.pivot() != null) {
-                BuildingProfile.Anim anim = p.anim();
-                double speed = anim == null ? 30 : anim.speed();
-                double[] pv = m.pivot();
-                shader.set("uPivot", (float) pv[0], (float) pv[1], (float) pv[2]);
-                shader.set("uAxis", m.axis() == 'x' ? 1f : 0f, m.axis() == 'y' ? 1f : 0f, m.axis() == 'z' ? 1f : 0f);
-                // (a whole turn every 360 / speed seconds; never 0, which the shader reads as fixed)
-                double turn = Math.toRadians((time * speed) % 360.0);
-                shader.set("uTurn", (float) (turn == 0 ? 1e-6 : turn));
-                glDrawArrays(GL_TRIANGLES, m.fixedCorners(), m.turningCorners());
-            }
+            shader.set("uClip", (float) clip(b, eye, her));
+            drawOne(b, g, n, time);
+            if (highlight != null && highlight.contains(b.id())) picked.add(b);
             drawn++;
         }
+        Outline.draw(shader, picked, b -> {
+            shader.set("uClip", (float) clip(b, eye, her));
+            drawOne(b, gpu(b.profile().key()), n, time);
+        });
         glBindVertexArray(0);
         return drawn;
+    }
+
+    /** {@code b} drawn, its look and place set first. */
+    private void drawOne(Building b, Gpu g, float night, double time) {
+        BuildingProfile p = b.profile();
+        Vec3 at = b.position();
+        setLook(b, night);
+        Vec3 ax = b.axisX(), ay = b.axisY();
+        shader.set("uAt", (float) at.x(), (float) at.y(), (float) at.z());
+        shader.set("uAx", (float) ax.x(), (float) ax.y(), (float) ax.z());
+        shader.set("uAy", (float) ay.x(), (float) ay.y(), (float) ay.z());
+        shader.set("uTexel", (float) p.texel());
+        shader.set("uTurn", 0f);
+        double[] sc = p.scale();
+        shader.set("uScale", (float) sc[0], (float) sc[1], (float) sc[2]);
+        glBindVertexArray(g.vao());
+        BuildingModel m = g.model();
+        if (m.fixedCorners() > 0) glDrawArrays(GL_TRIANGLES, 0, m.fixedCorners());
+        if (m.turningCorners() > 0 && m.pivot() != null) {
+            BuildingProfile.Anim anim = p.anim();
+            double speed = anim == null ? 30 : anim.speed();
+            double[] pv = m.pivot();
+            shader.set("uPivot", (float) pv[0], (float) pv[1], (float) pv[2]);
+            shader.set("uAxis", m.axis() == 'x' ? 1f : 0f, m.axis() == 'y' ? 1f : 0f, m.axis() == 'z' ? 1f : 0f);
+            // (a whole turn every 360 / speed seconds; never 0, which the shader reads as fixed)
+            double turn = Math.toRadians((time * speed) % 360.0);
+            shader.set("uTurn", (float) (turn == 0 ? 1e-6 : turn));
+            glDrawArrays(GL_TRIANGLES, m.fixedCorners(), m.turningCorners());
+        }
+    }
+
+    /**
+     * The height above which {@code b} is not drawn: none (it stands), or a
+     * stub over its foot - all down, or cut away as it stands between {@code
+     * eye} and {@code her}. Furniture, and what is low, always stands.
+     */
+    double clip(Building b, Vec3 eye, Vec3 her) {
+        return clip(b, eye, her, walls);
+    }
+
+    static double clip(Building b, Vec3 eye, Vec3 her, Walls walls) {
+        BuildingProfile p = b.profile();
+        if (walls == Walls.UP || p.furniture() || p.height() <= LOW) return 1e9;
+        double stub = b.position().y() + STUB;
+        if (walls == Walls.DOWN) return stub;
+        return hides(b, eye, her) ? stub : 1e9;
+    }
+
+    /** Whether {@code b} stands between {@code eye} and {@code her} - or she is in it, or right behind it. */
+    static boolean hides(Building b, Vec3 eye, Vec3 her) {
+        if (b.blocks(her.x(), her.z(), 0.6)) return true;
+        double hit = b.rayHit(eye, her.sub(eye));
+        return hit >= 0 && hit < 0.98;
     }
 
     private void setLook(Building b, float night) {

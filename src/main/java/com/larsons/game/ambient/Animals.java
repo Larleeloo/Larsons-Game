@@ -72,6 +72,41 @@ public final class Animals {
     public interface Place extends Critters.Place {
         /** Whether something solid (a tree, a rock) stands within {@code radius} of {@code (x, z)}. */
         default boolean blocked(double x, double z, double radius) { return false; }
+
+        /** The level's edges they keep within - x from, x to, z from, z to - or null (none). */
+        default double[] bounds() { return null; }
+    }
+
+    /** How far inside a level's edges they keep, metres. */
+    static final double EDGE = 0.75;
+
+    /** Whether {@code (x, z)} is inside the level's edges (by {@link #EDGE}), or there are none. */
+    static boolean inside(double x, double z, Place place) {
+        double[] b = place.bounds();
+        return b == null || (x >= b[0] + EDGE && x <= b[1] - EDGE && z >= b[2] + EDGE && z <= b[3] - EDGE);
+    }
+
+    /**
+     * Back inside the level's edges, if it got out (pushed, staggered, or put
+     * there): onto the edge, its way out stopped - one that flies off may go,
+     * it is fading away.
+     */
+    static void keepIn(Animal a, Place place) {
+        double[] b = place.bounds();
+        if (b == null || a.mode == Animal.Mode.FLY_OFF) return;
+        double x0 = b[0] + EDGE, x1 = b[1] - EDGE, z0 = b[2] + EDGE, z1 = b[3] - EDGE;
+        if (x0 > x1 || z0 > z1) return;
+        boolean out = false;
+        if (a.x < x0) { a.x = x0; a.vx = Math.max(0, a.vx); out = true; }
+        if (a.x > x1) { a.x = x1; a.vx = Math.min(0, a.vx); out = true; }
+        if (a.z < z0) { a.z = z0; a.vz = Math.max(0, a.vz); out = true; }
+        if (a.z > z1) { a.z = z1; a.vz = Math.min(0, a.vz); out = true; }
+        if (out) {
+            // where it was going is outside too: somewhere back in
+            a.toX = Math.max(x0, Math.min(x1, a.toX));
+            a.toZ = Math.max(z0, Math.min(z1, a.toZ));
+            settle(a, place);
+        }
     }
 
     /** The player, as the animals see her. */
@@ -276,6 +311,7 @@ public final class Animals {
             }
             react(a, q, place, voice, focus);
             behave(a, dt, time, q, place, voice, focus);
+            keepIn(a, place);
             dress(a);
         }
         live.removeIf(a -> a.gone);
@@ -350,7 +386,8 @@ public final class Animals {
             // its own with it, saddled ones and all; only a horse she saddled herself is hers to keep
             if (a.herd != null && !herds.contains(a.herd) && !a.saddledByHer && !a.ridden) {
                 a.leaving = true;
-                if (a.saddled) a.gone = true;          // (a ghost's: gone at once, not left standing about)
+                // a ghost's, and any in the editor's still view: gone at once, not left fading in a trail
+                if (a.saddled || still) a.gone = true;
                 continue;
             }
             if (a.saddled) continue;        // a saddled horse stays where she left it, however far she goes
@@ -497,6 +534,7 @@ public final class Animals {
 
     /** Whether a {@code k} could stand (or swim, or fly) at {@code (x, z)}. */
     static boolean passable(AnimalKind k, double x, double z, Place place) {
+        if (!inside(x, z, place)) return false;
         if (k.flies()) return true;
         double deep = place.water(x, z, place.ground(x, z));
         if (!k.swims() && !k.paddles() && deep > k.wade()) return false;
@@ -918,6 +956,7 @@ public final class Animals {
         AnimalKind k = a.kind;
         if (a.swimming && k.paddles()) step *= SWIM_PACE;
         double nx = a.x + ux * step, nz = a.z + uz * step;
+        if (!inside(nx, nz, place) && inside(a.x, a.z, place)) return false;      // (never out over the level's edge)
         if (!k.flies()) {
             if (!footing(a, ux, uz, place)) return false;
             if (!passable(k, nx, nz, place) && passable(k, a.x, a.z, place)) return false;

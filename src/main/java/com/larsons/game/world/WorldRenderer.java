@@ -106,9 +106,9 @@ public final class WorldRenderer implements AutoCloseable {
     private final Texture piece = Texture.white();
     /** The buildings' drawing (null: none to draw). */
     private BuildingRenderer buildings;
-    /** Cut away the walls that would hide her, or keep every wall whole (core/Settings#seeThrough). */
-    public void setSeeThrough(boolean on) {
-        if (buildings != null) buildings.setSeeThrough(on);
+    /** How rooms' walls ({@code indoors}) and buildings' ({@code outdoors}) stand (core/Settings#wallsIndoors). */
+    public void setWalls(com.larsons.game.building.Walls indoors, com.larsons.game.building.Walls outdoors) {
+        if (buildings != null) buildings.setWalls(indoors, outdoors);
     }
 
     /** The buildings drawn lit up (the editor's selection). */

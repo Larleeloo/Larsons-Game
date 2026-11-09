@@ -1205,6 +1205,11 @@ public final class World {
             }
 
             @Override
+            public double[] bounds() {
+                return bounds;
+            }
+
+            @Override
             public double ground(double x, double z) {
                 return terrain.height(x, z);
             }
@@ -1560,6 +1565,55 @@ public final class World {
             }
         }
         return best;
+    }
+
+    /** How near a way through ({@link Building.Passage}) she is to use it, metres from it; a hidden one, nearer. */
+    public static final double PASSAGE_REACH = 0.9, HIDDEN_REACH = 0.45;
+
+    /** The way through (a building made a {@link Building.Passage}) she stands at - the nearest - or null. */
+    public Building reachablePassage() {
+        Building best = null;
+        double bestD = Double.MAX_VALUE;
+        Vec3 me = player.ground();
+        for (Building b : buildings) {
+            Building.Passage p = b.passage();
+            if (p == null || Math.abs(player.feet().y() - b.position().y()) > 1.5) continue;
+            double reach = p.hidden() ? HIDDEN_REACH : PASSAGE_REACH;
+            if (!b.blocks(me.x(), me.z(), feet() + reach)) continue;
+            double d = b.position().horizontalDistance(me);
+            if (d < bestD) {
+                best = b;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** How near a wardrobe she is to open it, metres from it. */
+    public static final double WARDROBE_REACH = 0.8;
+
+    /** A wardrobe (the furniture) she stands at - what she wears is changed at it - or null. */
+    public Building reachableWardrobe() {
+        Vec3 me = player.ground();
+        Building best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Building b : buildings) {
+            if (!isWardrobe(b.key()) || b.passage() != null) continue;
+            if (Math.abs(player.feet().y() - b.position().y()) > 1.5) continue;
+            if (!b.blocks(me.x(), me.z(), feet() + WARDROBE_REACH)) continue;
+            double d = b.position().horizontalDistance(me);
+            if (d < bestD) {
+                best = b;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** Whether a building of kind {@code key} is one she changes her clothes at (a wardrobe, a dressing screen). */
+    public static boolean isWardrobe(String key) {
+        return key != null && (key.equals("wardrobe") || key.startsWith("wardrobe_") || key.equals("dressing_screen")
+                || key.equals("standing_mirror"));
     }
 
     /** Put {@code def}, as it is found lying about ({@link Item#of(ItemDef)}), on the ground at {@code at}. */

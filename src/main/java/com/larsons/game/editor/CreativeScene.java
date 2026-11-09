@@ -12,6 +12,7 @@ import com.larsons.game.building.BuildingCatalog;
 import com.larsons.game.building.BuildingLook;
 import com.larsons.game.building.BuildingProfile;
 import com.larsons.game.building.Room;
+import com.larsons.game.building.Walls;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.FlyingDummy;
 import com.larsons.game.core.Autopilot;
@@ -606,8 +607,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** The object the ray passes into first, or null. */
     private LevelObject pick(Picking.Ray ray) {
-        LevelObject best = null;
-        double bestT = Double.MAX_VALUE;
+        // a room's floor last: what stands on it (a rug, a chair) is what is meant, however thin
+        LevelObject best = null, bestFloor = null;
+        double bestT = Double.MAX_VALUE, floorT = Double.MAX_VALUE;
         Terrain t = view.terrain();
         for (LevelObject o : level.objects()) {
             Building b = ObjectTypes.builds(o.type()) ? view.world().building(o.id()) : null;
@@ -615,12 +617,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             double y0 = t.height(o.x(), o.z()) + o.lift();
             double hit = b != null ? b.rayHit(ray.from(), ray.dir())
                     : Picking.cylinder(ray, o.x(), o.z(), r, y0 - 0.1, y0 + height(o));
-            if (hit >= 0 && hit < bestT) {
+            if (hit < 0) continue;
+            boolean floor = b != null && b.profile().room() != null
+                    && b.profile().room().piece() == Room.Piece.FLOOR;
+            if (floor) {
+                if (hit < floorT) {
+                    floorT = hit;
+                    bestFloor = o;
+                }
+            } else if (hit < bestT) {
                 bestT = hit;
                 best = o;
             }
         }
-        return best;
+        // (but not something far beyond the floor the pointer is on)
+        return best != null && (bestFloor == null || bestT < floorT + 1.5) ? best : bestFloor;
     }
 
     /** How tall {@code o} stands, to click on: a scenery sprite's own height, else its kind's. */
@@ -2568,14 +2579,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 40;
         if (ui.button("Back to the menu (Esc)", x, y, w, 32)) leave();
         y += 42;
-        // walls between the camera and her (or what the editor looks at) cut away, or always whole
+        // walls as in the Sims: up, cut away between the camera and what it looks at, or all down
         var settings = game.settings();
-        boolean see = widgets.toggle(ui, "See-through walls", settings.seeThrough, x, y, w);
-        if (see != settings.seeThrough) {
-            settings.seeThrough = see;
-            game.worldRenderer().setSeeThrough(see);
+        List<String> wallLabels = Walls.labels();
+        int wi = widgets.choice(ui, "Walls indoors", wallLabels, settings.indoors().ordinal(), x, y, w, 0.5f);
+        if (wi != settings.indoors().ordinal()) {
+            settings.wallsIndoors = Walls.values()[wi].name();
+            game.worldRenderer().setWalls(settings.indoors(), settings.outdoors());
         }
-        y += 42;
+        y += Widgets.ROW + 6;
+        int wo = widgets.choice(ui, "Walls outdoors", wallLabels, settings.outdoors().ordinal(), x, y, w, 0.5f);
+        if (wo != settings.outdoors().ordinal()) {
+            settings.wallsOutdoors = Walls.values()[wo].name();
+            game.worldRenderer().setWalls(settings.indoors(), settings.outdoors());
+        }
+        y += Widgets.ROW + 12;
         ui.paragraph(ui.small, "Everything here is saved in the level's folder: level.json (readable, one thing "
                 + "a line), height.png (the ground's heights) and ground.png (its paint).", x, y, w,
                 Theme.ITEM_DISABLED);
@@ -2962,7 +2980,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         int[] shades = pixelPalette == null ? null : BuildingLook.ramp(colour, pixelPalette);
         int cols = 16;
         float size = Math.min(16, w / cols);
-        int picked = widgets.swatches(ui, colours, shades == null ? colour : shades[3], x, y, cols, size);
+        int picked = widgets.swatches(ui, colours, colour, x, y, cols, size);
         if (picked >= 0) edit(o, "Colour", () -> setLook(o, p, look.copy().setColour(part.key(), picked)));
         y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
         if (shades != null) {
@@ -3009,6 +3027,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private static String shownChoice(String key, String option) {
+        if (key.equals("passage")) return Building.Passage.label(option);
         if (key.equals("item")) {
             if (option.startsWith(Forged.PREFIX)) {
                 Forged f = Forged.byId(option.substring(Forged.PREFIX.length()));

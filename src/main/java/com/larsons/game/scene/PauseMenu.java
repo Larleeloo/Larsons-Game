@@ -282,13 +282,21 @@ final class PauseMenu {
             s.autoCamera = !s.autoCamera;
         }
         y += 50;
-        ui.text(ui.body, "Walls near the camera", x, y + 8, Theme.ITEM);
-        if (ui.button(s.seeThrough ? "Cut away" : "Always whole", x + 220, y, 140, 34, s.seeThrough, true)) {
-            s.seeThrough = !s.seeThrough;
-            game.worldRenderer().setSeeThrough(s.seeThrough);
+        ui.text(ui.body, "Walls indoors", x, y + 8, Theme.ITEM);
+        if (ui.button(s.indoors().label(), x + 220, y, 140, 34, s.indoors() != com.larsons.game.building.Walls.UP,
+                true)) {
+            s.wallsIndoors = s.indoors().next().name();
+            game.worldRenderer().setWalls(s.indoors(), s.outdoors());
         }
-        ui.text(ui.small, "Cut away: walls between the camera and her drop out of the way.", x + 400, y + 10,
-                Theme.ITEM_DISABLED);
+        ui.text(ui.body, "Outdoors", x + 400, y + 8, Theme.ITEM);
+        if (ui.button(s.outdoors().label(), x + 570, y, 140, 34, s.outdoors() != com.larsons.game.building.Walls.UP,
+                true)) {
+            s.wallsOutdoors = s.outdoors().next().name();
+            game.worldRenderer().setWalls(s.indoors(), s.outdoors());
+        }
+        y += 40;
+        ui.text(ui.small, "Up: every wall stands. Cut away: walls between the camera and her drop to a stub. "
+                + "Down: all of them do.", x, y + 4, Theme.ITEM_DISABLED);
         y += 50;
         ui.text(ui.body, "Animations", x, y + 8, Theme.ITEM);
         if (ui.button("New", x + 220, y, 140, 34, !s.classicAnimations, true)) {

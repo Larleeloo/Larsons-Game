@@ -250,7 +250,13 @@ public final class ObjectTypes {
         // (a barrel or a crate holds things too - and breaks: Store)
         register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
                 List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys()),
-                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")),
+                        Prop.text("contents", "Holds (e.g. apple x6, bread)", ""),
+                        Prop.number("width", "Width ×", 1, 0.25, 4, 0.05),
+                        Prop.number("depth", "Depth ×", 1, 0.25, 4, 0.05),
+                        Prop.number("height", "Height ×", 1, 0.25, 4, 0.05),
+                        Prop.choice("passage", "Way through", "none", o -> Building.Passage.WAYS),
+                        Prop.text("to", "To the spot named", ""),
+                        Prop.toggle("hidden", "Hidden way", false)),
                 3, 5, 0xC8A27A, false,
                 (o, b) -> {
                     Building building = building(o, b.terrain());
@@ -358,6 +364,8 @@ public final class ObjectTypes {
             case "contents" -> o.type().equals(CHEST) ? !o.bool("loot", true)
                     : Store.Kind.ofBuilding(o.str("kind", "")) != null;
             case "saddled" -> o.type().equals(ANIMALS) && AnimalKind.HORSE.key().equals(o.str("kind", ""));
+            case "to" -> o.type().equals(BUILDING) && o.str("passage", "none").equals("spot");
+            case "hidden" -> o.type().equals(BUILDING) && !o.str("passage", "none").equals("none");
             default -> true;
         };
     }
@@ -405,7 +413,7 @@ public final class ObjectTypes {
 
     /** A {@link #BUILDING} as it stands on {@code terrain}, or null when its kind is not there. */
     public static Building building(LevelObject o, com.larsons.game.world.Terrain terrain) {
-        BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+        BuildingProfile p = sized(o, BuildingCatalog.get().profile(o.str("kind", "")));
         if (p == null) return null;
         // on a slope it is set down to the lowest of its corners - dug into the hill, never standing off it
         Building at = new Building(o.id(), p, new Vec3(o.x(), 0, o.z()), o.yaw(), null, null);
@@ -419,7 +427,14 @@ public final class ObjectTypes {
         }
         y = Math.max(y, terrain.height(o.x(), o.z()) - 1.5);
         return new Building(o.id(), p, new Vec3(o.x(), y + o.lift(), o.z()), o.yaw(),
-                BuildingLook.of(o.props().get("look")), o.str("interior", null));
+                BuildingLook.of(o.props().get("look")), o.str("interior", null))
+                .withPassage(new Building.Passage(o.str("passage", "none"), o.str("to", ""), o.bool("hidden", false)));
+    }
+
+    /** {@code o}'s kind, made the size it is set to ({@code width}, {@code depth}, {@code height}: times as it comes). */
+    public static BuildingProfile sized(LevelObject o, BuildingProfile p) {
+        if (p == null || p.room() != null) return p;
+        return p.scaled(o.num("width", 1), o.num("depth", 1), o.num("height", 1));
     }
 
     /** The front of {@code p}'s footprint (its own metres: the front is towards -y), or 0 when it has none. */

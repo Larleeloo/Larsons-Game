@@ -26,6 +26,32 @@ public final class Building {
     private final double hx, hz;            // its front, along the ground
     private int[][] ramps;                  // each part's six colours, once worked out
     private PixelPalette rampsFor;
+    private Passage passage;
+
+    /**
+     * What going "through" it does, as a door does - a wardrobe at the
+     * back of which is a stair, a bookshelf that swings out: {@code way}
+     * one of {@link #WAYS} ({@code "spot"}: to the named spot {@code to} on
+     * this floor; {@code "up"} / {@code "down"}: a floor up or down, as
+     * stairs; {@code "out"}: outside, as the door out); {@code hidden}: it
+     * says nothing of it until she is right at it, and then only "look
+     * closer".
+     */
+    public record Passage(String way, String to, boolean hidden) {
+        /** What a passage can do, as the editor offers them ("none" first). */
+        public static final java.util.List<String> WAYS = java.util.List.of("none", "spot", "up", "down", "out");
+
+        /** What its way is called (the editor's choice, the prompt). */
+        public static String label(String way) {
+            return switch (way) {
+                case "spot" -> "To a named spot";
+                case "up" -> "Up a floor";
+                case "down" -> "Down a floor";
+                case "out" -> "Outside";
+                default -> "Nothing (not a way through)";
+            };
+        }
+    }
 
     /**
      * {@code profile} standing at {@code position} (its middle, on the
@@ -61,6 +87,15 @@ public final class Building {
 
     /** The inside it opens onto, or null. */
     public String interior() { return interior; }
+
+    /** What going through it does, as a door (a hidden way through), or null: it is not a way through. */
+    public Passage passage() { return passage; }
+
+    /** It made a way through ({@link Passage}; null: none). */
+    public Building withPassage(Passage p) {
+        passage = p == null || p.way() == null || p.way().equals("none") ? null : p;
+        return this;
+    }
 
     /** A point of its own (model metres: x to the right as you face its front, y towards its back) in the world, on its ground. */
     public Vec3 toWorld(double mx, double my) {

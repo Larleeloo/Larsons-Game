@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +52,12 @@ public final class BuildingRenderer implements AutoCloseable {
             uniform mat4 uViewProj;
             out vec2 vUv;
             out float vW;
+            uniform vec2 uShift;           // nudged on the screen (an outline)
             void main() {
                 gl_Position = uViewProj * vec4(aPos, 1.0);
                 vUv = aUv;
                 vW = gl_Position.w;
+                """ + Outline.SHIFT + """
             }
             """;
 
@@ -77,7 +80,7 @@ public final class BuildingRenderer implements AutoCloseable {
             uniform float uGlow[15];       // how lit from inside (a window at night); 2: always (a fire)
             uniform vec3 uFogColor;
             uniform vec2 uFog;
-            uniform float uFlash;          // the editor's highlight
+            uniform vec4 uSolid;           // one colour (an outline), or 0: as it is
             out vec4 fragColor;
             """ + SceneLight.GLSL + """
             void main() {
@@ -118,8 +121,7 @@ public final class BuildingRenderer implements AutoCloseable {
                     float f = clamp((vW - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     lit = mix(lit, uFogColor, f * f);
                 }
-                lit = mix(lit, vec3(1.0, 0.92, 0.6), uFlash);
-                fragColor = vec4(lit, 1.0);
+                fragColor = uSolid.a > 0.0 ? vec4(uSolid.rgb, 1.0) : vec4(lit, 1.0);
             }
             """;
 
@@ -288,10 +290,10 @@ public final class BuildingRenderer implements AutoCloseable {
         return new double[][]{right, up, {-back[0], -back[1], -back[2]}};
     }
 
-    /** Cut away the walls that would hide her (Settings#seeThrough), or keep every wall whole. */
-    public void setSeeThrough(boolean on) {
-        rooms.seeThrough = on;
-        models.seeThrough = on;
+    /** How rooms' walls ({@code indoors}) and buildings' ({@code outdoors}) stand: up, cut away, or down. */
+    public void setWalls(Walls indoors, Walls outdoors) {
+        rooms.walls = indoors == null ? Walls.CUTAWAY : indoors;
+        models.walls = outdoors == null ? Walls.UP : outdoors;
     }
 
     /**
@@ -327,32 +329,43 @@ public final class BuildingRenderer implements AutoCloseable {
         glBindVertexArray(vao);
         Vec3 eye = camera.eye(), right = camera.right(), up = camera.up();
         double reachSq = Math.pow(fogFar + 30, 2);
+        List<Building> picked = new ArrayList<>();
         for (Building b : buildings) {
             BuildingProfile p = b.profile();
             if (p.room() != null || models.has(p)) continue;
             Vec3 at = b.position();
             if (at.sub(eye).horizontalLength() > Math.sqrt(reachSq)) continue;
-            SpriteView sv = SpriteView.of(eye, at.add(0, Math.min(3, p.height() * 0.4), 0), b.heading(), camera.yaw());
-            Elevation e = sv.elevation();
-            BuildingProfile.Frame fr = p.frame(e);
-            if (fr == null) continue;
-            View body = view(p.key(), e, sv.facing(), false);
-            if (body == null) continue;
-            setLook(b);
-            setView(b, e, sv.facing(), fr);
-            shader.set("uFlash", highlight != null && highlight.contains(b.id()) ? 0.18f : 0f);
-            drawQuad(body, fr, p.pixel(), 0, at, right, up);
-            BuildingProfile.Anim anim = p.anim();
-            if (anim != null && anim.frames() > 0) {
-                View strip = view(p.key(), e, sv.facing(), true);
-                if (strip != null) {
-                    double turned = (time * anim.speed()) % anim.degrees();
-                    int f = (int) Math.floor(turned / anim.degrees() * anim.frames()) % anim.frames();
-                    drawQuad(strip, fr, p.pixel(), f * fr.width(), at, right, up);
-                }
+            if (drawView(b, eye, right, up, camera, time) && highlight != null && highlight.contains(b.id())) {
+                picked.add(b);
             }
         }
+        Outline.draw(shader, picked, b -> drawView(b, eye, right, up, camera, time));
         glBindVertexArray(0);
+    }
+
+    /** {@code b} drawn from its view, its turning part too; false: it has none. */
+    private boolean drawView(Building b, Vec3 eye, Vec3 right, Vec3 up, OrbitCamera camera, double time) {
+        BuildingProfile p = b.profile();
+        Vec3 at = b.position();
+        SpriteView sv = SpriteView.of(eye, at.add(0, Math.min(3, p.height() * 0.4), 0), b.heading(), camera.yaw());
+        Elevation e = sv.elevation();
+        BuildingProfile.Frame fr = p.frame(e);
+        if (fr == null) return false;
+        View body = view(p.key(), e, sv.facing(), false);
+        if (body == null) return false;
+        setLook(b);
+        setView(b, e, sv.facing(), fr);
+        drawQuad(body, fr, p.pixel(), 0, at, right, up);
+        BuildingProfile.Anim anim = p.anim();
+        if (anim != null && anim.frames() > 0) {
+            View strip = view(p.key(), e, sv.facing(), true);
+            if (strip != null) {
+                double turned = (time * anim.speed()) % anim.degrees();
+                int f = (int) Math.floor(turned / anim.degrees() * anim.frames()) % anim.frames();
+                drawQuad(strip, fr, p.pixel(), f * fr.width(), at, right, up);
+            }
+        }
+        return true;
     }
 
     private void setLook(Building b) {
