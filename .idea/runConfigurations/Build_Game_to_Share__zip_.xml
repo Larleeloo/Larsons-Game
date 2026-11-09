@@ -1,0 +1,41 @@
+<component name="ProjectRunConfigurationManager">
+  <!--
+    Builds the copy of Larson's Game to send to friends: the Gradle task
+    `shareZip` (see build.gradle.kts and README "Sharing the game").
+
+    Pick "Build Game to Share (zip)" in the run-configuration dropdown and
+    press Run. It takes a few minutes (packing two million sprite sheets
+    into assets/sprites.pack), then the Run window prints where the zip is:
+      build/distributions/Larsons-Game.zip   (about 4.2 GB)
+    Upload that file to Google Drive, OneDrive or Dropbox and send friends
+    the link; HOW TO PLAY.txt inside it tells them the rest.
+
+    Only the code changed since the last build? Add `-x spritePack` to
+    "Run" > "Edit Configurations" > Run to keep the last pack (seconds).
+  -->
+  <configuration default="false" name="Build Game to Share (zip)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="env">
+        <map />
+      </option>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="shareZip" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <method v="2" />
+  </configuration>
+</component>
