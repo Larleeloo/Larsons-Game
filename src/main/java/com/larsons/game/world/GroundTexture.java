@@ -55,7 +55,7 @@ public final class GroundTexture implements AutoCloseable {
             uniform float uGroundTile;    // metres a tile spans; 0: no grass
             uniform float uGroundTexel;   // metres a texel of the tiles spans
             uniform vec4 uGroundRect;     // the map's west/north corner (x, z) and its size each way
-            uniform float uGroundHas[12]; // 1 for each material that loaded and is painted somewhere
+            uniform float uGroundHas[16]; // 1 for each material that loaded and is painted somewhere
             uniform float uGroundCovered; // 1 when a rock face is painted over somewhere
             uniform float uGroundTinted;  // 1 when the ground is tinted somewhere
 
@@ -92,14 +92,14 @@ public final class GroundTexture implements AutoCloseable {
             // how much the rock is painted over at xz (0: bare rock where it is steep), ragged at its edge
             float groundCover(vec2 xz) {
                 float blockSize = 2.0 * uGroundTexel;
-                float c = groundLayer(xz, 3.0).r * uGroundCovered;
+                float c = groundLayer(xz, 4.0).r * uGroundCovered;
                 float jag = (groundHash(ivec2(floor(xz / blockSize)) + ivec2(91, 17)) - 0.5) * 0.2;
                 return smoothstep(0.45, 0.55, c + jag);
             }
 
             // the ground's colour c tinted as painted at xz: its lightness kept, in the tint's colour
             vec3 groundTint(vec3 c, vec2 xz) {
-                vec4 t = groundLayer(xz, 4.0) * uGroundTinted;
+                vec4 t = groundLayer(xz, 5.0) * uGroundTinted;
                 float l = dot(c, vec3(0.299, 0.587, 0.114));
                 float tl = max(dot(t.rgb, vec3(0.299, 0.587, 0.114)), 0.08);
                 vec3 tinted = clamp(t.rgb * (l / tl), 0.0, 1.0);
@@ -123,15 +123,17 @@ public final class GroundTexture implements AutoCloseable {
                 vec4 w0 = textureGrad(uGroundMaps, vec3(m, 0.0), mgx, mgy) * inside;
                 vec4 w1 = textureGrad(uGroundMaps, vec3(m, 1.0), mgx, mgy) * inside;
                 vec4 w2 = textureGrad(uGroundMaps, vec3(m, 2.0), mgx, mgy) * inside;
-                float w[12] = float[12](w0.x, w0.y, w0.z, w0.w, w1.x, w1.y, w1.z, w1.w, w2.x, w2.y, w2.z, w2.w);
+                vec4 w3 = textureGrad(uGroundMaps, vec3(m, 3.0), mgx, mgy) * inside;
+                float w[16] = float[16](w0.x, w0.y, w0.z, w0.w, w1.x, w1.y, w1.z, w1.w, w2.x, w2.y, w2.z, w2.w,
+                                        w3.x, w3.y, w3.z, w3.w);
                 vec2 fw = fwidth(xz);
                 float far = clamp(max(fw.x, fw.y) / blockSize - 0.5, 0.0, 1.0);
                 float jag = (groundHash(ivec2(block)) - 0.5) * 0.22 * (1.0 - far);
                 float e = 0.02 + 0.2 * far;
-                // the biomes' ground, then the meadow, the forest floor, the gravel, and
-                // the dirt over them all: the paths run through everything
-                int order[12] = int[12](9, 8, 4, 5, 10, 7, 6, 11, 3, 1, 2, 0);
-                for (int i = 0; i < 12; i++) {
+                // the biomes' ground, then the meadow, the forest floor, the gravel, the
+                // dirt, and the roads over them all: the paths run through everything
+                int order[16] = int[16](9, 8, 4, 5, 10, 7, 6, 11, 3, 1, 2, 0, 15, 14, 13, 12);
+                for (int i = 0; i < 16; i++) {
                     int k = order[i];
                     float wk = w[k] * uGroundHas[k];
                     if (wk <= 0.001) continue;

@@ -154,9 +154,9 @@ class WaterAndBiomeTest {
     }
 
     @Test
-    void theTwelveGroundsLieInThreeGroupsAndComeBackFromASnapshot() {
+    void theSixteenGroundsLieInFourGroupsAndComeBackFromASnapshot() {
         GroundMap g = new GroundMap(32).disc(GroundMap.DIRT, -6, 0, 2).disc(GroundMap.SAND, 0, 0, 2)
-                .disc(GroundMap.CRYSTAL, 6, 0, 2);
+                .disc(GroundMap.CRYSTAL, 6, 0, 2).disc(GroundMap.FLAGSTONES, 0, 8, 2);
         assertEquals(GroundMap.MATERIALS, GroundMap.NAMES.length);
         for (int gr = 0; gr < GroundMap.GROUPS; gr++) assertFalse(g.isEmpty(gr), "group " + gr);
         byte[][] snap = g.snapshot();
@@ -189,6 +189,20 @@ class WaterAndBiomeTest {
         for (int g = 0; g < GroundMap.GROUPS; g++) {
             assertArrayEquals(l.ground().rgba(g), back.ground().rgba(g), "group " + g);
         }
+
+        // a cobbled road beside them, and a rock face painted over: the road in a file of its own (ground6.png),
+        // the cover still in ground4.png as it always was
+        l.ground().paint(GroundMap.COBBLES, 0, -10, 3, 1);
+        l.ground().cover(0, 10, 3, 1, true);
+        LevelIO.save(l, folder);
+        assertEquals("ground6.png", LevelIO.groundFile(3));
+        assertTrue(Files.exists(folder.resolve("ground6.png")));
+        assertTrue(Files.exists(folder.resolve("ground4.png")));
+        Level roads = LevelIO.load(folder);
+        assertEquals(GroundMap.COBBLES, roads.ground().material(0, -10));
+        assertEquals(GroundMap.SNOW, roads.ground().material(-10, 0));
+        assertEquals(1, roads.ground().cover(0, 10), 0.01);
+        assertEquals("stone", com.larsons.game.audio.WorldSounds.surface(roads.ground(), 0, -10));
 
         // dried up and grassed over, the files go
         Level dry = Level.blank("Wet", 64);

@@ -436,9 +436,19 @@ public final class LevelIO {
         write(img, file);
     }
 
-    /** The image layer {@code g} of the ground is kept in: ground.png to ground3.png its materials, ground4.png where the rock is painted over, ground5.png its tint. */
+    /**
+     * The image layer {@code g} of the ground is kept in: ground.png to
+     * ground3.png its first twelve materials, ground4.png where the rock is
+     * painted over, ground5.png its tint, ground6.png its roads and paths
+     * (kept after the others, so a level saved before there were roads reads
+     * as it was written).
+     */
     public static String groundFile(int g) {
-        return g == 0 ? GROUND : "ground" + (g + 1) + ".png";
+        if (g == 0) return GROUND;
+        if (g == GroundMap.COVER) return "ground4.png";
+        if (g == GroundMap.TINT) return "ground5.png";
+        if (g == 3) return "ground6.png";
+        return "ground" + (g + 1) + ".png";
     }
 
     /** {@code level.json}'s text for {@code level}: the header pretty, each object on a line of its own. */

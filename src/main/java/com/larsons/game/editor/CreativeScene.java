@@ -124,9 +124,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * steep faces, so the rock shows again).
      */
     static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
-            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal", "Bare rock"};
+            "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal", "Cobbles", "Flagstones", "Brick path",
+            "Packed path", "Bare rock"};
     /** {@link #MATERIALS}' bare rock. */
-    static final int BARE_ROCK = 13;
+    static final int BARE_ROCK = 17;
 
     /** How far the camera can pull back, metres. */
     static final double FAR = 160;
@@ -3808,7 +3809,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 dirty = true;
             }
             case "paint" -> {
-                // paint <0 grass .. 12 crystal> x z radius
+                // paint <0 grass .. 12 crystal, 13 cobbles .. 16 packed path> x z radius
                 undo.before(level, Undo.Part.GROUND, "Paint");
                 level.ground().paint(Integer.parseInt(a[0]) - 1, Double.parseDouble(a[1]), Double.parseDouble(a[2]),
                         Double.parseDouble(a[3]), 1);

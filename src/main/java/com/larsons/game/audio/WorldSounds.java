@@ -302,7 +302,8 @@ public final class WorldSounds {
             case GroundMap.SAND, GroundMap.ASH -> "sand";
             case GroundMap.MUD -> "mud";
             case GroundMap.SNOW -> "snow";
-            case GroundMap.STONE -> "stone";
+            case GroundMap.STONE, GroundMap.COBBLES, GroundMap.FLAGSTONES, GroundMap.BRICKS -> "stone";
+            case GroundMap.PACKED -> "gravel";
             case GroundMap.CRYSTAL -> "crystal";
             default -> "grass";
         };
