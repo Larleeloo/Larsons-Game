@@ -46,7 +46,8 @@ Needs **JDK 21** and a graphics driver with **OpenGL 3.3** (anything from the
 last decade). Gradle comes with the repository.
 
 **IntelliJ IDEA:** open the folder, let it import the Gradle project, and pick
-**Run Game (GPU)** from the run-configuration dropdown.
+**Run Game (GPU)** from the run-configuration dropdown (**Build Game to Share (zip)** makes the
+copy to send to friends).
 
 **Command line:**
 
@@ -71,6 +72,12 @@ digits) and holds [Creative Mode](#creative-mode), the level editor.
 ./gradlew shareFolder   # the same, unzipped, in build/share/Larsons-Game (to try it first)
 ./gradlew shareZip -x spritePack   # only the code changed: keep the last pack (packing takes minutes)
 ```
+
+In IntelliJ: pick **Build Game to Share (zip)** in the run-configuration
+dropdown and press Run (or double-click `shareZip` under Gradle > Tasks >
+distribution); the Run window prints where the zip is when it is done.
+Upload it to Google Drive, OneDrive or Dropbox and send the link - it is too
+big for GitHub (2 GB a file) or a free WeTransfer.
 
 The zip is the game for people who never open a terminal: one folder,
 `Larsons-Game/`, to unzip and double-click. All they need is **Java 21** or

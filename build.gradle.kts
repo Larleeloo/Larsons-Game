@@ -275,6 +275,21 @@ tasks.register<Zip>("shareZip") {
     isZip64 = true
     entryCompression = ZipEntryCompression.STORED
     isPreserveFileTimestamps = true
+    // where it is, for whoever ran it from IntelliJ's run dropdown
+    val zip = archiveFile
+    doLast {
+        val file = zip.get().asFile
+        println(
+            """
+            |
+            |  The game to share is ready (%.1f GB):
+            |    %s
+            |  Upload it to Google Drive, OneDrive or Dropbox and send your friends the link.
+            |  HOW TO PLAY.txt inside the zip tells them how to install Java and start it.
+            |
+            """.trimMargin().format(file.length() / 1e9, file.absolutePath)
+        )
+    }
 }
 
 // A stand-in "Blender" sprite set rendered from the fallback puppet — body, a
