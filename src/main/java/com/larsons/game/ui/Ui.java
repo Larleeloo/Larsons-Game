@@ -26,12 +26,18 @@ public final class Ui implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Texture white;
+    /** The smallest: a label that would not otherwise fit, on two lines. */
+    public final Font tiny;
     public final Font small;
     public final Font body;
     public final Font large;
     public final Font title;
 
     private boolean clickTaken;
+    /** Where drawing (and the pointer) is kept to - a scrolled panel - or none (w &lt; 0). */
+    private float clipX, clipY, clipW = -1, clipH;
+    /** The lowest point drawn since {@link #measure()}. */
+    private float lowest = Float.NEGATIVE_INFINITY;
     /** The slider being dragged (by where it is drawn), or {@code Long.MIN_VALUE}. */
     private long dragging = Long.MIN_VALUE;
 
@@ -40,6 +46,7 @@ public final class Ui implements AutoCloseable {
         this.batch = batch;
         this.white = Texture.white();
         float s = window.scale();
+        tiny = new Font(12, false, s);
         small = new Font(14, false, s);
         body = new Font(18, false, s);
         large = new Font(24, true, s);
@@ -70,13 +77,49 @@ public final class Ui implements AutoCloseable {
     }
 
     public void end() {
+        unclip();
         batch.end();
         glDepthMask(true);
     }
 
+    /**
+     * Keep what is drawn from now on - and what the pointer can be over or
+     * click - within {@code (x, y, w, h)}: a panel that scrolls. Until
+     * {@link #unclip()}.
+     */
+    public void clip(float x, float y, float w, float h) {
+        batch.flush();
+        clipX = x;
+        clipY = y;
+        clipW = Math.max(0, w);
+        clipH = Math.max(0, h);
+        float s = (float) window.framebufferHeight() / Math.max(1, window.height());
+        float sx = (float) window.framebufferWidth() / Math.max(1, window.width());
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(Math.round(x * sx), Math.round(window.framebufferHeight() - (y + h) * s), Math.round(clipW * sx),
+                Math.round(clipH * s));
+    }
+
+    /** Draw anywhere again. */
+    public void unclip() {
+        if (clipW < 0) return;
+        batch.flush();
+        glDisable(GL_SCISSOR_TEST);
+        clipW = -1;
+    }
+
+    /** Start measuring how low what is drawn goes ({@link #lowest()}). */
+    public void measure() {
+        lowest = Float.NEGATIVE_INFINITY;
+    }
+
+    /** The lowest point drawn since {@link #measure()} (a scrolled panel's content's foot). */
+    public float lowest() { return lowest; }
+
     // --- primitives ------------------------------------------------------------------
 
     public void rect(float x, float y, float w, float h, float[] c) {
+        lowest = Math.max(lowest, y + h);
         batch.rect(white, x, y, w, h, 0, 0, 1, 1, c[0], c[1], c[2], c[3]);
     }
 
@@ -130,7 +173,16 @@ public final class Ui implements AutoCloseable {
     }
 
     public float text(Font font, String s, float x, float y, float[] c) {
+        lowest = Math.max(lowest, y + font.lineHeight());
         return font.draw(batch, s, x, y, c[0], c[1], c[2], c[3]);
+    }
+
+    /** {@code s} cut short with "…" to fit {@code width} in {@code font} (as it is, if it fits). */
+    public static String fit(Font font, String s, float width) {
+        if (s == null || font.width(s) <= width) return s;
+        String t = s;
+        while (t.length() > 1 && font.width(t + "…") > width) t = t.substring(0, t.length() - 1);
+        return t.stripTrailing() + "…";
     }
 
     public float textShadowed(Font font, String s, float x, float y, float[] c) {
@@ -193,6 +245,7 @@ public final class Ui implements AutoCloseable {
 
     public boolean hover(float x, float y, float w, float h) {
         double mx = input().mouseX(), my = input().mouseY();
+        if (clipW >= 0 && (mx < clipX || mx >= clipX + clipW || my < clipY || my >= clipY + clipH)) return false;
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
@@ -257,7 +310,9 @@ public final class Ui implements AutoCloseable {
         Font f = h >= 44 ? large : body;
         if (f == large && f.width(label) > w - 12) f = body;
         if (f.width(label) > w - 8) f = small;
-        text(f, label, x + (w - f.width(label)) / 2, y + (h - f.lineHeight()) / 2, c);
+        if (f.width(label) > w - 6) f = tiny;
+        String shown = fit(f, label, w - 6);
+        text(f, shown, x + (w - f.width(shown)) / 2, y + (h - f.lineHeight()) / 2, c);
         return enabled && clicked(x, y, w, h);
     }
 
@@ -267,6 +322,7 @@ public final class Ui implements AutoCloseable {
 
     @Override
     public void close() {
+        tiny.close();
         small.close();
         body.close();
         large.close();

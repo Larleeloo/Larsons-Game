@@ -166,6 +166,23 @@ public final class GroundMap {
         return this;
     }
 
+    /** How soft the brushes' edges are, 0 (as hard as the cells let it) – 1 (soft from the middle out). */
+    private double feather;
+    /** Where the brushes paint: the editor's filters. */
+    private BrushMask mask = BrushMask.ALL;
+
+    /** Feather the brushes' edges {@code f} (0 – 1) from now on. */
+    public GroundMap feather(double f) {
+        feather = Math.max(0, Math.min(1, f));
+        return this;
+    }
+
+    /** Keep the brushes to where {@code m} says from now on (null: everywhere). */
+    public GroundMap mask(BrushMask m) {
+        mask = m == null ? BrushMask.ALL : m;
+        return this;
+    }
+
     /**
      * Paint over the rock round {@code (x, z)} ({@code on}): where the ground
      * is too steep to walk the ground painted there shows - grass, or a
@@ -269,6 +286,13 @@ public final class GroundMap {
                 double d = square ? Math.max(Math.abs(px - (x0 + t * dx)), Math.abs(pz - (z0 + t * dz)))
                         : Math.hypot(px - (x0 + t * dx), pz - (z0 + t * dz));
                 double v = Math.max(0, Math.min(1, 0.5 + (halfWidth - d) / (2 * SOFT)));
+                if (feather > 0 && v > 0) {
+                    // feathered: full only within (1 - feather) of the way out, then falling away smoothly
+                    double inner = halfWidth * (1 - feather), outer = halfWidth + SOFT;
+                    double u = Math.max(0, Math.min(1, (d - inner) / Math.max(1e-9, outer - inner)));
+                    v = Math.min(v, 1 - u * u * (3 - 2 * u));
+                }
+                if (v > 0 && mask != BrushMask.ALL) v *= mask.at(px, pz);
                 if (v > 0) cell.cover((r * cells + c) * 4, v);
             }
         }

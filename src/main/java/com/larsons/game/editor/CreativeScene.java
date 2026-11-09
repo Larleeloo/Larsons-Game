@@ -133,7 +133,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The grid things snap to, metres; the turn they snap to, degrees. */
     static final double GRID = 0.5, TURN = 15;
     /** The panels' widths and the top bar's height, pixels. */
-    static final float LEFT_W = 278, RIGHT_W = 286, TOP_H = 46, HELP_H = 30;
+    static final float LEFT_W = 300, RIGHT_W = 304, TOP_H = 46, HELP_H = 30;
     /** How often a held scatter brush sows, seconds. */
     static final double SOW_EVERY = 0.08;
     /** Hours a second the time runs at when it is run in the editor. */
@@ -227,6 +227,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private double strokeSurface, flowX, flowZ;
     private Vec3 lastDab;
     private double radius = 3, strength = 0.5, flatHeight;
+    /** How soft the sculpting brush's edge is, and the painting brush's (0 hard – 1 soft from the middle out). */
+    private double sculptFeather = 1, paintFeather = 0;
+    /** Where the brushes work: slopes, heights, what the ground is, water (World Painter's filters). */
+    private final BrushFilter filter = new BrushFilter();
+    /** The scatter brush being made or changed (Scatter → Your brushes), or null. */
+    private ScatterBrushes.Brush making;
+    private String makingName = "";
     private boolean stroking;
     private double sowTimer, brushSound;
     private final List<Scatter.Set> sets;
@@ -837,7 +844,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** One frame of the sculpting brush at {@code (x, z)}. */
     void applySculpt(double x, double z, boolean inverse, double dt) {
-        var hf = level.heights().square(squareBrush);
+        var hf = level.heights().square(squareBrush).feather(sculptFeather).mask(filter.mask(level));
         switch (sculpt) {
             case RAISE, LOWER -> {
                 double sign = (sculpt == Sculpt.RAISE) != inverse ? 1 : -1;
@@ -846,6 +853,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SMOOTH -> hf.smooth(x, z, radius, Math.min(1, strength * 8 * dt));
             case FLATTEN -> hf.flatten(x, z, radius, flatHeight, Math.min(1, strength * 6 * dt));
         }
+        hf.mask(null).feather(1);
         dirty = true;
     }
 
@@ -860,7 +868,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (!stroking || !held) return;
         double amount = Math.min(1, strength * 5 * dt);
-        var ground = level.ground().square(squareBrush);
+        var ground = level.ground().square(squareBrush).feather(paintFeather).mask(filter.mask(level));
         if (tinting) {
             ground.tint(cursor.x(), cursor.z(), radius, amount, shift ? -1 : tintColour, tintAmount);
         } else if (!biomes && material == BARE_ROCK) {
@@ -873,6 +881,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             ground.paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
             if (overRock) ground.cover(cursor.x(), cursor.z(), radius, amount, true);
         }
+        ground.mask(null).feather(0);
         dirty = true;
         if (sowing) {
             sowTimer -= dt;
@@ -900,8 +909,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             Scatter.Set set = Scatter.biomeSet(sprites, b, kinds[k]);
             if (set.sprites().isEmpty()) continue;
             for (int t = 0; t < times; t++) {
-                if (!Scatter.sow(level, view.terrain(), sprites, set, x, z, r, thickness[k], area * 0.2, random)
-                        .isEmpty()) {
+                if (!Scatter.sow(level, view.terrain(), sprites, set, x, z, r, thickness[k], area * 0.2, random,
+                        filter.mask(level)).isEmpty()) {
                     any = true;
                 }
             }
@@ -910,7 +919,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         Scatter.Set bushes = Scatter.bushSet(sprites, b);
         if ((only == null || only == SceneryProfile.Kind.TUFT) && !bushes.sprites().isEmpty()) {
             for (int t = 0; t < times; t++) {
-                if (!Scatter.sow(level, view.terrain(), sprites, bushes, x, z, r, 0.6, area * 0.2, random).isEmpty()) {
+                if (!Scatter.sow(level, view.terrain(), sprites, bushes, x, z, r, 0.6, area * 0.2, random,
+                        filter.mask(level)).isEmpty()) {
                     any = true;
                 }
             }
@@ -951,8 +961,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         brushTick(dt);
     }
 
+    /** What the scatter brush can sow: the game's sets, then the brushes made here (★). */
+    private List<Scatter.Set> scatterSets() {
+        if (customSets == null) {
+            customSets = new ArrayList<>(sets);
+            for (ScatterBrushes.Brush b : ScatterBrushes.all()) {
+                Scatter.Set st = b.set();
+                if (!st.sprites().isEmpty()) customSets.add(st);
+            }
+        }
+        return customSets;
+    }
+
+    /** {@link #scatterSets()} as last read (null: read again). */
+    private List<Scatter.Set> customSets;
+
     private void scatterTool(boolean press, boolean held, boolean shift, double dt) {
-        if (cursor == null || sets.isEmpty()) return;
+        if (cursor == null || scatterSets().isEmpty()) return;
         if (press) {
             undo.before(level, Undo.Part.OBJECTS, shift ? "Pull up" : "Scatter");
             stroking = true;
@@ -962,13 +987,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         sowTimer -= dt;
         if (sowTimer > 0) return;
         sowTimer = SOW_EVERY;
-        Scatter.Set s = sets.get(Math.floorMod(set, sets.size()));
+        Scatter.Set s = scatterSets().get(Math.floorMod(set, scatterSets().size()));
         if (shift) {
             if (Scatter.clear(level, s, cursor.x(), cursor.z(), radius) > 0) changed();
         } else {
             double area = Math.PI * radius * radius;
             if (!Scatter.sow(level, view.terrain(), sprites, s, cursor.x(), cursor.z(), radius, density, area * 0.2,
-                    random).isEmpty()) {
+                    random, filter.mask(level)).isEmpty()) {
                 changed();
             }
         }
@@ -1098,6 +1123,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         Ui ui = game.ui();
         ui.begin();
+        widgets.beginFrame(ui);
         labels(ui, vp);
         if (!hideUi) {
             topBar(ui);
@@ -1112,6 +1138,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 ui.rect(x0, y0, bw, bh, Theme.withAlpha(Theme.ACCENT, 0.12f));
                 ui.outline(x0, y0, bw, bh, 1, Theme.ACCENT);
             }
+            widgets.overlay(ui);
         }
         ui.end();
     }
@@ -1272,7 +1299,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The rectangles the panels take up, as drawn: the pointer over one is not over the world. */
     private boolean overUi(double mx, double my) {
         Ui ui = game.ui();
-        if (colourPick != null) return true;
+        if (colourPick != null || widgets.dropped()) return true;
         if (my < TOP_H || my > ui.height() - HELP_H) return true;
         if (mx < LEFT_W + 8) return true;
         return rightPanelShown() && mx > ui.width() - RIGHT_W - 8;
@@ -1311,8 +1338,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         float nameX = x + 10, nameW = rx - nameX - 6;
         String title = outside != null ? "Inside the " + insideLabel().toLowerCase() + (outside.dirty ? " *" : "")
                 : level.name() + (dirty ? " *" : "");
-        while (title.length() > 4 && ui.body.width(title) > nameW) title = title.substring(0, title.length() - 3) + "…";
-        if (nameW > 40) ui.text(ui.body, title, nameX, (TOP_H - ui.body.lineHeight()) / 2, Theme.ACCENT);
+        // the level's name: as large as there is room for, cut short only when even the small print is too long
+        com.larsons.game.gfx.Font nf = ui.body.width(title) <= nameW ? ui.body : ui.small;
+        String shownTitle = Ui.fit(nf, title, nameW);
+        if (!shownTitle.equals(title) && ui.hover(nameX, 0, nameW, TOP_H)) widgets.tip(title, nameX, TOP_H + 2);
+        if (nameW > 30) ui.text(nf, shownTitle, nameX, (TOP_H - nf.lineHeight()) / 2, Theme.ACCENT);
         float bx = rx + 4;
         for (int i = 0; i < right.length; i++) {
             boolean enabled = switch (i) {
@@ -1445,9 +1475,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case SELECT -> "Click: select · Shift+click: add · drag: move · drag on the ground: box · Del: delete · "
                     + "Ctrl+D: duplicate · Ctrl+C / V: copy, paste · R / Q / E: turn · F: fly to it";
             case SCULPT -> "Hold the left button: sculpt · Shift: the other way · Ctrl+click: take the height to "
-                    + "flatten to · [ ]: brush size (or Shift+wheel) · Shift+[ ]: strength";
+                    + "flatten to · [ ]: brush size (or Shift+wheel) · Shift+[ ]: speed";
             case PAINT -> "Hold the left button: paint · Shift: back to grass · [ ]: brush size (or Shift+wheel) · "
-                    + "Shift+[ ]: strength";
+                    + "Shift+[ ]: speed";
             case SCATTER -> "Hold the left button: scatter · Shift: pull up · [ ]: brush size (or Shift+wheel)";
             case WATER -> "Hold the left button: water · Shift: dry it up · [ ]: brush size (or Shift+wheel) · "
                     + "the water lies level from where you press, or follows the ground down";
@@ -1476,12 +1506,58 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     // --- the left panel: the tool's own -------------------------------------------------------------
 
+    /** How far each tool's panel is scrolled down, pixels (the wheel over it; a long panel). */
+    private final java.util.EnumMap<Tool, Float> leftScroll = new java.util.EnumMap<>(Tool.class);
+    private float rightScroll;
+    private Object rightFor;
+
+    /**
+     * Start a panel that scrolls: what is drawn kept within it, moved up by
+     * how far it is scrolled. Returns the top to draw from.
+     */
+    private float scrollBegin(Ui ui, float x, float y, float w, float h, float scroll) {
+        ui.clip(x + 1, y + 1, w - 2, h - 2);
+        ui.measure();
+        return y + 10 - scroll;
+    }
+
+    /**
+     * End it: how far it can scroll now (from how low what was drawn went),
+     * the wheel over it scrolling it, a bar at its side to say where it is.
+     * Returns how far it is scrolled now.
+     */
+    private float scrollEnd(Ui ui, float x, float y, float w, float h, float scroll) {
+        float foot = ui.lowest() + scroll - (y + 10);
+        ui.unclip();
+        float most = Math.max(0, foot - (h - 24));
+        Input in = ui.input();
+        if (most > 0 && in.scroll() != 0 && ui.hover(x, y, w, h) && !widgets.dropped()) {
+            scroll -= (float) Math.signum(in.scroll()) * 48;
+            in.consumeScroll();
+        }
+        scroll = Math.max(0, Math.min(most, scroll));
+        if (most > 0) {
+            float th = h - 8, bar = Math.max(24, th * (h / (h + most)));
+            float by = y + 4 + (th - bar) * (scroll / most);
+            ui.rect(x + w - 6, y + 4, 3, th, Theme.withAlpha(Theme.BUTTON, 0.8f));
+            ui.rect(x + w - 6, by, 3, bar, Theme.ACCENT);
+        }
+        return scroll;
+    }
+
     private void leftPanel(Ui ui) {
         float x = 8, y = TOP_H + 8, w = LEFT_W - 8, h = ui.height() - TOP_H - HELP_H - 16;
         ui.panel(x, y, w, h);
-        float px = x + 12, pw = w - 24, py = y + 10;
+        float scroll = leftScroll.getOrDefault(tool, 0f);
+        float px = x + 12, pw = w - 24, py = scrollBegin(ui, x, y, w, h, scroll);
+        Tool drawn = tool;
+        leftPanelContent(ui, px, py, pw, y + h - scroll);
+        leftScroll.put(drawn, scrollEnd(ui, x, y, w, h, scroll));
+    }
+
+    private void leftPanelContent(Ui ui, float px, float py, float pw, float bottom) {
         switch (tool) {
-            case PLACE -> placePanel(ui, px, py, pw, y + h);
+            case PLACE -> placePanel(ui, px, py, pw, bottom);
             case SELECT -> selectPanel(ui, px, py, pw);
             case SCULPT -> sculptPanel(ui, px, py, pw);
             case PAINT -> paintPanel(ui, px, py, pw);
@@ -1531,8 +1607,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             boolean hot = ui.hover(x, ry, w, row - 2);
             ui.rect(x, ry, w, row - 2, on ? Theme.BUTTON_HOVER : hot ? Theme.withAlpha(Theme.BUTTON_HOVER, 0.6f)
                     : Theme.withAlpha(Theme.BUTTON, 0.5f));
-            ui.text(ui.small, e.label(), x + 8, ry + (row - 2 - ui.small.lineHeight()) / 2,
+            String label = Ui.fit(ui.small, e.label(), w - 16);
+            ui.text(ui.small, label, x + 8, ry + (row - 2 - ui.small.lineHeight()) / 2,
                     on ? Theme.ITEM_SELECTED : Theme.ITEM);
+            if (hot && !label.equals(e.label())) widgets.tip(e.label(), x + w + 8, ry);
             if (ui.clicked(x, ry, w, row - 2)) choose(i);
         }
         if (entries.size() > rows) {
@@ -1975,13 +2053,29 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 ops.toArray(new com.larsons.game.combat.DiceRoll.Op[0]));
     }
 
-    private void brushSliders(Ui ui, float x, float y, float w, String strengthLabel) {
+    /**
+     * The brush's size, its speed (how fast it works), how soft its edge is
+     * (feather), and its shape - then the filters, where it works. Returns
+     * the foot.
+     */
+    private float brushSliders(Ui ui, float x, float y, float w, boolean sculpting) {
         radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y, w);
-        strength = widgets.slider(ui, "strength", strengthLabel, strength, 0.05, 1, "%.2f", x, y + 40, w);
+        strength = widgets.slider(ui, "strength", "Speed", strength, 0.05, 1, "%.2f", x, y + 40, w);
+        if (sculpting) {
+            sculptFeather = widgets.slider(ui, "feather", "Feather", sculptFeather, 0, 1, "%.2f", x, y + 80, w);
+        } else {
+            paintFeather = widgets.slider(ui, "feather-paint", "Feather", paintFeather, 0, 1, "%.2f", x, y + 80, w);
+        }
         // the brush's shape: a disc, or a square (a plateau with sides, a square pit, a square of paving)
         float bw = (w - 6) / 2;
-        if (ui.button("Round brush", x, y + 70, bw, 24, !squareBrush, true)) squareBrush = false;
-        if (ui.button("Square brush", x + bw + 6, y + 70, bw, 24, squareBrush, true)) squareBrush = true;
+        if (ui.button("Round brush", x, y + 112, bw, 24, !squareBrush, true)) squareBrush = false;
+        if (ui.button("Square brush", x + bw + 6, y + 112, bw, 24, squareBrush, true)) squareBrush = true;
+        y += 146;
+        ui.paragraph(ui.small, "Speed: how fast it works. Feather: how soft its edge is (0 a hard edge, 1 soft "
+                + "from its middle).", x, y, w, Theme.ITEM_DISABLED);
+        y += ui.paragraphHeight(ui.small, "Speed: how fast it works. Feather: how soft its edge is (0 a hard edge, "
+                + "1 soft from its middle).", w) + 6;
+        return filter.panel(ui, widgets, x, y, w, MATERIALS, BARE_ROCK) + 6;
     }
 
     private void sculptPanel(Ui ui, float x, float y, float w) {
@@ -1994,8 +2088,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         y += 80;
-        brushSliders(ui, x, y + 10, w, "Strength");
-        y += 130;
+        y = brushSliders(ui, x, y + 10, w, true);
         flatHeight = widgets.stepper(ui, "Flatten to (m)", flatHeight, 0.25, -Terrain.STEP * 200, 100, "%.2f",
                 x, y, w);
         y += 44;
@@ -2021,8 +2114,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += (MATERIALS.length + 1) / 2 * 34;
             overRock = widgets.toggle(ui, "Paint over rock faces", overRock, x, y, w);
             y += 36;
-            brushSliders(ui, x, y + 10, w, "Strength");
-            y += 130;
+            y = brushSliders(ui, x, y + 10, w, false);
             ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen. "
                     + "Over rock faces: the paint shows on ground too steep to walk, instead of the rock "
                     + "(Bare rock takes it off again).", x, y, w, Theme.HINT);
@@ -2039,7 +2131,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += Widgets.swatchesHeight(colours.length, cols, size) + 8;
             tintAmount = widgets.slider(ui, "tint-amount", "How much", tintAmount, 0.05, 1, "%.2f", x, y + 10, w);
             y += 44;
-            brushSliders(ui, x, y + 10, w, "Strength");
+            brushSliders(ui, x, y + 10, w, false);
             return;
         }
         Biome[] all = Biome.values();
@@ -2051,8 +2143,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += (all.length + 1) / 2 * 34 + 4;
         sowBiome = widgets.toggle(ui, "Sow its plants", sowBiome, x, y, w);
         y += 40;
-        brushSliders(ui, x, y + 10, w, "Strength");
-        y += 130;
+        y = brushSliders(ui, x, y + 10, w, false);
         ui.paragraph(ui.small, biomeHint(biome) + " Shift paints back to grass (and sows nothing).", x, y, w,
                 Theme.HINT);
     }
@@ -2124,20 +2215,131 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void scatterPanel(Ui ui, float x, float y, float w) {
         y = heading(ui, "Scatter", x, y);
-        if (sets.isEmpty()) {
+        List<Scatter.Set> all = scatterSets();
+        if (all.isEmpty()) {
             ui.paragraph(ui.small, "No scenery sprites in assets/scenery/.", x, y, w, Theme.WARNING);
             return;
         }
+        if (making != null) {
+            brushMaker(ui, x, y, w);
+            return;
+        }
         List<String> names = new ArrayList<>();
-        for (Scatter.Set s : sets) names.add(s.label());
-        set = widgets.choice(ui, "Sow", names, set, x, y, w);
-        y += 44;
+        for (Scatter.Set st : all) names.add(st.label());
+        set = Math.floorMod(widgets.choice(ui, "Sow", names, set, x, y, w), all.size());
+        Scatter.Set current = all.get(set);
+        y += 40;
         radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y + 10, w);
         density = widgets.slider(ui, "density", "Thickness", density, 0.05, 1, "%.2f", x, y + 50, w);
-        y += 100;
+        y += 90;
+        // brushes of your own: which sprites, how often each, their sizes, how far apart
+        ui.text(ui.small, "Your brushes (★)", x, y + 4, Theme.ACCENT);
+        y += 22;
+        float bw = (w - 8) / 3;
+        if (ui.button("New", x, y, bw, 26)) {
+            List<ScatterBrushes.Entry> first = new ArrayList<>();
+            for (String n : current.sprites()) if (first.size() < 3) first.add(new ScatterBrushes.Entry(n, 1));
+            startBrush(new ScatterBrushes.Brush(null, "My brush", first, 0.8, 1.2, 0, density));
+        }
+        ScatterBrushes.Brush mine = null;
+        if (current.brush() != null) {
+            for (ScatterBrushes.Brush b : ScatterBrushes.all()) if (b.id().equals(current.brush())) mine = b;
+        }
+        if (ui.button("Change", x + bw + 4, y, bw, 26, false, mine != null) && mine != null) startBrush(mine);
+        if (ui.button("Delete", x + 2 * (bw + 4), y, bw, 26, false, mine != null) && mine != null) {
+            try {
+                ScatterBrushes.delete(mine.id());
+                game.toast("Deleted the brush " + mine.name(), Theme.HINT);
+            } catch (java.io.IOException e) {
+                game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
+            }
+            customSets = null;
+            set = 0;
+        }
+        y += 36;
+        y = filter.panel(ui, widgets, x, y, w, MATERIALS, BARE_ROCK) + 6;
         ui.paragraph(ui.small, "Hold the left button to sow; Shift pulls up what you are sowing. Trees keep "
                 + "their distance, nothing grows inside a trunk or a rock, and trees and rocks stay off steep ground.",
                 x, y, w, Theme.HINT);
+    }
+
+    // the brush being made: its own copy of everything, saved as a whole
+    private final List<ScatterBrushes.Entry> makingEntries = new ArrayList<>();
+    private double makingFrom = 1, makingTo = 1, makingSpacing, makingThick = 0.5;
+
+    private void startBrush(ScatterBrushes.Brush b) {
+        making = b;
+        makingName = b.name();
+        makingEntries.clear();
+        makingEntries.addAll(b.entries());
+        if (makingEntries.isEmpty() && !sprites.placeable().isEmpty()) {
+            makingEntries.add(new ScatterBrushes.Entry(sprites.placeable().get(0).name(), 1));
+        }
+        makingFrom = b.sizeFrom();
+        makingTo = b.sizeTo();
+        makingSpacing = b.spacing();
+        makingThick = b.thickness();
+    }
+
+    /** Making a scatter brush: its name, its sprites and how often each, their sizes, spacing, thickness. */
+    private void brushMaker(Ui ui, float x, float y, float w) {
+        ui.text(ui.small, making.id() == null ? "A new brush" : "Changing " + making.name(), x, y, Theme.HINT);
+        y += 22;
+        makingName = widgets.text(ui, "brush-name", "Name", makingName, x, y, w);
+        y += Widgets.ROW + 10;
+        List<String> spriteNames = new ArrayList<>(), shown = new ArrayList<>();
+        for (ScenerySprites.Sprite sp : sprites.placeable()) {
+            spriteNames.add(sp.name());
+            shown.add(ObjectTypes.readable(sp.name()));
+        }
+        ui.text(ui.small, "Sprites, and how often each", x, y + 2, Theme.ACCENT);
+        y += 22;
+        int remove = -1;
+        for (int i = 0; i < makingEntries.size(); i++) {
+            ScatterBrushes.Entry e = makingEntries.get(i);
+            int at = Math.max(0, spriteNames.indexOf(e.sprite()));
+            int ni = widgets.choice(ui, "", shown, at, x, y, w - 30);
+            if (ui.button("×", x + w - 26, y, 26, Widgets.ROW)) remove = i;
+            y += Widgets.ROW + 4;
+            double wt = widgets.slider(ui, "brush-w" + i, "How often", e.weight(), 0.1, 5, "%.1f", x, y + 8, w);
+            y += 40;
+            if (ni != at || wt != e.weight()) {
+                makingEntries.set(i, new ScatterBrushes.Entry(spriteNames.isEmpty() ? e.sprite() : spriteNames.get(ni),
+                        wt));
+            }
+        }
+        if (remove >= 0) makingEntries.remove(remove);
+        if (ui.button("+ Add a sprite", x, y, w, 26, false, !spriteNames.isEmpty() && makingEntries.size() < 12)) {
+            makingEntries.add(new ScatterBrushes.Entry(spriteNames.get(0), 1));
+        }
+        y += 36;
+        makingFrom = widgets.slider(ui, "brush-from", "Size from", makingFrom, 0.2, 4, "%.2f×", x, y + 10, w);
+        makingTo = widgets.slider(ui, "brush-to", "Size to", makingTo, 0.2, 4, "%.2f×", x, y + 50, w);
+        if (makingTo < makingFrom) makingTo = makingFrom;
+        makingSpacing = widgets.slider(ui, "brush-space", "Apart (m)", makingSpacing, 0, 10, "%.1f", x, y + 90, w);
+        makingThick = widgets.slider(ui, "brush-thick", "Thickness", makingThick, 0.05, 1, "%.2f", x, y + 130, w);
+        y += 166;
+        float bw = (w - 6) / 2;
+        if (ui.button("Save brush", x, y, bw, 30, false, !makingEntries.isEmpty())) {
+            try {
+                ScatterBrushes.Brush saved = ScatterBrushes.save(new ScatterBrushes.Brush(making.id(), makingName,
+                        List.copyOf(makingEntries), makingFrom, makingTo, makingSpacing, makingThick));
+                customSets = null;
+                List<Scatter.Set> all = scatterSets();
+                for (int i = 0; i < all.size(); i++) if (saved.id().equals(all.get(i).brush())) set = i;
+                density = makingThick;
+                making = null;
+                game.toast("Saved the brush " + saved.name() + " (assets/brushes/" + saved.id() + ".json)",
+                        Theme.ACCENT);
+            } catch (java.io.IOException e) {
+                game.toast("Could not save it: " + e.getMessage(), Theme.WARNING);
+            }
+        }
+        if (ui.button("Cancel", x + bw + 6, y, bw, 30)) making = null;
+        y += 40;
+        ui.paragraph(ui.small, "A brush sows its sprites by how often each is set, each a size between its from "
+                + "and to, as far apart as set beyond their own footprints. Saved in assets/brushes/, for every "
+                + "level.", x, y, w, Theme.HINT);
     }
 
     private void skyPanel(Ui ui, float x, float y, float w) {
@@ -2690,7 +2892,17 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!rightPanelShown()) return;
         float w = RIGHT_W - 8, x = ui.width() - RIGHT_W, y = TOP_H + 8, h = ui.height() - TOP_H - HELP_H - 16;
         ui.panel(x, y, w, h);
-        float px = x + 12, pw = w - 24, py = y + 10;
+        // scrolled back to its top for something else
+        Object showing = tool == Tool.SELECT && selection.size() == 1 ? selection.get(0)
+                : tool == Tool.PLACE ? templateLabel : tool;
+        if (!java.util.Objects.equals(showing, rightFor)) rightScroll = 0;
+        rightFor = showing;
+        float py = scrollBegin(ui, x, y, w, h, rightScroll);
+        rightPanelContent(ui, x + 12, py, w - 24, y, h);
+        rightScroll = scrollEnd(ui, x, y, w, h, rightScroll);
+    }
+
+    private void rightPanelContent(Ui ui, float px, float py, float pw, float y, float h) {
         if (tool == Tool.FORGE) {
             forgePreview(ui, px, py, pw);
             return;
@@ -2701,7 +2913,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         if (tool == Tool.PLACE) {
             py = heading(ui, "Placing", px, py);
-            ui.text(ui.body, templateLabel, px, py, Theme.TITLE);
+            ui.text(ui.body, Ui.fit(ui.body, templateLabel, pw), px, py, Theme.TITLE);
             py += 32;
             properties(ui, template, false, px, py, pw);
             return;
@@ -2711,14 +2923,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             Map<String, Integer> kinds = new LinkedHashMap<>();
             for (LevelObject o : selection) kinds.merge(ObjectTypes.label(o), 1, Integer::sum);
             for (Map.Entry<String, Integer> e : kinds.entrySet()) {
-                if (py > y + h - 40) break;
-                ui.text(ui.small, e.getValue() + " × " + e.getKey(), px, py, Theme.ITEM);
+                ui.text(ui.small, Ui.fit(ui.small, e.getValue() + " × " + e.getKey(), pw), px, py, Theme.ITEM);
                 py += 20;
             }
             return;
         }
         LevelObject o = selection.get(0);
-        py = heading(ui, ObjectTypes.label(o), px, py);
+        py = heading(ui, Ui.fit(ui.body, ObjectTypes.label(o), pw), px, py);
         ui.text(ui.small, o.type() + " #" + o.id(), px, py - 6, Theme.ITEM_DISABLED);
         py += 18;
         if (hasInside(o)) {
@@ -3217,7 +3428,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             case "scatter" -> {
                 // scatter <set index> x z radius [density]
-                Scatter.Set s = sets.get(Integer.parseInt(a[0]));
+                Scatter.Set s = scatterSets().get(Integer.parseInt(a[0]));
                 double r = Double.parseDouble(a[3]);
                 undo.before(level, Undo.Part.OBJECTS, "Scatter");
                 for (int i = 0; i < 6; i++) {

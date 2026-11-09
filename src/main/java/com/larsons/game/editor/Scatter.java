@@ -29,8 +29,39 @@ import java.util.Random;
  */
 final class Scatter {
 
-    /** What the brush sows: its name and its sprites (chosen among evenly). */
-    record Set(String label, List<String> sprites) {}
+    /**
+     * What the brush sows: its name, its sprites and how often each is
+     * chosen (its weight against the others'; empty: evenly), the sizes they
+     * come in (from, to: times as drawn), how far apart they keep beyond
+     * their footprints (metres), and - one made in the editor - its brush's
+     * id (null: one of the game's).
+     */
+    record Set(String label, List<String> sprites, List<Double> weights, double sizeFrom, double sizeTo,
+               double spacing, String brush) {
+
+        Set(String label, List<String> sprites) {
+            this(label, sprites, List.of(), 1, 1, 0, null);
+        }
+
+        /** One of its sprites, by their weights. */
+        String pick(Random random) {
+            if (weights.size() != sprites.size()) return sprites.get(random.nextInt(sprites.size()));
+            double total = 0;
+            for (double w : weights) total += Math.max(0, w);
+            double r = random.nextDouble() * total;
+            for (int i = 0; i < sprites.size(); i++) {
+                r -= Math.max(0, weights.get(i));
+                if (r <= 0) return sprites.get(i);
+            }
+            return sprites.get(sprites.size() - 1);
+        }
+
+        /** A size for one, between its from and to. */
+        double size(Random random) {
+            double lo = Math.min(sizeFrom, sizeTo), hi = Math.max(sizeFrom, sizeTo);
+            return lo + (hi - lo) * random.nextDouble();
+        }
+    }
 
     private Scatter() {}
 
@@ -120,6 +151,13 @@ final class Scatter {
      */
     static List<LevelObject> sow(Level level, Terrain terrain, ScenerySprites sprites, Set set, double x, double z,
                                  double radius, double density, double amount, Random random) {
+        return sow(level, terrain, sprites, set, x, z, radius, density, amount, random, null);
+    }
+
+    /** {@link #sow(Level, Terrain, ScenerySprites, Set, double, double, double, double, double, Random)}, only where {@code mask} lets it (null: anywhere). */
+    static List<LevelObject> sow(Level level, Terrain terrain, ScenerySprites sprites, Set set, double x, double z,
+                                 double radius, double density, double amount, Random random,
+                                 com.larsons.game.world.BrushMask mask) {
         List<LevelObject> added = new ArrayList<>();
         if (set.sprites().isEmpty()) return added;
         List<Scenery.Placed> near = new ArrayList<>();
@@ -134,20 +172,23 @@ final class Scatter {
         double want = perSquareMetre(first) * density * amount;
         int tries = (int) Math.floor(want) + (random.nextDouble() < want - Math.floor(want) ? 1 : 0);
         for (int i = 0; i < tries * 3 && added.size() < tries; i++) {
-            ScenerySprites.Sprite s = sprites.sprite(set.sprites().get(random.nextInt(set.sprites().size())));
+            ScenerySprites.Sprite s = sprites.sprite(set.pick(random));
             if (s == null) continue;
             double a = random.nextDouble() * Math.PI * 2, r = radius * Math.sqrt(random.nextDouble());
             double px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
             if (!level.contains(px, pz)) continue;
+            if (mask != null && random.nextDouble() >= mask.at(px, pz)) continue;
             double steepest = s.kind() == SceneryProfile.Kind.TUFT ? SceneryLayout.STEEPEST * 1.5 : SceneryLayout.STEEPEST;
             if (terrain.slope(px, pz) > steepest) continue;
             if (level.water().depth(px, pz, terrain.height(px, pz)) > wadeDepth(s)) continue;
+            double size = set.size(random);
             Scenery.Placed cand = new Scenery.Placed(s, px, terrain.height(px, pz), pz, random.nextDouble() * Math.PI,
-                    random.nextBoolean(), 0);
-            if (!fits(cand, near)) continue;
+                    random.nextBoolean(), 0, size, 0);
+            if (!fits(cand, near, set.spacing())) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             props.put("sprite", s.name());
             if (cand.mirrored()) props.put("mirrored", true);
+            if (Math.abs(size - 1) > 1e-3) props.put("scale", Math.round(size * 100) / 100.0);
             LevelObject o = level.add(ObjectTypes.SCENERY, px, pz, cand.yaw(), props);
             added.add(o);
             near.add(cand);
@@ -166,6 +207,11 @@ final class Scatter {
 
     /** Whether {@code c} stands clear of everything in {@code near}: footprints apart, trees spaced. */
     static boolean fits(Scenery.Placed c, List<Scenery.Placed> near) {
+        return fits(c, near, 0);
+    }
+
+    /** {@link #fits(Scenery.Placed, List)}, {@code spacing} metres further apart still. */
+    static boolean fits(Scenery.Placed c, List<Scenery.Placed> near, double spacing) {
         for (Scenery.Placed p : near) {
             double d = Math.hypot(p.x() - c.x(), p.z() - c.z());
             boolean trees = p.kind() == SceneryProfile.Kind.TREE && c.kind() == SceneryProfile.Kind.TREE;
@@ -173,7 +219,7 @@ final class Scatter {
                     : c.kind() == SceneryProfile.Kind.TUFT && p.kind() == SceneryProfile.Kind.TUFT
                     ? 0.5 * (c.footprint() + p.footprint())
                     : c.footprint() + p.footprint() + (c.kind() == SceneryProfile.Kind.TUFT ? 0 : SceneryLayout.ROCK_GAP);
-            if (d < apart) return false;
+            if (d < apart + spacing) return false;
         }
         return true;
     }
