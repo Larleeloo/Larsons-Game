@@ -272,10 +272,13 @@ public final class LevelIO {
                 Sky.Kind kind = Sky.Kind.byKey(Json.str(b, "kind", ""));
                 if (kind == null) continue;
                 Sky.Backdrop d = Sky.Backdrop.of(kind);
+                String second = Json.str(b, "colour2", "");
                 backdrops.add(new Sky.Backdrop(kind, colour(Json.str(b, "colour", ""), d.colour()),
                         Json.num(b, "height", d.height()), Json.num(b, "haze", d.haze()),
                         (int) Json.num(b, "seed", d.seed()), Json.num(b, "from", 0), Json.num(b, "to", 0),
-                        Json.num(b, "distance", d.distance()), Json.bool(b, "snow", d.snow())));
+                        Json.num(b, "distance", d.distance()), Json.bool(b, "snow", d.snow()),
+                        second.isBlank() ? -1 : colour(second, kind.colour2()), Json.num(b, "extent", Double.NaN),
+                        !Json.str(b, "at", "edge").equals("horizon")));
             }
         }
         return new Sky(colour(Json.str(j, "zenith", ""), Sky.DEFAULT.zenith()),
@@ -491,6 +494,9 @@ public final class LevelIO {
             m.put("to", round(b.to()));
             if (b.kind() == Sky.Kind.OCEAN) m.put("distance", round(b.distance()));
             if (b.kind() == Sky.Kind.MOUNTAINS) m.put("snow", b.snow());
+            if (b.colour2() >= 0) m.put("colour2", hex(b.colour2()));
+            if (Math.abs(b.extent() - b.kind().extent()) > 1e-6) m.put("extent", round(b.extent()));
+            m.put("at", b.edge() ? "edge" : "horizon");
             list.add(m);
         }
         j.put("backdrops", list);

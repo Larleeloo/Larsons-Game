@@ -248,6 +248,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private int skyTarget;
     private int backdrop = -1;
     private int addKind;
+    /** Which part of the backdrop chosen the swatches colour: 0 its first (rock, grass…), 1 its second (snow…). */
+    private int backdropPart;
+    /** The backdrop row pressed (-1: none), where the press was, and whether it is being dragged up or down. */
+    private int dragBackdrop = -1;
+    private double dragBackdropY;
+    private boolean draggingBackdrop;
     // --- time and weather
     /** Which of the Time tool's pages is shown: 0 the time, 1 the planet, 2 the weather. */
     private int timeTab;
@@ -2444,8 +2450,25 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (ui.button(targets[i], x + i * (bw + 4), y, bw, 28, skyTarget == i, ok)) skyTarget = i;
         }
         y += 36;
+        boolean onBackdrop = skyTarget == 2 && backdrop >= 0 && backdrop < sky.backdrops().size();
+        if (onBackdrop) {
+            // which of its parts: the rock or the snow, the leaves or the trunks …
+            Sky.Backdrop b = sky.backdrops().get(backdrop);
+            List<String> parts = b.kind().parts();
+            boolean own = b.colour2() >= 0;
+            float pw = (w - 8) / 3;
+            for (int i = 0; i < parts.size(); i++) {
+                if (ui.button(parts.get(i), x + i * (pw + 4), y, pw, 26, backdropPart == i, true)) backdropPart = i;
+            }
+            if (ui.button("As it comes", x + 2 * (pw + 4), y, pw, 26, false, backdropPart == 1 && own)) {
+                setBackdrop(b.withColour2(-1));
+                sky = level.sky();
+            }
+            y += 32;
+        }
         int current = skyTarget == 0 ? sky.zenith() : skyTarget == 1 ? sky.horizon()
-                : backdrop >= 0 && backdrop < sky.backdrops().size() ? sky.backdrops().get(backdrop).colour() : -1;
+                : !onBackdrop ? -1 : backdropPart == 1 ? partColour(sky.backdrops().get(backdrop))
+                : sky.backdrops().get(backdrop).colour();
         int cols = 16;
         float size = Math.min(16, w / cols);
         int picked = widgets.swatches(ui, colours, current, x, y, cols, size);
@@ -2453,8 +2476,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             undo.before(level, Undo.Part.SKY, "Colour");
             if (skyTarget == 0) level.setSky(sky.withZenith(picked));
             else if (skyTarget == 1) level.setSky(sky.withHorizon(picked));
-            else if (backdrop >= 0 && backdrop < sky.backdrops().size()) setBackdrop(sky.backdrops().get(backdrop)
-                    .withColour(picked));
+            else if (onBackdrop) {
+                Sky.Backdrop b = sky.backdrops().get(backdrop);
+                setBackdrop(backdropPart == 1 ? b.withColour2(picked) : b.withColour(picked));
+            }
             dirty = true;
             sky = level.sky();
         }
@@ -2466,15 +2491,31 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 38;
 
         // the backdrops
-        ui.text(ui.small, "Backdrops (" + sky.backdrops().size() + " of " + Sky.MAX_BACKDROPS + ", far to near)", x, y,
+        ui.text(ui.small, "Backdrops (" + sky.backdrops().size() + " of " + Sky.MAX_BACKDROPS + ")", x, y,
                 Theme.ITEM);
-        y += 22;
+        y += 18;
+        ui.text(ui.tiny, "First is furthest · drag one up or down", x, y, Theme.HINT);
+        y += 16;
         List<Sky.Backdrop> list = sky.backdrops();
+        float top = y;
         for (int i = 0; i < list.size(); i++) {
             Sky.Backdrop b = list.get(i);
-            if (ui.button((i + 1) + ". " + b.kind().label(), x, y, w - 34, 26, i == backdrop, true)) {
+            float rw = w - 34 - 2 * 26;
+            String label = (i + 1) + ". " + b.kind().label() + (b.edge() ? "" : " · horizon");
+            if (ui.button(label, x, y, rw, 26, i == backdrop, true)) {
                 backdrop = i;
                 skyTarget = 2;
+                dragBackdrop = i;
+                dragBackdropY = ui.input().mouseY();
+                draggingBackdrop = false;
+            }
+            if (ui.button("↑", x + rw + 4, y, 22, 26, false, i > 0)) {
+                moveBackdrop(i, i - 1);
+                return;
+            }
+            if (ui.button("↓", x + rw + 30, y, 22, 26, false, i < list.size() - 1)) {
+                moveBackdrop(i, i + 1);
+                return;
             }
             if (ui.button("x", x + w - 30, y, 30, 26)) {
                 List<Sky.Backdrop> next = new ArrayList<>(list);
@@ -2484,6 +2525,26 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 return;
             }
             y += 30;
+        }
+        if (dragBackdrop >= 0 && dragBackdrop < list.size()) {
+            // a row pressed: dragged up or down it moves, let go where it should be
+            double my = ui.input().mouseY();
+            int to = Math.max(0, Math.min(list.size() - 1, (int) Math.floor((my - top) / 30)));
+            if (Math.abs(my - dragBackdropY) > 6) draggingBackdrop = true;
+            if (!ui.input().mouseDown(GLFW_MOUSE_BUTTON_LEFT)) {
+                if (draggingBackdrop && to != dragBackdrop) moveBackdrop(dragBackdrop, to);
+                dragBackdrop = -1;
+                draggingBackdrop = false;
+                return;
+            }
+            if (draggingBackdrop) {
+                float ly = top + to * 30 + (to > dragBackdrop ? 28 : -3);
+                ui.rect(x, ly, w, 3, Theme.ACCENT);
+                ui.text(ui.tiny, list.get(dragBackdrop).kind().label(), (float) ui.input().mouseX() + 14, (float) my
+                        - 6, Theme.ACCENT);
+            }
+        } else {
+            dragBackdrop = -1;
         }
         List<String> kinds = new ArrayList<>();
         for (Sky.Kind k : Sky.Kind.values()) kinds.add(k.label());
@@ -2523,9 +2584,37 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             n = n.withSnow(widgets.toggle(ui, "Snow", n.snow(), x, y, w));
             y += 34;
         }
+        if (b.kind() != Sky.Kind.MOUNTAINS || n.snow()) {
+            n = n.withExtent(widgets.slider(ui, "bd-extent", b.kind().extentLabel(), n.extent(), 0, 1, "%.2f", x,
+                    y + 10, w));
+            y += 40;
+        }
+        int at = widgets.choice(ui, "Stands", STANDS, n.edge() ? 0 : 1, x, y, w);
+        n = n.withEdge(at == 0);
+        y += Widgets.ROW + 6;
         ui.text(ui.small, n.allRound() ? "All the way round" : "From " + (int) n.from() + "° to " + (int) n.to()
                 + "° (0 north, 90 east)", x, y + 4, Theme.HINT);
         if (!n.equals(b)) setBackdrop(n);
+    }
+
+    /** Where a backdrop can stand. */
+    private static final List<String> STANDS = List.of("Round the level's edge", "Far off, at the horizon");
+
+    /** The colour the second part of {@code b} shows: its own, or as it comes. */
+    private static int partColour(Sky.Backdrop b) {
+        return b.colour2() >= 0 ? b.colour2() : b.kind().colour2();
+    }
+
+    /** Move backdrop {@code from} to {@code to} in the order, back to front - the one chosen goes with it. */
+    private void moveBackdrop(int from, int to) {
+        List<Sky.Backdrop> next = new ArrayList<>(level.sky().backdrops());
+        if (from < 0 || from >= next.size() || to < 0 || to >= next.size() || from == to) return;
+        next.add(to, next.remove(from));
+        undo.before(level, Undo.Part.SKY, "Move a backdrop");
+        level.setSky(level.sky().withBackdrops(next));
+        dirty = true;
+        backdrop = to;
+        skyTarget = 2;
     }
 
     private void setBackdrop(Sky.Backdrop b) {
@@ -3596,21 +3685,46 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 dirty = true;
             }
             case "backdrop" -> {
-                // backdrop clear | backdrop <kind> [#colour height haze seed from to]
+                // backdrop clear | backdrop <kind> [#colour height haze seed from to] [at=horizon|edge]
+                //   [part=#colour] [extent=0.4]
                 Sky s = level.sky();
                 if (a[0].equals("clear")) {
                     level.setSky(s.withBackdrops(List.of()));
                     return true;
                 }
+                if (a[0].equals("pick")) {
+                    // backdrop pick <n from 0> [part 0|1]: choose it in the Sky tool's list
+                    backdrop = Integer.parseInt(a[1]);
+                    skyTarget = 2;
+                    backdropPart = a.length > 2 ? Integer.parseInt(a[2]) : 0;
+                    return true;
+                }
+                if (a[0].equals("move")) {
+                    // backdrop move <from> <to>
+                    moveBackdrop(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+                    return true;
+                }
                 Sky.Kind k = Sky.Kind.byKey(a[0]);
                 if (k == null) return false;
                 Sky.Backdrop b = Sky.Backdrop.of(k);
+                String[] all = a;
+                a = java.util.Arrays.stream(all).filter(t -> !t.contains("=")).toArray(String[]::new);
                 if (a.length > 1) b = b.withColour(Integer.parseInt(a[1].replace("#", ""), 16));
                 if (a.length > 2) b = k == Sky.Kind.OCEAN ? b.withDistance(Double.parseDouble(a[2]))
                         : b.withHeight(Double.parseDouble(a[2]));
                 if (a.length > 3) b = b.withHaze(Double.parseDouble(a[3]));
                 if (a.length > 4) b = b.withSeed(Integer.parseInt(a[4]));
                 if (a.length > 6) b = b.withArc(Double.parseDouble(a[5]), Double.parseDouble(a[6]));
+                for (String t : all) {
+                    String[] kv = t.split("=", 2);
+                    if (kv.length < 2) continue;
+                    switch (kv[0]) {
+                        case "at" -> b = b.withEdge(!kv[1].equals("horizon"));
+                        case "part" -> b = b.withColour2(Integer.parseInt(kv[1].replace("#", ""), 16));
+                        case "extent" -> b = b.withExtent(Double.parseDouble(kv[1]));
+                        default -> { }
+                    }
+                }
                 List<Sky.Backdrop> next = new ArrayList<>(s.backdrops());
                 next.add(b);
                 level.setSky(s.withBackdrops(next));

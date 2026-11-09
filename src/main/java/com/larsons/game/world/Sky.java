@@ -101,12 +101,26 @@ public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops,
      * @param snow     mountains: whether their peaks are white
      */
     public record Backdrop(Kind kind, int colour, double height, double haze, int seed, double from, double to,
-                           double distance, boolean snow) {
+                           double distance, boolean snow, int colour2, double extent, boolean edge) {
 
+        /**
+         * @param colour2 its second part's colour ({@link Kind#parts}: the snow, the shade, the trunks, the
+         *                roofs, the glints), or -1: as it comes
+         * @param extent  how much of it is its second part, 0 – 1 ({@link Kind#extentLabel}: the snow line, how
+         *                much is in shade, how tall the trunks, how big the roofs, how many glints)
+         * @param edge    whether it stands round the level's edge (true) or far off at the horizon (false)
+         */
         public Backdrop {
             height = Math.max(0, Math.min(40, height));
             haze = Math.max(0, Math.min(1, haze));
             distance = Math.max(0, distance);
+            extent = Double.isNaN(extent) ? kind.extent : Math.max(0, Math.min(1, extent));
+        }
+
+        /** As it was before it had parts and a place: as it comes, round the level's edge. */
+        public Backdrop(Kind kind, int colour, double height, double haze, int seed, double from, double to,
+                        double distance, boolean snow) {
+            this(kind, colour, height, haze, seed, from, to, distance, snow, -1, Double.NaN, true);
         }
 
         /** One of {@code kind}, all the way round, in its usual colour and size. */
@@ -117,46 +131,93 @@ public record Sky(int zenith, int horizon, double fog, List<Backdrop> backdrops,
         /** Whether it goes all the way round. */
         public boolean allRound() { return from == to; }
 
-        public Backdrop withKind(Kind k) { return new Backdrop(k, colour, height, haze, seed, from, to, distance, snow); }
+        public Backdrop withKind(Kind k) {
+            return new Backdrop(k, colour, height, haze, seed, from, to, distance, snow, colour2, Double.NaN, edge);
+        }
 
-        public Backdrop withColour(int c) { return new Backdrop(kind, c, height, haze, seed, from, to, distance, snow); }
+        public Backdrop withColour(int c) {
+            return new Backdrop(kind, c, height, haze, seed, from, to, distance, snow, colour2, extent, edge);
+        }
 
-        public Backdrop withHeight(double h) { return new Backdrop(kind, colour, h, haze, seed, from, to, distance, snow); }
+        public Backdrop withHeight(double h) {
+            return new Backdrop(kind, colour, h, haze, seed, from, to, distance, snow, colour2, extent, edge);
+        }
 
-        public Backdrop withHaze(double h) { return new Backdrop(kind, colour, height, h, seed, from, to, distance, snow); }
+        public Backdrop withHaze(double h) {
+            return new Backdrop(kind, colour, height, h, seed, from, to, distance, snow, colour2, extent, edge);
+        }
 
-        public Backdrop withSeed(int s) { return new Backdrop(kind, colour, height, haze, s, from, to, distance, snow); }
+        public Backdrop withSeed(int s) {
+            return new Backdrop(kind, colour, height, haze, s, from, to, distance, snow, colour2, extent, edge);
+        }
 
         public Backdrop withArc(double f, double t) {
-            return new Backdrop(kind, colour, height, haze, seed, f, t, distance, snow);
+            return new Backdrop(kind, colour, height, haze, seed, f, t, distance, snow, colour2, extent, edge);
         }
 
         public Backdrop withDistance(double d) {
-            return new Backdrop(kind, colour, height, haze, seed, from, to, d, snow);
+            return new Backdrop(kind, colour, height, haze, seed, from, to, d, snow, colour2, extent, edge);
         }
 
-        public Backdrop withSnow(boolean s) { return new Backdrop(kind, colour, height, haze, seed, from, to, distance, s); }
+        public Backdrop withSnow(boolean s) {
+            return new Backdrop(kind, colour, height, haze, seed, from, to, distance, s, colour2, extent, edge);
+        }
+
+        /** Its second part's colour (-1: as it comes). */
+        public Backdrop withColour2(int c) {
+            return new Backdrop(kind, colour, height, haze, seed, from, to, distance, snow, c, extent, edge);
+        }
+
+        public Backdrop withExtent(double e) {
+            return new Backdrop(kind, colour, height, haze, seed, from, to, distance, snow, colour2, e, edge);
+        }
+
+        /** Round the level's edge ({@code true}) or far off at the horizon. */
+        public Backdrop withEdge(boolean e) {
+            return new Backdrop(kind, colour, height, haze, seed, from, to, distance, snow, colour2, extent, e);
+        }
     }
 
     /** What a backdrop can be - and, for each, the colour, height and haze it starts with. */
     public enum Kind {
-        MOUNTAINS("mountains", "Mountains", 0x6D7A8F, 9, 0.45),
-        HILLS("hills", "Rolling hills", 0x5F7F4F, 4, 0.3),
-        TREES("trees", "Tree line", 0x35553A, 2.5, 0.2),
-        SPIRES("spires", "Towers and spires", 0x5B5560, 7, 0.4),
-        OCEAN("ocean", "Ocean", 0x2E6E9E, 0, 0.25);
+        MOUNTAINS("mountains", "Mountains", 0x6D7A8F, 9, 0.45, "Rock", "Snow", 0xEDF2FA, "Snow line", 0.22),
+        HILLS("hills", "Rolling hills", 0x5F7F4F, 4, 0.3, "Grass", "Shade", 0x4F6B42, "Shade", 0.5),
+        TREES("trees", "Tree line", 0x35553A, 2.5, 0.2, "Leaves", "Trunks", 0x4A3626, "Trunks", 0.3),
+        SPIRES("spires", "Towers and spires", 0x5B5560, 7, 0.4, "Walls", "Roofs", 0x6E4038, "Roofs", 0.18),
+        OCEAN("ocean", "Ocean", 0x2E6E9E, 0, 0.25, "Water", "Glints", 0xC8E6F5, "Glints", 0.47);
 
         private final String key, label;
         final int colour;
         final double height, haze;
+        private final String[] parts;
+        private final int colour2;
+        private final String extentLabel;
+        final double extent;
 
-        Kind(String key, String label, int colour, double height, double haze) {
+        Kind(String key, String label, int colour, double height, double haze, String part1, String part2,
+             int colour2, String extentLabel, double extent) {
             this.key = key;
             this.label = label;
             this.colour = colour;
             this.height = height;
             this.haze = haze;
+            this.parts = new String[]{part1, part2};
+            this.colour2 = colour2;
+            this.extentLabel = extentLabel;
+            this.extent = extent;
         }
+
+        /** What its two parts are called: rock and snow, grass and shade, leaves and trunks, walls and roofs, water and glints. */
+        public List<String> parts() { return List.of(parts); }
+
+        /** Its second part's colour as it comes. */
+        public int colour2() { return colour2; }
+
+        /** What how much of it is its second part is called (the snow line, …). */
+        public String extentLabel() { return extentLabel; }
+
+        /** How much of it is its second part as it comes, 0 – 1. */
+        public double extent() { return extent; }
 
         /** How it is written in a level's file. */
         public String key() { return key; }

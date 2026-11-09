@@ -143,7 +143,8 @@ class LevelTest {
         l.ground().paint(GroundMap.MEADOW, -10, 5, 2, 0.5);
         l.setSky(Sky.DEFAULT.withZenith(0x203040).withFog(120).withBackdrops(List.of(
                 Sky.Backdrop.of(Sky.Kind.MOUNTAINS).withSeed(7).withArc(30, 200),
-                Sky.Backdrop.of(Sky.Kind.OCEAN).withDistance(45))));
+                Sky.Backdrop.of(Sky.Kind.OCEAN).withDistance(45),
+                Sky.Backdrop.of(Sky.Kind.TREES).withColour2(0x553322).withExtent(0.45).withEdge(false))));
         l.add(ObjectTypes.SCENERY, 3.25, -4.5, Math.toRadians(37.5), Map.of("sprite", "oak_tree", "mirrored", true));
         l.add(ObjectTypes.ITEM, 1, 2, 0, Map.of("item", "sword", "tier", "iron"));
         l.add(ObjectTypes.VINES, 0, 10, Math.PI / 2, Map.of("length", 6.5)).setLift(0.25);
