@@ -224,6 +224,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** Whether the stroke's water lies level (a pond, a lake) or follows the ground down (a stream). */
     private boolean waterLevel = true;
     private boolean waterFlows;
+    /** The water tool's way: paint it with the brush (0), or fill the hollow clicked to its brim (1) or to a depth (2). */
+    private int waterMode = 1;
+    /** The most cells a fill floods (a 512 m level's worth of half-metre cells, a quarter of it). */
+    static final int FILL_MOST = 260_000;
     private double strokeSurface, flowX, flowZ;
     private Vec3 lastDab;
     private double radius = 3, strength = 0.5, flatHeight;
@@ -935,6 +939,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      */
     private void waterTool(boolean press, boolean held, boolean shift, double dt) {
         if (cursor == null) return;
+        if (waterMode != 0 && !shift) {
+            if (press) fillHollow(cursor.x(), cursor.z(), waterMode == 1);
+            return;
+        }
         if (press) {
             undo.before(level, Undo.Part.WATER, shift ? "Dry" : waterKind.label());
             stroking = true;
@@ -975,6 +983,45 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** {@link #scatterSets()} as last read (null: read again). */
     private List<Scatter.Set> customSets;
+
+    /**
+     * Fill the hollow at {@code (x, z)} with the water chosen: up to its brim
+     * (where it would spill over its rim), or {@code toBrim} false the depth
+     * set over the ground clicked - every bit of the hollow joined to it that
+     * is lower, its shore just where the ground comes up out of it.
+     */
+    void fillHollow(double x, double z, boolean toBrim) {
+        var hf = level.heights();
+        WaterMap.Ground ground = hf::height;
+        double here = hf.height(x, z);
+        double surface = toBrim ? level.water().brim(x, z, ground, 40, FILL_MOST) - 0.04 : here + waterDepth;
+        if (Double.isNaN(surface) || surface <= here + 0.05) {
+            game.toast("Nothing to fill here: no hollow round it. Sculpt one (3, Lower), or fill to a depth instead",
+                    Theme.WARNING);
+            return;
+        }
+        undo.before(level, Undo.Part.WATER, "Fill");
+        int n = level.water().fill(waterKind, surface, x, z, ground, FILL_MOST);
+        double cell = level.water().cell();
+        dirty = true;
+        game.toast(String.format(java.util.Locale.ROOT, "Filled %,.0f m² with %s water, %.1f m deep at the "
+                + "deepest", n * cell * cell, waterKind.label().toLowerCase(java.util.Locale.ROOT),
+                surface - lowestUnder(x, z, surface)), Theme.ACCENT);
+        Sounds.play(SoundKeys.ui("brush"));
+    }
+
+    /** About how low the ground goes in the hollow at {@code (x, z)} under {@code surface} (its bottom, near enough). */
+    private double lowestUnder(double x, double z, double surface) {
+        double low = level.heights().height(x, z);
+        for (int r = 1; r <= 40; r += 3) {
+            for (int a = 0; a < 12; a++) {
+                double px = x + Math.cos(a * Math.PI / 6) * r, pz = z + Math.sin(a * Math.PI / 6) * r;
+                double g = level.heights().height(px, pz);
+                if (g < surface) low = Math.min(low, g);
+            }
+        }
+        return low;
+    }
 
     private void scatterTool(boolean press, boolean held, boolean shift, double dt) {
         if (cursor == null || scatterSets().isEmpty()) return;
@@ -2175,14 +2222,36 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
         }
         y += (kinds.length + 1) / 2 * 34 + 4;
-        radius = widgets.slider(ui, "radius", "Size (m)", radius, 0.5, 40, "%.1f", x, y + 10, w);
-        waterDepth = widgets.slider(ui, "w-depth", "Depth (m)", waterDepth, 0.1, 4, "%.2f", x, y + 50, w);
-        y += 96;
+        // fill a hollow with a click (to its brim, or a depth), or paint water with the brush
+        String[] modes = {"Brush", "Fill to brim", "Fill to depth"};
+        float mw = (w - 8) / 3;
+        for (int i = 0; i < modes.length; i++) {
+            if (ui.button(modes[i], x + i * (mw + 4), y, mw, 28, waterMode == i, true)) waterMode = i;
+        }
+        y += 36;
+        if (waterMode == 1) {
+            y += ui.paragraph(ui.small, "Click in a hollow: it fills to just under the lowest point of its rim, its "
+                    + "shore where the ground comes up. Shift+drag dries it up.", x, y, w, Theme.HINT) + 6;
+        } else if (waterMode == 2) {
+            waterDepth = widgets.slider(ui, "w-depth", "Depth (m)", waterDepth, 0.1, 4, "%.2f", x, y + 10, w);
+            y += 46;
+            y += ui.paragraph(ui.small, "Click: the hollow fills to this depth over the ground clicked (all of it "
+                    + "joined to it that is lower).", x, y, w, Theme.HINT) + 6;
+        }
+        if (waterMode == 0 || waterMode == 1) {
+            radius = widgets.slider(ui, "radius", waterMode == 0 ? "Size (m)" : "Dry-up size", radius, 0.5, 40, "%.1f",
+                    x, y + 10, w);
+            y += 46;
+        }
+        if (waterMode == 0) {
+        waterDepth = widgets.slider(ui, "w-depth", "Depth (m)", waterDepth, 0.1, 4, "%.2f", x, y + 10, w);
+        y += 50;
         waterLevel = widgets.toggle(ui, "Lies level", waterLevel, x, y, w);
         y += 38;
         waterFlows = widgets.toggle(ui, "Flows", waterFlows, x, y, w);
         y += 40;
-        if (waterFlows) {
+        }
+        if (waterMode == 0 && waterFlows) {
             waterSpeed = widgets.slider(ui, "w-speed", "Current (m/s)", waterSpeed, 0.1, WaterMap.MAX_FLOW, "%.1f", x,
                     y + 10, w);
             y += 52;
@@ -2206,11 +2275,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             y += 44;
         }
-        ui.paragraph(ui.small, "Sculpt a hollow (3), then fill it from its bottom: the water lies level at the "
-                + "depth above where you press. Turn \"Lies level\" off for a stream down a slope; \"Flows\" makes "
-                + "it run the way the brush moves. The sea fills everything below its level, out to the horizon. She wades in the "
-                + "shallows and cannot go deeper than " + String.format(java.util.Locale.ROOT, "%.1f", WaterMap.TOO_DEEP)
-                + " m.", x, y, w, Theme.HINT);
+        ui.paragraph(ui.small, "Sculpt a hollow (3, Lower), then fill it. The brush paints water level at the depth "
+                + "above where you press; turn \"Lies level\" off for a stream down a slope, and \"Flows\" makes it "
+                + "run the way the brush moves. The sea fills everything below its level, out to the horizon. She "
+                + "wades in the shallows and swims where it is deeper than "
+                + String.format(java.util.Locale.ROOT, "%.1f", com.larsons.game.world.Player.SWIM_DEPTH) + " m.",
+                x, y, w, Theme.HINT);
     }
 
     private void scatterPanel(Ui ui, float x, float y, float w) {
@@ -3425,6 +3495,32 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                             a.length > 6 ? Double.parseDouble(a[5]) : 0, a.length > 6 ? Double.parseDouble(a[6]) : 0);
                 }
                 dirty = true;
+            }
+            case "fill" -> {
+                // fill <clear|swamp|sea|crystal> x z [depth]: the hollow there filled to its brim (or that deep)
+                WaterMap.Kind k = WaterMap.Kind.byKey(a[0]);
+                if (k != null) waterKind = k;
+                if (a.length > 3) waterDepth = Double.parseDouble(a[3]);
+                fillHollow(Double.parseDouble(a[1]), Double.parseDouble(a[2]), a.length <= 3);
+            }
+            case "feather" -> sculptFeather = paintFeather = Double.parseDouble(a[0]);
+            case "filter" -> {
+                // filter off | slope <from> <to> | height <from> <to> | only <material> | not <material> | water <0-2>
+                filter.on = !a[0].equals("off");
+                switch (a[0]) {
+                    case "slope" -> {
+                        filter.slopeFrom = Double.parseDouble(a[1]);
+                        filter.slopeTo = Double.parseDouble(a[2]);
+                    }
+                    case "height" -> {
+                        filter.heightFrom = Double.parseDouble(a[1]);
+                        filter.heightTo = Double.parseDouble(a[2]);
+                    }
+                    case "only" -> filter.onlyOn = Integer.parseInt(a[1]);
+                    case "not" -> filter.notOn = Integer.parseInt(a[1]);
+                    case "water" -> filter.water = Integer.parseInt(a[1]);
+                    default -> { }
+                }
             }
             case "scatter" -> {
                 // scatter <set index> x z radius [density]

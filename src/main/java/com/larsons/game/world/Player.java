@@ -1090,6 +1090,13 @@ public final class Player {
 
     /** Swimming: her stroke, the dive key and the jump key, her breath; out onto the shallows or a low bank. */
     private void swim(double dt, Intent in) {
+        // the water gone from under her (pushed out onto the bank, the level's edge, the water dried up in the
+        // editor): on her feet where she is, never left swimming in the air or under the ground
+        double here = water.surface(position.x(), position.z(), position.y());
+        if (Double.isNaN(here) || here - position.y() < SWIM_DEPTH - 0.3) {
+            outOfWater(position.x(), position.z(), Double.isNaN(here) ? position.y() : here);
+            return;
+        }
         // diving down a step, coming up a step
         if (in.crouch()) {
             diveTo = (under ? diveTo : 0) + DIVE_STEP;
@@ -1127,14 +1134,9 @@ public final class Player {
             double there = water.depth(x, z, ground);
             if (ground > surface + 0.6) {
                 velocity = Vec3.ZERO;                                // a bank too high to climb out onto
-            } else if (!under && there < SWIM_DEPTH - 0.15) {
-                // into the shallows, or up onto a low bank: on her feet
-                swimming = false;
-                position = new Vec3(x, groundAt(x, z, surface + 0.6), z);
-                height = 0;
-                vy = 0;
-                setState(stance().idle(false));
-                events.add(new Event(Event.Kind.LEFT_WATER, 0));
+            } else if (there < SWIM_DEPTH - 0.15) {
+                // into the shallows, or up onto a low bank: on her feet (come up first, if she was under)
+                outOfWater(x, z, surface);
                 return;
             } else {
                 position = new Vec3(x, ground, z);
@@ -1151,8 +1153,32 @@ public final class Player {
         placeInWater(water.surface(position.x(), position.z(), position.y()));
     }
 
+    /** Out of the water at {@code (x, z)}, on her feet on the ground there (no higher than {@code surface} + 0.6). */
+    private void outOfWater(double x, double z, double surface) {
+        if (under) {
+            under = false;
+            diveDepth = 0;
+            diveTo = 0;
+            events.add(new Event(Event.Kind.SURFACED, MAX_BREATH - breath));
+        }
+        swimming = false;
+        double g = groundAt(x, z, surface + 0.6);
+        if (Double.isNaN(g)) g = terrain.height(x, z);
+        position = new Vec3(x, g, z);
+        height = 0;
+        vy = 0;
+        velocity = new Vec3(velocity.x(), 0, velocity.z());
+        setState(stance().idle(false));
+        events.add(new Event(Event.Kind.LEFT_WATER, 0));
+    }
+
     /** Her sprite's ground where her state puts the water's surface on her (or her middle under it). */
     private void placeInWater(double surface) {
+        if (Double.isNaN(surface)) {
+            // no water here after all: on her feet
+            outOfWater(position.x(), position.z(), position.y());
+            return;
+        }
         double feetY;
         if (under) {
             feetY = surface - SWIM_MIDDLE - Math.max(diveDepth, 0);

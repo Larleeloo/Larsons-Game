@@ -21,6 +21,30 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class WaterAndBiomeTest {
 
+    /** A bowl 2 m deep round (0, 0), 6 m across, its rim lowest (1.5 m) on the east; flat ground at 0 beyond. */
+    private static double bowl(double x, double z) {
+        double d = Math.hypot(x, z);
+        if (d > 6) return 0;
+        double rim = x > 3 && Math.abs(z) < 1.5 ? 1.5 : 2.5;
+        return d < 4 ? -2 + d * 0.25 : -1 + (d - 4) / 2 * (rim + 1);
+    }
+
+    @Test
+    void aHollowFillsToJustItsBrim() {
+        WaterMap w = new WaterMap(64);
+        double brim = w.brim(0, 0, WaterAndBiomeTest::bowl, 40, 100_000);
+        assertTrue(brim > -0.2 && brim < 1.6, "to its lowest rim, not over it: " + brim);
+        int n = w.fill(WaterMap.Kind.CLEAR, brim - 0.04, 0, 0, WaterAndBiomeTest::bowl, 100_000);
+        assertTrue(n > 100, "the hollow full");
+        assertTrue(w.depth(0, 0, bowl(0, 0)) > 1.5, "deep in the middle");
+        assertEquals(0, w.depth(20, 20, 0), 1e-9, "nothing out over the flat beyond");
+        assertEquals(0, w.depth(-5.9, 0, bowl(-5.9, 0)), 1e-9, "the far bank above it, dry");
+        // on flat ground there is no hollow to fill
+        WaterMap flat = new WaterMap(64);
+        assertEquals(0, flat.brim(10, 10, (x, z) -> 0, 40, 10_000), 1e-9);
+        assertEquals(0, flat.fill(WaterMap.Kind.CLEAR, 0, 10, 10, (x, z) -> 0, 10_000));
+    }
+
     @Test
     void paintedWaterHasASurfaceAKindAndAFlow() {
         WaterMap w = new WaterMap(64).paint(WaterMap.Kind.CLEAR, -0.5, 4, 4, 2, 1, 0);
