@@ -8,8 +8,9 @@ feels odd, confusing, slow or broken is exactly what Larson wants to hear.
 WHAT YOU NEED
 -------------
 - Windows 10 or 11, macOS 11 (Big Sur) or newer, or Linux.
-- About 9 GB of free disk space while you unzip (4.2 GB for the zip,
-  4.2 GB for the game). You can delete the zip afterwards.
+- About 10 GB of free disk space while you unzip (4.2 GB for the zip,
+  4.2 GB for the game, and 1 GB more the first time it starts). You can
+  delete the zip afterwards.
 - 8 GB of memory (RAM) or more.
 - A graphics chip from the last ten years or so (it needs OpenGL 3.3).
 - Java 21 or newer (free, see step 1).
@@ -77,8 +78,11 @@ A small text window opens next to the game; leave it open while you play.
   Linux:   in a terminal, in the Larsons-Game folder:
              ./"Play on Linux.sh"
 
-The first start shows a loading screen for a few seconds up to a minute
-while the game reads its 1.5 million sprite pictures. Then:
+The very first time, the text window says "putting the sprite sheets
+together": the game's 2 million pictures come in a few big pieces, and
+it joins them into one file, once (anything from a few seconds to a
+couple of minutes). Then a loading screen shows for a few seconds while
+the game reads them. After that:
 
   1. In the main menu, choose Play > Demo.
   2. Pick a class (Mage, Knight, Rogue ...). You can change it later in
@@ -150,6 +154,14 @@ The Mac says "Play on Mac" can't be opened:
     see step 3. Or open the Terminal app and type (with your folder):
       cd ~/Downloads/Larsons-Game
       java -jar larsons-game.jar
+
+The Wardrobe has nothing to choose from (you stay a plain stand-in
+figure), or the text window says "could not put the sprite sheets
+together":
+    the game is missing its pictures. Check that the disk has a few GB
+    free, then delete the Larsons-Game folder, unzip the zip again (all
+    of it, with "Extract All..." on Windows) and start the game again.
+    If it still happens, send Larson "latest.log" from the "logs" folder.
 
 Start over with fresh settings:
     delete the "config" folder inside the Larsons-Game folder.

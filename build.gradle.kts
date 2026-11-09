@@ -1,4 +1,5 @@
 import java.io.File
+import org.apache.tools.ant.filters.FixCrLfFilter
 
 plugins {
     id("java")
@@ -209,55 +210,26 @@ val gameJar = tasks.register<Jar>("gameJar") {
 // Windows, macOS and Linux, HOW TO PLAY.txt (all three from dist/), and the
 // assets: every folder as it is, except that the sprites folders (some two
 // million small PNGs, which nobody wants to unzip) go into one file,
-// assets/sprites.pack, that the game reads in place (core/SpritePack).
-// The zip is stored, not compressed: the pack is nearly all of it and PNGs
-// are compressed already.
+// assets/sprites.pack, that the game reads in place (core/SpritePack). The
+// pack travels in parts of 1 GB (sprites.pack.001, .002 ... and the list of
+// them, sprites.pack.parts) - Windows' own unzip is not to be trusted with
+// one file of several gigabytes - and the game joins them the first time it
+// starts. The zip is stored, not compressed: the pack is nearly all of it
+// and PNGs are compressed already.
 
-val shareDir = layout.buildDirectory.dir("share/Larsons-Game")
-
-// The sprites folders, packed straight into the shared folder (a 4 GB file
-// is not worth copying). Not up-to-date checked: snapshotting two million
-// files for Gradle would cost about as much as packing them again.
+// The pack, in a folder of its own that no other task writes to or cleans.
+// Not up-to-date checked: snapshotting two million files for Gradle would
+// cost about as much as packing them again.
+val spritePackDir = layout.buildDirectory.dir("sprite-pack")
 val spritePack = tasks.register<JavaExec>("spritePack") {
     group = "distribution"
-    description = "Pack the sprites folders into build/share/Larsons-Game/assets/sprites.pack"
+    description = "Pack the sprites folders into build/sprite-pack/sprites.pack.001, .002 ... (1 GB parts)"
     mainClass = "com.larsons.game.tools.PackSprites"
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs("-Djava.awt.headless=true")
-    val pack = shareDir.map { it.file("assets/sprites.pack") }
-    args(file("assets").path, pack.get().asFile.path)
-    outputs.file(pack)
+    args(file("assets").path, spritePackDir.get().file("sprites.pack").asFile.path, "1000")
+    outputs.dir(spritePackDir)
     doNotTrackState("two million files; Gradle would hash every one to check")
-}
-
-val shareFolder = tasks.register<Sync>("shareFolder") {
-    group = "distribution"
-    description = "The copy of the game to share, in build/share/Larsons-Game"
-    dependsOn(spritePack)
-    into(shareDir)
-    from(gameJar)
-    from("dist")
-    from("assets") {
-        into("assets")
-        exclude("sprites", "sprites/**", "sprites_*", "sprites_*/**", "animations_v1", "animations_v1/**",
-                "**/.gitkeep", "**/.DS_Store", "**/Thumbs.db")
-    }
-    // the pack is already there; anything else (a test run's config/, logs/) goes
-    preserve { include("assets/sprites.pack") }
-    // The launchers and the instructions with the line endings their systems
-    // need, whatever git checked out.
-    doLast {
-        destinationDir.listFiles().orEmpty().filter { it.isFile }.forEach { f ->
-            val crlf = when (f.extension.lowercase()) {
-                "bat", "cmd", "txt" -> true
-                "sh", "command" -> false
-                else -> return@forEach
-            }
-            val text = f.readText().replace("\r\n", "\n")
-            f.writeText(if (crlf) text.replace("\n", "\r\n") else text)
-            if (!crlf) f.setExecutable(true, false)
-        }
-    }
 }
 
 tasks.register<Zip>("shareZip") {
@@ -265,16 +237,52 @@ tasks.register<Zip>("shareZip") {
     description = "build/distributions/Larsons-Game.zip: the game to share (unzip, double-click Play)"
     archiveFileName = "Larsons-Game.zip"
     destinationDirectory = layout.buildDirectory.dir("distributions")
-    from(shareFolder) {
-        into("Larsons-Game")
-        // executable on macOS and Linux, even when the zip is made on Windows
-        filesMatching(listOf("**/*.command", "**/*.sh")) {
-            permissions { unix("rwxr-xr-x") }
+    into("Larsons-Game") {
+        from(gameJar)
+        // the launchers and the instructions with the line endings their
+        // systems need, whatever git checked out; the scripts executable on
+        // macOS and Linux, even when the zip is made on Windows
+        from("dist") {
+            filesMatching(listOf("*.bat", "*.cmd", "*.txt")) {
+                filter<FixCrLfFilter>("eol" to FixCrLfFilter.CrLf.newInstance("crlf"),
+                        "eof" to FixCrLfFilter.AddAsisRemove.newInstance("remove"))
+            }
+            filesMatching(listOf("*.sh", "*.command")) {
+                filter<FixCrLfFilter>("eol" to FixCrLfFilter.CrLf.newInstance("lf"),
+                        "eof" to FixCrLfFilter.AddAsisRemove.newInstance("remove"))
+                permissions { unix("rwxr-xr-x") }
+            }
         }
+        from("assets") {
+            into("assets")
+            exclude("sprites", "sprites/**", "sprites_*", "sprites_*/**", "animations_v1", "animations_v1/**",
+                    "**/.gitkeep", "**/.DS_Store", "**/Thumbs.db")
+        }
+        from(spritePack) { into("assets") }
     }
     isZip64 = true
     entryCompression = ZipEntryCompression.STORED
     isPreserveFileTimestamps = true
+    // never a zip without its sprites: every part the list names, as long as it says
+    val packDir = spritePackDir
+    doFirst {
+        val dir = packDir.get().asFile
+        val list = dir.resolve("sprites.pack.parts")
+        val again = "run shareZip again (without -x spritePack) to pack the sprites"
+        if (!list.isFile) throw GradleException("There is no sprite pack in $dir: $again")
+        val parts = list.readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+        if (parts.isEmpty()) throw GradleException("$list lists no parts: $again")
+        parts.forEach { line ->
+            val name = line.substringBeforeLast(' ').trim()
+            val bytes = line.substringAfterLast(' ').toLong()
+            val part = dir.resolve(name)
+            if (!part.isFile || part.length() != bytes) {
+                throw GradleException("The sprite pack in $dir is not complete ($name): $again")
+            }
+        }
+        println("[share] the sprite pack: ${parts.size} parts, %.1f GB".format(
+                parts.sumOf { it.substringAfterLast(' ').toLong() } / 1e9))
+    }
     // where it is, for whoever ran it from IntelliJ's run dropdown
     val zip = archiveFile
     doLast {
