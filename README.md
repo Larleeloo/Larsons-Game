@@ -1912,11 +1912,17 @@ it is set into the hill down to its lowest corner, never standing off the
 ground; a soft shadow lies round its walls. **At night** its windows are lit
 from inside, warm, from dusk to dawn.
 
-**Walls in the way**: the walls between the camera and her are **cut away**
-- a dithered hole round her, so the house she walks behind never hides her -
-or, switched off, always whole: the pause menu's **Walls near the camera**
-(*Cut away* / *Always whole*), and the editor's Level tool (**See-through
-walls**).
+**Walls in the way**, as in the Sims, set apart **indoors** and **outdoors**
+(Pause → Settings, and the editor's Level tool): **Up** (always whole),
+**Cut away** (the walls between the camera and her drop to a stub, so the
+house she walks behind never hides her) or **Down** (every wall a stub). A
+selected building in the editor is **outlined**, not tinted.
+
+**Ways through.** Any building or piece of furniture can be a door of its own -
+a bookcase that is a secret door, a well that
+goes down: its **Way through** goes to a named spot, up a floor, down one or
+outside, and **Hidden way** keeps it quiet (*look closer*) until she is right at
+it. **E** at a **wardrobe** opens the wardrobe, to change what she wears.
 
 In a level file a building is its kind and the parts changed from how it comes:
 

@@ -48,7 +48,7 @@ public final class Building {
                 case "up" -> "Up a floor";
                 case "down" -> "Down a floor";
                 case "out" -> "Outside";
-                default -> "Nothing (not a way through)";
+                default -> "None";
             };
         }
     }

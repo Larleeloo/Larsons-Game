@@ -195,6 +195,23 @@ class ScenerySpritesTest {
     }
 
     @Test
+    void theTallTreesStandAsTallAsTheBuildingsAtTheTreesOwnPixel() {
+        assumeTrue(Files.isDirectory(ASSETS), "no assets/scenery here");
+        ScenerySprites s = ScenerySprites.scan(ASSETS);
+        double pixel = s.sprite("oak_tree").profile().frameWorldSize() / s.sprite("oak_tree").profile().frameWidth();
+        double cottage = com.larsons.game.building.BuildingCatalog.load(Path.of("assets", "buildings"))
+                .profile("cottage").height();
+        for (String name : List.of("great_oak", "tall_pine", "tall_birch")) {
+            ScenerySprites.Sprite tree = s.sprite(name);
+            assertNotNull(tree, name);
+            SceneryProfile p = tree.profile();
+            assertEquals(Kind.TREE, p.kind(), name);
+            assertEquals(pixel, p.frameWorldSize() / p.frameWidth(), 1e-9, name + ": drawn at the oak's pixel, not blown up");
+            assertTrue(p.frameWorldHeight() > 10 && p.frameWorldHeight() > cottage, name + " " + p.frameWorldHeight());
+        }
+    }
+
+    @Test
     void theGroundIsAnOpaqueTileOf512() throws IOException {
         Path grass = ASSETS.resolve("ground").resolve("grass.png");
         assumeTrue(Files.isRegularFile(grass), "no ground here");
