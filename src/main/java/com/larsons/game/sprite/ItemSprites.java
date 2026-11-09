@@ -1,10 +1,10 @@
 package com.larsons.game.sprite;
 
+import com.larsons.game.gfx.Images;
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.util.Json;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.awt.image.IndexColorModel;
 import java.io.IOException;
@@ -315,7 +315,7 @@ public final class ItemSprites implements AutoCloseable {
         IconPixels px = null;
         if (p != null) {
             try {
-                BufferedImage img = ImageIO.read(p.toFile());
+                BufferedImage img = Images.read(p);
                 if (img != null && img.getColorModel() instanceof IndexColorModel icm) {
                     int[] base = new int[256];
                     icm.getRGBs(base);

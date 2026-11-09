@@ -1,10 +1,10 @@
 package com.larsons.game.sprite;
 
+import com.larsons.game.gfx.Images;
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.sprite.fallback.FallbackSprites;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -791,10 +791,10 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private static Decoded decode(Key key, int epoch, SpriteProfile profile, double scale, int maxTexture) {
         try {
-            BufferedImage img = ImageIO.read(key.file().toFile());
+            BufferedImage img = Images.read(key.file());
             if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
             if (key.cut() != null) {
-                BufferedImage over = ImageIO.read(key.cut().toFile());
+                BufferedImage over = Images.read(key.cut());
                 if (over != null) img = SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
             }
             boolean pixelArt = profile.pixelArt();
@@ -1002,7 +1002,7 @@ public final class SpriteLibrary implements AutoCloseable {
         Path file = itemIconFile(itemId);
         if (file != null) {
             try {
-                img = ImageIO.read(file.toFile());
+                img = Images.read(file);
             } catch (IOException e) {
                 System.err.println("[sprites] cannot read " + file + ": " + e.getMessage());
             }

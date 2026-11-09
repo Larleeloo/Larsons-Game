@@ -633,7 +633,14 @@ public final class Game implements AutoCloseable {
 
     /** Files dropped on the window (or by a script): the drop target's if it takes them, else the importer's. */
     public void drop(List<Path> files) {
-        if (dropTarget == null || !dropTarget.test(files)) importer.open(files);
+        if (dropTarget != null && dropTarget.test(files)) return;
+        if (SpritePack.isPacked(settings.spritesDir())) {
+            // a shared copy reads its sheets out of assets/sprites.pack, which is not written to
+            toast("This copy of the game keeps its sprite sheets in " + SpritePack.FILE
+                    + " - sprite sheets can only be imported into an assets/sprites folder", Theme.WARNING);
+            return;
+        }
+        importer.open(files);
     }
 
     public void requestScreenshot(Path file) {
@@ -642,6 +649,7 @@ public final class Game implements AutoCloseable {
 
     /** A path relative to the working directory (the repository), for messages. */
     public String relative(Path p) {
+        if (SpritePack.isPacked(p)) return "assets/" + SpritePack.FILE + p.toAbsolutePath();
         Path abs = p.toAbsolutePath().normalize();
         Path cwd = Path.of("").toAbsolutePath();
         return abs.startsWith(cwd) ? cwd.relativize(abs).toString().replace('\\', '/') : abs.toString();
