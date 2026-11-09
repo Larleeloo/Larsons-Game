@@ -69,13 +69,14 @@ digits) and holds [Creative Mode](#creative-mode), the level editor.
 
 ```bash
 ./gradlew shareZip      # build/distributions/Larsons-Game.zip, about 4.2 GB
-./gradlew shareFolder   # the same, unzipped, in build/share/Larsons-Game (to try it first)
 ./gradlew shareZip -x spritePack   # only the code changed: keep the last pack (packing takes minutes)
 ```
 
 In IntelliJ: pick **Build Game to Share (zip)** in the run-configuration
 dropdown and press Run (or double-click `shareZip` under Gradle > Tasks >
-distribution); the Run window prints where the zip is when it is done.
+distribution); the Run window prints where the zip is when it is done. To
+try it first, unzip it somewhere and start it the way a friend would. The
+build stops with an error rather than make a zip without the sprite pack.
 Upload it to Google Drive, OneDrive or Dropbox and send the link - it is too
 big for GitHub (2 GB a file) or a free WeTransfer.
 
@@ -90,7 +91,7 @@ and `HOW TO PLAY.txt` walks them through it.
 | `HOW TO PLAY.txt` | installing Java, unzipping, starting it (and getting past Windows' and macOS's warnings for files from the internet), the controls, what to send as feedback, and what to try when something goes wrong |
 | `larsons-game.jar` | the game, LWJGL and its natives for Windows, macOS and Linux, x64 and ARM64 (5.5 MB) |
 | `assets/` | the assets folder as it is, but for the sprites folders, which are... |
-| `assets/sprites.pack` | ...`sprites/`, `sprites_masculine/` and `animations_v1/` in one file |
+| `assets/sprites.pack.001`, `.002` ... and `sprites.pack.parts` | ...`sprites/`, `sprites_masculine/` and `animations_v1/` in one file, `sprites.pack`, in parts of 1 GB that the game joins the first time it starts |
 
 **Why a pack.** The sprites folders are some two million small PNGs - 3.7 GB,
 far too many files for Windows' own unzip, which writes them out one by one
@@ -106,6 +107,17 @@ are not imported (there is no folder to put them in); everything else is
 written where it always is (`config/`, `screenshots/`, Creative Mode's
 levels in `assets/levels/`). The zip file system keeps the pack's index in
 memory - about half a gigabyte of the heap for two million entries.
+
+**Why parts.** One multi-gigabyte file is just what Windows' own unzip is
+not to be trusted with, so the pack (`build/sprite-pack/`, a folder no
+other task writes to) goes into the zip as `sprites.pack.001`, `.002` ...
+of 1 GB each, listed in `sprites.pack.parts`. The first start joins them
+(`SpritePack.joinParts`, from the launcher, before the window opens, and
+the console window says so): part 1 is renamed to the pack and the others
+are appended to it and deleted one by one, so it needs only a part's worth
+of extra disk and carries on where it left off if it was stopped. Parts
+win over a pack already there, so a newer copy unzipped over an older one
+brings its own sprites.
 
 **The jar sets itself up** (`core/Launcher`). Started from its jar - by a
 launcher, `java -jar`, or a double-click, none of which can pass the JVM a
@@ -2323,7 +2335,7 @@ src/main/java/com/larsons/game/
                             LevelIO (its folder), Interiors (each kind of building's floors as it comes)
   editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
-  tools/                    SampleSprites, PackSprites (the sprites folders into one sprites.pack)
+  tools/                    SampleSprites, PackSprites (the sprites folders into one sprites.pack, in parts)
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
                             the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the

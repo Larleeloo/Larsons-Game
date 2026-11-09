@@ -29,6 +29,8 @@ import java.util.Map;
  *   <li>the jar's own folder as the working directory, so {@code assets/},
  *       {@code config/} and {@code screenshots/} are the ones beside it,
  *       wherever it was started from;</li>
+ *   <li>the sprite sheets of a fresh copy, which come in parts, put together
+ *       first ({@link SpritePack#joinParts}), once;</li>
  *   <li>everything it prints copied to {@code logs/latest.log} beside the jar
  *       (the run before is kept as {@code logs/previous.log}), for whoever is
  *       sending feedback.</li>
@@ -192,6 +194,9 @@ public final class Launcher {
         pb.environment().putAll(gpuEnvironment(host, pb.environment(),
                 Files.exists(Path.of("/proc/driver/nvidia/version"))));
         OutputStream log = openLog(folder);
+        // a fresh copy's sprite sheets come in parts: joined here, once, with
+        // the console window to say so, before the game opens its own
+        SpritePack.joinParts(folder.resolve("assets"), new PrintStream(new Tee(System.out, log), true));
         Process p = pb.start();
         Thread hook = new Thread(p::destroy, "launcher-stop-game");
         Runtime.getRuntime().addShutdownHook(hook);
@@ -230,6 +235,48 @@ public final class Launcher {
         } catch (IOException | RuntimeException e) {
             System.err.println("[launch] no log file beside the game: " + e.getMessage());
             return null;
+        }
+    }
+
+    /** Writes to the console and the log (if there is one); a log that fails stops only itself. */
+    private static final class Tee extends OutputStream {
+        private final PrintStream console;
+        private final OutputStream log;
+
+        Tee(PrintStream console, OutputStream log) {
+            this.console = console;
+            this.log = log;
+        }
+
+        @Override
+        public void write(int b) {
+            write(new byte[]{(byte) b}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) {
+            console.write(b, off, len);
+            if (log == null) return;
+            synchronized (log) {
+                try {
+                    log.write(b, off, len);
+                } catch (IOException ignored) {
+                    // a full disk stops the log, not the game
+                }
+            }
+        }
+
+        @Override
+        public void flush() {
+            console.flush();
+            if (log == null) return;
+            synchronized (log) {
+                try {
+                    log.flush();
+                } catch (IOException ignored) {
+                    // as above
+                }
+            }
         }
     }
 
