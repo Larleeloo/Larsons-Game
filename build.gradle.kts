@@ -159,24 +159,122 @@ tasks.jar {
     }
 }
 
-// A runnable jar with LWJGL and this OS's natives inside, for sharing:
+// Every OS's LWJGL natives, for the jar that is shared: the build's own
+// runtime classpath only has this machine's. LWJGL keeps each OS's and
+// architecture's libraries under their own folder in its natives jars
+// (windows/x64/..., macos/arm64/...), so all of them sit side by side in one
+// jar and LWJGL picks the right one where the game starts.
+val shareNatives: Configuration by configurations.creating
+dependencies {
+    for (os in listOf("windows", "windows-arm64", "macos", "macos-arm64", "linux", "linux-arm64")) {
+        for (module in listOf("lwjgl", "lwjgl-opengl", "lwjgl-glfw", "lwjgl-tinyfd")) {
+            shareNatives("org.lwjgl:$module:$lwjglVersion:natives-$os")
+        }
+    }
+}
+
+// A runnable jar with the game, LWJGL and its natives for Windows, macOS and
+// Linux (x64 and ARM64) inside:
 //   ./gradlew gameJar && java -jar build/libs/larsons-game.jar
-// Put the `assets/` folder next to the jar (the game looks for it in the
-// working directory, then beside the jar).
-tasks.register<Jar>("gameJar") {
+// The game looks for `assets/` in the working directory, then beside the jar.
+// From a jar it relaunches itself once with the build's JVM flags, in the
+// jar's folder (core/Launcher), so a double-click runs it as runGpu does.
+val gameJar = tasks.register<Jar>("gameJar") {
     group = "distribution"
-    description = "Runnable jar with the game, LWJGL and the natives for this OS"
+    description = "Runnable jar with the game, LWJGL and its natives for Windows, macOS and Linux"
     archiveBaseName = "larsons-game"
     archiveVersion = ""
     manifest {
         attributes["Main-Class"] = "com.larsons.game.Main"
+        // LWJGL's core jar has Java 9+ versions of some classes
+        attributes["Multi-Release"] = "true"
+        attributes["Implementation-Title"] = "Larson's Game"
+        attributes["Implementation-Version"] = project.version
     }
     from(sourceSets["main"].output)
     from(configurations.runtimeClasspath.map { classpath ->
         classpath.map { if (it.isDirectory) it else zipTree(it) }
     })
-    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "module-info.class")
+    from(shareNatives.elements.map { natives -> natives.map { zipTree(it) } })
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "module-info.class",
+            "META-INF/versions/*/module-info.class", "META-INF/INDEX.LIST")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// --- the copy of the game to share ---------------------------------------------------
+//
+//   ./gradlew shareZip     build/distributions/Larsons-Game.zip
+//
+// One folder, Larsons-Game/, with the jar, a launcher to double-click for
+// Windows, macOS and Linux, HOW TO PLAY.txt (all three from dist/), and the
+// assets: every folder as it is, except that the sprites folders (some two
+// million small PNGs, which nobody wants to unzip) go into one file,
+// assets/sprites.pack, that the game reads in place (core/SpritePack).
+// The zip is stored, not compressed: the pack is nearly all of it and PNGs
+// are compressed already.
+
+val shareDir = layout.buildDirectory.dir("share/Larsons-Game")
+
+// The sprites folders, packed straight into the shared folder (a 4 GB file
+// is not worth copying). Not up-to-date checked: snapshotting two million
+// files for Gradle would cost about as much as packing them again.
+val spritePack = tasks.register<JavaExec>("spritePack") {
+    group = "distribution"
+    description = "Pack the sprites folders into build/share/Larsons-Game/assets/sprites.pack"
+    mainClass = "com.larsons.game.tools.PackSprites"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("-Djava.awt.headless=true")
+    val pack = shareDir.map { it.file("assets/sprites.pack") }
+    args(file("assets").path, pack.get().asFile.path)
+    outputs.file(pack)
+    doNotTrackState("two million files; Gradle would hash every one to check")
+}
+
+val shareFolder = tasks.register<Sync>("shareFolder") {
+    group = "distribution"
+    description = "The copy of the game to share, in build/share/Larsons-Game"
+    dependsOn(spritePack)
+    into(shareDir)
+    from(gameJar)
+    from("dist")
+    from("assets") {
+        into("assets")
+        exclude("sprites", "sprites/**", "sprites_*", "sprites_*/**", "animations_v1", "animations_v1/**",
+                "**/.gitkeep", "**/.DS_Store", "**/Thumbs.db")
+    }
+    // the pack is already there; anything else (a test run's config/, logs/) goes
+    preserve { include("assets/sprites.pack") }
+    // The launchers and the instructions with the line endings their systems
+    // need, whatever git checked out.
+    doLast {
+        destinationDir.listFiles().orEmpty().filter { it.isFile }.forEach { f ->
+            val crlf = when (f.extension.lowercase()) {
+                "bat", "cmd", "txt" -> true
+                "sh", "command" -> false
+                else -> return@forEach
+            }
+            val text = f.readText().replace("\r\n", "\n")
+            f.writeText(if (crlf) text.replace("\n", "\r\n") else text)
+            if (!crlf) f.setExecutable(true, false)
+        }
+    }
+}
+
+tasks.register<Zip>("shareZip") {
+    group = "distribution"
+    description = "build/distributions/Larsons-Game.zip: the game to share (unzip, double-click Play)"
+    archiveFileName = "Larsons-Game.zip"
+    destinationDirectory = layout.buildDirectory.dir("distributions")
+    from(shareFolder) {
+        into("Larsons-Game")
+        // executable on macOS and Linux, even when the zip is made on Windows
+        filesMatching(listOf("**/*.command", "**/*.sh")) {
+            permissions { unix("rwxr-xr-x") }
+        }
+    }
+    isZip64 = true
+    entryCompression = ZipEntryCompression.STORED
+    isPreserveFileTimestamps = true
 }
 
 // A stand-in "Blender" sprite set rendered from the fallback puppet — body, a

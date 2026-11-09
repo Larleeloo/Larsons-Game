@@ -1,0 +1,157 @@
+LARSON'S GAME - HOW TO PLAY
+===========================
+
+Thanks for trying the game! It is still in development, so anything that
+feels odd, confusing, slow or broken is exactly what Larson wants to hear.
+
+
+WHAT YOU NEED
+-------------
+- Windows 10 or 11, macOS 11 (Big Sur) or newer, or Linux.
+- About 9 GB of free disk space while you unzip (4.2 GB for the zip,
+  4.2 GB for the game). You can delete the zip afterwards.
+- 8 GB of memory (RAM) or more.
+- A graphics chip from the last ten years or so (it needs OpenGL 3.3).
+- Java 21 or newer (free, see step 1).
+
+
+STEP 1 - INSTALL JAVA 21 (once)
+-------------------------------
+The game runs on Java. If you already have Java 21 or newer, skip this.
+The launchers in step 3 check for you, and open the download page if
+Java is missing.
+
+  Windows: go to https://adoptium.net/temurin/releases/?version=21
+           choose Windows, x64, and download the .msi. Run it and click
+           Next through it (the default choices are fine).
+
+  Mac:     go to https://adoptium.net/temurin/releases/?version=21
+           choose macOS, and the .pkg for your Mac:
+             - aarch64 for an Apple chip (M1, M2, M3, M4 ...)
+             - x64 for an Intel Mac
+           (Apple menu > About This Mac shows which one you have.)
+           Open the .pkg and follow the installer.
+
+  Linux:   Ubuntu, Debian, Mint:  sudo apt install openjdk-21-jre
+           Fedora:                sudo dnf install java-21-openjdk
+           Arch:                  sudo pacman -S jre21-openjdk
+
+
+STEP 2 - UNZIP THE GAME
+-----------------------
+  Windows: right-click Larsons-Game.zip and choose "Extract All...".
+           Don't just open the zip and double-click inside it - the game
+           has to be unzipped first.
+  Mac:     double-click Larsons-Game.zip.
+  Linux:   unzip Larsons-Game.zip
+
+You get a folder called Larsons-Game. Keep everything in it together -
+the game needs the "assets" folder next to it. You can move the whole
+folder anywhere you like (Documents, Desktop ...).
+
+
+STEP 3 - START IT
+-----------------
+Open the Larsons-Game folder and double-click the file for your computer.
+A small text window opens next to the game; leave it open while you play.
+
+  Windows: "Play on Windows" (Play on Windows.bat)
+           If Windows asks first ("Windows protected your PC", or "The
+           publisher could not be verified"), click "More info" and then
+           "Run anyway" (or just "Run"). It only asks the first time.
+
+  Mac:     "Play on Mac" (Play on Mac.command)
+           The first time, macOS says it can't check the file for
+           malicious software. That is normal for a game shared between
+           friends. To open it anyway:
+             1. Click Done (or OK) on that message.
+             2. Open System Settings > Privacy & Security, scroll down to
+                the message about "Play on Mac.command" and click
+                "Open Anyway" (then enter your password if it asks).
+             On older macOS versions you can instead right-click the file
+             (or Control-click it), choose Open, then Open again.
+           After that it opens with a normal double-click. If macOS asks
+           whether Terminal may access your Downloads (or Documents)
+           folder, click OK - that is where the game's files are.
+
+  Linux:   in a terminal, in the Larsons-Game folder:
+             ./"Play on Linux.sh"
+
+The first start shows a loading screen for a few seconds up to a minute
+while the game reads its 1.5 million sprite pictures. Then:
+
+  1. In the main menu, choose Play > Demo.
+  2. Pick a class (Mage, Knight, Rogue ...). You can change it later in
+     the pause menu.
+  3. You start as a plain stand-in figure. Press Esc and open Wardrobe to
+     choose your character's body, face and hair. More clothes, armour
+     and dyes are found in the world and in chests.
+
+
+CONTROLS (the basics)
+---------------------
+  W A S D              walk (relative to the camera)
+  Shift / Ctrl         run / sprint (while moving)
+  Space                jump
+  C                    crouch / stand up
+  Left Alt or Z        dodge: tap to dash, hold to roll
+  Left click or F      attack (in the air: a jump attack)
+  X / R / Q            heavy attack / spin attack / parry
+  B (hold) / V         block / shield bash
+  L                    lock on to the nearest enemy (L again to let go)
+  1 - 5, mouse wheel   choose what is in your hands (the hotbar)
+  I                    inventory
+  J                    your class cards
+  E                    pick up, open chests, go through doors, shop,
+                       ride a horse ... whatever is nearest
+  G                    drop what you are holding
+  Right mouse drag     turn the camera (also the arrow keys)
+  + / -                zoom in / out
+  Tab                  camera height: side, 45 degrees, top-down
+  F11                  full screen on / off
+  F12                  screenshot (saved in the "screenshots" folder)
+  Esc                  pause menu: settings, sounds, the full list of
+                       controls, and quit
+
+  In deep water you swim: C dives under, Space comes back up.
+  Walk into vines on a cliff to climb them.
+
+
+SENDING FEEDBACK TO LARSON
+--------------------------
+- What you liked, what confused you, what felt too hard or too easy.
+- Screenshots: press F12 in the game. They are saved in the
+  "screenshots" folder inside the Larsons-Game folder.
+- If something went wrong, send the file "latest.log" from the "logs"
+  folder inside the Larsons-Game folder (the run before that one is
+  "previous.log"). It has everything the game printed, which helps
+  Larson find the problem.
+
+
+IF SOMETHING GOES WRONG
+-----------------------
+"needs Java 21" even though you installed it:
+    restart the computer and try again. If it still says so, uninstall
+    any old Java versions or install Temurin 21 from step 1.
+
+The game is slow or choppy on a Windows laptop:
+    many laptops have two graphics chips and give Java the slower one.
+    Open Settings > System > Display > Graphics, click "Browse" (or
+    "Add desktop app"), pick java.exe - usually in
+    C:\Program Files\Eclipse Adoptium\jdk-21...\bin (or jre-21...) -
+    then click it, choose Options > High performance, and restart the
+    game. Updating the graphics driver helps too.
+
+A message about OpenGL, or a black window:
+    update the graphics driver (from NVIDIA, AMD or Intel's website, or
+    Windows Update). The game needs OpenGL 3.3.
+
+The Mac says "Play on Mac" can't be opened:
+    see step 3. Or open the Terminal app and type (with your folder):
+      cd ~/Downloads/Larsons-Game
+      java -jar larsons-game.jar
+
+Start over with fresh settings:
+    delete the "config" folder inside the Larsons-Game folder.
+
+Have fun!

@@ -14,7 +14,7 @@ Everything is drawn on the GPU with OpenGL.
 This README is also the plan: each task is a set of chunks, and each chunk is
 ticked off as it lands.
 
-- [Quick start](#quick-start)
+- [Quick start](#quick-start) (and [sharing the game](#sharing-the-game))
 - [The loading screen](#the-loading-screen)
 - [Controls](#controls)
 - [What's in the demo](#whats-in-the-demo)
@@ -55,13 +55,63 @@ last decade). Gradle comes with the repository.
 ./gradlew run           # the same game, letting the OS pick the GPU
 ./gradlew test          # unit tests — no GPU needed
 ./gradlew sampleSprites # a stand-in sprite set in build/sample-sprites/ to try the importer on
-./gradlew gameJar       # build/libs/larsons-game.jar, LWJGL included (put assets/ beside it)
+./gradlew gameJar       # build/libs/larsons-game.jar: LWJGL and its natives for Windows, macOS, Linux (assets/ beside it)
+./gradlew shareZip      # build/distributions/Larsons-Game.zip: the game to send to friends (see below)
 ```
 
 The main menu has three tabs: **Play** (the demo, a meadow below the
 highlands), **Cutscene** (the menu's cutscene, played on its own) and **Dev**,
 which shows only once **1025** has been typed on the menu (either row of
 digits) and holds [Creative Mode](#creative-mode), the level editor.
+
+## Sharing the game
+
+```bash
+./gradlew shareZip      # build/distributions/Larsons-Game.zip, about 4.2 GB
+./gradlew shareFolder   # the same, unzipped, in build/share/Larsons-Game (to try it first)
+./gradlew shareZip -x spritePack   # only the code changed: keep the last pack (packing takes minutes)
+```
+
+The zip is the game for people who never open a terminal: one folder,
+`Larsons-Game/`, to unzip and double-click. All they need is **Java 21** or
+newer (free: [Temurin](https://adoptium.net/temurin/releases/?version=21)),
+and `HOW TO PLAY.txt` walks them through it.
+
+| In `Larsons-Game/` | |
+|---|---|
+| `Play on Windows.bat`, `Play on Mac.command`, `Play on Linux.sh` | double-click to play: each finds a Java 21 or newer (or says how to get one and opens the download page), starts the jar, and if the game stops with an error, says which log to send |
+| `HOW TO PLAY.txt` | installing Java, unzipping, starting it (and getting past Windows' and macOS's warnings for files from the internet), the controls, what to send as feedback, and what to try when something goes wrong |
+| `larsons-game.jar` | the game, LWJGL and its natives for Windows, macOS and Linux, x64 and ARM64 (5.5 MB) |
+| `assets/` | the assets folder as it is, but for the sprites folders, which are... |
+| `assets/sprites.pack` | ...`sprites/`, `sprites_masculine/` and `animations_v1/` in one file |
+
+**Why a pack.** The sprites folders are some two million small PNGs - 3.7 GB,
+far too many files for Windows' own unzip, which writes them out one by one
+for hours. So the
+share build stores them, as they are and under the same paths, in one
+uncompressed zip (`tools/PackSprites`, a few minutes), and the game reads
+them out of it in place through Java's zip file system (`core/SpritePack`):
+a sheet in the pack is an ordinary `Path` (`/sprites/hair/bob_px128/...`), so
+the index, the bodies' folders and the classic animations work as they do
+from folders. A real `assets/sprites/` folder always wins, so the repository
+runs exactly as before. In a packed copy, sprite sheets dropped on the window
+are not imported (there is no folder to put them in); everything else is
+written where it always is (`config/`, `screenshots/`, Creative Mode's
+levels in `assets/levels/`). The zip file system keeps the pack's index in
+memory - about half a gigabyte of the heap for two million entries.
+
+**The jar sets itself up** (`core/Launcher`). Started from its jar - by a
+launcher, `java -jar`, or a double-click, none of which can pass the JVM a
+flag - the game relaunches itself once in a child JVM with what `runGpu`
+gives it: a heap of 60 % of the machine, ZGC, headless AWT, on macOS
+`-XstartOnFirstThread` (which a manifest cannot ask for), `larsons.gpu=required`,
+4x MSAA and Linux's discrete-GPU hint. It runs in the jar's folder, so
+`assets/`, `config/` and `screenshots/` are the ones beside it wherever it was
+started from, and what it prints goes to `logs/latest.log` there too (the
+run before: `logs/previous.log`) - the file to ask for with a bug report.
+Anything on the command line wins (`java -Xmx4g -Dlarsons.sprites.scale=0.5
+-jar larsons-game.jar`); `-Dlarsons.launch.relaunch=false` runs it in the
+JVM it was started in. Under Gradle and IntelliJ nothing changes.
 
 ## The loading screen
 
@@ -2223,14 +2273,15 @@ Launch options, all forwarded by Gradle like the engine's `-Dlarsons.*` flags:
 
 ```
 src/main/java/com/larsons/game/
-  Main.java                 entry point (headless AWT, macOS first-thread relaunch)
+  Main.java                 entry point (headless AWT, the jar's relaunch)
   core/                     Game (window, loop, overlays), Boot and LoadingScreen (what loads as the game starts,
-                            and the screen that shows it), FramePacer, Settings, Scene, Autopilot, Screenshot
+                            and the screen that shows it), FramePacer, Settings, Scene, Autopilot, Screenshot,
+                            Launcher (the jar's relaunch, set up as runGpu), SpritePack (a shared copy's sprites)
   audio/                    the engine's sound system: Mp3Decoder, Mp3Tables, PcmClip, SoundLoader, SoundMixer,
                             Sounds, SoundPack, SoundKeys, SoundCategory, SoundDef, SoundStore; the hooks:
                             AnimationSound, SoundEmitter, WorldSounds; Music (a scene's song, faded in and out)
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
-                            GpuInfo
+                            GpuInfo, Images (a PNG from any Path, the sprite pack's too)
   math/                     Vec3, Mat4
   input/                    Input — keys, mouse, typed text, dropped files
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
@@ -2265,7 +2316,7 @@ src/main/java/com/larsons/game/
                             LevelIO (its folder), Interiors (each kind of building's floors as it comes)
   editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
-  tools/                    SampleSprites
+  tools/                    SampleSprites, PackSprites (the sprites folders into one sprites.pack)
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
                             the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
@@ -2276,6 +2327,8 @@ assets/buildings/           the buildings and the furniture: a folder each (prof
 assets/levels/              Creative Mode's levels, a folder each (level.json, height.png, ground.png)
 assets/sounds/              the sound pack: the placeholder sounds by category and object, the music,
                             SOUND_KEYS.txt
+dist/                       the shared copy's launchers (Play on Windows.bat, Play on Mac.command, Play on
+                            Linux.sh) and HOW TO PLAY.txt, for ./gradlew shareZip
 tools/sounds/               make_placeholders.py: the placeholder sounds, made in code
 music/                      the songs' MIDI files, for FL Studio (one a song: <song>_medieval.mid)
 tools/music/                the songs' arrangements in code (one script a song) and their toolkit (medieval.py, arrange.py)

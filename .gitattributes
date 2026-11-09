@@ -1,0 +1,6 @@
+# The launchers and instructions in dist/ (the copy of the game to share) need
+# their own system's line endings, whatever the checkout's.
+dist/*.bat text eol=crlf
+dist/*.txt text eol=crlf
+dist/*.command text eol=lf
+dist/*.sh text eol=lf

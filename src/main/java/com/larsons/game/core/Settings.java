@@ -45,6 +45,8 @@ public final class Settings {
     public final long vramBytes;
     public final Path assets;
     public final Path config;
+    /** Where the sprites folders are: {@link #assets}, or the root of its sprite pack (found on first use). */
+    private Path spriteRoot;
     public final String start;
     public final String script;
     /** How many slots the player's inventory has, the hotbar's five included. */
@@ -219,9 +221,14 @@ public final class Settings {
         return assets.resolve("levels");
     }
 
-    /** {@code assets/sprites}. */
-    public Path spritesDir() {
-        return assets.resolve("sprites");
+    /**
+     * {@code assets/sprites} - or, in a shared copy of the game, {@code
+     * /sprites} inside {@code assets/sprites.pack} ({@link SpritePack}), with
+     * the bodies' folders and the classic animations beside it there.
+     */
+    public synchronized Path spritesDir() {
+        if (spriteRoot == null) spriteRoot = SpritePack.rootFor(assets);
+        return spriteRoot.resolve("sprites");
     }
 
     /** {@code assets/scenery}: the trees, grass tufts and rocks, and the ground's grass. */

@@ -2,7 +2,7 @@ package com.larsons.game;
 
 import com.larsons.game.core.Boot;
 import com.larsons.game.core.Game;
-import com.larsons.game.core.MacLauncher;
+import com.larsons.game.core.Launcher;
 import com.larsons.game.core.Settings;
 
 /**
@@ -12,6 +12,7 @@ import com.larsons.game.core.Settings;
  *   ./gradlew runGpu          # what the IntelliJ "Run Game (GPU)" profile runs
  *   ./gradlew run             # the same game, OS picks the GPU
  *   ./gradlew gameJar && java -jar build/libs/larsons-game.jar
+ *   ./gradlew shareZip        # the copy to share: build/distributions/Larsons-Game.zip
  * </pre>
  */
 public final class Main {
@@ -24,7 +25,8 @@ public final class Main {
         // the first thread on macOS, which GLFW needs, and must be settled
         // before anything touches a BufferedImage.
         System.setProperty("java.awt.headless", "true");
-        if (MacLauncher.relaunchIfNeeded(args)) return;
+        // From the jar: once more, in a JVM set up as the build sets it up (core/Launcher)
+        if (Launcher.relaunchIfNeeded(args)) return;
 
         Settings settings = Settings.load();
         Game game;
