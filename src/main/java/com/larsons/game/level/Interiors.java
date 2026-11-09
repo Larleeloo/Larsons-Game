@@ -51,6 +51,135 @@ public final class Interiors {
         return l;
     }
 
+    // --- a room made bigger or smaller -------------------------------------------------------
+
+    /** The smallest a room's floor can be, metres a side. */
+    public static final double MIN_ROOM = 2;
+    /** How near its wall a thing's edge is to move with the wall, metres. */
+    static final double AGAINST = 0.5;
+
+    /**
+     * Floor {@code floor} (on {@code level}) made {@code width} across and
+     * {@code depth} deep, as in the Sims: the walls round it go out (or in)
+     * with its edges, and stretch along them - their doorways and windows
+     * kept their own size, the door out kept its own gap - its inner walls
+     * and what stands in it spread out, what stands against a wall moved with
+     * that wall. What stands off the floor is left where it is.
+     */
+    public static void resize(Level level, LevelObject floor, double width, double depth) {
+        Room.Spec spec = ObjectTypes.roomSpec(floor);
+        if (spec == null || spec.piece() != Room.Piece.FLOOR) return;
+        double most = level.size() - 2;
+        width = Math.max(MIN_ROOM, Math.min(most, width));
+        depth = Math.max(MIN_ROOM, Math.min(most, depth));
+        double t = Room.THICK;
+        // the lines its walls stand on, from the middle - now and to be
+        double hw = spec.length() / 2 - t / 2, hd = spec.depth() / 2 - t / 2;
+        double nhw = width / 2 - t / 2, nhd = depth / 2 - t / 2;
+        double c = Math.cos(floor.yaw()), sn = Math.sin(floor.yaw());
+        double fx = floor.x(), fz = floor.z();
+        // the doors out first: the walls either side of each keep its gap
+        List<double[]> exits = new ArrayList<>();   // {u, v, new u, new v}
+        for (LevelObject o : level.objects()) {
+            if (!o.type().equals(ObjectTypes.EXIT)) continue;
+            double[] m = local(o.x() - fx, o.z() - fz, c, sn);
+            if (Math.abs(m[0]) > hw + 0.6 || Math.abs(m[1]) > hd + 0.6) continue;
+            exits.add(new double[]{m[0], m[1], along(m[0], hw, nhw), along(m[1], hd, nhd)});
+        }
+        for (LevelObject o : level.objects()) {
+            if (o == floor) continue;
+            double[] m = local(o.x() - fx, o.z() - fz, c, sn);
+            double u = m[0], v = m[1];
+            if (Math.abs(u) > hw + 0.6 || Math.abs(v) > hd + 0.6) continue;     // not in this room
+            double nu, nv;
+            Room.Spec ws = o.type().equals(ObjectTypes.WALL) ? ObjectTypes.roomSpec(o) : null;
+            double rel = o.yaw() - floor.yaw();
+            boolean acrossU = Math.abs(Math.cos(rel)) > 0.9, acrossV = Math.abs(Math.sin(rel)) > 0.9;
+            if (ws != null && (acrossU || acrossV)) {
+                // a length of wall: its two ends moved, so it stretches with the room
+                double run = acrossU ? u : v, side = acrossU ? v : u;
+                double h = acrossU ? hw : hd, nh = acrossU ? nhw : nhd;
+                double hs = acrossU ? hd : hw, nhs = acrossU ? nhd : nhw;
+                double a = run - ws.length() / 2, b = run + ws.length() / 2;
+                double na = end(a, h, nh, side, acrossU, exits), nb = end(b, h, nh, side, acrossU, exits);
+                double nside = along(side, hs, nhs);
+                double len = Math.max(0.3, nb - na);
+                o.set("length", Math.round(len * 1000) / 1000.0);
+                double mid = (na + nb) / 2;
+                nu = acrossU ? mid : nside;
+                nv = acrossU ? nside : mid;
+            } else if (o.type().equals(ObjectTypes.EXIT)) {
+                nu = along(u, hw, nhw);
+                nv = along(v, hd, nhd);
+            } else {
+                double r = reach(o);
+                nu = place(u, r, hw, nhw);
+                nv = place(v, r, hd, nhd);
+            }
+            double[] w = world(nu, nv, c, sn);
+            o.moveTo(Math.round((fx + w[0]) * 1000) / 1000.0, Math.round((fz + w[1]) * 1000) / 1000.0);
+        }
+        floor.set("width", Math.round(width * 1000) / 1000.0);
+        floor.set("depth", Math.round(depth * 1000) / 1000.0);
+    }
+
+    /** {@code (dx, dz)} from a floor's middle in its own metres: across it, and from its back to its front. */
+    private static double[] local(double dx, double dz, double c, double s) {
+        return new double[]{-dx * c + dz * s, dx * s + dz * c};    // (as a building's own metres are)
+    }
+
+    private static double[] world(double u, double v, double c, double s) {
+        return new double[]{-u * c + v * s, u * s + v * c};
+    }
+
+    /**
+     * Where a point {@code p} along a room's {@code h} (its wall's line from
+     * the middle) goes when that is {@code nh}: on (or past) the wall it
+     * moves with it, inside it spreads out - the ends of the side walls, half
+     * a wall in from the line, landing half a wall in from the new one.
+     */
+    static double along(double p, double h, double nh) {
+        double in = h - Room.THICK / 2, nin = nh - Room.THICK / 2;
+        if (Math.abs(p) >= in - 1e-6) return p + Math.signum(p) * (nh - h);
+        return in <= 0 ? p : p * nin / in;
+    }
+
+    /**
+     * Where a thing standing at {@code p}, reaching {@code r} out from
+     * there, goes: against a wall (within {@link #AGAINST} of it) it keeps
+     * to it, else it spreads out with the room.
+     */
+    static double place(double p, double r, double h, double nh) {
+        double face = h - Room.THICK / 2;
+        if (Math.abs(p) + r > face - AGAINST) return p + Math.signum(p) * (nh - h);
+        return h <= 0 ? p : p * nh / h;
+    }
+
+    /** How far {@code o} reaches out from where it stands, metres: a piece of furniture its footprint. */
+    static double reach(LevelObject o) {
+        BuildingProfile p = o.type().equals(ObjectTypes.BUILDING)
+                ? ObjectTypes.sized(o, BuildingCatalog.get().profile(o.str("kind", ""))) : null;
+        if (p == null || p.footprint().isEmpty()) return 0.3;
+        double r = 0;
+        for (BuildingProfile.Shape s : p.footprint()) {
+            double hw = s.circle() ? s.w() : s.w() / 2, hd = s.circle() ? s.w() : s.d() / 2;
+            r = Math.max(r, Math.max(Math.abs(s.x()) + hw, Math.abs(s.y()) + hd));
+        }
+        return Math.min(r, 3);
+    }
+
+    /** A wall's end at {@code p} along its run: next to a door out it keeps the door's gap, else {@link #along}. */
+    private static double end(double p, double h, double nh, double side, boolean acrossU, List<double[]> exits) {
+        for (double[] e : exits) {
+            double eRun = acrossU ? e[0] : e[1], eSide = acrossU ? e[1] : e[0];
+            double nRun = acrossU ? e[2] : e[3];
+            if (Math.abs(eSide - side) > 0.3) continue;
+            if (Math.abs(p - (eRun - Room.EXIT_W / 2)) < 0.06) return nRun - Room.EXIT_W / 2;
+            if (Math.abs(p - (eRun + Room.EXIT_W / 2)) < 0.06) return nRun + Room.EXIT_W / 2;
+        }
+        return along(p, h, nh);
+    }
+
     /** The headings: facing north, south, east, west. */
     static final double NORTH = 0, SOUTH = Math.PI, EAST = -Math.PI / 2, WEST = Math.PI / 2;
 

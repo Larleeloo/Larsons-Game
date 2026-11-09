@@ -433,9 +433,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         boolean press = in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && !overUi;
         boolean held = in.mouseDown(GLFW_MOUSE_BUTTON_LEFT);
         switch (pointer ? Tool.SELECT : tool) {
-            case PLACE -> {
-                if (press && cursor != null && level.contains(cursor.x(), cursor.z())) place(at(cursor));
-            }
+            case PLACE -> placeTool(press, held, shift);
             case SELECT -> selectTool(press, held, shift, mx, my);
             case SCULPT -> sculptTool(press, held, shift, ctrl, dt);
             case PAINT -> paintTool(press, held, shift, dt);
@@ -446,7 +444,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (!held) stroking = false;
         boolean ghost = tool == Tool.PLACE && !pointer && !overUi && cursor != null && template != null
                 && level.contains(cursor.x(), cursor.z());
-        if (ghost) {
+        if (drawFrom != null && cursor != null && template != null) {
+            // a wall or a room being drawn: as it will be when let go
+            view.setGhost(drawn(drawFrom, drawTo(shift)));
+        } else if (ghost) {
             Vec3 at = at(cursor);
             LevelObject g = template.copy().moveTo(at.x(), at.z());
             // vines show where they will hang: on the face under the pointer
@@ -569,6 +570,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (tool == Tool.LEVEL) preview.pause();
         tool = t;
         pointer = false;
+        drawFrom = null;
         moving = boxing = stroking = false;
         widgets.stopTyping();
     }
@@ -641,6 +643,106 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     // --- placing and selecting ------------------------------------------------------------------
+
+    // --- drawing walls and rooms, as in the Sims -------------------------------------------------
+
+    /** Where a wall or a room being drawn started (the left button down there), or null: none. */
+    private Vec3 drawFrom;
+    /** Whether a room drawn (a floor dragged out) gets four walls round it. */
+    private boolean roomWalls = true;
+
+    /** Whether what is being placed is drawn by dragging: a wall from end to end, a floor corner to corner. */
+    private boolean draws() {
+        return template != null && (template.type().equals(ObjectTypes.WALL)
+                || template.type().equals(ObjectTypes.FLOOR));
+    }
+
+    /**
+     * The Place tool: a click places what is chosen; a wall or a floor can
+     * also be drawn - pressed at one end (or corner), dragged, let go at the
+     * other - its length (or size) whatever it is dragged to.
+     */
+    private void placeTool(boolean press, boolean held, boolean shift) {
+        boolean inside = cursor != null && level.contains(cursor.x(), cursor.z());
+        if (!draws()) {
+            drawFrom = null;
+            if (press && inside) place(at(cursor));
+            return;
+        }
+        if (press && inside) drawFrom = gridPoint(cursor);
+        if (drawFrom == null || held) return;
+        Vec3 to = drawTo(shift);
+        Vec3 from = drawFrom;
+        drawFrom = null;
+        if (template.type().equals(ObjectTypes.WALL) ? Math.hypot(to.x() - from.x(), to.z() - from.z()) < 0.4
+                : Math.abs(to.x() - from.x()) < 0.9 || Math.abs(to.z() - from.z()) < 0.9) {
+            place(at(from));                       // a click: as it is set
+            return;
+        }
+        undo.before(level, Undo.Part.OBJECTS, template.type().equals(ObjectTypes.WALL) ? "Draw a wall" : "Draw a room");
+        LevelObject made = level.add(drawn(from, to).copy(level.nextId()));
+        selection.clear();
+        if (template.type().equals(ObjectTypes.FLOOR) && roomWalls) {
+            // the four walls round it, the north and south reaching over the corners
+            double x0 = Math.min(from.x(), to.x()), x1 = Math.max(from.x(), to.x());
+            double z0 = Math.min(from.z(), to.z()), z1 = Math.max(from.z(), to.z());
+            double mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, t = Room.THICK;
+            roomWall(mx, z0, x1 - x0 + t, Math.PI);
+            roomWall(mx, z1, x1 - x0 + t, 0);
+            roomWall(x0, mz, z1 - z0 - t, -Math.PI / 2);
+            roomWall(x1, mz, z1 - z0 - t, Math.PI / 2);
+            game.toast("A room drawn: its floor and four walls · click a wall to give it a doorway", Theme.HINT);
+        }
+        if (made != null) selection.add(made);
+        changed();
+        Sounds.play(SoundKeys.ui("place"));
+    }
+
+    /** A plain wall {@code length} long standing at {@code (x, z)}, facing {@code yaw}, as high as a storey. */
+    private void roomWall(double x, double z, double length, double yaw) {
+        Map<String, Object> props = new LinkedHashMap<>();
+        props.put("length", Math.round(length * 1000) / 1000.0);
+        props.put("height", Room.STOREY);
+        props.put("opening", "none");
+        level.add(ObjectTypes.WALL, x, z, yaw, props);
+    }
+
+    /** {@code p} on the drawing grid: a quarter metre (or the snapping grid, when snapping). */
+    private Vec3 gridPoint(Vec3 p) {
+        double g = snap ? GRID : 0.25;
+        return new Vec3(Math.round(p.x() / g) * g, p.y(), Math.round(p.z() / g) * g);
+    }
+
+    /** Where what is being drawn ends: at the pointer - a wall straight or at 45° unless Shift is held. */
+    private Vec3 drawTo(boolean free) {
+        if (cursor == null) return drawFrom;
+        double h = level.half();
+        Vec3 to = gridPoint(new Vec3(Math.max(-h, Math.min(h, cursor.x())), 0, Math.max(-h, Math.min(h, cursor.z()))));
+        if (free || !template.type().equals(ObjectTypes.WALL)) return to;
+        double dx = to.x() - drawFrom.x(), dz = to.z() - drawFrom.z();
+        double a = Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) * (Math.PI / 4), len = Math.hypot(dx, dz);
+        if (Math.abs(Math.cos(a)) > 0.9 || Math.abs(Math.sin(a)) > 0.9) {
+            len = Math.round(len / 0.25) * 0.25;
+        }
+        return new Vec3(drawFrom.x() + Math.cos(a) * len, 0, drawFrom.z() + Math.sin(a) * len);
+    }
+
+    /** What is chosen drawn from {@code a} to {@code b}: a wall end to end, a floor corner to corner. */
+    private LevelObject drawn(Vec3 a, Vec3 b) {
+        LevelObject o = template.copy();
+        double dx = b.x() - a.x(), dz = b.z() - a.z();
+        if (o.type().equals(ObjectTypes.WALL)) {
+            // as long as it is drawn, half a wall more at each end so two drawn to a corner meet in it
+            double len = Math.max(0.5, Math.hypot(dx, dz) + Room.THICK);
+            o.set("length", Math.round(len * 1000) / 1000.0);
+            if (Math.hypot(dx, dz) > 0.01) o.turnTo(Math.atan2(dz, -dx));
+        } else {
+            o.set("width", Math.round((Math.abs(dx) + Room.THICK) * 1000) / 1000.0);
+            o.set("depth", Math.round((Math.abs(dz) + Room.THICK) * 1000) / 1000.0);
+            o.turnTo(0);
+        }
+        return o.moveTo((a.x() + b.x()) / 2, (a.z() + b.z()) / 2);
+    }
 
     private LevelObject place(Vec3 at) {
         if (template == null) return null;
@@ -1322,6 +1424,19 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (cursor != null && !hideUi || cursor != null && scriptedCursor != null) {
             if (pointer) {
                 // a plain pointer: no brush, no ghost
+            } else if (drawFrom != null && template != null) {
+                // drawing: the line (or the room's outline) dragged out
+                Vec3 to = drawTo(game.window().input().down(GLFW_KEY_LEFT_SHIFT));
+                if (template.type().equals(ObjectTypes.WALL)) {
+                    gizmos.line(drawFrom.x(), drawFrom.z(), to.x(), to.z(), 0.1, 0x8CF08C, 0.95f);
+                } else {
+                    double x0 = drawFrom.x(), x1 = to.x(), z0 = drawFrom.z(), z1 = to.z();
+                    int c = roomWalls ? 0xFFE08A : 0x8CF08C;
+                    gizmos.line(x0, z0, x1, z0, 0.1, c, 0.95f);
+                    gizmos.line(x1, z0, x1, z1, 0.1, c, 0.95f);
+                    gizmos.line(x1, z1, x0, z1, 0.1, c, 0.95f);
+                    gizmos.line(x0, z1, x0, z0, 0.1, c, 0.95f);
+                }
             } else if (brushTool()) {
                 int bc = tool == Tool.SCULPT ? 0xFFE08A : tool == Tool.PAINT ? 0x9CE07A
                         : tool == Tool.WATER ? 0x5FA8FF : 0x7FD0FF;
@@ -1575,10 +1690,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         game.switchTo(outside);
     }
 
+    /** What is being drawn, and how big. */
+    private String drawingHelp() {
+        Vec3 to = drawTo(game.window().input().down(GLFW_KEY_LEFT_SHIFT));
+        double dx = Math.abs(to.x() - drawFrom.x()), dz = Math.abs(to.z() - drawFrom.z());
+        if (template.type().equals(ObjectTypes.WALL)) {
+            return String.format("A wall %.2f m long · let go to build it · Shift: any angle", Math.hypot(dx, dz));
+        }
+        return String.format("A room %.2f × %.2f m%s · let go to build it", dx, dz, roomWalls ? ", walls round it" : "");
+    }
+
     private void help(Ui ui) {
         String h = pointer ? "Pointer: click to pick · Shift+click: add · drag: move · Del: delete · R / Q / E: turn · "
                 + "right-click: back to " + tool.label : switch (tool) {
-            case PLACE -> "Click: place · R / Shift+R: turn 15° · Q / E: turn 45° · PgUp / PgDn: lift · G: snap to grid";
+            case PLACE -> drawFrom != null ? drawingHelp()
+                    : draws() ? "Drag: draw it, end to end (a floor: corner to corner) · click: place it as set · "
+                    + "R / Q / E: turn · G: snap to grid"
+                    : "Click: place · R / Shift+R: turn 15° · Q / E: turn 45° · PgUp / PgDn: lift · G: snap to grid";
             case SELECT -> "Click: select · Shift+click: add · drag: move · drag on the ground: box · Del: delete · "
                     + "Ctrl+D: duplicate · Ctrl+C / V: copy, paste · R / Q / E: turn · F: fly to it";
             case SCULPT -> "Hold the left button: sculpt · Shift: the other way · Ctrl+click: take the height to "
@@ -3128,6 +3256,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             py = heading(ui, "Placing", px, py);
             ui.text(ui.body, Ui.fit(ui.body, templateLabel, pw), px, py, Theme.TITLE);
             py += 32;
+            if (draws()) {
+                py += ui.paragraph(ui.small, template.type().equals(ObjectTypes.WALL)
+                        ? "Drag on the ground to draw a wall end to end, as long as you drag it"
+                        : "Drag on the ground to draw a room, corner to corner", px, py, pw, Theme.HINT) + 6;
+                if (template.type().equals(ObjectTypes.FLOOR)) {
+                    roomWalls = widgets.toggle(ui, "Walls round it", roomWalls, px, py, pw);
+                    py += Widgets.ROW + 8;
+                }
+            }
             properties(ui, template, false, px, py, pw);
             return;
         }
@@ -3186,6 +3323,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "kept as it is and saved again.", x, y, w, Theme.WARNING);
             return;
         }
+        if (placed && o.type().equals(ObjectTypes.FLOOR)) {
+            wallsFollow = widgets.toggle(ui, "Walls follow", wallsFollow, x, y, w);
+            y += r;
+        }
         for (ObjectType.Prop p : type.props()) {
             if (!ObjectTypes.applies(o, p)) continue;
             Object v = p.value(o);
@@ -3194,7 +3335,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     double cur = v instanceof Number n ? n.doubleValue() : 0;
                     double nv = widgets.stepper(ui, p.label(), cur, p.step(), p.min(), p.max(),
                             p.step() < 1 ? "%.2f" : "%.0f", x, y, w);
-                    if (nv != cur) edit(o, p.label(), () -> o.set(p.key(), nv));
+                    boolean room = placed && wallsFollow && o.type().equals(ObjectTypes.FLOOR)
+                            && (p.key().equals("width") || p.key().equals("depth"));
+                    if (nv != cur && room) {
+                        // a room's floor: its walls, and what stands against them, go out or in with it
+                        boolean across = p.key().equals("width");
+                        edit(o, "Room size", () -> Interiors.resize(level, o, across ? nv : o.num("width", 4),
+                                across ? o.num("depth", 4) : nv));
+                    } else if (nv != cur) {
+                        edit(o, p.label(), () -> o.set(p.key(), nv));
+                    }
                 }
                 case TEXT -> {
                     String cur = String.valueOf(v);
@@ -3448,6 +3598,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
     }
 
+    /** Whether a room's walls (and what stands against them) go out and in with its floor when it is resized. */
+    private boolean wallsFollow = true;
+
     /** The look copied (Copy look), what it was copied from, and its name - or null: none. */
     private BuildingLook copiedLook;
     private BuildingProfile copiedFrom;
@@ -3551,6 +3704,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         switch (command) {
             case "tool" -> setTool(Tool.valueOf(argument.trim().toUpperCase()));
             case "pointer" -> setPointer(!argument.trim().equals("off"));
+            case "draw" -> {
+                // draw x0 z0 x1 z1: a wall (or a room) drawn with what is chosen, as a drag from one to the other
+                if (!draws() || a.length < 4) return false;
+                drawFrom = gridPoint(new Vec3(Double.parseDouble(a[0]), 0, Double.parseDouble(a[1])));
+                scriptedCursor = new Vec3(Double.parseDouble(a[2]), 0, Double.parseDouble(a[3]));
+                cursor = view.terrain().onGround(scriptedCursor);
+                placeTool(false, false, true);
+                scriptedCursor = null;
+            }
             case "copylook", "pastelook" -> {
                 // copylook <id> | pastelook <id> [id …]: a building's look onto others
                 List<LevelObject> found = new ArrayList<>();
@@ -3934,6 +4096,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "inside" -> {
                 if (selection.size() == 1 && hasInside(selection.get(0))) editInside(selection.get(0));
                 else return false;
+            }
+            case "roomsize" -> {
+                // roomsize <width> <depth>: this floor's room (its first floor piece) resized, its walls following
+                List<LevelObject> fl = level.ofType(ObjectTypes.FLOOR);
+                if (fl.isEmpty() || a.length < 2) return false;
+                undo.before(level, Undo.Part.OBJECTS, "Room size");
+                Interiors.resize(level, fl.get(0), Double.parseDouble(a[0]), Double.parseDouble(a[1]));
+                changed();
             }
             case "floor" -> floor(Integer.parseInt(argument.trim()) - 1);
             case "addfloor" -> addFloor();
