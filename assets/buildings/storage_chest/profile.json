@@ -1,0 +1,45 @@
+{
+ "key": "storage_chest",
+ "label": "Chest (keeps things)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.866,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#8a5a30",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Iron bands",
+   "colour": "#4a4a50",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lock",
+   "label": "Lock",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.99,
+   0.605
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

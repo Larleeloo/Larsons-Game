@@ -1,0 +1,52 @@
+{
+ "key": "notice_board",
+ "label": "Notice board",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.15,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "board",
+   "label": "Board",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "paper",
+   "label": "Notices",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a4434",
+   "texture": "shingles",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.25,
+   0.25
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

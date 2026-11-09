@@ -1,0 +1,59 @@
+{
+ "key": "scarecrow",
+ "label": "Scarecrow",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.387,
+ "model": true,
+ "parts": [
+  {
+   "key": "pole",
+   "label": "Pole",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "cloth",
+   "label": "Coat",
+   "colour": "#6a5a8a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "sack",
+   "label": "Head",
+   "colour": "#d8c090",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "hat",
+   "label": "Hat",
+   "colour": "#4a3a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "straw",
+   "label": "Straw",
+   "colour": "#e0c060",
+   "texture": "thatch",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.132
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

@@ -1,0 +1,55 @@
+{
+ "key": "outhouse",
+ "label": "Outhouse",
+ "group": "building",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.35,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#8a6038",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a4434",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "moon",
+   "label": "Moon",
+   "colour": "#2a2420",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.625,
+   1.625
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -1.562
+ ],
+ "interior": false,
+ "anim": null
+}

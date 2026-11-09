@@ -1,0 +1,73 @@
+{
+ "key": "stable",
+ "label": "Stable",
+ "group": "building",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.575,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Back and side walls",
+   "colour": "#8a6038",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "posts",
+   "label": "Posts and stalls",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#7a5a3a",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "hay",
+   "label": "Hay",
+   "colour": "#d8b860",
+   "texture": "thatch",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Floor",
+   "colour": "#8e8a82",
+   "texture": "cobble",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   2.425,
+   11.25,
+   0.15
+  ],
+  [
+   "box",
+   -5.55,
+   0.0,
+   0.15,
+   5.0
+  ],
+  [
+   "box",
+   5.55,
+   0.0,
+   0.15,
+   5.0
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

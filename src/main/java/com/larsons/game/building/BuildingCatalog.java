@@ -53,13 +53,30 @@ public final class BuildingCatalog {
 
     /** The order the editor lists them in; any others after, by name. */
     static final List<String> ORDER = List.of("cottage", "house", "cabin", "windmill", "watermill", "keep",
-            "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire",
+            "castle_wall", "gatehouse", "round_tower", "square_tower", "turret", "spire", "waterwheel", "stable",
+            "outhouse",
             // the furniture
             "bed", "table", "chair", "bench", "stool", "bookshelf", "cupboard", "wardrobe", "fireplace", "counter",
-            "barrel", "crate", "pot", "large_pot", "shop_counter", "rug", "painting", "grandfather_clock", "banner",
-            "potted_plant", "alchemy_table", "boiler", "tesla_coil", "distiller", "cauldron",
+            "barrel", "crate", "pot", "large_pot", "storage_chest", "shop_counter", "rug", "painting",
+            "grandfather_clock", "banner", "potted_plant", "alchemy_table", "boiler", "tesla_coil", "distiller",
+            "cauldron", "side_table", "nightstand", "armchair", "settee", "rocking_chair", "footstool", "dresser",
+            "desk", "tall_shelves", "wall_shelf", "coat_rack",
+            // the kitchen and the bathroom
+            "stove", "bread_oven", "kitchen_sink", "prep_table", "pot_rack", "pantry_shelf", "dish_rack", "bathtub",
+            "washstand", "privy", "towel_rack", "mirror",
+            // on the walls, and to show things off
+            "deer_head", "boar_head", "bear_head", "crossed_swords", "weapon_rack", "armor_stand", "vase",
+            // plants in pots
+            "small_plant", "flower_pot", "cactus_pot", "fern_urn", "potted_tree", "hanging_planter", "window_box",
+            // the farm
+            "hay_bale", "round_bale", "haystack", "trough", "animal_pen", "wheat_field", "cabbage_patch",
+            "pumpkin_patch", "scarecrow", "chicken_coop", "beehive", "hand_cart",
+            // clutter
+            "book_stack", "tableware", "bottles", "grain_sacks", "apple_basket", "firewood", "bucket", "broom",
+            "farm_tools", "small_keg", "gem_pile", "berry_bowl", "meat_board",
             // the town's
             "market_stall", "market_stall_awning", "row_house", "shop_house", "workshop", "clocktower", "foundry",
+            "wishing_well", "fountain", "notice_board", "stocks", "market_cross", "planter", "statue",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
             "lantern_post");

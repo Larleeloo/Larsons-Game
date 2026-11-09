@@ -79,6 +79,8 @@ public final class BuildingProfile {
     private double modelHeight = Double.NaN;
     /** Whether it is only ever a 3D model: no views of it were drawn. */
     private boolean modelOnly;
+    /** A piece of furniture's shelf in the editor (kitchen, decor, plants, farm, clutter), or null: furniture. */
+    private String shelf;
     /** A light's fitting: where its flame is (its own metres: x, y, z up), or null. */
     private double[] flame;
     /** A light's fitting that stands on the ground (not hung up or set on something). */
@@ -190,6 +192,9 @@ public final class BuildingProfile {
     /** Whether it is only ever drawn as its 3D model (it has no views). */
     public boolean modelOnly() { return modelOnly; }
 
+    /** Where the editor files a piece of furniture: "kitchen", "decor", "plants", "farm", "clutter" - or null. */
+    public String shelf() { return shelf; }
+
     /** Whether it is the town's: a market stall, a town house, a workshop, a clock tower, a foundry. */
     public boolean town() { return group.equals(TOWN); }
 
@@ -236,6 +241,7 @@ public final class BuildingProfile {
                 depthStep * u, frames, parts, fp, dr, interior, anim);
         q.modelHeight = tallNow * tall;
         q.modelOnly = modelOnly;
+        q.shelf = shelf;
         q.stands = stands;
         q.flame = flame == null ? null : new double[]{flame[0] * wide, flame[1] * deep, flame[2] * tall};
         List<Step> st = new ArrayList<>();
@@ -313,6 +319,7 @@ public final class BuildingProfile {
                 Json.bool(o, "interior", false), anim);
         if (o.get("height") instanceof Number h) p.modelHeight = h.doubleValue();
         p.modelOnly = Json.bool(o, "model", false);
+        p.shelf = o.get("shelf") instanceof String sh ? sh : null;
         if (o.get("flame") instanceof List<?> f && f.size() >= 3) {
             p.flame = new double[]{((Number) f.get(0)).doubleValue(), ((Number) f.get(1)).doubleValue(),
                     ((Number) f.get(2)).doubleValue()};

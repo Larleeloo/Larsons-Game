@@ -1,0 +1,39 @@
+{
+ "key": "trough",
+ "label": "Water trough",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.605,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#5a8ab0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.98,
+   0.605
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

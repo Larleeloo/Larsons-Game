@@ -1,0 +1,38 @@
+{
+ "key": "berry_bowl",
+ "label": "Bowl of berries",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.131,
+ "model": true,
+ "parts": [
+  {
+   "key": "bowl",
+   "label": "Bowl",
+   "colour": "#8a5a30",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "berries",
+   "label": "Berries",
+   "colour": "#5a2a6a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "berries2",
+   "label": "Red berries",
+   "colour": "#b02a3a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

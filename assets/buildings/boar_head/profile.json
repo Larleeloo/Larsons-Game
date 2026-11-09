@@ -1,0 +1,45 @@
+{
+ "key": "boar_head",
+ "label": "Mounted boar head",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.389,
+ "model": true,
+ "parts": [
+  {
+   "key": "plaque",
+   "label": "Plaque",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "fur",
+   "label": "Bristles",
+   "colour": "#4a3a30",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dark",
+   "label": "Eyes and snout",
+   "colour": "#2a2420",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "tusks",
+   "label": "Tusks",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "decor"
+}

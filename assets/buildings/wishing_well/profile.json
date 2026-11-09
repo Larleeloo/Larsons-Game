@@ -1,0 +1,58 @@
+{
+ "key": "wishing_well",
+ "label": "Wishing well",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.275,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#8e8a82",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "wood",
+   "label": "Frame",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#7a4a34",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#3a6a9a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "bucket",
+   "label": "Bucket and rope",
+   "colour": "#8a6038",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   1.125
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

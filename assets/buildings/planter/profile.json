@@ -1,0 +1,59 @@
+{
+ "key": "planter",
+ "label": "Flower bed (stone)",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 0.92,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#a8a090",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "soil",
+   "label": "Soil",
+   "colour": "#4a3020",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Leaves",
+   "colour": "#4e8a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#e85a7a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers2",
+   "label": "More flowers",
+   "colour": "#f0d040",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.5,
+   1.25
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

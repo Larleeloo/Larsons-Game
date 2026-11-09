@@ -1,0 +1,45 @@
+{
+ "key": "window_box",
+ "label": "Window box (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.417,
+ "model": true,
+ "parts": [
+  {
+   "key": "box",
+   "label": "Box",
+   "colour": "#6a8a4a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Leaves",
+   "colour": "#4e8a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#e84a4a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers2",
+   "label": "More flowers",
+   "colour": "#f0e0a0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

@@ -1,0 +1,67 @@
+{
+ "key": "animal_pen",
+ "label": "Animal pen",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.21,
+ "model": true,
+ "parts": [
+  {
+   "key": "posts",
+   "label": "Posts",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "rails",
+   "label": "Rails",
+   "colour": "#8a6038",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   3.3,
+   6.6,
+   0.132
+  ],
+  [
+   "box",
+   -3.3,
+   0.0,
+   0.132,
+   6.6
+  ],
+  [
+   "box",
+   3.3,
+   0.0,
+   0.132,
+   6.6
+  ],
+  [
+   "box",
+   -2.09,
+   -3.3,
+   2.42,
+   0.132
+  ],
+  [
+   "box",
+   2.09,
+   -3.3,
+   2.42,
+   0.132
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

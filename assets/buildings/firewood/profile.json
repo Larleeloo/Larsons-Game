@@ -1,0 +1,39 @@
+{
+ "key": "firewood",
+ "label": "Pile of firewood",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.504,
+ "model": true,
+ "parts": [
+  {
+   "key": "logs",
+   "label": "Logs",
+   "colour": "#7a5030",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "ends",
+   "label": "Cut ends",
+   "colour": "#d0a868",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.99,
+   0.902
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

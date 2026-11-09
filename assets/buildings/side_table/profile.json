@@ -1,0 +1,37 @@
+{
+ "key": "side_table",
+ "label": "Side table",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.704,
+ "model": true,
+ "parts": [
+  {
+   "key": "top",
+   "label": "Top",
+   "colour": "#8a5a34",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "legs",
+   "label": "Legs",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.33
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

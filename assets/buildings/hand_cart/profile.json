@@ -1,0 +1,46 @@
+{
+ "key": "hand_cart",
+ "label": "Hand cart",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.935,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Bed",
+   "colour": "#9a6a40",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "wheels",
+   "label": "Wheels",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "load",
+   "label": "Load",
+   "colour": "#c8b088",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.32,
+   1.76
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

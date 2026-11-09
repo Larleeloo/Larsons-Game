@@ -1,0 +1,45 @@
+{
+ "key": "fern_urn",
+ "label": "Fern in an urn",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.061,
+ "model": true,
+ "parts": [
+  {
+   "key": "urn",
+   "label": "Urn",
+   "colour": "#b8b0a0",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Fronds",
+   "colour": "#3a7a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves2",
+   "label": "Young fronds",
+   "colour": "#6aa04a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.308
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

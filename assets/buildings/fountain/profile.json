@@ -1,0 +1,44 @@
+{
+ "key": "fountain",
+ "label": "Fountain",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.125,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#b8b0a0",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#5a9ac8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "bronze",
+   "label": "Spout",
+   "colour": "#7a6a3a",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   2.5
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

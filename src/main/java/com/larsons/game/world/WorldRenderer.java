@@ -279,7 +279,7 @@ public final class WorldRenderer implements AutoCloseable {
         shadowStrength = indoors ? 0.85f : (float) (0.55 + 0.45 * light.day());
         if (!p.mounted()) groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
-            if (!g.out(world.time())) continue;
+            if (!g.out(world.time()) || g.shown()) continue;          // (one set out for show casts none: it stands on things)
             Vec3 c = g.centre(world.time());
             double h = Math.max(0, c.y() - ground.height(c.x(), c.z()));
             groundShadow(new Vec3(c.x(), 0, c.z()), 0.30 * (1 - 0.15 * Math.min(2, h)),
@@ -399,7 +399,7 @@ public final class WorldRenderer implements AutoCloseable {
             if (!g.out(t)) continue;
             draws.add(() -> {
                 Vec3 c = g.centre(t);
-                batch.depthAnchor(ground.onGround(c));   // (the spot it hovers or flies over)
+                batch.depthAnchor(g.shown() ? g.position : ground.onGround(c));   // (the spot it hovers or flies over)
                 itemRenderer.draw(g, t, eye, camera.yaw(), right, up);
             });
             dist.add(g.centre(t).sub(eye).dot(forward));

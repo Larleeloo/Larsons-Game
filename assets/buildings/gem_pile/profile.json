@@ -1,0 +1,45 @@
+{
+ "key": "gem_pile",
+ "label": "Pile of gems",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.591,
+ "model": true,
+ "parts": [
+  {
+   "key": "rock",
+   "label": "Rock",
+   "colour": "#6a6470",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "gems",
+   "label": "Gems",
+   "colour": "#7ad0e8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "gems2",
+   "label": "Other gems",
+   "colour": "#c070d8",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.308
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

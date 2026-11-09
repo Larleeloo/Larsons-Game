@@ -27,7 +27,9 @@ public final class Store implements Target {
         CRATE("crate", "Crate", 12, 22, 0.36, 0.72, 24, 0.13),
         CHEST("chest", "Chest", 20, 40, Chest.RADIUS, 0.8, 30, 0.12),
         POT("pot", "Pot", 4, 6, 0.24, 0.5, 18, 0.08),
-        LARGE_POT("large_pot", "Large pot", 6, 10, 0.3, 0.85, 24, 0.1);
+        LARGE_POT("large_pot", "Large pot", 6, 10, 0.3, 0.85, 24, 0.1),
+        /** A weapon rack: the weapons put on it stand on it to be seen; it does not break. */
+        RACK("weapon_rack", "Weapon rack", 4, 0, 0.75, 1.6, 0, 0.1);
 
         private final String key, label;
         private final int slots, pieces;
@@ -75,6 +77,8 @@ public final class Store implements Target {
                 case "crate" -> CRATE;
                 case "pot" -> POT;
                 case "large_pot" -> LARGE_POT;
+                case "storage_chest" -> CHEST;
+                case "weapon_rack" -> RACK;
                 default -> null;
             };
         }
@@ -93,6 +97,8 @@ public final class Store implements Target {
     private final Inventory items;
     private double health, sinceHurt = Double.MAX_VALUE;
     private boolean broken;
+    /** What it held when it was last set out to be seen (a weapon rack's), for {@link World#showRacks}. */
+    String shownAs;
 
     /** {@code kind}, the level's object {@code id}, standing at {@code position}, its front to {@code heading}. */
     public Store(int id, Kind kind, Vec3 position, double heading) {

@@ -1,0 +1,45 @@
+{
+ "key": "wheat_field",
+ "label": "Wheat field",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.313,
+ "model": true,
+ "parts": [
+  {
+   "key": "soil",
+   "label": "Soil",
+   "colour": "#6a4a30",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "furrow",
+   "label": "Rows",
+   "colour": "#7a5a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "stalks",
+   "label": "Stalks",
+   "colour": "#c8a850",
+   "texture": "thatch",
+   "glow": false
+  },
+  {
+   "key": "ears",
+   "label": "Ears",
+   "colour": "#e0c070",
+   "texture": "thatch",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

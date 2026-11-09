@@ -1,0 +1,39 @@
+{
+ "key": "round_bale",
+ "label": "Round hay bale",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.43,
+ "model": true,
+ "parts": [
+  {
+   "key": "hay",
+   "label": "Hay",
+   "colour": "#d0b058",
+   "texture": "thatch",
+   "glow": false
+  },
+  {
+   "key": "ends",
+   "label": "Ends",
+   "colour": "#e0c878",
+   "texture": "thatch",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.21,
+   1.43
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

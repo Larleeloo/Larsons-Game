@@ -272,6 +272,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private double runHour;
     // --- the pointer, and what it is over
     private Vec3 cursor;
+    /** Where what is being placed would sit, when the pointer is over a table, a counter, a shelf's top; or null. */
+    private Vec3 surface;
     private LevelObject hover;
     private Vec3 scriptedCursor;
     private boolean hideUi;
@@ -428,6 +430,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         // --- what the pointer is over
         Picking.Ray ray = Picking.ray(camera, mx, my, game.ui().width(), game.ui().height());
         cursor = scriptedCursor != null ? view.terrain().onGround(scriptedCursor) : Picking.ground(ray, view.terrain());
+        surface = scriptedCursor == null && tool == Tool.PLACE && !pointer && !overUi ? surface(ray) : null;
         hover = overUi || brushTool() && !pointer ? null : pick(ray);
 
         // --- the tools
@@ -451,6 +454,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         } else if (ghost) {
             Vec3 at = at(cursor);
             LevelObject g = template.copy().moveTo(at.x(), at.z());
+            if (surface != null) {
+                g.moveTo(surface.x(), surface.z());
+                g.setLift(Math.max(0, surface.y() - view.terrain().height(surface.x(), surface.z())));
+            }
             // vines show where they will hang: on the face under the pointer
             if (g.type().equals(ObjectTypes.VINES) && g.bool("fit", true)) LevelWorld.fitVines(g, level.heights());
             view.setGhost(g);
@@ -745,10 +752,53 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return o.moveTo((a.x() + b.x()) / 2, (a.z() + b.z()) / 2);
     }
 
+    /**
+     * Whether what is chosen to place is small enough to set on things - an
+     * item for show, a potted plant, clutter, a candle, a lamp - so that,
+     * pointed at a table, it is set on its top.
+     */
+    private boolean setsOnThings() {
+        if (template == null) return false;
+        String type = template.type();
+        if (type.equals(ObjectTypes.SHOWN) || type.equals(ObjectTypes.ITEM)) return true;
+        if (!type.equals(ObjectTypes.BUILDING)) return false;
+        BuildingProfile p = BuildingCatalog.get().profile(template.str("kind", ""));
+        return p != null && p.furniture() && p.room() == null && ("clutter".equals(p.shelf())
+                || "plants".equals(p.shelf()) || p.height() < 0.6);
+    }
+
+    /**
+     * The top of the furniture the pointer is over - its middle where the
+     * pointer meets it, at the height of its top - for setting something
+     * small on; null when it is over none (or what is chosen is not small).
+     */
+    private Vec3 surface(Picking.Ray ray) {
+        if (!setsOnThings()) return null;
+        Building best = null;
+        double bestT = Double.MAX_VALUE;
+        for (Building b : view.world().buildings()) {
+            BuildingProfile p = b.profile();
+            if (b.id() == 0 || !p.furniture() || p.room() != null || p.height() > 2.2) continue;   // (0: the ghost)
+            double t = b.rayHit(ray.from(), ray.dir());
+            if (t >= 0 && t < bestT) {
+                bestT = t;
+                best = b;
+            }
+        }
+        if (best == null) return null;
+        Vec3 hit = ray.from().add(ray.dir().scale(bestT));
+        return new Vec3(hit.x(), best.position().y() + best.profile().height(), hit.z());
+    }
+
     private LevelObject place(Vec3 at) {
         if (template == null) return null;
         undo.before(level, Undo.Part.OBJECTS, "Place " + templateLabel);
         LevelObject o = template.copy(level.nextId()).moveTo(at.x(), at.z());
+        if (surface != null) {
+            // on the table it is pointed at, at the height of its top
+            o.moveTo(surface.x(), surface.z());
+            o.setLift(Math.max(0, surface.y() - view.terrain().height(surface.x(), surface.z())));
+        }
         if (o.type().equals(ObjectTypes.PREFAB) || o.type().equals(ObjectTypes.TEMPLATE)) {
             // a set, a template: each of its pieces placed as one of its own, all of them selected to move together
             // (a template's buildings with their floors inside, furnished as they were)

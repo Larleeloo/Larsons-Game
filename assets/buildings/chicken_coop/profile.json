@@ -1,0 +1,46 @@
+{
+ "key": "chicken_coop",
+ "label": "Chicken coop",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.002,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Boards",
+   "colour": "#9a6a40",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#6a4a34",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "posts",
+   "label": "Legs and ramp",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.76,
+   1.32
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

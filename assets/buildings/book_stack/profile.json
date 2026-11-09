@@ -1,0 +1,38 @@
+{
+ "key": "book_stack",
+ "label": "Pile of books",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.226,
+ "model": true,
+ "parts": [
+  {
+   "key": "books",
+   "label": "Books",
+   "colour": "#8a3a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "books2",
+   "label": "More books",
+   "colour": "#3a5a7a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "pages",
+   "label": "Pages",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

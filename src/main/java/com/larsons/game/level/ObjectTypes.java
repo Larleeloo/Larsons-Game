@@ -54,7 +54,8 @@ public final class ObjectTypes {
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
             CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
             RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
-            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template", SHOP = "shop";
+            WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template", SHOP = "shop",
+            SHOWN = "shown";
 
     /** The colours a placed light can be, by name, and what they are. */
     public static final Map<String, Integer> LIGHT_COLOURS = lightColours();
@@ -124,6 +125,8 @@ public final class ObjectTypes {
 
     /** The chest's sprites (assets/sprites/objects/). */
     public static final String CHEST_SPRITE = "ornate_chest";
+    /** The 3D chest a chest for keeping things in is. */
+    public static final String STORAGE_CHEST = "storage_chest";
 
     private static final Map<String, ObjectType> TYPES = new LinkedHashMap<>();
 
@@ -149,6 +152,15 @@ public final class ObjectTypes {
                             ? 1 : (int) Math.max(1, Math.round(o.num("count", 1)));
                     if (item != null) b.world().spawn(item, b.onGround(o), n);
                 }));
+        // an item set out for show - a joint of meat on a counter, berries in a dish, a gem on a shelf: it stands
+        // still, turned the way it is turned, without its glow, and is never picked up
+        register(new ObjectType(SHOWN, "Item for show", Category.CLUTTER,
+                List.of(Prop.choice("item", "Item", "bear_meat", o -> itemIds()),
+                        Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf)), 0.25, 0.4, 0xD8B080, false,
+                (o, b) -> {
+                    Item item = item(o);
+                    if (item != null) b.world().show(item, b.onGround(o), o.yaw());
+                }));
         // a chest: of loot (it throws out what the level's loot gives, once) or for keeping things in (Store)
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
                 List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE)),
@@ -156,6 +168,16 @@ public final class ObjectTypes {
                         Prop.text("contents", "Holds (e.g. apple x6, bread)", "")), Chest.RADIUS, 0.9,
                 0xC89A50, false,
                 (o, b) -> {
+                    // a chest for keeping things in is the 3D storage chest (a loot chest stays the sprite it was)
+                    if (!o.bool("loot", true) && BuildingCatalog.get().profile(STORAGE_CHEST) != null) {
+                        LevelObject as = o.copy(o.id()).set("kind", STORAGE_CHEST);
+                        Building building = building(as, b.terrain());
+                        b.world().addBuilding(building);
+                        Store s = new Store(o.id(), Store.Kind.CHEST, building.position(), o.yaw());
+                        s.fill(o.str("contents", ""));
+                        b.world().addStore(s);
+                        return;
+                    }
                     Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()));
                     if (o.bool("loot", true)) return;
                     Store s = new Store(o.id(), Store.Kind.CHEST, c.position(), o.yaw());
@@ -431,6 +453,22 @@ public final class ObjectTypes {
                 .withPassage(new Building.Passage(o.str("passage", "none"), o.str("to", ""), o.bool("hidden", false)));
     }
 
+    /** Where the palette files a building: furniture by the shelf it is kept on (kitchen, decor, plants…). */
+    static Category shelf(BuildingProfile p) {
+        if (!p.furniture()) return p.town() ? Category.TOWN : Category.BUILDINGS;
+        String sh = p.shelf();
+        if (sh == null) return Category.FURNITURE;
+        return switch (sh) {
+            case "kitchen", "bath" -> Category.KITCHEN;
+            case "decor" -> Category.DECOR;
+            case "plants" -> Category.PLANTS;
+            case "farm" -> Category.FARM;
+            case "clutter" -> Category.CLUTTER;
+            case "inside" -> Category.INSIDE;
+            default -> Category.FURNITURE;
+        };
+    }
+
     /** {@code o}'s kind, made the size it is set to ({@code width}, {@code depth}, {@code height}: times as it comes). */
     public static BuildingProfile sized(LevelObject o, BuildingProfile p) {
         if (p == null || p.room() != null) return p;
@@ -626,6 +664,14 @@ public final class ObjectTypes {
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
             out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
         }
+        // the clutter of the game's own things, set out for show: what is picked, hunted, mined
+        List<ItemDef> forShow = new ArrayList<>(Pickings.ALL);
+        forShow.addAll(com.larsons.game.world.Hunted.ALL);
+        forShow.add(com.larsons.game.world.Supplies.SMALL_CRYSTAL);
+        forShow.add(com.larsons.game.world.Supplies.LARGE_CRYSTAL);
+        for (ItemDef d : forShow) out.add(new Entry(d.name() + " (for show)", Category.CLUTTER, SHOWN,
+                Map.of("item", d.id())));
+        out.add(new Entry("Any item, for show", Category.CLUTTER, SHOWN, Map.of("item", "sword")));
         // ammunition, upgrade ingots, reshuffle scrolls, coins
         for (ItemDef d : com.larsons.game.world.Supplies.ALL) {
             out.add(new Entry(d.name(), Category.ITEMS, ITEM, d == com.larsons.game.world.Supplies.COINS
@@ -657,8 +703,8 @@ public final class ObjectTypes {
         for (String key : buildings.keys()) {
             BuildingProfile p = buildings.profile(key);
             if (p.fixture()) continue;                  // (a light's fitting: placed as a light)
-            out.add(new Entry(p.label(), p.furniture() ? Category.INSIDE : p.town() ? Category.TOWN
-                    : Category.BUILDINGS, BUILDING, Map.of("kind", key)));
+            if (key.equals(STORAGE_CHEST)) continue;    // (placed as a chest for keeping things in, below)
+            out.add(new Entry(p.label(), shelf(p), BUILDING, Map.of("kind", key)));
         }
         for (Prefab p : Prefab.ALL) {
             boolean all = true;

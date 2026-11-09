@@ -1,0 +1,45 @@
+{
+ "key": "hanging_planter",
+ "label": "Hanging planter (on a wall)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.343,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Bracket",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "basket",
+   "label": "Basket",
+   "colour": "#a07040",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Trailing leaves",
+   "colour": "#4e8a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#c870c8",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

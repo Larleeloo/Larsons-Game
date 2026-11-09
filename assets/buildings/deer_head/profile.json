@@ -1,0 +1,45 @@
+{
+ "key": "deer_head",
+ "label": "Mounted deer head",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.739,
+ "model": true,
+ "parts": [
+  {
+   "key": "plaque",
+   "label": "Plaque",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "fur",
+   "label": "Fur",
+   "colour": "#9a6a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dark",
+   "label": "Eyes and nose",
+   "colour": "#2a2420",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "antlers",
+   "label": "Antlers",
+   "colour": "#e0d0b0",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "decor"
+}

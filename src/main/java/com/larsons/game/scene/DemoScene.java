@@ -1423,7 +1423,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         ItemDef d = item.def();
         if ((d.isWearable() || d.isTack() ? p.inventory().stow(item) : p.inventory().add(item)) < 0) return false;
         world.items().stream().filter(g -> g.item.equals(item)).findFirst()
-                .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null).findFirst())
+                .or(() -> world.items().stream().filter(g -> g.def == d && g.source() == null && !g.shown()).findFirst())
                 .ifPresent(world.items()::remove);
         if (d.inHand()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
                 : d.carrySlot(), d.id());

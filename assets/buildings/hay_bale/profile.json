@@ -1,0 +1,39 @@
+{
+ "key": "hay_bale",
+ "label": "Hay bale",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.506,
+ "model": true,
+ "parts": [
+  {
+   "key": "hay",
+   "label": "Hay",
+   "colour": "#d8b860",
+   "texture": "thatch",
+   "glow": false
+  },
+  {
+   "key": "twine",
+   "label": "Twine",
+   "colour": "#8a6a3a",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.1,
+   0.55
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

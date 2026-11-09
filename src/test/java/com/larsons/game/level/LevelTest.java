@@ -5,7 +5,9 @@ import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.sprite.ScenerySprites;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.GroundMap;
+import com.larsons.game.math.Vec3;
 import com.larsons.game.world.Sky;
+import com.larsons.game.world.Store;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.World;
 import org.junit.jupiter.api.Test;
@@ -267,7 +269,12 @@ class LevelTest {
         assertEquals(3, w.stores().size(), "a cottage holds nothing, and a loot chest gives its loot");
         assertEquals(4, w.store(barrel.id()).items().amount(0));
         assertEquals(com.larsons.game.world.Store.Kind.CHEST, w.store(chest.id()).kind());
-        assertNotNull(w.chests().stream().filter(c -> c.store() != null).findFirst().orElse(null));
+        // the chest for keeping things in is the 3D storage chest; the loot chest is the sprite it always was
+        assertEquals(1, w.chests().size());
+        assertNull(w.chests().get(0).store());
+        assertEquals("storage_chest", w.building(chest.id()).key());
+        w.player().setPosition(new Vec3(0, 0, 3.2));
+        assertSame(w.store(chest.id()), w.reachableStore(), "opened from beside it");
         // what is asked in the properties panel: what it holds only where it holds anything
         ObjectType.Prop contents = ObjectTypes.get(ObjectTypes.CHEST).props().stream()
                 .filter(p -> p.key().equals("contents")).findFirst().orElseThrow();
@@ -276,6 +283,40 @@ class LevelTest {
         assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.label().equals("Storage chest")));
         LevelWorld.spawnAll(w, List.of(), l, w.terrain(), ScenerySprites.NONE, CombatTuning.defaults());
         assertTrue(w.stores().isEmpty(), "taken away with the rest");
+    }
+
+    @Test
+    void thingsSetOutForShowStayPutAndAWeaponRackShowsWhatItHolds() {
+        Level l = Level.blank("hall", 64);
+        LevelObject meat = l.add(ObjectTypes.SHOWN, 3, 0, 0.5, Map.of("item", "bear_meat"));
+        meat.setLift(0.9);                                             // (on a counter)
+        LevelObject rack = l.add(ObjectTypes.BUILDING, -3, 0, 0, Map.of("kind", "weapon_rack",
+                "contents", "sword, longbow"));
+        World w = new World(new Wardrobe());
+        LevelWorld.populate(w, l, ScenerySprites.NONE, CombatTuning.defaults());
+        World.GroundItem shown = w.items().stream().filter(g -> g.def.id().equals("bear_meat")).findFirst()
+                .orElseThrow();
+        assertTrue(shown.shown());
+        assertEquals(0.9, shown.position.y(), 1e-6, "on the counter");
+        assertEquals(shown.centre(0).y(), shown.centre(3.7).y(), 1e-9, "it does not bob");
+        assertEquals(shown.spin(0), shown.spin(5), 1e-9, "nor turn");
+        w.player().setPosition(new Vec3(3, 0, 0));
+        assertNull(w.reachable(), "and is not to be picked up");
+        // the rack: its weapons stand on its pegs, set out again as she hangs up another
+        Store s = w.store(rack.id());
+        assertEquals(Store.Kind.RACK, s.kind());
+        assertFalse(s.alive(), "a rack does not break");
+        assertEquals(2, w.items().stream().filter(g -> g.shown() && g != shown).count());
+        s.items().add(com.larsons.game.world.Item.of(com.larsons.game.world.ItemDef.SWORD));
+        w.tick(0.01);
+        assertEquals(3, w.items().stream().filter(g -> g.shown() && g != shown).count());
+        for (World.GroundItem g : w.items()) {
+            if (g == shown) continue;
+            assertTrue(g.position.horizontalDistance(new Vec3(-3, 0, 0)) < 0.7, "on the rack");
+        }
+        s.items().set(0, null);
+        w.tick(0.01);
+        assertEquals(2, w.items().stream().filter(g -> g.shown() && g != shown).count(), "one taken down");
     }
 
     @Test

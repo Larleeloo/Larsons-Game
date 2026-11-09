@@ -110,9 +110,18 @@ class InteriorTest {
         }
         assertTrue(c.profile("fireplace").part("fire").always());
         assertFalse(c.profile("cottage").furniture());
-        // filed with what goes inside
-        assertTrue(ObjectTypes.palette().stream().anyMatch(e -> e.category()
-                == com.larsons.game.level.ObjectType.Category.INSIDE && e.label().equals("Bed")));
+        // filed by what it is: the furniture, the kitchen and bath, the decor, the plants, the farm, the clutter
+        var palette = ObjectTypes.palette();
+        java.util.function.BiPredicate<com.larsons.game.level.ObjectType.Category, String> filed = (cat, label) ->
+                palette.stream().anyMatch(e -> e.category() == cat && e.label().equals(label));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.FURNITURE, "Bed"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.KITCHEN, "Iron stove"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.DECOR, "Mounted deer head"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.PLANTS, "Small potted plant"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.FARM, "Hay bale"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Pile of gems"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Bear meat (for show)"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.INSIDE, "Storage chest"));
     }
 
     @Test

@@ -1,0 +1,45 @@
+{
+ "key": "small_plant",
+ "label": "Small potted plant",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.314,
+ "model": true,
+ "parts": [
+  {
+   "key": "pot",
+   "label": "Pot",
+   "colour": "#b0643c",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "soil",
+   "label": "Soil",
+   "colour": "#4a3020",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "leaves",
+   "label": "Leaves",
+   "colour": "#5a9a4a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.121
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "plants"
+}

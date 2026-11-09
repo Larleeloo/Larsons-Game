@@ -1,0 +1,38 @@
+{
+ "key": "haystack",
+ "label": "Haystack",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.97,
+ "model": true,
+ "parts": [
+  {
+   "key": "hay",
+   "label": "Hay",
+   "colour": "#c8a850",
+   "texture": "thatch",
+   "glow": false
+  },
+  {
+   "key": "pole",
+   "label": "Pole",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   1.43
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "farm"
+}

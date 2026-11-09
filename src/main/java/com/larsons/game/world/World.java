@@ -96,6 +96,12 @@ public final class World {
         private final double thrownAt;
         /** How many of it lie here: a dropped stack of pickings is one heap. */
         int amount = 1;
+        /** Set out for show (on a table, a counter, a weapon rack): still, turned one way, not to be picked up. */
+        boolean shown;
+        /** Which way it is turned, set out for show (radians, as a heading). */
+        double heading;
+        /** The weapon rack it stands on, or null. */
+        Store rack;
 
         GroundItem(Item item, Vec3 position, double phase) {
             this(item, position, phase, null, null, 0);
@@ -120,11 +126,20 @@ public final class World {
          * clears the ground.
          */
         public double hover(double t) {
+            if (shown) return rack != null ? 0 : def.worldSize() / 2;
             return Math.max(HOVER, def.worldSize() / 2 + CLEARANCE) + BOB * Math.sin(t * 2.1 + phase);
         }
 
         /** The chest it came out of, or null. */
         public Chest source() { return source; }
+
+        /**
+         * Whether it is set out for show - a joint of meat on a counter, a
+         * bowl's berries, a gem on a shelf, a sword on a rack: it stands
+         * still, turned the one way, without glow or light, and is not
+         * picked up.
+         */
+        public boolean shown() { return shown; }
 
         /** Its own offset in time (radians of its bob), so items lying together do not move as one. */
         public double phase() { return phase; }
@@ -171,6 +186,7 @@ public final class World {
 
         /** How far it has turned at time {@code t}, in turns (it spins in place, faster while in the air). */
         public double spin(double t) {
+            if (shown) return -heading / (2 * Math.PI);
             double turns = t / 3.2 + phase * 0.37;
             if (from != null && !landed(t)) turns += 1.5 * flight(t);
             else if (from != null) turns += 1.5;
@@ -444,12 +460,21 @@ public final class World {
         return null;
     }
 
-    /** The nearest barrel or crate she can reach into, or null (a storage chest is opened as a chest). */
+    /** The chest sprite {@code s} is kept in, or null (a 3D storage chest is a building). */
+    Chest chestOf(Store s) {
+        for (Chest c : chests) if (c.store() == s) return c;
+        return null;
+    }
+
+    /**
+     * The nearest barrel, crate, pot, weapon rack or 3D storage chest she
+     * can reach into, or null (a chest of the old sprite is opened as a chest).
+     */
     public Store reachableStore() {
         Store best = null;
         double bestD = Double.MAX_VALUE;
         for (Store s : stores) {
-            if (s.kind() == Store.Kind.CHEST || !s.inReach(player.ground())) continue;
+            if (s.kind() == Store.Kind.CHEST && chestOf(s) != null || !s.inReach(player.ground())) continue;
             double d = s.position().horizontalDistance(player.ground());
             if (d < bestD) {
                 best = s;
@@ -822,6 +847,7 @@ public final class World {
             s.tick(dt);
             if (s.broken()) smash(s);
         }
+        showRacks();
         shards.tick(dt, terrain);
         for (Dummy d : dummies) {
             d.tick(dt);
@@ -1633,12 +1659,59 @@ public final class World {
         return g;
     }
 
+    /**
+     * Set {@code item} out for show with its foot at {@code at} - on the
+     * ground, a table, a counter, wherever that is - turned to {@code
+     * heading}: it stands still, without glow, and is never picked up.
+     */
+    public GroundItem show(Item item, Vec3 at, double heading) {
+        GroundItem g = new GroundItem(item, at, 0);
+        g.shown = true;
+        g.heading = heading;
+        items.add(g);
+        return g;
+    }
+
+    /** Where a weapon rack's pegs are, across it (its own metres), and how far in front of its middle they stand. */
+    static final double[] RACK_PEGS = {-0.45, -0.15, 0.15, 0.45};
+    static final double RACK_FRONT = -0.1, RACK_FOOT = 0.1, RACK_TOP = 1.3;
+
+    /**
+     * What is on each weapon rack, stood up on its pegs to be seen: set out
+     * again whenever what it holds changes (she hangs a sword up, takes a
+     * bow down), gone when the rack is.
+     */
+    public void showRacks() {
+        for (Store s : stores) {
+            if (s.kind() != Store.Kind.RACK) continue;
+            StringBuilder sig = new StringBuilder();
+            for (int i = 0; i < s.items().size(); i++) sig.append(s.items().get(i)).append(';');
+            if (sig.toString().equals(s.shownAs)) continue;
+            s.shownAs = sig.toString();
+            items.removeIf(g -> g.rack == s);
+            Building rack = null;
+            for (Building b : buildings) if (b.id() == s.id() && Store.Kind.ofBuilding(b.key()) != null) rack = b;
+            if (rack == null) continue;
+            int peg = 0;
+            for (int i = 0; i < s.items().size() && peg < RACK_PEGS.length; i++) {
+                Item it = s.items().get(i);
+                if (it == null) continue;
+                double length = Math.min(RACK_TOP - RACK_FOOT, it.def().worldSize());
+                Vec3 foot = rack.toWorld(RACK_PEGS[peg++], RACK_FRONT);
+                GroundItem g = show(it, new Vec3(foot.x(), rack.position().y() + RACK_FOOT + length / 2, foot.z()),
+                        rack.heading() + Math.PI / 2);
+                g.rack = s;
+            }
+        }
+        items.removeIf(g -> g.rack != null && !stores.contains(g.rack));
+    }
+
     /** The nearest item within reach of the player that has landed, or {@code null}. */
     public GroundItem reachable() {
         GroundItem best = null;
         double bestD = PICKUP_RANGE;
         for (GroundItem g : items) {
-            if (!g.landed(time) || Math.abs(g.position.y() - player.ground().y()) > 1.5) continue;
+            if (g.shown || !g.landed(time) || Math.abs(g.position.y() - player.ground().y()) > 1.5) continue;
             double d = g.position.horizontalDistance(player.ground());
             if (d <= bestD) {
                 best = g;

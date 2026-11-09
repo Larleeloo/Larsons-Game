@@ -1,0 +1,38 @@
+{
+ "key": "bottles",
+ "label": "Bottles",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.33,
+ "model": true,
+ "parts": [
+  {
+   "key": "glass",
+   "label": "Bottles",
+   "colour": "#3a7a5a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "glass2",
+   "label": "Other bottles",
+   "colour": "#7a3a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "corks",
+   "label": "Corks",
+   "colour": "#c8a070",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

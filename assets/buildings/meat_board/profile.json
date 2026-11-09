@@ -1,0 +1,46 @@
+{
+ "key": "meat_board",
+ "label": "Meat on a board",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.2,
+ "model": true,
+ "parts": [
+  {
+   "key": "board",
+   "label": "Board",
+   "colour": "#a07448",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "meat",
+   "label": "Meat",
+   "colour": "#a83a32",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "fat",
+   "label": "Fat and bone",
+   "colour": "#ece0c8",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   0.55,
+   0.352
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

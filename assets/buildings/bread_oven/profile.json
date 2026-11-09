@@ -1,0 +1,46 @@
+{
+ "key": "bread_oven",
+ "label": "Bread oven",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.925,
+ "model": true,
+ "parts": [
+  {
+   "key": "brick",
+   "label": "Brick",
+   "colour": "#9a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Hearth",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#ff8a30",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.54,
+   1.43
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}

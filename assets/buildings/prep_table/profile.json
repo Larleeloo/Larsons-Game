@@ -1,0 +1,53 @@
+{
+ "key": "prep_table",
+ "label": "Butcher's block",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.034,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Block",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "legs",
+   "label": "Legs",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "steel",
+   "label": "Knives",
+   "colour": "#b8c0c5",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "food",
+   "label": "Food",
+   "colour": "#c8503a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.32,
+   0.77
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "kitchen"
+}
