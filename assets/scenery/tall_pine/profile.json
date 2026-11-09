@@ -1,0 +1,10 @@
+{
+ "kind": "tree",
+ "frameWidth": 272,
+ "frameHeight": 368,
+ "frames": 48,
+ "fps": 12,
+ "frameWorldSize": 10.2,
+ "radius": 0.5,
+ "shadowRadius": 3.0
+}

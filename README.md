@@ -2137,6 +2137,15 @@ well**, a **fountain**, a **statue**, a **notice board**, **stocks**, a
 **market cross** and stone **flower beds**; and a **water wheel** stands on its
 own, turning, by any stream.
 
+Under **Scenery** are three **tall trees** as tall as the buildings - a **great
+oak** (10 m), a **tall pine** (13 m) and a **tall birch** (11 m) - drawn at the
+same pixel as every other tree rather than an oak blown up with **Size**.
+
+<p align="center">
+  <img src="docs/screenshots/editor-tall-trees.png" width="49%" alt="The great oak, the tall pine and the tall birch standing over a cottage">
+  <img src="docs/screenshots/editor-weapon-rack.png" width="49%" alt="A weapon rack holding a sword, a longbow, a battle axe and a mace, beside an armour stand">
+</p>
+
 Barrels, crates, pots, large pots and the storage chest are 3D models, opened,
 filled and broken as before; a loot chest is the sprite it always was.
 
