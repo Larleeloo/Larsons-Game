@@ -1221,6 +1221,11 @@ public final class Player {
     /** The coins in her purse. */
     public int coins() { return coins; }
 
+    /** Her purse as a save had it. */
+    public void setCoins(int n) {
+        coins = Math.max(0, n);
+    }
+
     /** {@code n} more coins in her purse. */
     public void addCoins(int n) {
         coins = Math.max(0, coins + n);
