@@ -12,6 +12,8 @@ import com.larsons.game.input.Input;
 import com.larsons.game.level.Level;
 import com.larsons.game.level.LevelIO;
 import com.larsons.game.math.Vec3;
+import com.larsons.game.save.SaveGame;
+import com.larsons.game.save.Saves;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.ui.MenuList;
 import com.larsons.game.ui.Theme;
@@ -118,6 +120,8 @@ public final class MainMenuScene implements Scene {
     public void enter() {
         camera.snapTo(follow());
         refreshLevels();
+        Saves.stop();
+        refreshSlots();
         Music.play(MUSIC);
     }
 
@@ -228,7 +232,7 @@ public final class MainMenuScene implements Scene {
         ui.rect(0, 0, band, ui.height(), Theme.withAlpha(Theme.BACKGROUND, 0.78f));
         float x = 64, y = ui.height() * 0.12f;
         ui.textShadowed(ui.title, "Larson's Game", x, y, Theme.TITLE);
-        ui.text(ui.body, "Task 1 — the sprite-stack demo", x + 4, y + 72, Theme.ACCENT);
+        ui.text(ui.body, "A moon of oak, brass and old magic", x + 4, y + 72, Theme.ACCENT);
 
         // The importer, when open, is modal: it draws over this and takes the keys.
         if (!game.importer().visible()) {
@@ -240,7 +244,10 @@ public final class MainMenuScene implements Scene {
                 case CUTSCENE -> cutsceneTab(ui, x, cy);
                 case DEV -> devTab(ui, x, cy, band - x - 24);
             }
-            if (ui.input().pressed(GLFW_KEY_ESCAPE)) game.quit();
+            if (ui.input().pressed(GLFW_KEY_ESCAPE)) {
+                if (tab == Tab.PLAY && playPage != PlayPage.MAIN) playPage = PlayPage.MAIN;
+                else game.quit();
+            }
         }
 
         float fy = ui.height() - 96;
@@ -263,11 +270,122 @@ public final class MainMenuScene implements Scene {
         ui.rect(x, y + 44, Math.max(300, tx - x - 8), 1, Theme.PANEL_EDGE);
     }
 
+    /** The Play tab's pages: its list, the slots to begin a new game in, the slots to load. */
+    private enum PlayPage { MAIN, NEW, LOAD }
+
+    private PlayPage playPage = PlayPage.MAIN;
+    private final SaveGame[] slots = new SaveGame[Saves.SLOTS];
+    private int sureSlot = -1;
+    private double sureAt;
+
+    private void refreshSlots() {
+        for (int i = 0; i < Saves.SLOTS; i++) slots[i] = Saves.peek(i);
+    }
+
     private void playTab(Ui ui, float x, float y) {
-        String[] items = {"Demo", "Quit"};
-        int chosen = menu.show(ui, items, x, y, 300, 54, 14);
-        if (chosen == 0) game.switchTo("demo");
-        if (chosen == 1) game.quit();
+        if (playPage != PlayPage.MAIN) {
+            slotsPage(ui, x, y);
+            return;
+        }
+        int latest = -1;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i] != null && (latest < 0 || slots[i].saved().compareTo(slots[latest].saved()) > 0)) latest = i;
+        }
+        List<String> items = new ArrayList<>();
+        if (latest >= 0) items.add("Continue");
+        items.add("New Game");
+        if (latest >= 0) items.add("Load Game");
+        items.add("Demo");
+        items.add("Quit");
+        int chosen = menu.show(ui, items.toArray(String[]::new), x, y, 300, 54, 14);
+        if (latest >= 0) {
+            SaveGame s = slots[latest];
+            ui.text(ui.small, s.name() + " · " + describe(s), x + 314, y + 18, Theme.HINT);
+        }
+        switch (chosen < 0 ? "" : items.get(chosen)) {
+            case "Continue" -> load(latest);
+            case "New Game" -> {
+                playPage = PlayPage.NEW;
+                sureSlot = -1;
+            }
+            case "Load Game" -> {
+                playPage = PlayPage.LOAD;
+                sureSlot = -1;
+            }
+            case "Demo" -> game.switchTo("demo");
+            case "Quit" -> game.quit();
+            default -> { }
+        }
+    }
+
+    /** "Mage, level 3 · 1 h 20 min". */
+    private static String describe(SaveGame s) {
+        var hero = com.larsons.game.cards.CardBook.get().hero(s.heroClass());
+        return (hero == null ? "" : hero.name() + ", level " + s.level() + " · ") + s.playedFor();
+    }
+
+    /** The three save slots: to begin a new game in one, or to load (or delete) one. */
+    private void slotsPage(Ui ui, float x, float y) {
+        boolean fresh = playPage == PlayPage.NEW;
+        ui.text(ui.large, fresh ? "New game: choose a slot" : "Load a game", x, y, Theme.TITLE);
+        float ry = y + 44, rw = 430, rh = 84;
+        if (sureSlot >= 0 && time - sureAt > CONFIRM) sureSlot = -1;
+        for (int i = 0; i < Saves.SLOTS; i++) {
+            SaveGame s = slots[i];
+            ui.plate(x - 6, ry, rw + 12, rh, Theme.BRASS_DARK);
+            ui.text(ui.small, "Slot " + (i + 1), x + 6, ry + 6, Theme.ACCENT);
+            float bx = x + rw - 104;
+            if (s == null) {
+                ui.text(ui.body, "Empty", x + 6, ry + 28, Theme.ITEM_DISABLED);
+                if (fresh && ui.button("Start here", bx, ry + 22, 100, 38)) create(i);
+            } else {
+                ui.text(ui.body, Ui.fit(ui.body, s.name(), rw - 230), x + 6, ry + 26, Theme.TITLE);
+                ui.text(ui.small, describe(s), x + 6, ry + 54, Theme.HINT);
+                boolean sure = sureSlot == i;
+                if (fresh) {
+                    if (ui.button(sure ? "Sure?" : "Overwrite", bx, ry + 22, 100, 38, sure, true)) {
+                        if (sure) create(i);
+                        else confirm(i);
+                    }
+                } else {
+                    if (ui.button("Load", bx, ry + 6, 100, 34)) load(i);
+                    if (ui.button(sure ? "Sure?" : "Delete", bx, ry + 44, 100, 32, sure, true)) {
+                        if (sure) {
+                            Saves.delete(i);
+                            refreshSlots();
+                            sureSlot = -1;
+                            game.toast("Deleted slot " + (i + 1), Theme.HINT);
+                        } else {
+                            confirm(i);
+                        }
+                    }
+                }
+            }
+            ry += rh + 10;
+        }
+        if (ui.button("Back", x, ry + 6, 140, 40) || ui.input().pressed(GLFW_KEY_BACKSPACE)) playPage = PlayPage.MAIN;
+    }
+
+    private void confirm(int slot) {
+        sureSlot = slot;
+        sureAt = time;
+    }
+
+    /** Begin a new game in {@code slot}: the character creator. */
+    private void create(int slot) {
+        game.switchTo(new CreatorScene(game, slot));
+    }
+
+    /** Take up the playthrough in {@code slot}: its map, where she was. */
+    private void load(int slot) {
+        SaveGame s = Saves.peek(slot);
+        if (s == null) {
+            game.toast("Slot " + (slot + 1) + " cannot be read", Theme.WARNING);
+            refreshSlots();
+            return;
+        }
+        Saves.play(s, slot);
+        game.switchTo(new OverworldScene(game, s));
     }
 
     private void cutsceneTab(Ui ui, float x, float y) {
@@ -292,6 +410,10 @@ public final class MainMenuScene implements Scene {
         int chosen = menu.show(ui, items, x, by, 300, 46, 10);
         if (chosen == 0) newLevel(false);
         if (chosen == 1) newLevel(true);
+        // the overworld's maps: where a playthrough's destinations are set, each to the level it loads
+        if (ui.button("World map editor", x + 316, by, 220, 46)) {
+            game.switchTo(new com.larsons.game.editor.OverworldEditor(game, null));
+        }
 
         float ly = by + 2 * 56 + 16;
         ui.text(ui.body, levels.isEmpty() ? "No saved levels yet" : "Saved levels (" + levels.size() + ")", x, ly,

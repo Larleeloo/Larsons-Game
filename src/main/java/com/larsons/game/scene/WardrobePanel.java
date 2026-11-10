@@ -69,6 +69,13 @@ final class WardrobePanel {
     /** The layers the wardrobe dresses: every one but the hands, which hold what the hotbar gives them. */
     static final List<Slot> SLOTS = slots();
 
+    /** What the button that closes it says ("Back"; the character creator's: "Next"). */
+    private String doneLabel = "Back";
+
+    void setDoneLabel(String label) {
+        doneLabel = label;
+    }
+
     private final Game game;
     private final LayerStack.Memory previewMemory = new LayerStack.Memory();
     private Medieval skin;
@@ -88,7 +95,8 @@ final class WardrobePanel {
 
     private static List<Slot> slots() {
         List<Slot> out = new ArrayList<>();
-        for (Slot s : Slot.values()) if (!s.carried()) out.add(s);
+        // (horns and a tail are her people's: the character creator's, not the wardrobe's)
+        for (Slot s : Slot.values()) if (!s.carried() && s != Slot.HORNS && s != Slot.TAIL) out.add(s);
         return List.copyOf(out);
     }
 
@@ -205,6 +213,8 @@ final class WardrobePanel {
 
     static String label(Slot slot, String item) {
         if (item == null) return slot == Slot.BODY ? "Fallback (32 px)" : "None";
+        // (the long ears are the Drurineans')
+        if (slot == Slot.EARS && item.startsWith("elven")) return "drurinean" + item.substring(5);
         return item;
     }
 
@@ -258,7 +268,7 @@ final class WardrobePanel {
         float pw = 300, ph = 44;
         m.plaque(x + (w - pw) / 2, y + 14, pw, ph);
         m.carvedCentred(m.title, "Wardrobe", x + w / 2, y + 14 + (ph - m.title.lineHeight()) / 2, Medieval.GOLD);
-        boolean back = m.button("Back", x + w - 128, y + 22, 100, 34, false, true);
+        boolean back = m.button(doneLabel, x + w - 128, y + 22, 100, 34, false, true);
         m.bracket(x, y, 54, 1, 1);
         m.bracket(x + w, y, 54, -1, 1);
         m.bracket(x, y + h, 54, 1, -1);

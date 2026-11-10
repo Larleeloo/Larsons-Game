@@ -115,6 +115,21 @@ public final class CardArt {
         return true;
     }
 
+    /** The icons' sheet (null: there is none), for an icon drawn in the world. */
+    public static Texture iconTexture() {
+        load();
+        return icons;
+    }
+
+    /** Where the icon {@code key} is on {@link #iconTexture}: {@code {u0, v0, u1, v1}}, or null. */
+    public static float[] iconUv(String key) {
+        if (!hasIcon(key)) return null;
+        int cell = iconCells.get(key);
+        float tw = icons.width(), th = icons.height();
+        float u0 = (cell % iconColumns) * iconSize / tw, v0 = (cell / iconColumns) * iconSize / th;
+        return new float[]{u0, v0, u0 + iconSize / tw, v0 + iconSize / th};
+    }
+
     /** Let the pictures go (the game is closing, or they are to be read again). */
     public static void dispose() {
         if (art != null) art.close();

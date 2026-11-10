@@ -311,6 +311,7 @@ public final class ObjectTypes {
                     b.world().addShop(new Shop(o.id(), o.str("name", "Shop"), counter, o.yaw(), o.str("stock", ""),
                             o.bool("buys", true)));
                 }));
+        StoryTypes.registerAll();
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
                 List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));

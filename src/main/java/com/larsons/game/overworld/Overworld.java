@@ -64,6 +64,12 @@ public final class Overworld {
     public static final List<String> KINDS = List.of("town", "village", "castle", "camp", "cave", "tower", "port",
             "ruins", "mine", "workshop", "shrine", "arena", "crypt", "portal");
     /** The marks' places in {@code icons.png}. */
+    /**
+     * What clears a destination: going there at all, reaching its level's
+     * way out, felling every foe in its level, or finishing a quest.
+     */
+    public static final List<String> CLEARS = List.of("visit", "exit", "foes", "quest");
+
     public static final int ICON_CLEARED = KINDS.size(), ICON_LOCKED = KINDS.size() + 1, ICON_HERE = KINDS.size() + 2;
 
     public static final int SMALLEST = 12, WIDEST = 96, TALLEST = 64;
@@ -73,6 +79,8 @@ public final class Overworld {
     public static final class Node {
         public final String id;
         public String name, kind = "town", level = "", about = "";
+        /** What clears it ({@link #CLEARS}); the quest that does, for "quest"; another map it leads to. */
+        public String clear = "exit", quest = "", toMap = "";
         public int x, y;
         public boolean open;
 
@@ -88,8 +96,11 @@ public final class Overworld {
             return Math.max(0, KINDS.indexOf(kind));
         }
 
-        /** Whether choosing it loads anything. */
+        /** Whether choosing it loads a level. */
         public boolean playable() { return level != null && !level.isBlank(); }
+
+        /** Whether choosing it leads to another map. */
+        public boolean travels() { return toMap != null && !toMap.isBlank(); }
     }
 
     /** A way between two destinations. */
@@ -118,6 +129,8 @@ public final class Overworld {
     private final List<Node> nodes = new ArrayList<>();
     private final List<Way> ways = new ArrayList<>();
     private String start = "";
+    /** The music that plays over it: a song's id, "shuffle" or "none" ({@code audio/Songs}). */
+    private String music = "shuffle";
 
     public Overworld(String name, int width, int height) {
         this.name = name;
@@ -135,6 +148,12 @@ public final class Overworld {
 
     public void setName(String n) {
         name = n == null || n.isBlank() ? "A map" : n.strip();
+    }
+
+    public String music() { return music; }
+
+    public void setMusic(String m) {
+        music = m == null || m.isBlank() ? "shuffle" : m;
     }
 
     public int width() { return width; }
@@ -294,23 +313,31 @@ public final class Overworld {
 
     /**
      * Whether she may walk {@code p} from {@code from}: onward from a place
-     * she may pass, or back to one she may.
+     * she may pass - or, from one she may not pass yet, only back towards
+     * where she could have come from (a place she can reach without going
+     * through this one).
      */
     public boolean walkable(Way p, String from, Set<String> cleared) {
         Node a = node(from), b = node(p.other(from));
-        return a != null && b != null && (passable(a, cleared) || passable(b, cleared));
+        if (a == null || b == null) return false;
+        return passable(a, cleared) || reachable(b, cleared, a.id);
     }
 
     /** Whether she can get to {@code n} at all yet: from the start, by paths she may walk. */
     public boolean reachable(Node n, Set<String> cleared) {
+        return reachable(n, cleared, null);
+    }
+
+    /** {@link #reachable(Node, Set)} without going through the destination {@code avoid}. */
+    private boolean reachable(Node n, Set<String> cleared, String avoid) {
         Node s = start();
-        if (s == null || n == null) return false;
+        if (s == null || n == null || s.id.equals(avoid)) return false;
         java.util.Set<String> seen = new java.util.HashSet<>();
         java.util.ArrayDeque<String> open = new java.util.ArrayDeque<>();
         open.add(s.id);
         while (!open.isEmpty()) {
             String at = open.poll();
-            if (!seen.add(at)) continue;
+            if (at.equals(avoid) || !seen.add(at)) continue;
             if (at.equals(n.id)) return true;
             if (!passable(node(at), cleared)) continue;         // (she can stand here, but not go on)
             for (Way p : waysAt(at)) open.add(p.other(at));
@@ -343,6 +370,32 @@ public final class Overworld {
         return best;
     }
 
+    /**
+     * The destinations she walks through from {@code from} to {@code to}, by
+     * ways she may walk (the fewest of them), {@code from} first; empty when
+     * she cannot get there.
+     */
+    public List<String> route(String from, String to, Set<String> cleared) {
+        Map<String, String> came = new LinkedHashMap<>();
+        java.util.ArrayDeque<String> open = new java.util.ArrayDeque<>();
+        open.add(from);
+        came.put(from, "");
+        while (!open.isEmpty()) {
+            String at = open.poll();
+            if (at.equals(to)) break;
+            for (Way p : waysAt(at)) {
+                String next = p.other(at);
+                if (came.containsKey(next) || !walkable(p, at, cleared)) continue;
+                came.put(next, at);
+                open.add(next);
+            }
+        }
+        List<String> out = new ArrayList<>();
+        if (!came.containsKey(to)) return out;
+        for (String at = to; !at.isEmpty(); at = came.get(at)) out.add(0, at);
+        return out;
+    }
+
     // --- the file ----------------------------------------------------------------------
 
     public Map<String, Object> json() {
@@ -351,6 +404,7 @@ public final class Overworld {
         j.put("width", (double) width);
         j.put("height", (double) height);
         j.put("start", start);
+        j.put("music", music);
         List<Object> rows = new ArrayList<>();
         for (char[] row : tiles) rows.add(new String(row));
         j.put("tiles", rows);
@@ -365,6 +419,9 @@ public final class Overworld {
             m.put("level", n.level);
             m.put("open", n.open);
             m.put("about", n.about);
+            m.put("clear", n.clear);
+            if (!n.quest.isBlank()) m.put("quest", n.quest);
+            if (!n.toMap.isBlank()) m.put("toMap", n.toMap);
             ns.add(m);
         }
         j.put("nodes", ns);
@@ -403,6 +460,9 @@ public final class Overworld {
                 n.level = Json.str(m, "level", "");
                 n.open = Json.bool(m, "open", false);
                 n.about = Json.str(m, "about", "");
+                n.clear = CLEARS.contains(Json.str(m, "clear", "exit")) ? Json.str(m, "clear", "exit") : "exit";
+                n.quest = Json.str(m, "quest", "");
+                n.toMap = Json.str(m, "toMap", "");
                 n.x = Math.max(0, Math.min(o.width - 1, n.x));
                 n.y = Math.max(0, Math.min(o.height - 1, n.y));
                 o.nodes.add(n);
@@ -427,6 +487,7 @@ public final class Overworld {
             }
         }
         o.start = Json.str(j, "start", "");
+        o.setMusic(Json.str(j, "music", "shuffle"));
         return o;
     }
 
@@ -454,6 +515,34 @@ public final class Overworld {
     public void save(Path file) throws IOException {
         Files.createDirectories(file.toAbsolutePath().getParent());
         Files.writeString(file, Json.stringify(json()) + "\n", StandardCharsets.UTF_8);
+    }
+
+    /** The file that says which map a new game starts on. */
+    public static Path campaignFile(Path assets) {
+        return assets.resolve(FOLDER).resolve("campaign.json");
+    }
+
+    /** The map a new game starts on: the one {@code campaign.json} names, or the first there is; "" when none. */
+    public static String campaignStart(Path assets) {
+        try {
+            Path f = campaignFile(assets);
+            if (Files.isRegularFile(f)) {
+                String id = Json.str(Json.asObject(Json.parse(Files.readString(f, StandardCharsets.UTF_8))), "start", "");
+                if (Files.isRegularFile(folder(assets).resolve(id + ".json"))) return id;
+            }
+        } catch (IOException | RuntimeException e) {
+            System.err.println("[overworld] campaign.json: " + e.getMessage());
+        }
+        List<Saved> all = list(assets);
+        return all.isEmpty() ? "" : all.get(0).id();
+    }
+
+    /** A new game starts on map {@code id} from now on. */
+    public static void setCampaignStart(Path assets, String id) throws IOException {
+        Map<String, Object> j = new LinkedHashMap<>();
+        j.put("start", id);
+        Files.createDirectories(campaignFile(assets).getParent());
+        Files.writeString(campaignFile(assets), Json.stringify(j) + "\n", StandardCharsets.UTF_8);
     }
 
     /** A map on file: its id (the file's name) and what it is called. */

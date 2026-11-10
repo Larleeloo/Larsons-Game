@@ -15,10 +15,10 @@ import static org.lwjgl.glfw.GLFW.*;
  * pointer and the keys have left it. A slider being dragged and the text
  * field being typed in are remembered here between frames, by an id.
  */
-final class Widgets {
+public final class Widgets {
 
     /** A control's height, pixels. */
-    static final float ROW = 28;
+    public static final float ROW = 28;
 
     private String dragging;
     private String typing;
@@ -26,16 +26,16 @@ final class Widgets {
     private boolean committed;
 
     /** Whether a text field has the keys: the editor's own keys wait while it does. */
-    boolean typing() { return typing != null; }
+    public boolean typing() { return typing != null; }
 
     /** Let go of the keys (the field keeps what was typed). */
-    void stopTyping() {
+    public void stopTyping() {
         if (typing != null) committed = true;
         typing = null;
     }
 
     /** Whether a slider is being dragged. */
-    boolean dragging() { return dragging != null; }
+    public boolean dragging() { return dragging != null; }
 
     /** A label on the left of a row, {@code w} wide at most: on one line, or two smaller, or cut short (said in full when pointed at). */
     private void label(Ui ui, String label, float x, float y, float w) {
@@ -73,7 +73,7 @@ final class Widgets {
     private float tipX, tipY;
 
     /** Say {@code text} at {@code (x, y)} this frame, over everything (a label cut short, said in full). */
-    void tip(String text, float x, float y) {
+    public void tip(String text, float x, float y) {
         tip = text;
         tipX = x;
         tipY = y;
@@ -93,10 +93,10 @@ final class Widgets {
     static final float DROP_ROW = 24;
 
     /** Whether a list is dropped down (the pointer over it is over the interface). */
-    boolean dropped() { return dropId != null; }
+    public boolean dropped() { return dropId != null; }
 
     /** Whether {@code (mx, my)} is over the list dropped down, if any. */
-    boolean overDrop(double mx, double my) {
+    public boolean overDrop(double mx, double my) {
         if (dropId == null) return false;
         float[] r = dropRect();
         return mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3];
@@ -120,7 +120,7 @@ final class Widgets {
      * click on one of its rows picks it, anywhere else closes it; the wheel
      * over it scrolls it.
      */
-    void beginFrame(Ui ui) {
+    public void beginFrame(Ui ui) {
         tip = null;
         if (dropId == null) return;
         Input in = ui.input();
@@ -153,7 +153,7 @@ final class Widgets {
     }
 
     /** The frame's end: the list dropped down, and any tip, over everything. */
-    void overlay(Ui ui) {
+    public void overlay(Ui ui) {
         if (dropId != null) {
             float[] r = dropRect(ui);
             int rows = Math.min(DROP_ROWS, dropShown.size());
@@ -189,7 +189,7 @@ final class Widgets {
     }
 
     /** A slider from {@code min} to {@code max}; the value as it is dragged (or as it was). */
-    double slider(Ui ui, String id, String label, double value, double min, double max, String format,
+    public double slider(Ui ui, String id, String label, double value, double min, double max, String format,
                   float x, float y, float w) {
         return slider(ui, id, label, value, min, max, format, x, y, w, false);
     }
@@ -198,7 +198,7 @@ final class Widgets {
      * A slider; {@code stacked}, its label over its left end, its value over its right, the bar the
      * whole width (for a narrow column).
      */
-    double slider(Ui ui, String id, String label, double value, double min, double max, String format,
+    public double slider(Ui ui, String id, String label, double value, double min, double max, String format,
                   float x, float y, float w, boolean stacked) {
         Input in = ui.input();
         float lw = stacked ? 0 : w * 0.42f, bx = x + lw, bw = w - lw;
@@ -224,7 +224,7 @@ final class Widgets {
     }
 
     /** A number with − and + buttons a {@code step} each, kept within {@code min} to {@code max}. */
-    double stepper(Ui ui, String label, double value, double step, double min, double max, String format,
+    public double stepper(Ui ui, String label, double value, double step, double min, double max, String format,
                    float x, float y, float w) {
         float lw = w * 0.42f, bx = x + lw, bw = w - lw;
         label(ui, label, x, y, lw);
@@ -238,14 +238,14 @@ final class Widgets {
     }
 
     /** On or off. */
-    boolean toggle(Ui ui, String label, boolean on, float x, float y, float w) {
+    public boolean toggle(Ui ui, String label, boolean on, float x, float y, float w) {
         float lw = w * 0.42f, bx = x + lw, bw = w - lw;
         label(ui, label, x, y, lw);
         return ui.button(on ? "On" : "Off", bx, y, bw, ROW, on, true) != on;
     }
 
     /** One of {@code options} (shown as {@code shown}); the arrows, or a click, step through them. */
-    int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w) {
+    public int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w) {
         return choice(ui, label, shown, index, x, y, w, 0.42f);
     }
 
@@ -255,7 +255,7 @@ final class Widgets {
      * more, it drops down the list of them all - said in full, scrolled with
      * the wheel - to pick from.
      */
-    int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w, float share) {
+    public int choice(Ui ui, String label, List<String> shown, int index, float x, float y, float w, float share) {
         float lw = label.isEmpty() ? 0 : w * share, bx = x + lw, bw = w - lw;
         if (!label.isEmpty()) label(ui, label, x, y, lw);
         int n = shown.size();
@@ -308,7 +308,7 @@ final class Widgets {
      * pixels; the one matching {@code selected} outlined. The colour clicked,
      * or -1.
      */
-    int swatches(Ui ui, int[] colours, int selected, float x, float y, int columns, float size) {
+    public int swatches(Ui ui, int[] colours, int selected, float x, float y, int columns, float size) {
         int picked = -1;
         for (int i = 0; i < colours.length; i++) {
             float sx = x + (i % columns) * size, sy = y + (i / columns) * size;
@@ -321,7 +321,7 @@ final class Widgets {
     }
 
     /** Pixels {@link #swatches} takes downwards for {@code n} colours in {@code columns}. */
-    static float swatchesHeight(int n, int columns, float size) {
+    public static float swatchesHeight(int n, int columns, float size) {
         return (float) Math.ceil(n / (double) columns) * size;
     }
 
@@ -330,7 +330,7 @@ final class Widgets {
      * or a click elsewhere. Returns what it says now (what is being typed,
      * while it is).
      */
-    String text(Ui ui, String id, String label, String value, float x, float y, float w) {
+    public String text(Ui ui, String id, String label, String value, float x, float y, float w) {
         Input in = ui.input();
         float lw = label.isEmpty() ? 0 : w * 0.42f, bx = x + lw, bw = w - lw;
         if (!label.isEmpty()) label(ui, label, x, y, lw);
@@ -377,7 +377,7 @@ final class Widgets {
     }
 
     /** Whether a text field finished being typed in since this was last asked. */
-    boolean committed() {
+    public boolean committed() {
         boolean c = committed;
         committed = false;
         return c;

@@ -78,7 +78,7 @@ public final class Wearables {
 
     /** The layers that are not items: every folder found for the body is offered, colours and all. */
     public static final Set<Slot> FREE = Collections.unmodifiableSet(
-            EnumSet.of(Slot.BODY, Slot.EARS, Slot.EYES, Slot.NOSE, Slot.MOUTH));
+            EnumSet.of(Slot.BODY, Slot.EARS, Slot.EYES, Slot.NOSE, Slot.MOUTH, Slot.HORNS, Slot.TAIL));
 
     public static final ItemDef UNDERWEAR = worn("underwear", "Underwear", Rarity.COMMON, Slot.UNDERWEAR, "cotton_briefs");
     public static final ItemDef BRA = worn("bra", "Bra", Rarity.COMMON, Slot.BRA, "leather_bralette");

@@ -45,7 +45,8 @@ final class PauseMenu {
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
-    private Runnable back;
+    private Runnable back, leaving;
+    private final java.util.Set<String> hidden = new java.util.HashSet<>();
 
     PauseMenu(Game game, World world) {
         this.game = game;
@@ -77,6 +78,16 @@ final class PauseMenu {
     void setBack(String label, Runnable action) {
         backLabel = label;
         back = action;
+    }
+
+    /** Leave {@code item} off the main page (a playthrough's class is not changed from here). */
+    void hide(String item) {
+        hidden.add(item);
+    }
+
+    /** Run {@code r} before "Main menu" and "Quit" leave the game (a playthrough saves itself). */
+    void onLeave(Runnable r) {
+        leaving = r;
     }
 
     boolean open() { return open; }
@@ -133,6 +144,7 @@ final class PauseMenu {
                 return;
             }
             List<String> items = mainItems(game.settings().debugTools, backLabel);
+            items.removeAll(hidden);
             // (as many items as there are, on whatever height the window has)
             float step = Math.max(38, Math.min(58, (ui.height() - 110f) / items.size()));
             float w = 360, h = 70 + items.size() * step;
@@ -168,9 +180,13 @@ final class PauseMenu {
                 }
                 case "Main menu" -> {
                     close();
+                    if (leaving != null) leaving.run();
                     game.switchTo("menu");
                 }
-                case "Quit" -> game.quit();
+                case "Quit" -> {
+                    if (leaving != null) leaving.run();
+                    game.quit();
+                }
                 default -> { }
             }
             return;

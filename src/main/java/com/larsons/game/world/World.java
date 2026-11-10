@@ -202,6 +202,8 @@ public final class World {
     private final List<Store> stores = new ArrayList<>();
     /** The market stalls and shop counters: what each sells, and what is left of it. */
     private final List<Shop> shops = new ArrayList<>();
+    /** The other things she can use: the way back to the map, a cauldron, a locked door ... */
+    private final List<Spot> spots = new ArrayList<>();
     /** The pieces what she breaks shatters into. */
     private final Shards shards = new Shards();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
@@ -261,6 +263,7 @@ public final class World {
         private final List<Building> buildings;
         private final List<Store> stores;
         private final List<Shop> shops;
+        private final List<Spot> spots;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -284,6 +287,7 @@ public final class World {
             buildings = List.copyOf(w.buildings);
             stores = List.copyOf(w.stores);
             shops = List.copyOf(w.shops);
+            spots = List.copyOf(w.spots);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -321,6 +325,7 @@ public final class World {
         buildings.clear();
         stores.clear();
         shops.clear();
+        spots.clear();
         shards.clear();
         dummies.clear();
         fliers.clear();
@@ -352,6 +357,8 @@ public final class World {
         stores.addAll(p.stores);
         shops.clear();
         shops.addAll(p.shops);
+        spots.clear();
+        spots.addAll(p.spots);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -438,6 +445,30 @@ public final class World {
 
     /** The market stalls and shop counters. */
     public List<Shop> shops() { return shops; }
+
+    /** Keep {@code s} in the world: something she can walk up to and use. */
+    public Spot addSpot(Spot s) {
+        spots.add(s);
+        return s;
+    }
+
+    /** The other things she can use. */
+    public List<Spot> spots() { return spots; }
+
+    /** The nearest spot she can reach, or null. */
+    public Spot reachableSpot() {
+        Spot best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Spot s : spots) {
+            if (!s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
 
     /** The nearest shop she can reach, or null. */
     public Shop reachableShop() {

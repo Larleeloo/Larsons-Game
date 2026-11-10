@@ -43,6 +43,22 @@
   "potion": 38,
   "fish": 39,
   "hammer": 40,
-  "zombie": 41
+  "zombie": 41,
+  "wayout": 42,
+  "talk": 43,
+  "exclaim": 44,
+  "question": 45,
+  "lock": 46,
+  "cauldron": 47,
+  "egg": 48,
+  "cog": 49,
+  "box": 50,
+  "door": 51,
+  "scroll": 52,
+  "backpack": 53,
+  "heart": 54,
+  "star": 55,
+  "shield": 56,
+  "portal": 57
  }
 }

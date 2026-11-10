@@ -166,6 +166,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public static final double MUSIC_VOLUME = 0.7;
     /** Back to the editor, or null: the level is not being play-tested. */
     private final Runnable back;
+    /** The playthrough this level is played in, or null: the demo, a play-test, a level from the Dev tab. */
+    private final Campaign campaign;
+    /** Whether the playthrough's rule for clearing this place has been met. */
+    private boolean clearedHere;
     /** The scenery of where she is - the demo's, the level's, a floor of a building's - as it is when shown. */
     private Scenery scenery;
     /** Where she is inside a building, or null: outdoors. */
@@ -195,6 +199,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = null;
         this.back = null;
+        this.campaign = null;
         this.scenery = game.demoScenery();
         world.setTerrain(game.terrain());
         world.setGround(game.demoScenery().ground());
@@ -244,6 +249,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      */
     private void startHero() {
         Player p = world.player();
+        if (campaign != null) return;                   // (a playthrough's hero is the save's, with what she has)
         String cls = game.settings().heroClass;
         if (com.larsons.game.cards.CardBook.get().hero(cls) != null) p.hero().choose(cls, p);
         else choosing = true;
@@ -265,8 +271,34 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * the editor" and F5 go.
      */
     public DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back) {
+        this(game, level, at, heading, back, null);
+    }
+
+    /**
+     * A playthrough's level: who she is, where on the map this is, what
+     * clears it (the map's rule for the destination: {@code visit}, {@code
+     * exit}, {@code foes} or {@code quest}, and the quest for that) and the
+     * way back to the map.
+     */
+    public record Campaign(com.larsons.game.save.SaveGame save, String place, String placeName, String clear,
+                           String quest, Runnable toMap) {}
+
+    /**
+     * Play {@code level} as part of a playthrough: she is the save's - her
+     * looks, what she carries, her purse, her class and cards - and starts at
+     * the level's spawn; leaving (its way out, or Pause → "Return to the
+     * map") writes her back to the save and returns to the map.
+     */
+    public DemoScene(Game game, Level level, Campaign campaign) {
+        this(game, level, null, 0, null, campaign);
+    }
+
+    private DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back, Campaign campaign) {
         this.game = game;
-        this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        this.campaign = campaign;
+        this.world = campaign != null
+                ? new World(campaign.save().wardrobe(), campaign.save().inventorySize())
+                : new World(game.wardrobe(), game.settings().inventorySlots);
         world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = level;
         this.back = back;
@@ -275,9 +307,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.table = new CardTable(game, world);
         inventory.onCards(() -> table.show(CardTable.View.TABLE));
         if (back != null) pause.setBack("Back to the editor", back);
+        if (campaign != null) {
+            pause.setBack("Return to the map", () -> toMap(false));
+            pause.hide("Class");
+            pause.hide("Import sprite sheets");
+            pause.onLeave(() -> {
+                keep();
+                com.larsons.game.save.Saves.stop();
+            });
+        }
         CombatTuning tuning = tune(game, world);
         LevelWorld.populate(world, level, game.scenerySprites(), tuning);
         this.scenery = world.scenery();
+        if (campaign != null) {
+            campaign.save().give(world.player());
+            world.player().setSize(campaign.save().size());
+            world.ammo().setEnabled(true);
+        }
         world.ownWhatIsWorn();
         Player p = world.player();
         if (at != null) {
@@ -289,6 +335,25 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.equipSelected();
         camera.setDesiredYaw(p.heading());
         camera.snapTo(pivot());
+    }
+
+    /** Write her, as she is now, into the playthrough's save - and the place cleared, if it has been. */
+    private void keep() {
+        if (campaign == null) return;
+        campaign.save().take(world.player());
+        if (clearedHere) campaign.save().cleared().add(campaign.place());
+        com.larsons.game.save.Saves.write();
+    }
+
+    /** Leave for the overworld map: {@code cleared} when the way out that clears the place was reached. */
+    private void toMap(boolean cleared) {
+        if (campaign == null) return;
+        if (cleared && !clearedHere) {
+            clearedHere = true;
+            game.toast(campaign.placeName() + " cleared", Theme.OK);
+        }
+        keep();
+        campaign.toMap().run();
     }
 
     /** The fighting tuned as {@code assets/combat/combat.json} has it: her mana full, her cooldowns. */
@@ -662,7 +727,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT }
+    private enum Use {
+        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT, SPOT
+    }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
     private Chest storeChest;
@@ -697,7 +764,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
-        return b != null ? Use.BUSH : Use.NOTHING;
+        if (b != null) return Use.BUSH;
+        return world.reachableSpot() != null ? Use.SPOT : Use.NOTHING;
     }
 
     /**
@@ -731,8 +799,36 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case DISMOUNT -> {
                 if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
             }
+            case SPOT -> useSpot(world.reachableSpot());
             default -> { }
         }
+    }
+
+    /** What E does at {@code s}, by its kind. */
+    private void useSpot(com.larsons.game.world.Spot s) {
+        switch (s.kind()) {
+            case com.larsons.game.level.StoryTypes.WAY_OUT -> {
+                if (campaign != null) {
+                    toMap(s.bool("clears", true) && "exit".equals(campaign.clear()));
+                } else if (back != null) {
+                    game.toast("The way back to the map: in a playthrough she leaves here", Theme.HINT);
+                } else {
+                    game.switchTo("menu");
+                }
+            }
+            default -> { }
+        }
+    }
+
+    /** What the prompt says E does at {@code s}. */
+    private String spotText(com.larsons.game.world.Spot s) {
+        return switch (s.kind()) {
+            case com.larsons.game.level.StoryTypes.WAY_OUT -> campaign == null ? "Leave"
+                    : "Leave for the map" + (s.bool("clears", true) && "exit".equals(campaign.clear())
+                    && !campaign.save().cleared().contains(campaign.place()) ? " (clears " + campaign.placeName() + ")"
+                    : "");
+            default -> "Use " + s.name();
+        };
     }
 
     /** E by a horse with a saddle on her: it is saddled, and hers to ride. */
@@ -1328,6 +1424,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             name = d == null ? "the bush" : d.name().toLowerCase();
             if (d != null) edge = nameColour = Theme.rgb((d.food().rgb() >> 16) & 255, (d.food().rgb() >> 8) & 255,
                     d.food().rgb() & 255, 1f);
+        } else if (use == Use.SPOT) {
+            text = "   " + spotText(world.reachableSpot());
         } else {
             return;
         }

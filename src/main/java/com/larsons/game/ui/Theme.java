@@ -41,6 +41,11 @@ public final class Theme {
         return new float[]{r / 255f, g / 255f, b / 255f, a};
     }
 
+    /** The colour {@code 0xRRGGBB}, {@code a} opaque. */
+    public static float[] hex(int rgb, float a) {
+        return rgb(rgb >> 16 & 255, rgb >> 8 & 255, rgb & 255, a);
+    }
+
     public static float[] withAlpha(float[] c, float a) {
         return new float[]{c[0], c[1], c[2], a};
     }

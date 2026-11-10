@@ -551,6 +551,136 @@ def icon_zombie(p):
     p.line([(9, 17.5), (15, 17.5)], LINE, 0.8)
 
 
+# the playthrough's marks: over the things she can use, on the map, in the journal
+def icon_wayout(p):
+    p.line([(12, 22), (12, 4)], BROWN[1], 2.4)
+    p.poly([(5, 5), (17, 5), (21, 8.5), (17, 12), (5, 12)], CREAM[1])
+    p.poly([(5, 9), (19, 9), (17, 12), (5, 12)], CREAM[0])
+    p.poly([(19, 13.5), (7, 13.5), (3.5, 16.5), (7, 19.5), (19, 19.5)], BROWN[2])
+    p.line([(8, 8.5), (15, 8.5)], BROWN[0], 0.8)
+
+
+def icon_talk(p):
+    p.poly([(3, 4), (21, 4), (21, 15), (12, 15), (7, 21), (8, 15), (3, 15)], CREAM[2])
+    p.poly([(3, 11), (21, 11), (21, 15), (12, 15), (7, 21), (8, 15), (3, 15)], CREAM[1])
+    for x in (8, 12, 16):
+        p.circle(x, 9.5, 1.3, BROWN[0])
+
+
+def icon_exclaim(p):
+    p.circle(12, 12, 10.5, GOLD[0])
+    p.circle(12, 12, 9, GOLD[1])
+    p.poly([(10, 4.5), (14, 4.5), (13.2, 14), (10.8, 14)], LINE)
+    p.circle(12, 17.8, 1.8, LINE)
+
+
+def icon_question(p):
+    p.circle(12, 12, 10.5, GOLD[0])
+    p.circle(12, 12, 9, GOLD[2])
+    p.arc(12, 9.3, 3.6, 180, 450, LINE, 2.2)
+    p.line([(12, 12.8), (12, 15)], LINE, 2.2)
+    p.circle(12, 18.3, 1.6, LINE)
+
+
+def icon_lock(p):
+    p.ring(12, 9, 5, STEEL[1], 2.4)
+    p.poly([(5, 10), (19, 10), (19, 21), (5, 21)], BRASS[1])
+    p.poly([(12, 10), (19, 10), (19, 21), (12, 21)], BRASS[0])
+    p.circle(12, 14.5, 1.8, LINE)
+    p.line([(12, 15), (12, 18.5)], LINE, 1.4)
+
+
+def icon_cauldron(p):
+    p.poly([(3.5, 9), (20.5, 9), (19, 18), (15.5, 21), (8.5, 21), (5, 18)], STEEL[0])
+    p.poly([(12, 9), (20.5, 9), (19, 18), (15.5, 21), (12, 21)], LINE)
+    p.rect(2.5, 7, 21.5, 9.6, STEEL[1])
+    p.poly([(5, 7), (19, 7), (17.5, 8.6), (6.5, 8.6)], GREEN[1])
+    p.circle(8, 4.5, 1.5, GREEN[2])
+    p.circle(13, 2.8, 1.1, GREEN[2])
+    p.circle(16.5, 5, 0.9, GREEN[1])
+
+
+def icon_egg(p):
+    p.poly([(12, 2), (17, 6), (19.5, 13), (17.5, 19), (12, 22), (6.5, 19), (4.5, 13), (7, 6)], CREAM[1])
+    p.poly([(12, 2), (17, 6), (19.5, 13), (17.5, 19), (12, 22)], CREAM[0])
+    p.circle(9, 9, 1.6, TEAL[1])
+    p.circle(14.5, 14.5, 2.0, TEAL[1])
+    p.circle(9.5, 16.5, 1.2, TEAL[0])
+
+
+def icon_cog(p):
+    for i in range(8):
+        a = i * math.pi / 4
+        x, y = 12 + 9.2 * math.cos(a), 12 + 9.2 * math.sin(a)
+        p.circle(x, y, 2.2, BRASS[1])
+    p.circle(12, 12, 8, BRASS[1])
+    p.arc(12, 12, 7, -30, 120, BRASS[0], 2.0)
+    p.circle(12, 12, 3.4, LINE)
+    p.circle(12, 12, 1.6, BRASS[2])
+
+
+def icon_box(p):
+    p.poly([(3, 9), (21, 9), (21, 21), (3, 21)], BROWN[1])
+    p.poly([(12, 9), (21, 9), (21, 21), (12, 21)], BROWN[0])
+    p.poly([(2, 5), (22, 5), (22, 9.5), (2, 9.5)], BROWN[2])
+    p.rect(2, 8.4, 22, 9.8, BRASS[1])
+    p.arc(12, 13.2, 2.4, 180, 450, GOLD[2], 1.6)
+    p.line([(12, 15.4), (12, 17)], GOLD[2], 1.6)
+    p.circle(12, 19, 1.0, GOLD[2])
+
+
+def icon_door(p):
+    p.poly([(5, 22), (5, 8), (8, 4), (12, 2.5), (16, 4), (19, 8), (19, 22)], BROWN[1])
+    p.poly([(12, 2.5), (16, 4), (19, 8), (19, 22), (12, 22)], BROWN[0])
+    p.line([(12, 3), (12, 22)], LINE, 0.7)
+    p.rect(5, 10, 19, 11.4, STEEL[1])
+    p.rect(5, 17, 19, 18.4, STEEL[1])
+    p.circle(15.5, 14.2, 1.3, BRASS[2])
+
+
+def icon_scroll(p):
+    p.poly([(6, 4), (19, 4), (19, 19), (6, 19)], CREAM[1])
+    p.poly([(12.5, 4), (19, 4), (19, 19), (12.5, 19)], CREAM[0])
+    p.rect(4, 2.5, 21, 5.5, CREAM[2])
+    p.rect(4, 18, 21, 21, CREAM[2])
+    p.circle(4.3, 4, 1.6, BROWN[1])
+    p.circle(20.7, 19.5, 1.6, BROWN[1])
+    star(p, 12.5, 12, 4.2, PURPLE[1])
+
+
+def icon_backpack(p):
+    p.ring(12, 6, 3.6, BROWN[0], 1.8)
+    p.poly([(5, 8), (19, 8), (20.5, 20), (18, 22), (6, 22), (3.5, 20)], BROWN[1])
+    p.poly([(12, 8), (19, 8), (20.5, 20), (18, 22), (12, 22)], BROWN[0])
+    p.poly([(5, 8), (19, 8), (18.5, 13), (5.5, 13)], BROWN[2])
+    p.rect(10.5, 11.5, 13.5, 14.8, BRASS[2])
+    p.rect(7, 16, 17, 20, BROWN[2])
+
+
+def icon_heart(p):
+    heart(p, 12, 11.5, 8.2, RED)
+
+
+def icon_star(p):
+    star(p, 12, 12.5, 10.5, GOLD[0], points=5, inner=0.45)
+    star(p, 12, 12.5, 8.8, GOLD[1], points=5, inner=0.45)
+    star(p, 11, 11.5, 4.0, GOLD[2], points=5, inner=0.45)
+
+
+def icon_shield(p):
+    p.poly([(4, 3.5), (20, 3.5), (20, 13), (12, 22), (4, 13)], STEEL[1])
+    p.poly([(12, 3.5), (20, 3.5), (20, 13), (12, 22)], STEEL[0])
+    p.poly([(6.5, 6), (17.5, 6), (17.5, 12.5), (12, 19), (6.5, 12.5)], BLUE[1])
+    p.poly([(12, 6), (17.5, 6), (17.5, 12.5), (12, 19)], BLUE[0])
+
+
+def icon_portal(p):
+    p.ring(12, 12, 9, PURPLE[0], 3.0)
+    p.ring(12, 12, 6.4, PURPLE[1], 2.4)
+    p.circle(12, 12, 3.6, PURPLE[2])
+    star(p, 12, 12, 3.0, CREAM[2])
+
+
 ICONS = [
     ("damage", icon_damage), ("melee_damage", icon_melee), ("ranged_damage", icon_ranged),
     ("spell_damage", icon_spell), ("mana_cost", icon_mana_cost), ("stamina_cost", icon_stamina_cost),
@@ -564,6 +694,10 @@ ICONS = [
     ("draw", icon_draw), ("coins_now", icon_coins_now), ("xp_now", icon_xp_now), ("breath_now", icon_breath_now),
     ("card_back", icon_card_back), ("quest", icon_quest), ("key", icon_key), ("skull", icon_skull),
     ("potion", icon_potion), ("fish", icon_fish), ("hammer", icon_hammer), ("zombie", icon_zombie),
+    ("wayout", icon_wayout), ("talk", icon_talk), ("exclaim", icon_exclaim), ("question", icon_question),
+    ("lock", icon_lock), ("cauldron", icon_cauldron), ("egg", icon_egg), ("cog", icon_cog), ("box", icon_box),
+    ("door", icon_door), ("scroll", icon_scroll), ("backpack", icon_backpack), ("heart", icon_heart),
+    ("star", icon_star), ("shield", icon_shield), ("portal", icon_portal),
 ]
 
 

@@ -358,6 +358,8 @@ public final class Game implements AutoCloseable {
             System.err.println("[sound] cannot set up " + settings.soundsDir() + ": " + e.getMessage());
         }
         Sounds.useStore(settings.config);
+        com.larsons.game.save.Saves.useFolder(settings.config.resolve("saves"));
+        com.larsons.game.overworld.MapView.useAssets(settings.assets);
         Sounds.load();
         Sounds.setMasterVolume(settings.masterVolume);
         for (SoundCategory c : SoundCategory.values()) {
@@ -577,7 +579,8 @@ public final class Game implements AutoCloseable {
     // --- scenes ----------------------------------------------------------------------
 
     /**
-     * Switch to "menu", "demo", "cutscene", "creative" (Creative Mode on a
+     * Switch to "menu", "demo", "cutscene", "mapedit" (the overworld map
+     * editor), "newgame" (the character creator), "creative" (Creative Mode on a
      * new level), "edit:&lt;level&gt;" or "play:&lt;level&gt;" (a level's folder
      * in {@code assets/levels}).
      */
@@ -599,6 +602,9 @@ public final class Game implements AutoCloseable {
         } else {
             next = switch (lower) {
                 case "demo" -> new DemoScene(this);
+                case "mapedit" -> new com.larsons.game.editor.OverworldEditor(this, null);
+                case "newgame" -> new com.larsons.game.scene.CreatorScene(this,
+                        Math.max(0, com.larsons.game.save.Saves.free()));
                 case "cutscene" -> new com.larsons.game.scene.CutsceneScene(this);
                 case "creative" -> new com.larsons.game.editor.CreativeScene(this,
                         com.larsons.game.level.Level.blank("New level", com.larsons.game.level.Level.DEFAULT_SIZE),

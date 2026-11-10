@@ -53,7 +53,9 @@ public enum Slot {
     MOUTH("mouth", "Mouth"),
     HAIR("hair", "Hair"),
     HAT("hat", "Hat"),
+    HORNS("horns", "Horns"),
     OTHER("other", "Other"),
+    TAIL("tail", "Tail"),
     CARRY_LEFT("carry_left", "Left hand"),
     CARRY_RIGHT("carry_right", "Right hand");
 

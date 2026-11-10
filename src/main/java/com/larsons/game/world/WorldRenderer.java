@@ -79,6 +79,9 @@ import static org.lwjgl.opengl.GL33C.*;
  */
 public final class WorldRenderer implements AutoCloseable {
 
+    /** A spot's mark: how big, metres, and from how far it is drawn. */
+    private static final double MARK_SIZE = 0.55, MARK_REACH = 60;
+
     /** How far the fog reaches, in metres. */
     public static final float FOG = 70f;
     /** A dash's afterimages: one left behind every so many seconds, each fading out over so many. */
@@ -339,7 +342,9 @@ public final class WorldRenderer implements AutoCloseable {
         LayerStack.Result stack = playerStack;
         Runnable her = () -> {
             batch.depthAnchor(p.ground());
-            LayerStack.drawBillboard(batch, stack, p.feet(), right, up, 1f);
+            float size = (float) p.size();
+            LayerStack.drawBillboard(batch, stack, p.feet(), size == 1f ? right : right.scale(size),
+                    size == 1f ? up : up.scale(size), 1f);
         };
         boolean[] drawnWithHorse = {false};
         if (steed == null) {
@@ -425,7 +430,23 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(ls.at().sub(eye).dot(forward));
         }
 
-        combat.sprites(world, batch, camera, new com.larsons.game.combat.CombatRenderer.Draws() {
+        // the marks over what she can use: a little icon, bobbing, over each spot that has one
+        for (Spot sp : world.spots()) {
+            float[] uv = com.larsons.game.ui.CardArt.iconUv(sp.icon());
+            if (uv == null) continue;
+            Vec3 at = sp.position().add(0, sp.markerHeight() + Math.sin(t * 2.2 + sp.id()) * 0.06, 0);
+            if (at.sub(eye).length() > MARK_REACH) continue;
+            Vec3 mr = right.scale(MARK_SIZE), md = up.scale(-MARK_SIZE);
+            Vec3 tl = at.sub(mr.scale(0.5)).sub(md.scale(0.5));
+            Texture marks = com.larsons.game.ui.CardArt.iconTexture();
+            draws.add(() -> {
+                batch.depthAnchor(sp.position());
+                batch.quad(marks, tl, mr, md, uv[0], uv[1], uv[2], uv[3], 1f, 1f, 1f, 1f);
+            });
+            dist.add(at.sub(eye).dot(forward));
+        }
+
+                combat.sprites(world, batch, camera, new com.larsons.game.combat.CombatRenderer.Draws() {
             @Override
             public void add(double d, Runnable draw) {
                 draws.add(draw);

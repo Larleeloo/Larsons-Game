@@ -95,6 +95,8 @@ import java.util.function.ToDoubleFunction;
  */
 public final class Player {
 
+    private double size = 1;
+
     public static final double WALK_SPEED = AnimState.WALK.speed();
     public static final double RUN_SPEED = AnimState.RUN.speed();
     public static final double SPRINT_SPEED = AnimState.SPRINT.speed();
@@ -1222,6 +1224,13 @@ public final class Player {
     public int coins() { return coins; }
 
     /** Her purse as a save had it. */
+    /** How big she is drawn, times her sprites' own size (a playthrough's character: 0.7 - 1.3). */
+    public double size() { return size; }
+
+    public void setSize(double s) {
+        size = Math.max(0.4, Math.min(1.6, s));
+    }
+
     public void setCoins(int n) {
         coins = Math.max(0, n);
     }

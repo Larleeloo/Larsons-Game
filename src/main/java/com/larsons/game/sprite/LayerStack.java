@@ -133,7 +133,11 @@ public final class LayerStack {
     public static Slot[] drawOrder(boolean leftHanded, Elevation elevation, Facing facing) {
         List<Slot> order = new ArrayList<>(List.of(Slot.values()));
         order.remove(Slot.OTHER);
-        order.add(facesCamera(elevation, facing) ? 0 : order.indexOf(Slot.HAIR), Slot.OTHER);
+        order.remove(Slot.TAIL);
+        // (a tail, like a cape, is behind her from the front and over what she wears from behind)
+        int back = facesCamera(elevation, facing) ? 0 : order.indexOf(Slot.HAIR);
+        order.add(back, Slot.OTHER);
+        order.add(back + 1, Slot.TAIL);
         if (leftHanded) {
             int l = order.indexOf(Slot.CARRY_LEFT), r = order.indexOf(Slot.CARRY_RIGHT);
             order.set(l, Slot.CARRY_RIGHT);
