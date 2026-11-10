@@ -119,7 +119,8 @@ public final class Quests {
     private static String goal(Quest q, int count) {
         String where = q.radius() > 0 ? " at the marked place" : "";
         return switch (q.kind()) {
-            case KILL -> "Fell " + (q.target().isBlank() ? "foes" : q.target()) + where
+            case KILL -> "Fell " + (q.target().isBlank() ? (q.count() > 1 ? "foes" : "a foe")
+                    : (q.count() > 1 ? "" : "the ") + q.target()) + where
                     + (q.count() > 1 ? "  " + Math.min(count, q.count()) + "/" + q.count() : "");
             case CLEAR -> "Clear every foe" + (q.radius() > 0 ? " from the marked place" : " from here");
             case TALK -> "Find and talk to " + q.target();

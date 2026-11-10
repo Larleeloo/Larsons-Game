@@ -1,0 +1,53 @@
+{
+ "key": "mystery_box",
+ "label": "Mystery box",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.744,
+ "model": true,
+ "parts": [
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#4a2f5a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d6aa5c",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glow",
+   "label": "Light",
+   "colour": "#ffe08a",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "marks",
+   "label": "Marks",
+   "colour": "#7fe8ff",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.43,
+   0.77
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

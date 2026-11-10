@@ -1,0 +1,52 @@
+{
+ "key": "locked_door",
+ "label": "Locked door",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Frame",
+   "colour": "#7a7a84",
+   "texture": "stone",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lock",
+   "label": "Lock",
+   "colour": "#d6aa5c",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.875,
+   0.5
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

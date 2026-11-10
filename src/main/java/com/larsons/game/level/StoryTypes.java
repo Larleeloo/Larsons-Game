@@ -25,6 +25,10 @@ public final class StoryTypes {
 
     private StoryTypes() {}
 
+    private static final java.util.Map<String, String> STAND_INS = java.util.Map.of("workbench", "prep_table",
+            "signpost", "lantern_post", "summon_station", "tesla_coil", "locked_door", "gatehouse",
+            "mystery_box", "storage_chest", "wall_buy", "weapon_rack", "barricade", "crate");
+
     /**
      * Register a kind of spot: {@code model} (a building's key; null: none)
      * stands where it is placed, and {@code icon} floats over it.
@@ -35,6 +39,8 @@ public final class StoryTypes {
             Vec3 at = b.onGround(o);
             String m = o.str("model", model == null ? "none" : model);
             BuildingProfile p = m.equals("none") ? null : BuildingCatalog.get().profile(m);
+            // (its own model not made yet: what stands in for it)
+            if (p == null && !m.equals("none")) p = BuildingCatalog.get().profile(STAND_INS.getOrDefault(m, "none"));
             if (p != null) {
                 b.world().addBuilding(new Building(o.id(), p, at, o.yaw(), BuildingLook.of(o.props().get("look")),
                         null));

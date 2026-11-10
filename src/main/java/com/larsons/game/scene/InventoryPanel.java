@@ -127,6 +127,7 @@ final class InventoryPanel {
     private final SidePanels side;
     /** The shop open beside the inventory, or null; how far down its stock is scrolled. */
     private Shop shop;
+    private boolean carried;
     private int shopScroll;
 
     InventoryPanel(Game game, World world) {
@@ -186,9 +187,16 @@ final class InventoryPanel {
         if (open && shop == s) return;
         if (open) close();
         shop = s;
+        carried = false;
         shopScroll = 0;
         show();
         Sounds.play(SoundKeys.ui("shop_open"));
+    }
+
+    /** {@link #showShop} for what a person carries to sell: a shop that is no stall of the world's. */
+    void showWares(Shop s) {
+        showShop(s);
+        carried = true;
     }
 
     /** The shop open beside the inventory, or null. */
@@ -356,7 +364,7 @@ final class InventoryPanel {
         }
         Inventory inv = inventory();
         if (tiersOf >= 0 && !com.larsons.game.world.Upgrades.has(inv.get(tiersOf))) tiersOf = -1;
-        if (shop != null && !world.shops().contains(shop)) shop = null;
+        if (shop != null && !carried && !world.shops().contains(shop)) shop = null;
         boolean beside = store != null || shop != null || tiersOf >= 0;
         float[][] both = beside ? panels(ui.width(), ui.height()) : null;
         float[] p = both == null ? panel(ui.width(), ui.height()) : both[0];

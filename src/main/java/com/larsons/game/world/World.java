@@ -845,6 +845,13 @@ public final class World {
         fishingLine = line;
     }
 
+    /** A place marked for her: an icon standing over it, seen from far off, and its ring on the ground. */
+    public record Mark(Vec3 at, String icon, double radius) {}
+
+    private final List<Mark> marks = new ArrayList<>();
+
+    public List<Mark> marks() { return marks; }
+
     private double revealedUntil = -1;
 
     /** Mark every foe about for {@code seconds} (the crystal ball). */

@@ -2016,6 +2016,22 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            // the story: E, an answer picked ("say 2"), something called before her ("summon bortzal 3"),
+            // a bench opened ("station cauldron" / "station workbench"), the journal, what is in hand used
+            case "use" -> use();
+            case "say" -> story.script("say", argument.trim());
+            case "station" -> story.script("station", argument.trim());
+            case "journal" -> story.script("journal", "");
+            case "endtalk" -> story.close();
+            case "usehand" -> story.useHeld();
+            case "summon" -> {
+                String[] a = argument.trim().split("\\s+");
+                double m = a.length > 2 ? Double.parseDouble(a[2]) : 6;
+                Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                boolean peaceful = a.length > 3 && a[3].equals("peaceful");
+                world.summon(a[0], a.length > 1 ? Integer.parseInt(a[1]) : 1, at, p.heading() + Math.PI,
+                        new com.larsons.game.actor.Folks.Spec("either", "own", 0, 0, null, null, !peaceful, null));
+            }
             // riding: a saddled horse put before her ("steed [metres]"), saddling the one by her, on, off
             case "steed" -> {
                 double m = argument.isBlank() ? 3 : Double.parseDouble(argument.trim());

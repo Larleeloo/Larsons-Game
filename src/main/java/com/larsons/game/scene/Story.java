@@ -130,6 +130,13 @@ final class Story {
         if (iconClock <= 0) {
             iconClock = 0.4;
             for (Folk f : world.folks().all()) if (f.role() == Folk.Role.PERSON) f.setIcon(iconFor(f));
+            // the marked places: where a quest under way is to be done
+            world.marks().clear();
+            for (Quest q : quests.all()) {
+                if (quests.state(q) == Quests.State.ACTIVE && q.radius() > 0) {
+                    world.marks().add(new World.Mark(q.at(), "quest", q.radius()));
+                }
+            }
         }
         if (in.pressed(Action.JOURNAL) && with == null && station == null) {
             journal = !journal;
@@ -316,7 +323,7 @@ final class Story {
         Shop shop = keepers.computeIfAbsent(f.id(), id -> new Shop(id, f.name(), f.position(), f.heading(),
                 f.str("stock", ""), !"false".equalsIgnoreCase(String.valueOf(f.props().get("buys")))));
         close();
-        inventory.showShop(shop);
+        inventory.showWares(shop);
     }
 
     // --- spots ---------------------------------------------------------------------------
@@ -335,13 +342,23 @@ final class Story {
         return true;
     }
 
+    /** What a summoning station calls what it summons: "Vérnees", "wild boar", "bortzal". */
+    static String summoned(String what) {
+        if (World.VERNEES.equals(what)) return "Vérnees";
+        if (World.FLIER.equals(what)) return "flying dummy";
+        if (World.DUMMY.equals(what)) return "strike dummy";
+        com.larsons.game.ambient.AnimalKind k = com.larsons.game.ambient.AnimalKind.byKey(what);
+        if (k != null) return k.label().toLowerCase(java.util.Locale.ROOT);
+        return com.larsons.game.level.ObjectTypes.readable(what);
+    }
+
     /** What the prompt says E does at {@code s}, or null when it is not one of the story's. */
     String text(Spot s) {
         return switch (s.kind()) {
             case FolkTypes.SUMMON -> {
                 int cost = (int) s.num("cost", 0);
-                yield "Summon " + (int) s.num("count", 1) + " × "
-                        + com.larsons.game.level.ObjectTypes.readable(s.str("summons", "?")).toLowerCase()
+                int n = (int) s.num("count", 1);
+                yield "Summon " + (n > 1 ? n + " × " : "") + summoned(s.str("summons", "?"))
                         + (cost > 0 ? "  (" + cost + " coins)" : "");
             }
             case StoryTypes.WORKBENCH -> "Use the workbench";
@@ -569,6 +586,23 @@ final class Story {
         }
     }
 
+    /** A scripted run's hand on the panels: "say 2" picks the second answer (or turns the page). */
+    void script(String what, String arg) {
+        switch (what) {
+            case "say" -> {
+                if (with == null) return;
+                if (page < pages.size() - 1) page++;
+                else {
+                    int i = arg.isBlank() ? 0 : Integer.parseInt(arg) - 1;
+                    if (i >= 0 && i < options.size()) choose(options.get(i));
+                }
+            }
+            case "station" -> open(arg.startsWith("c") ? Recipes.Station.CAULDRON : Recipes.Station.BENCH);
+            case "journal" -> journal = !journal;
+            default -> { }
+        }
+    }
+
     // --- drawing -------------------------------------------------------------------------
 
     void draw(Ui ui, boolean hud) {
@@ -607,7 +641,7 @@ final class Story {
         float textH = ui.paragraphHeight(ui.body, text, w - 56);
         int n = last ? options.size() : 0;
         float optH = 34, h = 58 + Math.max(textH, 44) + (last ? n * (optH + 6) + 8 : 30);
-        float y = ui.height() - h - 96;
+        float y = ui.height() - h - 124;
         ui.rect(0, 0, ui.width(), ui.height(), Theme.withAlpha(Theme.SOOT, 0.25f));
         ui.panel(x, y, w, h);
         // her name on a plate let into the frame

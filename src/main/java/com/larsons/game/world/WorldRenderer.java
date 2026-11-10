@@ -670,6 +670,23 @@ public final class WorldRenderer implements AutoCloseable {
             }
         }
         folkMemory = folkMemories;
+        // the marked places: an icon standing over each, as big on the screen from far off as from near
+        for (World.Mark mk : world.marks()) {
+            float[] uv = com.larsons.game.ui.CardArt.iconUv(mk.icon());
+            if (uv == null) continue;
+            Vec3 base = ground.onGround(mk.at());
+            double away = Math.max(8, base.sub(eye).length());
+            double size = MARK_SIZE * 1.3 * away / 14;
+            Vec3 at = base.add(0, 2.6 + size + Math.sin(t * 2) * 0.1, 0);
+            Vec3 mr = right.scale(size), md = up.scale(-size);
+            Vec3 tl = at.sub(mr.scale(0.5)).sub(md.scale(0.5));
+            Texture marks = com.larsons.game.ui.CardArt.iconTexture();
+            draws.add(() -> {
+                batch.depthAnchor(eye.add(forward.scale(0.6)));                 // (seen through anything)
+                batch.quad(marks, tl, mr, md, uv[0], uv[1], uv[2], uv[3], 1f, 1f, 1f, 0.95f);
+            });
+            dist.add(-1e6 + 1);
+        }
         // her rod, its line and its float
         World.FishingLine fl = world.fishingLine();
         if (fl != null) {
