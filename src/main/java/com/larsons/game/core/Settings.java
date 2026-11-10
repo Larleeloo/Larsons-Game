@@ -64,6 +64,11 @@ public final class Settings {
     /** Print the frame numbers to the console ({@code -Dlarsons.fps.log}). */
     public final boolean logFrames;
     public boolean showHud = true;
+    /**
+     * F3: the developer's overlay over the game - which sheets are on
+     * screen, the frame times, the entity counts, and every key's help.
+     */
+    public boolean debugOverlay;
     /** Her class (Mage, Bard ... Cleric: {@link com.larsons.game.cards.CardBook}), "" before she has chosen one. */
     public String heroClass = "";
     /**
@@ -154,6 +159,7 @@ public final class Settings {
                 if (!scaleGiven) s.spriteScale = Json.num(j, "spriteScale", 1.0);
                 s.savedFps = Math.max(0, (int) Json.num(j, "fps", FramePacer.DEFAULT_FPS));
                 s.showHud = Json.bool(j, "showHud", true);
+                s.debugOverlay = Json.bool(j, "debugOverlay", false);
                 s.heroClass = Json.str(j, "heroClass", "");
                 s.pointer = Json.str(j, "pointer", "class");
                 s.showProps = Json.bool(j, "showProps", true);
@@ -191,6 +197,7 @@ public final class Settings {
         j.put("spriteScale", spriteScale);
         j.put("fps", savedFps);
         j.put("showHud", showHud);
+        j.put("debugOverlay", debugOverlay);
         j.put("heroClass", heroClass);
         j.put("pointer", pointer);
         j.put("showProps", showProps);

@@ -130,6 +130,7 @@ public final class Game implements AutoCloseable {
         batch = new Batch();
         ui = new Ui(window, batch);
         pointers = new com.larsons.game.ui.Pointers(settings.assets);
+        window.input().setBindings(com.larsons.game.input.Bindings.load(settings.config.resolve("controls.json")));
         long uiNs = System.nanoTime() - t1;
 
         // From here on the loading screen is up, showing each step as it runs.
@@ -556,8 +557,10 @@ public final class Game implements AutoCloseable {
             float a = (float) Math.min(1, t.life()[0] / 0.4);
             float w = ui.body.width(t.text()) + 28;
             float x = (ui.width() - w) / 2;
-            ui.rect(x, y, w, 32, Theme.withAlpha(Theme.PANEL, 0.92f * a));
-            ui.text(ui.body, t.text(), x + 14, y + 7, Theme.withAlpha(t.color(), a));
+            ui.rect(x, y, w, 32, Theme.withAlpha(Theme.rgb(26, 19, 14, 1f), 0.92f * a));
+            ui.outline(x, y, w, 32, 1, Theme.withAlpha(Theme.SOOT, a));
+            ui.outline(x + 1, y + 1, w - 2, 30, 1, Theme.withAlpha(Theme.BRASS, 0.8f * a));
+            ui.text(ui.body, t.text(), x + 14, y + 5, Theme.withAlpha(t.color(), a));
             y -= 38;
         }
         // The importer is modal: it draws over everything, toasts included.

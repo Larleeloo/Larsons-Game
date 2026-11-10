@@ -114,6 +114,7 @@ public final class Window implements AutoCloseable {
             fbWidth = Math.max(1, w.get(0));
             fbHeight = Math.max(1, h.get(0));
         }
+        input.viewSize(width, height);
     }
 
     public void show() {
@@ -124,6 +125,40 @@ public final class Window implements AutoCloseable {
 
     public void pollEvents() {
         glfwPollEvents();
+        pollGamepad();
+    }
+
+    /** When the gamepad was last read, for how long a held stick has moved the pointer. */
+    private long padPolled = System.nanoTime();
+    private final boolean[] padButtons = new boolean[com.larsons.game.input.Pad.BUTTONS];
+    private final float[] padAxes = new float[6];
+
+    /**
+     * The first gamepad plugged in (anything GLFW has an Xbox-layout mapping
+     * for: an Xbox, a PlayStation or a Switch controller), read into the
+     * {@link Input}; and the pointer put where the gamepad moved it in a menu.
+     */
+    private void pollGamepad() {
+        long now = System.nanoTime();
+        double dt = Math.min(0.1, (now - padPolled) / 1e9);
+        padPolled = now;
+        boolean found = false;
+        if (focused) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                org.lwjgl.glfw.GLFWGamepadState state = org.lwjgl.glfw.GLFWGamepadState.malloc(stack);
+                for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST && !found; jid++) {
+                    if (!glfwJoystickPresent(jid) || !glfwJoystickIsGamepad(jid)) continue;
+                    if (!glfwGetGamepadState(jid, state)) continue;
+                    for (int b = 0; b < padButtons.length; b++) padButtons[b] = state.buttons(b) == GLFW_PRESS;
+                    for (int a = 0; a < padAxes.length; a++) padAxes[a] = state.axes(a);
+                    input.padState(glfwGetGamepadName(jid), padButtons, padAxes, dt);
+                    found = true;
+                }
+            }
+        }
+        if (!found) input.padState(null, null, null, dt);
+        double[] warp = input.takeWarp();
+        if (warp != null) glfwSetCursorPos(handle, warp[0], warp[1]);
     }
 
     /** How many refreshes each swap waits for: 0 = none (vsync off), 1 = every refresh, 2 = every other. */

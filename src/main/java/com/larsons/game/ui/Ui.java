@@ -26,6 +26,8 @@ public final class Ui implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Texture white;
+    /** The look's own textures, made once: oak, parchment, a rivet, a round disc and a cog. */
+    private final Texture wood, parchment, rivet, disc, cog;
     /** The smallest: a label that would not otherwise fit, on two lines. */
     public final Font tiny;
     public final Font small;
@@ -46,11 +48,65 @@ public final class Ui implements AutoCloseable {
         this.batch = batch;
         this.white = Texture.white();
         float s = window.scale();
+        // the small print stays plain, to be read; what is said larger is in serif, as inked
         tiny = new Font(12, false, s);
         small = new Font(14, false, s);
-        body = new Font(18, false, s);
-        large = new Font(24, true, s);
-        title = new Font(56, true, s);
+        body = new Font(java.awt.Font.SERIF, 18, false, s);
+        large = new Font(java.awt.Font.SERIF, 24, true, s);
+        title = new Font(java.awt.Font.SERIF, 56, true, s);
+        int n = Medieval.TILE;
+        wood = Texture.tiled(com.larsons.game.gfx.PixelData.of(Medieval.woodPixels(n, 7), n, n));
+        parchment = Texture.tiled(com.larsons.game.gfx.PixelData.of(Medieval.parchmentPixels(n, 11), n, n));
+        rivet = Texture.upload(com.larsons.game.gfx.PixelData.of(brassRivet(32), 32, 32), false);
+        disc = Texture.upload(com.larsons.game.gfx.PixelData.of(Medieval.discPixels(64), 64, 64), false);
+        cog = Texture.upload(com.larsons.game.gfx.PixelData.of(cogPixels(128, 10), 128, 128), false);
+    }
+
+    /** A domed brass rivet, {@code n} across, lit from the top left. */
+    static int[] brassRivet(int n) {
+        int[] argb = new int[n * n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                double dx = (x + 0.5) / n * 2 - 1, dy = (y + 0.5) / n * 2 - 1;
+                double r = Math.hypot(dx, dy);
+                double a = Math.max(0, Math.min(1, (1 - r) * n / 2));
+                double nz = Math.sqrt(Math.max(0, 1 - r * r));
+                double lit = Math.max(0, Math.min(1, -0.5 * dx - 0.55 * dy + 0.65 * nz));
+                double k = 0.35 + 0.75 * Math.pow(lit, 1.6), spec = Math.pow(lit, 14) * 90;
+                int rr = (int) Math.min(255, 196 * k + spec), gg = (int) Math.min(255, 150 * k + spec),
+                        bb = (int) Math.min(255, 70 * k + spec * 0.7);
+                argb[y * n + x] = ((int) Math.round(a * 255) << 24) | (rr << 16) | (gg << 8) | bb;
+            }
+        }
+        return argb;
+    }
+
+    /**
+     * A white cog, {@code n} across, with {@code teeth} teeth, a rim and a
+     * hub with spokes between: tinted brass or iron when it is drawn.
+     */
+    static int[] cogPixels(int n, int teeth) {
+        int[] argb = new int[n * n];
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                // 3 x 3 samples a pixel, for a smooth edge
+                int hit = 0;
+                for (int sy = 0; sy < 3; sy++) {
+                    for (int sx = 0; sx < 3; sx++) {
+                        double dx = (x + (sx + 0.5) / 3) / n * 2 - 1, dy = (y + (sy + 0.5) / 3) / n * 2 - 1;
+                        double r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+                        double tooth = Math.cos(a * teeth);
+                        double outer = tooth > 0.25 ? 0.98 : 0.80;
+                        boolean solid = r <= outer && r >= 0.56;                       // the rim and its teeth
+                        solid |= r <= 0.26 && r >= 0.09;                                // the hub
+                        solid |= r < 0.58 && r > 0.24 && Math.abs(Math.sin(a * 2.5)) < 0.22 / Math.max(0.2, r * 2.2);
+                        if (solid) hit++;
+                    }
+                }
+                argb[y * n + x] = (Math.round(hit * 255f / 9) << 24) | 0xFFFFFF;
+            }
+        }
+        return argb;
     }
 
     public Batch batch() { return batch; }
@@ -161,10 +217,105 @@ public final class Ui implements AutoCloseable {
         return Math.abs(input().mouseX() - cx) + Math.abs(input().mouseY() - cy) <= r;
     }
 
-    /** A framed translucent panel. */
+    /**
+     * A panel: stained oak in a brass frame, a rivet in each corner of a
+     * large one - what every menu stands on.
+     */
     public void panel(float x, float y, float w, float h) {
-        rect(x, y, w, h, Theme.PANEL);
-        outline(x, y, w, h, 1, Theme.PANEL_EDGE);
+        lowest = Math.max(lowest, y + h);
+        // the oak, dark enough to read cream lettering on
+        float t = Medieval.TILE * 1.5f;
+        batch.rect(wood, x, y, w, h, x / t, y / t, (x + w) / t, (y + h) / t, 0.42f, 0.38f, 0.36f, 0.97f);
+        // darker toward its edges, as if set back in its frame
+        float in = Math.min(18, Math.min(w, h) / 4);
+        rect(x, y, w, in, Theme.withAlpha(Theme.SOOT, 0.16f));
+        rect(x, y + h - in, w, in, Theme.withAlpha(Theme.SOOT, 0.22f));
+        frame(x, y, w, h, w >= 150 && h >= 90 ? 4 : 3);
+        if (w >= 220 && h >= 130) {
+            float r = 9, o = 7;
+            image(rivet, x + o, y + o, r, r, WHITE);
+            image(rivet, x + w - o - r, y + o, r, r, WHITE);
+            image(rivet, x + o, y + h - o - r, r, r, WHITE);
+            image(rivet, x + w - o - r, y + h - o - r, r, r, WHITE);
+        }
+    }
+
+    private static final float[] WHITE = {1, 1, 1, 1};
+
+    /**
+     * A brass frame {@code t} thick just inside the box: lit along its top
+     * and left, in shadow along its bottom and right, a dark line either side.
+     */
+    public void frame(float x, float y, float w, float h, float t) {
+        outline(x, y, w, h, 1, Theme.SOOT);
+        outline(x + 1, y + 1, w - 2, h - 2, t, Theme.BRASS);
+        rect(x + 1, y + 1, w - 2, 1, Theme.BRASS_LIGHT);
+        rect(x + 1, y + 1, 1, h - 2, Theme.BRASS_LIGHT);
+        rect(x + 1, y + h - 2, w - 2, 1, Theme.BRASS_DARK);
+        rect(x + w - 2, y + 1, 1, h - 2, Theme.BRASS_DARK);
+        outline(x + 1 + t, y + 1 + t, w - 2 - 2 * t, h - 2 - 2 * t, 1, Theme.withAlpha(Theme.SOOT, 0.7f));
+    }
+
+    /**
+     * A small dark plate with a thin edge of {@code edge} (null: brass): a
+     * prompt, a tooltip, a toast - what is said over the game.
+     */
+    public void plate(float x, float y, float w, float h, float[] edge) {
+        rect(x, y, w, h, Theme.withAlpha(Theme.rgb(26, 19, 14, 1f), 0.9f));
+        rect(x + 2, y + 2, w - 4, 1, Theme.withAlpha(Theme.BRASS_LIGHT, 0.10f));
+        outline(x, y, w, h, 1, Theme.SOOT);
+        outline(x + 1, y + 1, w - 2, h - 2, 1, edge == null ? Theme.BRASS : edge);
+    }
+
+    /** A sheet of parchment, a little darker at its edges: what is written on - a letter, a quest, a card's words. */
+    public void parchment(float x, float y, float w, float h) {
+        lowest = Math.max(lowest, y + h);
+        float t = Medieval.TILE;
+        batch.rect(parchment, x, y, w, h, x / t, y / t, (x + w) / t, (y + h) / t, 1, 1, 1, 1);
+        float in = Math.min(10, Math.min(w, h) / 5);
+        float[] edge = Theme.rgb(96, 62, 30, 0.22f);
+        rect(x, y, w, in, edge);
+        rect(x, y + h - in, w, in, edge);
+        rect(x, y, in, h, edge);
+        rect(x + w - in, y, in, h, edge);
+        outline(x, y, w, h, 1, Theme.rgb(70, 46, 24, 0.9f));
+    }
+
+    /** A round disc {@code r} in radius, tinted {@code c}. */
+    public void disc(float cx, float cy, float r, float[] c) {
+        image(disc, cx - r, cy - r, 2 * r, 2 * r, c);
+    }
+
+    /** A cog {@code r} in radius turned {@code angle} radians, tinted {@code c} (brass, iron). */
+    public void cog(float cx, float cy, float r, double angle, float[] c) {
+        float co = (float) Math.cos(angle) * r, si = (float) Math.sin(angle) * r;
+        // its four corners, turned about its middle
+        batch.quad(cog, cx - co + si, cy - si - co, 0, cx + co + si, cy + si - co, 0,
+                cx + co - si, cy + si + co, 0, cx - co - si, cy - si + co, 0, 0, 0, 1, 1, c[0], c[1], c[2], c[3]);
+    }
+
+    /** A rivet {@code size} across with its top-left corner at {@code (x, y)}. */
+    public void rivet(float x, float y, float size) {
+        image(rivet, x, y, size, size, WHITE);
+    }
+
+    /**
+     * A bar - health, stamina, mana, a round's progress - {@code filled} of
+     * the way along in {@code colour}: a dark channel in a brass rim, the
+     * fill lit along its top.
+     */
+    public void bar(float x, float y, float w, float h, double filled, float[] colour) {
+        float f = (float) Math.max(0, Math.min(1, filled));
+        rect(x, y, w, h, Theme.rgb(18, 13, 10, 0.92f));
+        if (f > 0) {
+            float fw = (w - 4) * f;
+            rect(x + 2, y + 2, fw, h - 4, colour);
+            rect(x + 2, y + 2, fw, Math.max(1, (h - 4) * 0.3f), new float[]{1, 1, 1, 0.22f * colour[3]});
+            rect(x + 2, y + h - 2 - Math.max(1, (h - 4) * 0.25f), fw, Math.max(1, (h - 4) * 0.25f),
+                    new float[]{0, 0, 0, 0.25f * colour[3]});
+        }
+        outline(x, y, w, h, 1, Theme.SOOT);
+        outline(x + 1, y + 1, w - 2, h - 2, 1, Theme.withAlpha(Theme.BRASS, colour[3]));
     }
 
     /** Dim everything behind a modal. */
@@ -285,14 +436,16 @@ public final class Ui implements AutoCloseable {
             }
         }
         float v = (float) Math.max(0, Math.min(1, value));
+        // a brass rail with a cog riding on it, turning as it goes
         float track = Math.max(4, h * 0.3f), ty = y + (h - track) / 2;
-        rect(x, ty, w, track, Theme.BUTTON);
-        rect(x, ty, w * v, track, Theme.ACCENT);
-        outline(x, ty, w, track, 1, Theme.PANEL_EDGE);
-        float knob = h * 0.5f;
+        rect(x, ty, w, track, Theme.rgb(18, 13, 10, 0.95f));
+        rect(x, ty, w * v, track, Theme.BRASS);
+        rect(x, ty, w * v, 1, Theme.BRASS_LIGHT);
+        outline(x, ty, w, track, 1, Theme.SOOT);
         boolean hot = dragging == id || hover(x - 6, y - 4, w + 12, h + 8);
-        rect(x + w * v - knob / 2, y, knob, h, hot ? Theme.ITEM_SELECTED : Theme.ITEM);
-        outline(x + w * v - knob / 2, y, knob, h, 1, Theme.PANEL_EDGE);
+        float r = Math.max(7, h * 0.52f);
+        cog(x + w * v, y + h / 2, r + 1, v * w / r, Theme.SOOT);
+        cog(x + w * v, y + h / 2, r, v * w / r, hot ? Theme.BRASS_LIGHT : Theme.BRASS);
         return value;
     }
 
@@ -303,8 +456,13 @@ public final class Ui implements AutoCloseable {
     public boolean button(String label, float x, float y, float w, float h, boolean focused,
                           boolean enabled) {
         boolean hot = enabled && hover(x, y, w, h);
+        // a plate of dark leather in a brass rim, lit along its top; gold when it is chosen
         rect(x, y, w, h, hot || focused ? Theme.BUTTON_HOVER : Theme.BUTTON);
-        outline(x, y, w, h, focused ? 2 : 1, focused ? Theme.ACCENT : Theme.PANEL_EDGE);
+        rect(x + 2, y + 2, w - 4, Math.max(1, h * 0.42f), new float[]{1, 0.9f, 0.7f, hot || focused ? 0.07f : 0.04f});
+        rect(x + 2, y + h - 3, w - 4, 1, Theme.withAlpha(Theme.SOOT, 0.35f));
+        outline(x, y, w, h, 1, Theme.SOOT);
+        outline(x + 1, y + 1, w - 2, h - 2, focused ? 2 : 1, focused ? Theme.ACCENT
+                : !enabled ? Theme.BRASS_DARK : hot ? Theme.BRASS_LIGHT : Theme.BRASS);
         float[] c = !enabled ? Theme.ITEM_DISABLED : (hot || focused) ? Theme.ITEM_SELECTED : Theme.ITEM;
         // the largest font the label fits in
         Font f = h >= 44 ? large : body;
@@ -327,6 +485,11 @@ public final class Ui implements AutoCloseable {
         body.close();
         large.close();
         title.close();
+        wood.close();
+        parchment.close();
+        rivet.close();
+        disc.close();
+        cog.close();
         white.close();
     }
 }

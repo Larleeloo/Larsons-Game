@@ -285,9 +285,7 @@ public final class CombatHud {
         float w = 150, h = 12;
         float x = ui.width() / 2f + 2 * 64 + 28 + 26, y = cy - h / 2;
         float k = (float) (combat.mana() / Math.max(1e-6, combat.maxMana()));
-        ui.rect(x - 2, y - 2, w + 4, h + 4, Theme.withAlpha(Theme.BACKGROUND, 0.7f));
-        ui.rect(x, y, w * k, h, CombatColours.rgba(MANA_RGB, 0.95f));
-        ui.rect(x, y, w * k, 3, CombatColours.rgba(MANA_LIGHT, 0.95f));
+        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(MANA_RGB, 0.95f));
         String label = "Mana " + (int) Math.floor(combat.mana());
         ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(MANA_LIGHT, 1f));
     }
@@ -305,10 +303,9 @@ public final class CombatHud {
         double wait = player.heavyWait(), full = player.heavyCooldown();
         float k = full <= 0 ? 1 : (float) Math.max(0, Math.min(1, 1 - wait / full));
         boolean ready = wait <= 0;
-        ui.rect(x - 2, y - 2, w + 4, h + 4, Theme.withAlpha(Theme.BACKGROUND, 0.7f));
-        ui.rect(x, y, w * k, h, CombatColours.rgba(HEAVY_RGB, ready ? 0.95f : 0.55f));
-        ui.rect(x, y, w * k, 3, CombatColours.rgba(HEAVY_LIGHT, ready ? 0.95f : 0.55f));
-        String label = ready ? "Heavy (X) ready" : "Heavy (X) in " + (int) Math.ceil(wait) + " s";
+        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(HEAVY_RGB, ready ? 0.95f : 0.55f));
+        String key = ui.input().label(com.larsons.game.input.Action.HEAVY);
+        String label = ready ? "Heavy (" + key + ") ready" : "Heavy (" + key + ") in " + (int) Math.ceil(wait) + " s";
         ui.textShadowed(ui.small, label, x + w - ui.small.width(label), y - ui.small.lineHeight() - 3,
                 CombatColours.rgba(ready ? HEAVY_LIGHT : 0xFFFFFF, 1f));
     }
@@ -433,10 +430,8 @@ public final class CombatHud {
     private static void bar(Ui ui, float x, float y, float w, float h, double fill, int rgb, int light, String label,
                             boolean warn) {
         float k = (float) Math.max(0, Math.min(1, fill));
-        ui.rect(x - 2, y - 2, w + 4, h + 4, warn ? CombatColours.rgba(0xFFFFFF, 0.8f)
-                : Theme.withAlpha(Theme.BACKGROUND, 0.7f));
-        ui.rect(x, y, w * k, h, CombatColours.rgba(rgb, 0.95f));
-        ui.rect(x, y, w * k, 3, CombatColours.rgba(light, 0.95f));
+        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(rgb, 0.95f));
+        if (warn) ui.outline(x - 4, y - 4, w + 8, h + 8, 1, CombatColours.rgba(0xFFFFFF, 0.85f));
         ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(light, 1f));
     }
 

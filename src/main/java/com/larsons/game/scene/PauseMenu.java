@@ -31,41 +31,12 @@ final class PauseMenu {
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
 
-    static final String[][] CONTROLS = {
-            {"W A S D", "walk (relative to the camera)"},
-            {"Shift / Ctrl", "run / sprint while moving"},
-            {"C", "crouch / stand (Shift: fast crouch walk)"},
-            {"Space", "jump"},
-            {"Left Alt / Z", "dash (tap) / combat roll (hold); in the air: land in a roll"},
-            {"Left click / F", "attack (bow: hold to draw, let go)"},
-            {"X / R / Q", "heavy attack / spin attack / parry"},
-            {"B (held) / V", "block / shield bash"},
-            {"L / K", "lock on to a target (L again: let go) / the next one"},
-            {"Walk into vines", "climb: W up, S down, A D along; Space lets go (uses stamina)"},
-            {"1 – 5 / mouse wheel", "choose a hotbar slot: what is in it is in hand"},
-            {"I", "the inventory (click to move items, right-click: hotbar)"},
-            {"F1 – F4", "laugh, cry, surprise, anger"},
-            {"E / G", "pick up, or open / close the chest / drop what you hold"},
-            {"E by a horse", "saddle / ride / get off; riding: Shift canter, Ctrl gallop"},
-            {"Right drag / arrows", "orbit the camera (wheel while dragging: zoom)"},
-            {"+ -", "zoom"},
-            {"Tab / O", "camera height: side → 45° → top-down / automatic on hills, or fixed"},
-            {"[ / ]", "preview the previous / next state"},
-            {"Backspace", "stop previewing"},
-            {", / .", "turn the character 45°"},
-            {"T", "turntable: all 8 directions"},
-            {"H / P", "toggle the HUD / the scenery (trees, grass, rocks)"},
-            {"F9", "animations: new / classic (the first version, to compare)"},
-            {"F11", "full screen at the display's fastest refresh rate / back to the window"},
-            {"F12", "screenshot"},
-            {"Esc", "this menu"},
-    };
-
     private final Game game;
     private final World world;
     private final MenuList menu = new MenuList();
     private final WardrobePanel wardrobe;
     private final SoundsPanel sounds;
+    private final ControlsPanel controls;
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
@@ -76,6 +47,7 @@ final class PauseMenu {
         this.world = world;
         this.wardrobe = new WardrobePanel(game);
         this.sounds = new SoundsPanel(game);
+        this.controls = new ControlsPanel(game);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -130,12 +102,14 @@ final class PauseMenu {
             sounds.leave();
             game.setDropTarget(null);
         }
+        if (page == Page.CONTROLS) controls.leave();
     }
 
     /** Draw and handle the menu. Returns false once it has closed itself. */
     void draw(Ui ui, double dt, Player player) {
         if (!open) return;
-        boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE);
+        // (while the Controls page waits for a key, Esc is its to take)
+        boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE) && !(page == Page.CONTROLS && controls.capturing());
         if (escape) ui.input().consumeKey(GLFW_KEY_ESCAPE);
         ui.scrim();
 
@@ -209,7 +183,7 @@ final class PauseMenu {
             case CLASS -> heroClass(ui, cx, cy, cw, ch);
             case SETTINGS -> settings(ui, cx, cy);
             case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
-            case CONTROLS -> controls(ui, cx, cy, ch);
+            case CONTROLS -> controls.draw(ui, cx, cy, cw, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }
         }
@@ -351,15 +325,6 @@ final class PauseMenu {
         ui.text(ui.small, "Sprite cache: " + lib.residentCount() + " sheets, "
                 + (lib.residentBytes() >> 20) + " MB of " + (s.vramBytes >> 20) + " MB budget",
                 x + 220, y + 46, Theme.ITEM_DISABLED);
-    }
-
-    private void controls(Ui ui, float x, float y, float h) {
-        float step = Math.min(26, h / CONTROLS.length);      // (closer together where the window is short)
-        for (String[] row : CONTROLS) {
-            ui.text(ui.body, row[0], x, y, Theme.ITEM_SELECTED);
-            ui.text(ui.body, row[1], x + 240, y, Theme.ITEM);
-            y += step;
-        }
     }
 
     private void importHelp(Ui ui, float x, float y, float w) {
