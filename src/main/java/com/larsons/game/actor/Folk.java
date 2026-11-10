@@ -73,7 +73,8 @@ public final class Folk implements Target {
     double x, y, z, heading, homeX, homeZ, roam = 4;
     double health, maxHealth;
     double walk = 1.5, run = 3.8, damage = 8, sight = 16, every = 1.6, guard, reach = 1.45, keep;
-    boolean hostile = true, relentless, steady, crouched, alerted, guardedHit;
+    boolean hostile = true, relentless, steady, crouched, alerted, guardedHit, hasVia, barred;
+    double viaX, viaZ;
     Mode mode = Mode.STAND;
     double modeTime, timer, cooldown, blowAt, strikeFor, frozen, vx, vz, mvx, mvz, downFor, lostFor;
     double sinceHurt = Double.MAX_VALUE, alpha = 1;
@@ -430,6 +431,28 @@ public final class Folk implements Target {
         relentless = true;
         alerted = true;
         return this;
+    }
+
+    /**
+     * Go by way of {@code p} before coming for her (the gap in a wall the
+     * horde comes through; null: straight for her). While {@code barred} it
+     * stops there and tears at what bars the way.
+     */
+    public Folk via(Vec3 p, boolean barred) {
+        hasVia = p != null;
+        if (p != null) {
+            viaX = p.x();
+            viaZ = p.z();
+        }
+        this.barred = barred && p != null;
+        return this;
+    }
+
+    public boolean hasVia() { return hasVia; }
+
+    /** Whether it is at what bars its way, tearing at it. */
+    public boolean atBar() {
+        return hasVia && barred && Math.hypot(viaX - x, viaZ - z) < 1.25 && alive();
     }
 
     /** Keep within {@code metres} of where it was put when it has nothing to do (0: stand there). */

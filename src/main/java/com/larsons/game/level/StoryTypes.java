@@ -72,9 +72,11 @@ public final class StoryTypes {
                         Prop.choice("key", "Opened by", "iron_key", o -> com.larsons.game.world.Goods.KEYS.stream()
                                 .map(com.larsons.game.world.Goods.Good::id).toList()),
                         Prop.toggle("consumes", "Uses the key up", true),
+                        Prop.number("cost", "Or opens for (coins or points; 0: the key only)", 0, 0, 100000, 50),
                         Prop.choice("model", "Looks like", "locked_door",
                                 o -> List.of("locked_door", "iron_gate", "none"))),
                 "locked_door", "lock", 1.1, 2.4, 0xD8DCE4);
         FolkTypes.registerAll();
+        HordeTypes.registerAll();
     }
 }

@@ -153,6 +153,7 @@ public final class LevelWorld {
         world.spots().clear();
         world.folks().clear();
         world.quests().clear();
+        world.hordeSpawns().clear();
         Build b = new Build(world, terrain, sprites, tuning);
         b.levelName = level.name() == null ? "" : level.name();
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));

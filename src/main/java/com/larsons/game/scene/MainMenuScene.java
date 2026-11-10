@@ -36,6 +36,10 @@ import static org.lwjgl.glfw.GLFW.*;
  *       the wardrobe has her, stands in the demo's meadow on a turntable,
  *       among its trees, grass and rocks, stepping through her eight
  *       directions while the camera drifts round.</li>
+ *   <li><b>Horde</b> - the horde maps ({@code assets/horde/}): each with
+ *       the best round reached on it, to play. With the Dev tab unlocked, a
+ *       new horde map, and each to edit, copy or delete: the horde editor
+ *       ({@link CreativeScene#horde}).</li>
  *   <li><b>Cutscene</b> - the main menu's cutscene ({@code
  *       assets/cutscenes/menu.cut}) plays behind it, over and over: your
  *       character talking with Bryn, in close-up layers; "Watch from the
@@ -57,7 +61,7 @@ public final class MainMenuScene implements Scene {
 
     /** The tabs. */
     enum Tab {
-        PLAY("Play"), CUTSCENE("Cutscene"), DEV("Dev");
+        PLAY("Play"), HORDE("Horde"), CUTSCENE("Cutscene"), DEV("Dev");
 
         final String label;
 
@@ -113,6 +117,67 @@ public final class MainMenuScene implements Scene {
         lastTab = Tab.DEV;
     }
 
+    /** Open the menu on its Horde tab next time (leaving a horde game, or the horde editor). */
+    public static void openOnHordeTab() {
+        lastTab = Tab.HORDE;
+    }
+
+    private List<LevelIO.Saved> hordes = List.of();
+    private int hordeScroll;
+    /** How many horde maps the Horde tab lists at once. */
+    static final int HORDE_ROWS = 5;
+
+    private void refreshHordes() {
+        hordes = LevelIO.list(game.settings().hordeDir());
+        hordeScroll = Math.max(0, Math.min(hordeScroll, hordes.size() - HORDE_ROWS));
+    }
+
+    /** The Horde tab: every horde map, its best round, Play - and, in dev mode, the horde editor on each. */
+    private void hordeTab(Ui ui, float x, float y, float width) {
+        boolean dev = game.settings().devUnlocked;
+        ui.text(ui.large, "The Horde", x, y, Theme.TITLE);
+        ui.paragraph(ui.small, "The Risen come in rounds, more and tougher each. Blows and kills pay points: buy the "
+                + "weapons chalked on the boards, try the mystery box, nail the barricades back up. How long can you hold?",
+                x, y + 38, width, Theme.HINT);
+        float ly = y + 104;
+        if (dev) {
+            if (ui.button("New horde map", x, ly, 200, 40)) {
+                Level level = Level.blank(LevelIO.freeName(game.settings().hordeDir(), "New horde map"), 128);
+                game.switchTo(CreativeScene.horde(game, level, null));
+            }
+            ui.text(ui.small, "Dev: the horde editor. Maps are saved in " + game.relative(game.settings().hordeDir()),
+                    x + 212, ly + 12, Theme.ITEM_DISABLED);
+            ly += 52;
+        }
+        if (hordes.isEmpty()) {
+            ui.text(ui.body, "No horde maps yet", x, ly, Theme.ITEM_DISABLED);
+            return;
+        }
+        int end = Math.min(hordes.size(), hordeScroll + HORDE_ROWS);
+        for (int i = hordeScroll; i < end; i++) {
+            LevelIO.Saved s = hordes.get(i);
+            float rh = 58;
+            ui.plate(x - 8, ly - 4, width + 8, rh, Theme.BRASS_DARK);
+            ui.text(ui.body, Ui.fit(ui.body, s.name(), width - (dev ? 320 : 130)), x + 4, ly + 2, Theme.TITLE);
+            int best = HordeGame.best(game, s.id());
+            ui.text(ui.small, best > 0 ? "Best: round " + best : "Not yet played", x + 4, ly + 28,
+                    best > 0 ? Theme.ACCENT : Theme.ITEM_DISABLED);
+            float bx = x + width - (dev ? 4 * 72 : 96) - 6;
+            if (ui.button("Play", bx, ly + 6, dev ? 66 : 96, 38)) game.switchTo("horde:" + s.id());
+            if (dev) {
+                if (ui.button("Edit", bx + 72, ly + 6, 66, 38)) game.switchTo("hordeedit:" + s.id());
+                if (ui.button("Copy", bx + 144, ly + 6, 66, 38)) copy(s, game.settings().hordeDir());
+                boolean sure = s.folder().equals(deleting);
+                if (ui.button(sure ? "Sure?" : "Delete", bx + 216, ly + 6, 66, 38, sure, true)) delete(s);
+            }
+            ly += rh + 8;
+        }
+        if (hordes.size() > HORDE_ROWS) {
+            ui.text(ui.small, (hordeScroll + 1) + "–" + end + " of " + hordes.size() + " (the wheel scrolls)", x, ly + 2,
+                    Theme.HINT);
+        }
+    }
+
     @Override
     public String name() { return "Main Menu"; }
 
@@ -120,6 +185,7 @@ public final class MainMenuScene implements Scene {
     public void enter() {
         camera.snapTo(follow());
         refreshLevels();
+        refreshHordes();
         Saves.stop();
         refreshSlots();
         Music.play(MUSIC);
@@ -138,7 +204,7 @@ public final class MainMenuScene implements Scene {
 
     /** The tabs shown: the Dev tab only once it has been unlocked. */
     List<Tab> tabs() {
-        List<Tab> out = new ArrayList<>(List.of(Tab.PLAY, Tab.CUTSCENE));
+        List<Tab> out = new ArrayList<>(List.of(Tab.PLAY, Tab.HORDE, Tab.CUTSCENE));
         if (game.settings().devUnlocked) out.add(Tab.DEV);
         return out;
     }
@@ -171,6 +237,10 @@ public final class MainMenuScene implements Scene {
             if (tab == Tab.DEV && in.scroll() != 0) {
                 scroll = Math.max(0, Math.min(levels.size() - ROWS, scroll - (int) Math.signum(in.scroll())));
             }
+            if (tab == Tab.HORDE && in.scroll() != 0) {
+                hordeScroll = Math.max(0, Math.min(hordes.size() - HORDE_ROWS,
+                        hordeScroll - (int) Math.signum(in.scroll())));
+            }
         }
         if (deleting != null && time - deleteAt > CONFIRM) deleting = null;
         if (tab == Tab.CUTSCENE && cutscene != null) {
@@ -196,6 +266,7 @@ public final class MainMenuScene implements Scene {
         lastTab = t;
         menu.setFocus(0);
         if (t == Tab.DEV) refreshLevels();
+        if (t == Tab.HORDE) refreshHordes();
     }
 
     /** The dev code was typed: the Dev tab shown (and gone to) - or, typed again, hidden. */
@@ -228,7 +299,7 @@ public final class MainMenuScene implements Scene {
             ui.begin();
         }
         // A soft band behind the menu for legibility over the void.
-        float band = tab == Tab.DEV ? 620 : 520;
+        float band = tab == Tab.DEV || tab == Tab.HORDE ? 620 : 520;
         ui.rect(0, 0, band, ui.height(), Theme.withAlpha(Theme.BACKGROUND, 0.78f));
         float x = 64, y = ui.height() * 0.12f;
         ui.textShadowed(ui.title, "Larson's Game", x, y, Theme.TITLE);
@@ -241,6 +312,7 @@ public final class MainMenuScene implements Scene {
             float cy = ty + 58;
             switch (tab) {
                 case PLAY -> playTab(ui, x, cy);
+                case HORDE -> hordeTab(ui, x, cy, band - x - 24);
                 case CUTSCENE -> cutsceneTab(ui, x, cy);
                 case DEV -> devTab(ui, x, cy, band - x - 24);
             }
@@ -414,6 +486,11 @@ public final class MainMenuScene implements Scene {
         if (ui.button("World map editor", x + 316, by, 220, 46)) {
             game.switchTo(new com.larsons.game.editor.OverworldEditor(game, null));
         }
+        // the horde editor: a new horde map (the saved ones are on the Horde tab, each to edit)
+        if (ui.button("Horde map editor", x + 316, by + 56, 220, 46)) {
+            Level level = Level.blank(LevelIO.freeName(game.settings().hordeDir(), "New horde map"), 128);
+            game.switchTo(CreativeScene.horde(game, level, null));
+        }
 
         float ly = by + 2 * 56 + 16;
         ui.text(ui.body, levels.isEmpty() ? "No saved levels yet" : "Saved levels (" + levels.size() + ")", x, ly,
@@ -456,7 +533,10 @@ public final class MainMenuScene implements Scene {
     }
 
     private void copy(LevelIO.Saved s) {
-        Path root = game.settings().levelsDir();
+        copy(s, game.settings().levelsDir());
+    }
+
+    private void copy(LevelIO.Saved s, Path root) {
         try {
             Level level = LevelIO.load(s.folder());
             level.setName(LevelIO.freeName(root, s.name() + " copy"));
@@ -467,6 +547,7 @@ public final class MainMenuScene implements Scene {
             game.toast("Cannot copy " + s.name() + ": " + e.getMessage(), Theme.WARNING);
         }
         refreshLevels();
+        refreshHordes();
     }
 
     private void delete(LevelIO.Saved s) {
@@ -483,5 +564,6 @@ public final class MainMenuScene implements Scene {
             game.toast("Cannot delete " + s.name() + ": " + e.getMessage(), Theme.WARNING);
         }
         refreshLevels();
+        refreshHordes();
     }
 }

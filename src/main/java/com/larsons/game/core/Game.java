@@ -305,6 +305,8 @@ public final class Game implements AutoCloseable {
     static String startName(String start) {
         String n = start == null ? "" : start.trim();
         String lower = n.toLowerCase();
+        if (lower.startsWith("hordeedit:")) return "the horde map " + n.substring(10).trim() + " in the horde editor";
+        if (lower.startsWith("horde:")) return "the horde map " + n.substring(6).trim();
         if (lower.startsWith("edit:")) return "the level " + n.substring(5).trim() + " in Creative Mode";
         if (lower.startsWith("play:")) return "the level " + n.substring(5).trim();
         return switch (lower) {
@@ -588,7 +590,20 @@ public final class Game implements AutoCloseable {
         String n = name.trim();
         String lower = n.toLowerCase();
         Scene next;
-        if (lower.startsWith("edit:") || lower.startsWith("play:")) {
+        if (lower.startsWith("horde:") || lower.startsWith("hordeedit:")) {
+            boolean edit = lower.startsWith("hordeedit:");
+            String id = n.substring(n.indexOf(':') + 1).trim();
+            Path folder = settings.hordeDir().resolve(id);
+            try {
+                com.larsons.game.level.Level level = com.larsons.game.level.LevelIO.load(folder);
+                next = edit ? com.larsons.game.editor.CreativeScene.horde(this, level, folder)
+                        : DemoScene.horde(this, level, id, null);
+            } catch (java.io.IOException | RuntimeException e) {
+                System.err.println("[horde] cannot open " + folder + ": " + e.getMessage());
+                toast("Cannot open " + relative(folder) + ": " + e.getMessage(), Theme.WARNING);
+                next = new MainMenuScene(this);
+            }
+        } else if (lower.startsWith("edit:") || lower.startsWith("play:")) {
             Path folder = settings.levelsDir().resolve(n.substring(5).trim());
             try {
                 com.larsons.game.level.Level level = com.larsons.game.level.LevelIO.load(folder);

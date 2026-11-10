@@ -405,8 +405,16 @@ public final class CombatHud {
             ui.textShadowed(ui.small, line, x, y, CombatColours.rgba(out ? 0xFF8A6E : Combat.AMMO_RGB, 1f));
             y += ui.small.lineHeight() + 2;
         }
+        if (!showCoins) return;
         ui.textShadowed(ui.small, p.coins() + (p.coins() == 1 ? " coin" : " coins"), x, y,
                 CombatColours.rgba(COIN_RGB, 1f));
+    }
+
+    private boolean showCoins = true;
+
+    /** Whether her purse is shown under her ammunition (a horde game shows it as points, on its own plate). */
+    public void showCoins(boolean show) {
+        showCoins = show;
     }
 
     static final int COIN_RGB = 0xF0C030;

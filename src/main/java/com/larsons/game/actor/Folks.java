@@ -455,6 +455,21 @@ public final class Folks {
                 } else {
                     f.lostFor = 0;
                 }
+                if (f.hasVia) {
+                    // by way of the gap it comes through: up to it, at what bars it, and on
+                    double vx = f.viaX - f.x, vz = f.viaZ - f.z, vd = Math.hypot(vx, vz);
+                    if (vd > 1.0) {
+                        go(f, f.viaX, f.viaZ, f.run, dt, place);
+                        return;
+                    }
+                    if (f.barred) {
+                        turn(f, vx, vz, dt * 2);
+                        if (f.cooldown <= 0) strike(f, dist < f.reach + 0.6 ? dx : vx, dist < f.reach + 0.6 ? dz : vz);
+                        else f.act(Folk.Act.IDLE, 0);
+                        return;
+                    }
+                    f.hasVia = false;
+                }
                 if (f.shot() != null) {
                     if (dist > f.keep) {
                         go(f, h.x(), h.z(), f.run, dt, place);

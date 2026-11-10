@@ -82,6 +82,9 @@ final class Story {
     private float scroll;
 
     private final Fishing fishing;
+    private final HordeProps props;
+    /** Marks of someone else's to show with the quests' (the horde's gifts lying about). */
+    private java.util.function.Supplier<List<World.Mark>> moreMarks;
     private boolean journal;
     private double iconClock;
     private int swigs = -1;
@@ -92,6 +95,13 @@ final class Story {
         this.inventory = inventory;
         this.quests = new Quests(store == null ? new HashMap<>() : store, world.quests(), place);
         this.fishing = new Fishing(game, world);
+        this.props = new HordeProps(game, world, this);
+    }
+
+    HordeProps props() { return props; }
+
+    void setMoreMarks(java.util.function.Supplier<List<World.Mark>> marks) {
+        moreMarks = marks;
     }
 
     Quests quests() { return quests; }
@@ -130,14 +140,16 @@ final class Story {
         if (iconClock <= 0) {
             iconClock = 0.4;
             for (Folk f : world.folks().all()) if (f.role() == Folk.Role.PERSON) f.setIcon(iconFor(f));
-            // the marked places: where a quest under way is to be done
-            world.marks().clear();
-            for (Quest q : quests.all()) {
-                if (quests.state(q) == Quests.State.ACTIVE && q.radius() > 0) {
-                    world.marks().add(new World.Mark(q.at(), "quest", q.radius()));
-                }
+        }
+        // the marked places: where a quest under way is to be done
+        world.marks().clear();
+        for (Quest q : quests.all()) {
+            if (quests.state(q) == Quests.State.ACTIVE && q.radius() > 0) {
+                world.marks().add(new World.Mark(q.at(), "quest", q.radius()));
             }
         }
+        if (moreMarks != null) world.marks().addAll(moreMarks.get());
+        props.update(dt);
         if (in.pressed(Action.JOURNAL) && with == null && station == null) {
             journal = !journal;
             Sounds.play(SoundKeys.ui(journal ? "open" : "close"));
@@ -314,6 +326,13 @@ final class Story {
             p.addCoins(n);
             return;
         }
+        if (item.def().stack() <= 1 && !item.def().isWearable() && !item.def().isTack()) {
+            // a weapon, a rod, a trinket: to her hotbar if there is room there, as one picked up goes
+            for (int i = 0; i < n; i++) {
+                if (p.inventory().add(item) < 0) world.spawn(item, p.ground(), 1);
+            }
+            return;
+        }
         int left = p.inventory().put(item, n, true);
         if (left > 0) world.spawn(item, p.ground(), left);
     }
@@ -336,7 +355,7 @@ final class Story {
             case StoryTypes.CAULDRON -> open(Recipes.Station.CAULDRON);
             case StoryTypes.LOCK -> unlock(s);
             default -> {
-                return false;
+                return props.use(s);
             }
         }
         return true;
@@ -352,6 +371,11 @@ final class Story {
         return com.larsons.game.level.ObjectTypes.readable(what);
     }
 
+    /** "The east gate" as it reads in the middle of a sentence: "the east gate". */
+    static String inSentence(String name) {
+        return name.startsWith("The ") ? "the " + name.substring(4) : name;
+    }
+
     /** What the prompt says E does at {@code s}, or null when it is not one of the story's. */
     String text(Spot s) {
         return switch (s.kind()) {
@@ -365,9 +389,11 @@ final class Story {
             case StoryTypes.CAULDRON -> "Brew at the cauldron";
             case StoryTypes.LOCK -> {
                 Goods.Good key = Goods.get(s.str("key", "iron_key"));
+                int cost = (int) s.num("cost", 0);
+                if (cost > 0) yield "Open " + inSentence(s.name()) + "  (" + cost + " " + purse + ")";
                 yield "Unlock " + s.name() + "  (" + (key == null ? "a key" : key.def().name().toLowerCase()) + ")";
             }
-            default -> null;
+            default -> props.text(s);
         };
     }
 
@@ -405,6 +431,20 @@ final class Story {
         Inventory inv = world.player().inventory();
         String want = s.str("key", "iron_key");
         boolean master = Recipes.count(inv, Goods.SKELETON_KEY.id()) > 0;
+        int cost = (int) s.num("cost", 0);
+        if (cost > 0 && !master && Recipes.count(inv, want) == 0) {
+            // a door that opens for a price (the horde's, for points)
+            if (!world.player().spend(cost)) {
+                Sounds.play(SoundKeys.world("locked"));
+                game.toast("It opens for " + cost + " " + purse(), Theme.WARNING);
+                return;
+            }
+            Sounds.play(SoundKeys.world("unlock"));
+            world.unlock(s);
+            opened.add(s.name().strip().toLowerCase(java.util.Locale.ROOT));
+            game.toast(s.name() + " opened", Theme.OK);
+            return;
+        }
         if (!master && Recipes.count(inv, want) == 0) {
             Goods.Good key = Goods.get(want);
             Sounds.play(SoundKeys.world("locked"));
@@ -415,7 +455,24 @@ final class Story {
         if (!master && s.bool("consumes", true)) Recipes.take(inv, want, 1);
         Sounds.play(SoundKeys.world("unlock"));
         world.unlock(s);
+        opened.add(s.name().strip().toLowerCase(java.util.Locale.ROOT));
         game.toast(s.name() + " unlocked", Theme.OK);
+    }
+
+    private final java.util.Set<String> opened = new java.util.HashSet<>();
+
+    /** Whether the door or gate called {@code name} has been opened this visit. */
+    boolean opened(String name) {
+        return name != null && opened.contains(name.strip().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /** What her purse is counted in: coins - points, in a horde game. */
+    private String purse = "coins";
+
+    String purse() { return purse; }
+
+    void setPurse(String word) {
+        purse = word;
     }
 
     private void open(Recipes.Station st) {

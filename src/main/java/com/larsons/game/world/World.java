@@ -463,6 +463,30 @@ public final class World {
         return s;
     }
 
+    /** The building with the level's object id {@code id}, taken out of the world (a barricade torn down), or null. */
+    public Building takeBuilding(int id) {
+        for (int i = 0; i < buildings.size(); i++) {
+            if (buildings.get(i).id() == id) return buildings.remove(i);
+        }
+        return null;
+    }
+
+    /**
+     * Where a horde map's Risen come from: {@code kind} a breed's key (or
+     * "any"), used from round {@code from} on, and - {@code after} not blank
+     * - only once the door or gate of that name has been opened.
+     */
+    public record HordeSpawn(int id, Vec3 at, String kind, int from, String after) {}
+
+    private final List<HordeSpawn> hordeSpawns = new ArrayList<>();
+
+    public List<HordeSpawn> hordeSpawns() { return hordeSpawns; }
+
+    private int knockOuts;
+
+    /** How many times she has been knocked out here (the horde counts her lives by it). */
+    public int knockOuts() { return knockOuts; }
+
     /** The other things she can use. */
     public List<Spot> spots() { return spots; }
 
@@ -1675,6 +1699,7 @@ public final class World {
                 case KNOCKED_OUT -> {
                     combat.say("Knocked out", HURT_RGB, at, 2.1, false);
                     combat.sound(SoundKeys.player(body, "knocked_out"), at);
+                    knockOuts++;
                     player.respawn(spawnPoint);
                     combat.lock(null);
                 }

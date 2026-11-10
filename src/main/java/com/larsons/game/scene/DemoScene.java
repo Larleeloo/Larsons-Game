@@ -376,7 +376,42 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.equipSelected();
         camera.setDesiredYaw(p.heading());
         camera.snapTo(pivot());
+        if (campaign == null && com.larsons.game.level.HordeRules.has(level)) startHorde();
     }
+
+    /** The horde game played here (a horde map: {@link com.larsons.game.level.HordeRules}), or null. */
+    private HordeGame horde;
+    /** The horde map's id (its folder's name), for its best round; null when it is not a saved one. */
+    private String hordeMap;
+
+    /**
+     * Play the horde map {@code level}, saved as {@code id}: the Risen in
+     * rounds until she is knocked out ({@link HordeGame}). Leaving goes
+     * {@code back} (null: the main menu's Horde tab).
+     */
+    public static DemoScene horde(Game game, Level level, String id, Runnable back) {
+        if (!com.larsons.game.level.HordeRules.has(level)) com.larsons.game.level.HordeRules.DEFAULT.put(level);
+        DemoScene s = new DemoScene(game, level, null, 0, back, null);
+        s.hordeMap = id;
+        s.horde.named(id);
+        return s;
+    }
+
+    private void startHorde() {
+        Runnable leave = back != null ? back : () -> {
+            MainMenuScene.openOnHordeTab();
+            game.switchTo("menu");
+        };
+        horde = new HordeGame(game, world, story, com.larsons.game.level.HordeRules.of(level), hordeMap, level.name(),
+                () -> game.switchTo(horde(game, level, hordeMap, back)), leave);
+        horde.outfit();
+        combatHud.showCoins(false);
+        world.ammo().setEnabled(true);
+        if (back == null) pause.setBack("Leave the horde", leave);
+    }
+
+    /** The horde game played here, or null (for a scripted check). */
+    HordeGame hordeGame() { return horde; }
 
     /** Write her, as she is now, into the playthrough's save - and the place cleared, if it has been. */
     private void keep() {
@@ -542,13 +577,27 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         // a menu up: the gamepad moves the pointer; playing: it plays
-        in.setUiMode(pause.open() || choosing || inventory.open() || table.open() || story.modal());
+        in.setUiMode(pause.open() || choosing || inventory.open() || table.open() || story.modal()
+                || (horde != null && horde.over()));
         if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
         }
         // the story's own panels - someone talking, a workbench, the journal - take the keys while they are up
         boolean told = !inventory.open() && !table.open() && story.update(dt, in);
+        if (horde != null) {
+            boolean was = horde.over();
+            horde.update(dt, in);
+            if (horde.over()) {
+                if (!was) {
+                    inventory.close();
+                    table.close();
+                }
+                in.consume(Action.PAUSE);
+                sounds.update(world, camera, durations());
+                return;                                 // (it is over: the world stands still under the tally)
+            }
+        }
         if (campaign != null) {
             campaign.save().played(dt);
             clearedByRule(dt);
@@ -1441,6 +1490,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             if (!game.importer().visible()) inventory.draw(ui);
             if (!inventory.open()) story.draw(ui, hudShown);
+            if (horde != null && (hudShown || horde.over()) && (!inventory.open() || horde.over())) horde.draw(ui);
         }
         if (pause.open()) {
             // the pause menu is not graded: what has been drawn is, before it goes over
@@ -2077,6 +2127,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "station" -> story.script("station", argument.trim());
             case "journal" -> story.script("journal", "");
             case "endtalk" -> story.close();
+            case "coins" -> p.addCoins(Integer.parseInt(argument.trim()));
             case "usehand" -> story.useHeld();
             case "summon" -> {
                 String[] a = argument.trim().split("\\s+");

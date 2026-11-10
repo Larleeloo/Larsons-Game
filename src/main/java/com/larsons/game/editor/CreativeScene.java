@@ -21,7 +21,10 @@ import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
 import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
+import com.larsons.game.actor.Breed;
 import com.larsons.game.level.LevelIO;
+import com.larsons.game.level.HordeRules;
+import com.larsons.game.level.HordeTypes;
 import com.larsons.game.level.LevelObject;
 import com.larsons.game.level.LevelWorld;
 import com.larsons.game.level.ObjectType;
@@ -106,7 +109,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge"), HORDE("Horde");
 
         final String label;
 
@@ -320,8 +323,34 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             category = Category.INSIDE;
             camera.setDesiredDistance(15);
             camera.setDesiredYaw(0);
+        } else if (hordeMode()) {
+            category = Category.ZOMBIES;
         }
         choose(firstOf(category));
+    }
+
+    /**
+     * The horde editor: {@code level} a horde map (made one, with the
+     * rules a new one starts with, if it is not), saved in {@code folder}
+     * of {@code assets/horde/} (null: not saved yet). The same editor, with
+     * the Horde tool - the map's rules - and the Zombies shelf to place
+     * from; F5 plays it as a horde game.
+     */
+    public static CreativeScene horde(Game game, Level level, Path folder) {
+        if (!HordeRules.has(level)) HordeRules.DEFAULT.put(level);
+        CreativeScene s = new CreativeScene(game, level, folder);
+        s.setTool(Tool.HORDE);
+        return s;
+    }
+
+    /** Whether this is the horde editor: the level being edited is a horde map. */
+    boolean hordeMode() {
+        return (outside == null ? level : outside.level).extra().get(HordeRules.KEY) instanceof Map<?, ?>;
+    }
+
+    /** Where it is saved: {@code assets/levels}, or - a horde map - {@code assets/horde}. */
+    private Path root() {
+        return hordeMode() ? game.settings().hordeDir() : game.settings().levelsDir();
     }
 
     @Override
@@ -330,7 +359,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return "Creative Mode: " + outside.level.name() + " - inside the " + insideLabel().toLowerCase() + ", "
                     + level.name().toLowerCase() + (outside.dirty ? " *" : "");
         }
-        return "Creative Mode: " + level.name() + (dirty ? " *" : "");
+        return (hordeMode() ? "Horde editor: " : "Creative Mode: ") + level.name() + (dirty ? " *" : "");
     }
 
     /** What the building whose inside this is is called. */
@@ -564,7 +593,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** The tools along the top: inside a building, only those that work in there. */
     private List<Tool> tools() {
-        return outside == null ? List.of(Tool.values()) : List.of(Tool.PLACE, Tool.SELECT, Tool.TIME);
+        if (outside != null) return List.of(Tool.PLACE, Tool.SELECT, Tool.TIME);
+        List<Tool> all = new ArrayList<>(List.of(Tool.values()));
+        if (!hordeMode()) all.remove(Tool.HORDE);
+        return all;
     }
 
     private void setTool(Tool t) {
@@ -1287,7 +1319,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             game.window().setTitle(Game.TITLE + " — " + name());
             return ok;
         }
-        Path root = game.settings().levelsDir();
+        Path root = root();
         try {
             if (folder == null) folder = LevelIO.freeFolder(root, level.name());
             LevelIO.save(level, folder);
@@ -1351,7 +1383,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** The main menu, on its Dev tab - where the level is listed. */
     private void toMenu() {
-        MainMenuScene.openOnDevTab();
+        if (hordeMode()) MainMenuScene.openOnHordeTab();
+        else MainMenuScene.openOnDevTab();
         game.switchTo("menu");
     }
 
@@ -1770,6 +1803,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
                     + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
+            case HORDE -> "The horde map's rules: her points, how the rounds grow, which Risen come · Place → Zombies: "
+                    + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
                 + "Ctrl+Z / Y undo, redo · Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1847,7 +1882,85 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
             case FORGE -> forgePanel(ui, px, py, pw);
+            case HORDE -> hordePanel(ui, px, py, pw);
         }
+    }
+
+    /** The horde map's rules ({@link HordeRules}), and what of a horde map has been placed. */
+    private void hordePanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Horde", x, y);
+        HordeRules r = HordeRules.of(level);
+        if (r == null) return;
+        HordeRules was = r;
+        r = r.withPoints((int) widgets.stepper(ui, "Starting points", r.points(), 50, 0, 20000, "%.0f", x, y, w));
+        y += Widgets.ROW + 3;
+        r = r.withFirst((int) widgets.stepper(ui, "Risen in round 1", r.first(), 1, 1, 60, "%.0f", x, y, w));
+        y += Widgets.ROW + 3;
+        r = r.withMore((int) widgets.stepper(ui, "More each round", r.more(), 1, 0, 20, "%.0f", x, y, w));
+        y += Widgets.ROW + 3;
+        r = r.withAtOnce((int) widgets.stepper(ui, "Up at once", r.atOnce(), 1, 3, 40, "%.0f", x, y, w));
+        y += Widgets.ROW + 3;
+        r = r.withGrowth(widgets.stepper(ui, "Tougher a round", r.growth() * 100, 2, 0, 60, "%.0f%%", x, y, w) / 100);
+        y += Widgets.ROW + 3;
+        r = r.withRest(widgets.stepper(ui, "Rest between", r.rest(), 1, 2, 30, "%.0f s", x, y, w));
+        y += Widgets.ROW + 3;
+        r = r.withLives((int) widgets.stepper(ui, "Lives", r.lives(), 1, 1, 5, "%.0f", x, y, w));
+        y += Widgets.ROW + 4;
+        r = r.withKit(widgets.text(ui, "horde-kit", "Starts with", r.kit(), x, y, w));
+        y += 38;
+        ui.text(ui.small, "Which Risen come", x, y, Theme.ITEM);
+        y += 20;
+        List<String> kinds = new ArrayList<>(r.kinds());
+        if (kinds.isEmpty()) for (Breed b : HordeRules.risen()) kinds.add(b.key());
+        float hw = (w - 6) / 2;
+        int col = 0;
+        for (Breed b : HordeRules.risen()) {
+            boolean on = kinds.contains(b.key());
+            String label = b.label().replace("Risen ", "");
+            label = Character.toUpperCase(label.charAt(0)) + label.substring(1);
+            if (ui.button(label, x + col * (hw + 6), y, hw, 24, on, true)) {
+                if (on && kinds.size() > 1) kinds.remove(b.key());
+                else if (!on) kinds.add(b.key());
+            }
+            if (++col == 2) {
+                col = 0;
+                y += 27;
+            }
+        }
+        if (col != 0) y += 27;
+        r = r.withKinds(kinds.size() == HordeRules.risen().size() ? List.of() : kinds);
+        if (!r.equals(was)) {
+            r.put(level);
+            dirty = true;
+        }
+        y += 4;
+        float tw = (w - 12) / 3;
+        if (ui.button("Place", x, y, tw, 28)) {
+            category = Category.ZOMBIES;
+            choose(firstOf(category));
+            setTool(Tool.PLACE);
+        }
+        if (ui.button("Play (F5)", x + tw + 6, y, tw, 28)) playTest(spawnOrPointer());
+        if (ui.button("Save", x + 2 * (tw + 6), y, tw, 28)) save();
+        y += 36;
+        y += ui.paragraph(ui.small, "Round 1: " + r.count(1) + " Risen · round 5: " + r.count(5) + " · round 10: "
+                + r.count(10) + " (" + Math.round(r.health(10) * 100) + "% health) · round 20: " + r.count(20), x, y, w,
+                Theme.ITEM) + 6;
+        int spawns = level.ofType(HordeTypes.SPAWN).size();
+        y += ui.paragraph(ui.small, things(spawns, "Risen spawn") + ", " + things(level.ofType(HordeTypes.BARRICADE).size(),
+                "barricade") + ", " + things(level.ofType(HordeTypes.WALL_BUY).size(), "weapon board") + ", "
+                + things(level.ofType(HordeTypes.BOX).size(), "mystery box") + " placed.", x, y, w, Theme.HINT) + 4;
+        if (spawns == 0) {
+            y += ui.paragraph(ui.small, "With no Risen spawn placed, they rise in a ring round her.", x, y, w,
+                    Theme.WARNING) + 4;
+        }
+        if (level.spawn() == null) {
+            y += ui.paragraph(ui.small, "Place a player spawn (Markers) where she starts.", x, y, w, Theme.WARNING) + 4;
+        }
+    }
+
+    private static String things(int n, String what) {
+        return n + " " + what + (n == 1 ? "" : what.endsWith("x") ? "es" : "s");
     }
 
     private float heading(Ui ui, String text, float x, float y) {

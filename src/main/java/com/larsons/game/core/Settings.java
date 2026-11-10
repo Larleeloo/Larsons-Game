@@ -242,6 +242,11 @@ public final class Settings {
         return assets.resolve("levels");
     }
 
+    /** {@code assets/horde}: the horde maps, each a level with the horde's rules in it, a folder each. */
+    public Path hordeDir() {
+        return assets.resolve("horde");
+    }
+
     /**
      * {@code assets/sprites} - or, in a shared copy of the game, {@code
      * /sprites} inside {@code assets/sprites.pack} ({@link SpritePack}), with
