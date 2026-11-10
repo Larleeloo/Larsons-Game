@@ -25,10 +25,11 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, SETTINGS, SOUNDS, CONTROLS, IMPORT }
+    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, SETTINGS, COLOURS, SOUNDS, CONTROLS, IMPORT }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Class", "Compendium", "Settings", "Sounds", "Controls", "Import sprite sheets",
+            "Resume", "Wardrobe", "Class", "Compendium", "Settings", "Colours", "Sounds", "Controls",
+            "Import sprite sheets",
             "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
@@ -40,6 +41,7 @@ final class PauseMenu {
     private final SoundsPanel sounds;
     private final ControlsPanel controls;
     private final Compendium compendium;
+    private final ColoursPanel colours;
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
@@ -52,6 +54,7 @@ final class PauseMenu {
         this.sounds = new SoundsPanel(game);
         this.controls = new ControlsPanel(game);
         this.compendium = new Compendium(world);
+        this.colours = new ColoursPanel(game);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -77,6 +80,11 @@ final class PauseMenu {
     }
 
     boolean open() { return open; }
+
+    /** Let go of what the pages hold on the graphics card (the scene is closing). */
+    void dispose() {
+        colours.close();
+    }
 
     void open(Page p) {
         open = true;
@@ -107,6 +115,7 @@ final class PauseMenu {
             game.setDropTarget(null);
         }
         if (page == Page.CONTROLS) controls.leave();
+        if (page == Page.COLOURS) colours.leave();
     }
 
     /** Draw and handle the menu. Returns false once it has closed itself. */
@@ -115,7 +124,8 @@ final class PauseMenu {
         // (while the Controls page waits for a key, Esc is its to take)
         boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE) && !(page == Page.CONTROLS && controls.capturing());
         if (escape) ui.input().consumeKey(GLFW_KEY_ESCAPE);
-        ui.scrim();
+        // (the Colours page leaves the game in view beside it, to see the grade on)
+        if (page != Page.COLOURS) ui.scrim();
 
         if (page == Page.MAIN) {
             if (escape) {
@@ -145,6 +155,7 @@ final class PauseMenu {
                     compendium.open();
                 }
                 case "Settings" -> page = Page.SETTINGS;
+                case "Colours" -> page = Page.COLOURS;
                 case "Sounds" -> {
                     page = Page.SOUNDS;
                     game.setDropTarget(sounds::drop);
@@ -171,6 +182,13 @@ final class PauseMenu {
             h = Math.min(1000, ui.height() - 30);
         }
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        if (page == Page.COLOURS) {
+            float[] b = ColoursPanel.box(ui);
+            x = b[0];
+            y = b[1];
+            w = b[2];
+            h = b[3];
+        }
         if (page == Page.WARDROBE) {
             // the wardrobe draws its own armoire, title and Back button and all
             boolean done = wardrobe.draw(ui, dt, x, y, w, h, player);
@@ -183,6 +201,7 @@ final class PauseMenu {
             case CLASS -> "Class and pointer";
             case COMPENDIUM -> "Compendium";
             case SETTINGS -> "Settings";
+            case COLOURS -> "Colours";
             case SOUNDS -> "Sounds";
             case CONTROLS -> "Controls";
             case IMPORT -> "Import sprite sheets";
@@ -198,6 +217,7 @@ final class PauseMenu {
             case CLASS -> heroClass(ui, cx, cy, cw, ch);
             case COMPENDIUM -> compendium.draw(ui, cx, cy - 12, cw, ch + 12);
             case SETTINGS -> settings(ui, cx, cy);
+            case COLOURS -> colours.draw(ui, cx, cy - 10, cw, ch + 10);
             case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
             case CONTROLS -> controls.draw(ui, cx, cy, cw, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);

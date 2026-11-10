@@ -373,6 +373,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void exit() {
         sounds.stop();
         inventory.dispose();
+        pause.dispose();
         Music.stop();
     }
 
@@ -1241,6 +1242,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             if (!game.importer().visible()) inventory.draw(ui);
         }
+        if (pause.open()) {
+            // the pause menu is not graded: what has been drawn is, before it goes over
+            ui.end();
+            game.applyGrade();
+            ui.begin();
+        }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
         if (choosing && !pause.open()) chooseClass(ui);
         ui.end();
@@ -1664,6 +1671,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     }
                 }
                 if (inventory.open() && table.open()) inventory.close();
+            }
+            // the colour grade: grade <preset> (gameboy, n64, one_colour ...), grade count <n>, grade reset
+            case "grade" -> {
+                String[] a = argument.trim().split("\\s+");
+                var g = game.grading();
+                if (a[0].equals("reset")) g.resetAll();
+                else if (a[0].equals("count") && a.length > 1) g.setCount(Integer.parseInt(a[1]));
+                else if (com.larsons.game.grade.Preset.byKey(a[0]) != null) {
+                    g.apply(com.larsons.game.grade.Preset.byKey(a[0]));
+                } else return false;
             }
             // a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
             case "tiers" -> {

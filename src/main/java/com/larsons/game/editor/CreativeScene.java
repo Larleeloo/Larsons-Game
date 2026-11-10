@@ -1372,6 +1372,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         game.worldRenderer().highlightBuildings(null);
         Mat4 vp = camera.viewProjection(fw / (double) Math.max(1, fh));
         marks(vp);
+        game.applyGrade();                  // (the level is graded; the editor's own panels are not)
 
         Ui ui = game.ui();
         ui.begin();

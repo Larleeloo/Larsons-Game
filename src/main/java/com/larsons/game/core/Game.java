@@ -67,6 +67,10 @@ public final class Game implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Ui ui;
+    /** The colour grade (Pause, Colours) and what puts it on the picture; made when first asked for. */
+    private com.larsons.game.grade.Grading grading;
+    private com.larsons.game.gfx.GradeFilter gradeFilter;
+    private boolean graded;
     /** The mouse pointer: her class's, or the one chosen ({@link Pointers}). */
     private final com.larsons.game.ui.Pointers pointers;
     private final SpriteLibrary sprites;
@@ -487,7 +491,9 @@ public final class Game implements AutoCloseable {
             glViewport(0, 0, window.framebufferWidth(), window.framebufferHeight());
             glClearColor(Theme.BACKGROUND[0], Theme.BACKGROUND[1], Theme.BACKGROUND[2], 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            graded = false;
             scene.render();
+            if (!booting) applyGrade();
             if (booting) bootRenders++;
             if (loading != null) drawLoading(dt);
             drawOverlays(dt);
@@ -668,6 +674,57 @@ public final class Game implements AutoCloseable {
 
     public Ui ui() { return ui; }
 
+    /**
+     * The colour grade: what the art's 128 colours are shown as (Pause,
+     * Colours). Read from {@code config/colours.json} the first time.
+     */
+    public com.larsons.game.grade.Grading grading() {
+        if (grading == null) {
+            com.larsons.game.sprite.PixelPalette p = com.larsons.game.sprite.PixelPalette.load(settings.spritesDir());
+            int[] colours;
+            if (p == null) {
+                // (no palette with the art: a plain spread of 128 colours to grade by)
+                colours = new int[128];
+                for (int i = 0; i < 128; i++) {
+                    colours[i] = i < 16 ? 0x111111 * i : com.larsons.game.grade.Colours.rgb((i % 16) * 22.5,
+                            0.35 + 0.6 * ((i / 16) % 2), 0.25 + 0.107 * (i / 16));
+                }
+            } else {
+                int[] f = p.fills(), l = p.lines();
+                colours = new int[f.length + l.length];
+                System.arraycopy(f, 0, colours, 0, f.length);
+                System.arraycopy(l, 0, colours, f.length, l.length);
+            }
+            grading = new com.larsons.game.grade.Grading(colours);
+            grading.load(gradingFile());
+        }
+        return grading;
+    }
+
+    /** {@code config/colours.json}. */
+    public Path gradingFile() {
+        return settings.config.resolve("colours.json");
+    }
+
+    public void saveGrading() {
+        if (grading != null) grading.save(gradingFile());
+    }
+
+    /**
+     * Put the colour grade on what has been drawn this frame so far. A scene
+     * calls it before drawing what is not to be graded (a menu over the
+     * game); whatever has not been graded by the frame's end is graded then.
+     * Once a frame; never in the middle of a batch.
+     */
+    public void applyGrade() {
+        if (graded) return;
+        graded = true;
+        com.larsons.game.grade.Grading g = grading();
+        if (g.identity()) return;
+        if (gradeFilter == null) gradeFilter = new com.larsons.game.gfx.GradeFilter();
+        gradeFilter.apply(g, window.framebufferWidth(), window.framebufferHeight());
+    }
+
     public com.larsons.game.ui.Pointers pointers() { return pointers; }
 
     public Batch batch() { return batch; }
@@ -729,6 +786,8 @@ public final class Game implements AutoCloseable {
         groundTexture.close();
         sprites.close();
         pointers.close();
+        if (gradeFilter != null) gradeFilter.close();
+        com.larsons.game.ui.CardArt.dispose();
         ui.close();
         batch.close();
         window.close();
