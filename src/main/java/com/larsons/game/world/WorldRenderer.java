@@ -123,6 +123,7 @@ public final class WorldRenderer implements AutoCloseable {
     private final Map<Chest, ObjectStack.Memory> chestMemory = new IdentityHashMap<>();
     private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
     private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
+    private Map<com.larsons.game.actor.Folk, ObjectStack.Memory> folkMemory = new IdentityHashMap<>();
     /** A herd's animals in their colours: their coats' palette entries recoloured. */
     private com.larsons.game.sprite.CoatTint coats;
     private final CombatRenderer combat;
@@ -314,6 +315,12 @@ public final class WorldRenderer implements AutoCloseable {
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
             groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
+        }
+        for (com.larsons.game.actor.Folk f : world.folks().all()) {
+            Vec3 at = f.position();
+            if (f.alpha() < 0.05 || at.sub(eye).length() > ANIMAL_REACH) continue;
+            groundShadow(at, (f.creature() ? 0.5 : 0.42) * f.size() * (1 + 0.5 * f.fallen()),
+                    (float) (0.5 * f.alpha()));
         }
         for (Building b : world.buildings()) buildingShadow(b);
         batch.end();
@@ -575,6 +582,80 @@ public final class WorldRenderer implements AutoCloseable {
             dist.add(at.sub(eye).dot(forward));
         }
         animalMemory = animalMemories;
+
+        // the folk: the people from the character's own sheets, in their own clothes, with what they hold;
+        // the Bortzal from theirs, in their skins - flashing as they are struck, over as they are felled
+        Map<com.larsons.game.actor.Folk, ObjectStack.Memory> folkMemories = new IdentityHashMap<>();
+        for (com.larsons.game.actor.Folk f : world.folks().all()) {
+            if (f.alpha() < 0.02) continue;
+            Vec3 at = f.position();
+            if (at.sub(eye).length() > ANIMAL_REACH) continue;
+            double size = f.size();
+            List<LayerStack.Layer> layers;
+            com.larsons.game.sprite.SpriteProfile framing;
+            com.larsons.game.sprite.Elevation elevation;
+            if (f.creature()) {
+                ObjectSprites.Entry entry = objects.entry(f.sprite());
+                if (entry == null) continue;
+                com.larsons.game.sprite.SpriteProfile prof = entry.profile();
+                ObjectStack.Memory memory = folkMemory.get(f);
+                if (memory == null) memory = new ObjectStack.Memory();
+                folkMemories.put(f, memory);
+                SpriteView fv = SpriteView.of(eye, at.add(0, prof.pivotHeight() * size, 0), f.heading(),
+                        camera.yaw());
+                ObjectStack.Result fr = ObjectStack.resolve(sprites, objects, f.sprite(), f.sheet(), f.loops(),
+                        f.stateTime(), t, fv, 0, memory);
+                layers = fr.layers();
+                framing = fr.framing();
+                elevation = fr.view().elevation();
+                int[] skin = prof.tint();
+                if (f.tint() >= 0 && skin.length > 0) {
+                    if (coats == null) coats = new com.larsons.game.sprite.CoatTint(items.pixelPalette());
+                    List<LayerStack.Layer> dyed = new ArrayList<>(layers.size());
+                    for (LayerStack.Layer l : layers) {
+                        dyed.add(l.palette() == null ? l : l.withPalette(coats.tinted(l.palette(), skin, f.tint())));
+                    }
+                    layers = dyed;
+                }
+            } else {
+                SpriteView fv = SpriteView.of(eye, at.add(0, 0.9 * size, 0), f.heading(), camera.yaw());
+                LayerStack.Result fr = inTier(LayerStack.resolve(sprites, f.wardrobe(), f.state(), f.stateTime(), fv,
+                        f.memory(), false, f.stance()), f.weapon(), items);
+                layers = fr.layers();
+                framing = fr.framing();
+                elevation = fr.view().elevation();
+            }
+            if (layers.isEmpty()) continue;
+            double flash = f.flash();
+            if (flash > 0) {
+                List<LayerStack.Layer> lit = new ArrayList<>(layers.size());
+                for (LayerStack.Layer l : layers) {
+                    lit.add(l.palette() == null ? l
+                            : l.withPalette(com.larsons.game.combat.CombatColours.flashed(l.palette(), flash)));
+                }
+                layers = lit;
+            }
+            // a person felled goes over sideways (a creature's fall is in its sheets)
+            Vec3 fRight = size == 1 ? right : right.scale(size), fUp = size == 1 ? up : up.scale(size);
+            double tip = f.creature() ? 0 : f.fallen() * Math.toRadians(84) * ((f.id() & 1) == 0 ? 1 : -1);
+            if (tip != 0) {
+                double c = Math.cos(tip), sn = Math.sin(tip);
+                Vec3 r0 = fRight, u0 = fUp;
+                fRight = r0.scale(c).sub(u0.scale(sn));
+                fUp = u0.scale(c).add(r0.scale(sn));
+            }
+            List<LayerStack.Layer> draw = layers;
+            Vec3 r1 = fRight, u1 = fUp;
+            float alpha = (float) f.alpha();
+            Runnable one = () -> {
+                batch.depthAnchor(at);
+                LayerStack.drawBillboard(batch, draw, framing, elevation, at, r1, u1, alpha);
+            };
+            draws.add(one);
+            if (alpha > 0.5f) solids.add(one);
+            dist.add(at.sub(eye).dot(forward));
+        }
+        folkMemory = folkMemories;
         if (steed != null && !drawnWithHorse[0]) {
             // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
             draws.add(her);

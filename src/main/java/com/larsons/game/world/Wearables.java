@@ -113,6 +113,17 @@ public final class Wearables {
     /** Every wearable to choose from and every colour unlocked: the debug code's switch ({@link #setEverything}). */
     private static volatile boolean everything;
 
+    /**
+     * The tailored clothes: a garment the game already has, cut in a colour of
+     * its own and named for who wears it - a Drurinean court dress, a herder's
+     * shirt, a boilerman's cap. Owning one is owning the garment and its colour
+     * (no dye is used up); the peoples she meets are dressed from them ({@code
+     * actor/Looks}). Its family in the loot is {@link #TAILORED} and its rarity.
+     */
+    public static final String TAILORED = "tailored";
+    /** Each tailored garment's colour: an option of its {@code variants.json}. */
+    private static final Map<String, String> TAILORED_COLOUR = new LinkedHashMap<>();
+
     /** Every wearable, by rarity and then as the table lists them. */
     public static final List<ItemDef> ALL = all();
 
@@ -164,7 +175,75 @@ public final class Wearables {
         out.add(metal("gold_necklace", "Gold necklace", Rarity.EPIC, "gold", "gold_pendant", Slot.NECKLACE));
         out.add(metal("gold_hoops", "Gold hoops", Rarity.EPIC, "gold", "gold_hoops", Slot.EARRINGS));
         armour(out, "steel", Rarity.EPIC);
+        tailored(out);
         return List.copyOf(out);
+    }
+
+    /** The tailored clothes, people by people. */
+    private static void tailored(List<ItemDef> out) {
+        // the Drurinean: elegant
+        out.add(cut("drurin_court_dress", "Drurinean court dress", Rarity.RARE, Slot.SHIRT, "laced_dress", "violet_ombre"));
+        out.add(cut("moonsilk_gown", "Moonsilk gown", Rarity.EPIC, Slot.SHIRT, "laced_dress", "platinum"));
+        out.add(cut("scholars_shirt", "Scholar's laced shirt", Rarity.UNCOMMON, Slot.SHIRT, "laced_shirt", "royal_blue"));
+        out.add(cut("starweave_mantle", "Starweave mantle", Rarity.RARE, Slot.OTHER, "wool_mantle", "electric_blue"));
+        out.add(cut("observatory_gloves", "Observatory gloves", Rarity.UNCOMMON, Slot.GLOVES, "black_leather", "platinum"));
+        out.add(cut("silverthread_trousers", "Silverthread trousers", Rarity.UNCOMMON, Slot.PANTS, "denim_jeans", "platinum"));
+        out.add(cut("court_slippers", "Court slippers", Rarity.UNCOMMON, Slot.SHOES, "leather_ankle_boots", "violet_ombre"));
+        out.add(cut("astronomers_cap", "Astronomer's cap", Rarity.UNCOMMON, Slot.HAT, "beanie", "royal_blue"));
+        // the Khorigale: common
+        out.add(cut("herders_shirt", "Herder's shirt", Rarity.COMMON, Slot.SHIRT, "plaid_flannel", "copper"));
+        out.add(cut("field_trousers", "Field trousers", Rarity.COMMON, Slot.PANTS, "denim_jeans", "brown"));
+        out.add(cut("herders_mantle", "Herder's mantle", Rarity.COMMON, Slot.OTHER, "wool_mantle", "auburn"));
+        out.add(cut("sunbleached_hat", "Sun-bleached straw hat", Rarity.COMMON, Slot.HAT, "straw_sun_hat", "honey_blonde"));
+        out.add(cut("mud_boots", "Mud boots", Rarity.COMMON, Slot.SHOES, "leather_ankle_boots", "brown"));
+        out.add(cut("market_dress", "Market dress", Rarity.UNCOMMON, Slot.SHIRT, "laced_dress", "copper"));
+        out.add(cut("rope_belt", "Rope belt", Rarity.COMMON, Slot.BELT, "leather_belt", "honey_blonde"));
+        // the Half Drurinean and the workshops: brass and soot
+        out.add(cut("tinkers_shirt", "Tinker's shirt", Rarity.UNCOMMON, Slot.SHIRT, "laced_shirt", "copper"));
+        out.add(cut("boilermans_cap", "Boilerman's cap", Rarity.UNCOMMON, Slot.HAT, "beanie", "copper"));
+        out.add(cut("engineers_gloves", "Engineer's gloves", Rarity.UNCOMMON, Slot.GLOVES, "black_leather", "copper"));
+        out.add(cut("brass_buckle_belt", "Brass-buckle belt", Rarity.UNCOMMON, Slot.BELT, "leather_belt", "copper"));
+        out.add(cut("oilcloth_trousers", "Oilcloth trousers", Rarity.UNCOMMON, Slot.PANTS, "denim_jeans", "black"));
+        out.add(cut("soot_mantle", "Soot mantle", Rarity.UNCOMMON, Slot.OTHER, "wool_mantle", "black"));
+        // the townsfolk and the guard
+        out.add(cut("guards_shirt", "Town guard's shirt", Rarity.UNCOMMON, Slot.SHIRT, "laced_shirt", "cherry_red"));
+        out.add(cut("millers_shirt", "Miller's shirt", Rarity.COMMON, Slot.SHIRT, "plaid_flannel", "platinum"));
+        out.add(cut("festival_dress", "Festival dress", Rarity.RARE, Slot.SHIRT, "laced_dress", "cherry_red"));
+        out.add(cut("foresters_hat", "Forester's hat", Rarity.COMMON, Slot.HAT, "straw_sun_hat", "emerald"));
+        out.add(cut("foresters_mantle", "Forester's mantle", Rarity.UNCOMMON, Slot.OTHER, "wool_mantle", "emerald"));
+        // the risen: what they were buried in
+        out.add(cut("grave_shroud", "Grave shroud", Rarity.UNCOMMON, Slot.SHIRT, "laced_dress", "mint"));
+        out.add(cut("mouldering_shirt", "Mouldering shirt", Rarity.COMMON, Slot.SHIRT, "plaid_flannel", "green_ombre"));
+        out.add(cut("gravediggers_trousers", "Gravedigger's trousers", Rarity.COMMON, Slot.PANTS, "denim_jeans", "auburn"));
+        out.add(cut("tattered_mantle", "Tattered mantle", Rarity.COMMON, Slot.OTHER, "wool_mantle", "brown"));
+        out.add(cut("bog_boots", "Bog boots", Rarity.COMMON, Slot.SHOES, "leather_ankle_boots", "black"));
+        out.add(cut("plague_cap", "Plague cap", Rarity.COMMON, Slot.HAT, "beanie", "mint"));
+    }
+
+    private static ItemDef cut(String id, String name, Rarity rarity, Slot slot, String folder, String colour) {
+        TAILORED_COLOUR.put(id, colour);
+        return def(id, name, new Wearable(rarity, List.of(slot), List.of(folder), null, null,
+                TAILORED + "_" + rarity.key()));
+    }
+
+    /** The colour {@code d}, a tailored garment, is cut in; null for anything else. */
+    public static String tailoredColour(ItemDef d) {
+        return d == null ? null : TAILORED_COLOUR.get(d.id());
+    }
+
+    /** The tailored garments: every one there is. */
+    public static List<ItemDef> tailored() {
+        List<ItemDef> out = new ArrayList<>();
+        for (ItemDef d : ALL) if (TAILORED_COLOUR.containsKey(d.id())) out.add(d);
+        return out;
+    }
+
+    /** Whether one of {@code owned} is {@code folder} in {@code slot} tailored in {@code colour}. */
+    private static boolean tailoredIn(Set<ItemDef> owned, Slot slot, String folder, String colour) {
+        for (ItemDef d : owned) {
+            if (colour.equals(TAILORED_COLOUR.get(d.id())) && d.wearable().puts(slot, folder)) return true;
+        }
+        return false;
     }
 
     /** A metal's chestplate, leg plating, gauntlets and helmet (the chainmail is apart: Uncommon). */
@@ -252,6 +331,8 @@ public final class Wearables {
         if (!d.isWearable()) return null;
         String dye = d.wearable().dye();
         if (dye != null) return new Pickup(BOTTLE, "liquid", DYE_RGB.getOrDefault(dye, item.rarity().rgb()));
+        String cut = TAILORED_COLOUR.get(d.id());
+        if (cut != null) return new Pickup(HANGER, "cloth", DYE_RGB.getOrDefault(cut, item.rarity().rgb()));
         return new Pickup(armour(d) ? SHIELD : HANGER, armour(d) ? "face" : "cloth", item.rarity().rgb());
     }
 
@@ -323,7 +404,8 @@ public final class Wearables {
         boolean open = everything || slot.carried() || (free(slot) && slot != Slot.MOUTH)
                 || (slot == Slot.MOUTH && owned.contains(LIPSTICK));
         for (String c : all) {
-            out.add(new Colour(c, open || c.equals(current) || wardrobe.unlocked(slot, folder, c)));
+            out.add(new Colour(c, open || c.equals(current) || wardrobe.unlocked(slot, folder, c)
+                    || tailoredIn(owned, slot, folder, c)));
         }
         return out;
     }

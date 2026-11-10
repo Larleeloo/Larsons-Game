@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "shell": [
+   0,
+   1
+  ],
+  "spots": [
+   2
+  ]
+ },
+ "materials": [
+  "shell",
+  "shell",
+  "spots"
+ ]
+}

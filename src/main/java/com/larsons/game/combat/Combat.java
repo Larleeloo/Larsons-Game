@@ -188,6 +188,50 @@ public final class Combat {
     /** Bonded: when each weapon last hit each thing. */
     private final Map<Item, Map<Target, Double>> bonds = new HashMap<>();
 
+    /** A foe's shot that reached her: what it was, what it carries, who loosed it. */
+    public record FoeHit(Projectile shot, double damage, Object by) {}
+
+    /** The shots her foes have in the air: what each carries, and whose it is. */
+    private final Map<Projectile, FoeHit> foeShots = new java.util.IdentityHashMap<>();
+    private final List<FoeHit> foeHits = new ArrayList<>();
+
+    /**
+     * A foe's shot at her - an arrow, a bolt, a spell of {@code colour} - from
+     * {@code from} at {@code to}: it flies as hers do, and what it does when
+     * it reaches her is the world's to say ({@link #drainFoeHits}: she may
+     * roll through it, parry it, block it).
+     */
+    public void foeShot(Move.Kind kind, int colour, Vec3 from, Vec3 to, double damage, Object by) {
+        double speed = switch (kind) {
+            case ARROW -> tuning.arrowSpeed * 0.8;
+            case BOLT -> tuning.boltSpeed * 0.8;
+            default -> tuning.spellSpeed * 0.7;
+        };
+        Vec3 v = Projectile.aim(kind, from, to, speed);
+        double life = kind == Move.Kind.SPELL ? (from.distance(to) + 6) / Math.max(1e-6, speed) : 8;
+        Projectile pr = new Projectile(kind, null, colour, from, v, life);
+        foeShots.put(pr, new FoeHit(pr, damage, by));
+        projectiles.add(pr);
+        sounds.add(new Sound(kind == Move.Kind.SPELL ? "combat/foe_cast" : "combat/foe_shot", from));
+    }
+
+    /** The foes' shots that reached her since the last call. */
+    public List<FoeHit> drainFoeHits() {
+        List<FoeHit> out = List.copyOf(foeHits);
+        foeHits.clear();
+        return out;
+    }
+
+    /** Whether the segment {@code a}-{@code b} passes through her. */
+    private boolean touchesHer(Vec3 a, Vec3 b) {
+        if (world == null) return false;
+        Player p = world.player();
+        Vec3 feet = p.feet();
+        Vec3 q = closestOnSegment(a, b, feet);
+        double tall = 1.75 * p.size() * (p.crouched() ? 0.65 : 1);
+        return q.horizontalDistance(feet) <= 0.34 + Projectile.THICKNESS && q.y() >= feet.y() && q.y() <= feet.y() + tall;
+    }
+
     public Combat(CombatTuning tuning) {
         use(tuning);
         mana = this.tuning.maxMana;
@@ -244,6 +288,7 @@ public final class Combat {
         Terrain ground = world.terrain();
         for (Projectile pr : projectiles) fly(pr, dt, targets, ground);
         projectiles.removeIf(Projectile::done);
+        foeShots.keySet().removeIf(Projectile::done);
         poison(targets);
         popups.removeIf(pp -> now - pp.born() > POPUP_SECONDS);
         effects.removeIf(e -> now - e.born() > EFFECT_SECONDS);
@@ -652,7 +697,16 @@ public final class Combat {
         int steps = Math.max(1, (int) Math.ceil(speed * dt / 0.25));
         for (int i = 0; i < steps && !pr.done() && !pr.stuck(); i++) {
             Vec3 a = pr.advance(dt / steps), b = pr.position();
-            Target hit = struck(a, b, targets);
+            FoeHit foe = foeShots.get(pr);
+            if (foe != null && touchesHer(a, b)) {
+                foeHits.add(foe);
+                Vec3 at = closestOnSegment(a, b, world.player().feet());
+                effects.add(pr.kind() == Move.Kind.SPELL ? new Effect(Effect.Kind.BURST, at, now, pr.colour())
+                        : new Effect(Effect.Kind.SPARK, at, now, 0));
+                pr.finish();
+                break;
+            }
+            Target hit = foe != null ? null : struck(a, b, targets);
             if (hit != null) {
                 Vec3 back = pr.velocity().normalize(Vec3.ZERO);
                 remember(pr.strike().weapon(), hit);

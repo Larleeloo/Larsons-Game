@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "horn": [
+   0,
+   1
+  ],
+  "metal": [
+   2
+  ]
+ },
+ "materials": [
+  "horn",
+  "horn",
+  "metal"
+ ]
+}

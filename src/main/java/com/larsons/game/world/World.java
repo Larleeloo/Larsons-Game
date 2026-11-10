@@ -232,6 +232,11 @@ public final class World {
     private final List<RaySpot> raySpots = new ArrayList<>();
     private Critters critters = new Critters();
     private Animals animals = new Animals();
+    /** The people and the foes of the place. */
+    private com.larsons.game.actor.Folks folks = new com.larsons.game.actor.Folks();
+    private com.larsons.game.actor.Folks.Clock folkClock;
+    /** What has been felled since the scene last asked ({@link #drainKills}). */
+    private final List<Kill> kills = new ArrayList<>();
     private Animal steed;
     private RideTrack rideTrack = RideTrack.standard();
     /** Whether she is inside a building: no sky over it, its own dim light, nothing comes by. */
@@ -271,6 +276,7 @@ public final class World {
         private final List<RaySpot> raySpots;
         private final Critters critters;
         private final Animals animals;
+        private final com.larsons.game.actor.Folks folks;
         private final Terrain terrain;
         private final Vec3 spawnPoint;
         private final Scenery scenery;
@@ -295,6 +301,7 @@ public final class World {
             raySpots = List.copyOf(w.raySpots);
             critters = w.critters;
             animals = w.animals;
+            folks = w.folks;
             terrain = w.terrain;
             spawnPoint = w.spawnPoint;
             scenery = w.scenery;
@@ -335,6 +342,8 @@ public final class World {
         Life life = critters.life();
         critters = new Critters();
         animals = new Animals();
+        folks = new com.larsons.game.actor.Folks();
+        folks.setClock(folkClock);
         setLife(life);
         setScenery(Scenery.NONE);
         picked.clear();
@@ -371,6 +380,7 @@ public final class World {
         raySpots.addAll(p.raySpots);
         critters = p.critters;
         animals = p.animals;
+        folks = p.folks;
         setTerrain(p.terrain);
         spawnPoint = p.spawnPoint;
         setScenery(p.scenery);
@@ -692,7 +702,118 @@ public final class World {
         for (FlyingDummy f : fliers) if (!f.hidden()) out.add(f);
         for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
+        for (com.larsons.game.actor.Folk f : folks.all()) if (f.alive()) out.add(f);
         return out;
+    }
+
+    // --- the folk: people to talk to, foes to fight ------------------------------------
+
+    /** Something felled: what kind of thing ("bear", "bortzal", "risen_walker", "dummy"), its name if it had one, where. */
+    public record Kill(String kind, String name, Vec3 at, boolean risen) {}
+
+    /** What has been felled since the last call: the quests and the horde count them. */
+    public List<Kill> drainKills() {
+        List<Kill> out = List.copyOf(kills);
+        kills.clear();
+        return out;
+    }
+
+    /** The people and the foes of the place she is in. */
+    public com.larsons.game.actor.Folks folks() { return folks; }
+
+    /** Take the length of the folk's attacks from {@code c} (the sprites' own). */
+    public void setFolkClock(com.larsons.game.actor.Folks.Clock c) {
+        folkClock = c;
+        folks.setClock(c);
+    }
+
+    /** The person near enough to talk to, or null. */
+    public com.larsons.game.actor.Folk reachablePerson() {
+        return player.airborne() || player.mounted() ? null : folks.reachable(player.ground());
+    }
+
+    /** What one of the folk did to her (or had done to it), said over her and heard. */
+    private void metFolk(com.larsons.game.actor.Folks.Event e) {
+        com.larsons.game.actor.Folk f = e.folk();
+        Vec3 at = player.ground();
+        switch (e.outcome()) {
+            case NOTICED -> {
+                combat.say("!", 0xFF6A5A, f.position(), f.height() + 0.25, false);
+                combat.sound(f.breed() != null && f.breed().risen() ? "foes/risen_groan" : "foes/alert", f.position());
+            }
+            case STRUCK -> {
+                double thorns = player.buffs().plus(Buffs.Kind.THORNS);
+                if (thorns > 0 && e.damage() > 0 && f.alive()) f.hurt(e.damage() * thorns, player.ground(), true);
+                combat.say("-" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", f.position());
+            }
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/parry", f.position());
+            }
+            case GUARDED -> {
+                combat.say("Guarded", 0xC8D2DC, f.position(), f.height() + 0.2, true);
+                combat.sound("combat/block", f.position());
+            }
+            case FELL -> fellFolk(f);
+        }
+    }
+
+    /** One of the folk felled: experience, what it carried, and the count kept of it. */
+    private void fellFolk(com.larsons.game.actor.Folk f) {
+        com.larsons.game.actor.Breed b = f.breed();
+        Vec3 at = f.position();
+        combat.sound(b != null && b.risen() ? "foes/risen_fall" : "foes/fall", at);
+        kills.add(new Kill(b == null ? f.people().key() : b.key(), f.hasName() ? f.name() : null, at,
+                b != null && b.risen()));
+        if (b == null) return;
+        earn(b.xp() * Math.max(0.6, f.size()));
+        if (b.risen() && hordeLoot != null && !hordeLoot.test(f)) return;
+        Random r = new Random(Double.doubleToLongBits(at.x() * 31 + at.z() + time));
+        int coins = 1 + r.nextInt(Math.max(1, b.xp() / 4));
+        spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
+        Item w = f.weapon();
+        if (w != null && r.nextInt(6) == 0) spawn(w, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
+        else if (r.nextInt(5) == 0) {
+            Item drop = loot.pick(r, Rarity.roll(r));
+            if (drop != null) spawn(drop, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
+        }
+    }
+
+    /** Whether one of the horde, felled, leaves what a foe leaves (the horde mode pays in points instead); null: yes. */
+    private java.util.function.Predicate<com.larsons.game.actor.Folk> hordeLoot;
+
+    public void setHordeLoot(java.util.function.Predicate<com.larsons.game.actor.Folk> leaves) {
+        hordeLoot = leaves;
+    }
+
+    /** A foe's shot reached her: she may have rolled through it, parried it or blocked it. */
+    private void shotAt(Combat.FoeHit hit) {
+        Vec3 at = player.ground();
+        if (player.invulnerable()) {
+            combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+            combat.sound("combat/dodge", at);
+            return;
+        }
+        Animals.Quarry her = quarry();
+        if (her.parrying()) {
+            combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+            combat.sound("combat/parry", at);
+            return;
+        }
+        double dealt = her.blocking() ? Math.round(hit.damage() / 2) : hit.damage();
+        double took = player.hurt(dealt);
+        combat.say((her.blocking() ? "Blocked -" : "-") + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at,
+                2.1, her.blocking());
+        combat.sound(her.blocking() ? "combat/block" : "combat/player_hurt", at);
     }
 
     /** The solid scenery by {@value #CELL} m square, for the animals to go round quickly. */
@@ -912,6 +1033,18 @@ public final class World {
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
+        for (com.larsons.game.actor.Folks.Event e : folks.tick(dt, quarry(), place())) metFolk(e);
+        for (com.larsons.game.actor.Folks.Loosed l : folks.drainLoosed()) {
+            combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
+        }
+        for (Combat.FoeHit hit : combat.drainFoeHits()) shotAt(hit);
+        if (!player.passesThrough()) {
+            for (com.larsons.game.actor.Folk f : folks.all()) {
+                if (f.standing() && Math.abs(f.position().y() - player.ground().y()) < 1.2) {
+                    player.keepOut(f.position(), f.radius() + FEET * 0.5);
+                }
+            }
+        }
     }
 
     /** How far round her she keeps out of things: her feet - riding, her horse's body. */
@@ -1199,7 +1332,8 @@ public final class World {
      * where it stood (an animal leaves what it leaves when it falls: {@link #hunted}).
      */
     public void felled(com.larsons.game.combat.Target t) {
-        if (t instanceof Animal) return;
+        if (t instanceof Animal || t instanceof com.larsons.game.actor.Folk) return;
+        kills.add(new Kill(t instanceof FlyingDummy ? "flying_dummy" : "dummy", null, t.position(), false));
         int xp = t instanceof FlyingDummy ? com.larsons.game.cards.Hero.XP_FLIER : com.larsons.game.cards.Hero.XP_FELLED;
         earn(xp);
         int coins = 2 + new Random(Double.doubleToLongBits(t.position().x() * 31 + t.position().z() + time))
@@ -1219,6 +1353,7 @@ public final class World {
     /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
     void hunted(Animal a) {
         earn(com.larsons.game.cards.Hero.XP_HUNTED);
+        kills.add(new Kill(a.kind().key(), null, a.position(), false));
         java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
                 + time));
         int i = 0;
@@ -1245,6 +1380,8 @@ public final class World {
             case SWAN -> "Battered!";
             case BEE -> "Stung!";
             case BEAR -> "Mauled!";
+            case BOAR -> "Gored!";
+            case BUFFALO -> "Trampled!";
             case EAGLE -> "Clawed!";
             case HORSE, COW, SHEEP, DEER -> "Kicked!";
             case CAT -> "Scratched!";
@@ -1459,6 +1596,7 @@ public final class World {
         for (Chest c : chests) c.tick(dt, s -> 0);
         for (Dummy d : dummies) d.tick(dt);
         live(dt, focus != null ? focus : player.ground(), null);
+        folks.tick(dt, null, place());
     }
 
     // --- life: the little creatures, the foraging bushes, eating ------------------

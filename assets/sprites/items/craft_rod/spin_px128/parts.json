@@ -1,0 +1,23 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "wood": [
+   0
+  ],
+  "metal": [
+   1
+  ],
+  "string": [
+   2
+  ],
+  "float": [
+   3
+  ]
+ },
+ "materials": [
+  "wood",
+  "metal",
+  "string",
+  "float"
+ ]
+}
