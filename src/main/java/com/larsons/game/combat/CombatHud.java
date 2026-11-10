@@ -79,8 +79,7 @@ public final class CombatHud {
             if (at == null) continue;
             float w = 64, h = 7, x = at[0] - w / 2, y = at[1] - h;
             float k = (float) (d.health() / d.maxHealth());
-            ui.rect(x - 1, y - 1, w + 2, h + 2, Theme.withAlpha(Theme.BACKGROUND, 0.8f));
-            ui.rect(x, y, w * k, h, k > 0.5f ? Theme.OK : k > 0.25f ? Theme.ACCENT : Theme.WARNING);
+            ui.bar(x - 2, y - 2, w + 4, h + 4, k, k > 0.5f ? Theme.OK : k > 0.25f ? Theme.ACCENT : Theme.WARNING);
         }
 
         for (Combat.Popup p : combat.popups()) {
@@ -285,9 +284,9 @@ public final class CombatHud {
         float w = 150, h = 12;
         float x = ui.width() / 2f + 2 * 64 + 28 + 26, y = cy - h / 2;
         float k = (float) (combat.mana() / Math.max(1e-6, combat.maxMana()));
-        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(MANA_RGB, 0.95f));
+        ui.gauge(x, y, w, h, k, CombatColours.rgba(MANA_RGB, 0.95f), "mana", true);
         String label = "Mana " + (int) Math.floor(combat.mana());
-        ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(MANA_LIGHT, 1f));
+        ui.textShadowed(ui.label, label, x + 2, y - ui.label.lineHeight() - 4, CombatColours.rgba(MANA_LIGHT, 1f));
     }
 
     /**
@@ -303,10 +302,10 @@ public final class CombatHud {
         double wait = player.heavyWait(), full = player.heavyCooldown();
         float k = full <= 0 ? 1 : (float) Math.max(0, Math.min(1, 1 - wait / full));
         boolean ready = wait <= 0;
-        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(HEAVY_RGB, ready ? 0.95f : 0.55f));
+        ui.gauge(x, y, w, h, k, CombatColours.rgba(HEAVY_RGB, ready ? 0.95f : 0.55f), "damage", false);
         String key = ui.input().label(com.larsons.game.input.Action.HEAVY);
         String label = ready ? "Heavy (" + key + ") ready" : "Heavy (" + key + ") in " + (int) Math.ceil(wait) + " s";
-        ui.textShadowed(ui.small, label, x + w - ui.small.width(label), y - ui.small.lineHeight() - 3,
+        ui.textShadowed(ui.label, label, x + w - ui.label.width(label) - 2, y - ui.label.lineHeight() - 4,
                 CombatColours.rgba(ready ? HEAVY_LIGHT : 0xFFFFFF, 1f));
     }
 
@@ -357,17 +356,17 @@ public final class CombatHud {
         float w = 150, h = 10;
         float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44;
         bar(ui, x, y, w, h, player.health() / Player.MAX_HEALTH, HEALTH_RGB, HEALTH_LIGHT,
-                "Health " + (int) Math.ceil(player.health()), player.sinceHurt() < 0.3);
+                "Health " + (int) Math.ceil(player.health()), player.sinceHurt() < 0.3, "heart", false);
         float sx = ui.width() / 2f + 2 * 64 + 28 + 26;
         if (player.stamina() < Player.MAX_STAMINA - 0.5 || player.climbing() != null) {
             bar(ui, sx, y, w, h, player.stamina() / Player.MAX_STAMINA, STAMINA_RGB, STAMINA_LIGHT,
-                    "Stamina " + (int) Math.ceil(player.stamina()), player.stamina() < Player.CLIMB_MIN);
+                    "Stamina " + (int) Math.ceil(player.stamina()), player.stamina() < Player.CLIMB_MIN, "stamina", true);
         }
         if (player.underWater() || player.breath() < Player.MAX_BREATH - 0.05) {
             // her breath, over the stamina: under the water it runs out
-            bar(ui, sx, y - 30, w, h, player.breath() / Player.MAX_BREATH, BREATH_RGB, BREATH_LIGHT,
+            bar(ui, sx, y - 32, w, 6, player.breath() / Player.MAX_BREATH, BREATH_RGB, BREATH_LIGHT,
                     player.breath() <= 0 ? "Drowning!" : "Breath " + (int) Math.ceil(player.breath()) + " s",
-                    player.breath() < 5);
+                    player.breath() < 5, null, true);
         }
     }
 
@@ -380,19 +379,19 @@ public final class CombatHud {
         Stealth s = world.stealth();
         if (!p.crouched() && !s.hidden() && s.dark() < 0.5 && !p.underWater()) return;
         float w = 150, h = 6;
-        float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44 - 30;
+        float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44 - 32;
         int rgb = s.hidden() ? STEALTH_HIDDEN : s.score() > 1.2 ? 0xFF9A5A : 0xE8E0C8;
         String label = (s.hidden() ? "Hidden - sneak attacks ×" + trim(Stealth.SNEAK_DAMAGE) : s.label())
                 + (s.grass() ? " · in the grass" : "") + (s.dark() > 0.5 ? " · dark" : "");
-        bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), rgb, rgb, label, false);
+        bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), rgb, rgb, label, false, null, false);
     }
 
     /**
-     * Under the mana bar: the ammunition of what she holds - the uses left of
-     * the one in use, and how many more she carries - and the coins in her purse.
+     * Under the heavy attack's gauge: the ammunition of what she holds - the
+     * uses left of the one in use, and how many more she carries. Under the
+     * mana: the coins in her purse, on a plate.
      */
     public void drawSupplies(Ui ui, World world, float cy) {
-        float x = ui.width() / 2f + 2 * 64 + 28 + 26, y = cy + 12;
         Player p = world.player();
         Item held = world.wielded();
         ItemDef ammo = held == null ? null : Ammo.of(held.def());
@@ -402,12 +401,19 @@ public final class CombatHud {
             String line = out ? (Ammo.shoots(held.def()) ? "Out of " + Ammo.said(ammo) : "Dull: no " + Ammo.said(ammo))
                     : ammo.name() + ": " + left + (left == 1 ? " use" : " uses") + " · " + carried + " more";
             if (world.buffs().has(Buffs.Kind.AMMO_FREE)) line = ammo.name() + ": none used (a card)";
-            ui.textShadowed(ui.small, line, x, y, CombatColours.rgba(out ? 0xFF8A6E : Combat.AMMO_RGB, 1f));
-            y += ui.small.lineHeight() + 2;
+            float right = ui.width() / 2f - 2 * 64 - 28 - 26;
+            ui.textShadowed(ui.label, line, right - ui.label.width(line) - 2, cy + 13,
+                    CombatColours.rgba(out ? 0xFF8A6E : Combat.AMMO_RGB, 1f));
         }
         if (!showCoins) return;
-        ui.textShadowed(ui.small, p.coins() + (p.coins() == 1 ? " coin" : " coins"), x, y,
-                CombatColours.rgba(COIN_RGB, 1f));
+        String coins = String.valueOf(p.coins());
+        float x = ui.width() / 2f + 2 * 64 + 28 + 26, y = cy + 11, h = 26;
+        float w = 30 + ui.label.width(coins) + 10;
+        ui.plate(x, y, w, h, Theme.BRASS);
+        if (!com.larsons.game.ui.CardArt.icon(ui, "coins", Math.round(x + 3), Math.round(y + 1), 24, 1f)) {
+            ui.disc(x + 15, y + h / 2, 8, CombatColours.rgba(COIN_RGB, 1f));
+        }
+        ui.text(ui.label, coins, x + 30, y + (h - ui.label.lineHeight()) / 2, CombatColours.rgba(COIN_RGB, 1f));
     }
 
     private boolean showCoins = true;
@@ -431,12 +437,18 @@ public final class CombatHud {
         return d == Math.rint(d) ? String.valueOf((long) d) : String.valueOf(d);
     }
 
+    /**
+     * One of her gauges, what it reads lettered over it: its boss ({@code
+     * icon}; none for the slighter ones) at its left end, or its right
+     * ({@code mirrored}, the ones right of the hotbar).
+     */
     private static void bar(Ui ui, float x, float y, float w, float h, double fill, int rgb, int light, String label,
-                            boolean warn) {
+                            boolean warn, String icon, boolean mirrored) {
         float k = (float) Math.max(0, Math.min(1, fill));
-        ui.bar(x - 3, y - 3, w + 6, h + 6, k, CombatColours.rgba(rgb, 0.95f));
-        if (warn) ui.outline(x - 4, y - 4, w + 8, h + 8, 1, CombatColours.rgba(0xFFFFFF, 0.85f));
-        ui.textShadowed(ui.small, label, x, y - ui.small.lineHeight() - 3, CombatColours.rgba(light, 1f));
+        ui.gauge(x, y, w, h, k, CombatColours.rgba(rgb, 0.95f), icon, mirrored);
+        if (warn) ui.outline(x - 3, y - 5, w + 6, h + 10, 1, CombatColours.rgba(0xFFFFFF, 0.85f));
+        float lx = mirrored || icon == null ? x + 2 : x + 8;
+        ui.textShadowed(ui.label, label, lx, y - ui.label.lineHeight() - 4, CombatColours.rgba(light, 1f));
     }
 
     /** One frame of a sheet over a {@code size}-point square at {@code (x, y)} (its cells are cropped). */

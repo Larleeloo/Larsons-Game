@@ -430,6 +430,9 @@ The damage dice, blows landing, arrows and bolts striking, spells, poison, block
   combat/plunge.mp3                              A jump attack landing                            combat/plunge
   combat/out_of_ammo.mp3                         Out of ammunition                                combat/out_of_ammo
   combat/reload.mp3                              Ammunition used up: a fresh one                  combat/reload
+  combat/foe_shot.mp3                            A foe's shot loosed                              combat/foe_shot
+  combat/foe_cast.mp3                            A foe's spell cast                               combat/foe_cast
+  combat/freeze.mp3                              Foes frozen where they stand                     combat/freeze
 
 
 CREATURES
@@ -528,6 +531,20 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   creatures/peacock/squawk.mp3                   Peacock: squawking, hit                          creature/peacock/squawk
   creatures/peacock/rattle.mp3                   Peacock: rattling its train                      creature/peacock/rattle
   creatures/hummingbird/hum.mp3                  Hummingbird: wings humming                       creature/hummingbird/hum
+  creatures/boar/grunt.mp3                       Boar: grunting                                   creature/boar/grunt
+  creatures/boar/squeal.mp3                      Boar: squealing, hit                             creature/boar/squeal
+  creatures/boar/snort.mp3                       Boar: snorting before it charges                 creature/boar/snort
+  creatures/buffalo/low.mp3                      Buffalo: lowing                                  creature/buffalo/low
+  creatures/buffalo/bellow.mp3                   Buffalo: bellowing, hit                          creature/buffalo/bellow
+  creatures/buffalo/snort.mp3                    Buffalo: snorting before it charges              creature/buffalo/snort
+  foes/alert.mp3                                 A foe noticing her                               foes/alert
+  foes/fall.mp3                                  A foe falling                                    foes/fall
+  foes/risen_groan.mp3                           The Risen: a groan as one notices her            foes/risen_groan
+  foes/risen_fall.mp3                            The Risen: one falling                           foes/risen_fall
+  foes/vernees_hiss.mp3                          A Vérnees: its hiss before it strikes            foes/vernees_hiss
+  foes/vernees_fall.mp3                          A Vérnees: falling out of the sky                foes/vernees_fall
+  foes/portal.mp3                                A sky portal opening                             foes/portal
+  foes/summon.mp3                                A summoning station calling something up         foes/summon
 
 
 WORLD & LOOT
@@ -557,9 +574,36 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/chest_break.mp3                          A storage chest broken open                      world/chest_break
   world/pot_break.mp3                            A pot shattering                                 world/pot_break
   world/large_pot_break.mp3                      A large pot shattering                           world/large_pot_break
+  world/locked.mp3                               A locked door or gate tried                      world/locked
+  world/unlock.mp3                               A key turned: a door or gate unlocked            world/unlock
   items/pickup.mp3                               Picking something up                             item/pickup
   items/drop.mp3                                 Dropping something                               item/drop
   items/eat.mp3                                  Eating something picked                          item/eat
+  items/potion_drink.mp3                         A potion drunk                                   item/potion_drink
+  items/scroll_read.mp3                          A scroll read                                    item/scroll_read
+  items/egg_hatch.mp3                            A spawner egg hatching                           item/egg_hatch
+  items/storm.mp3                                A storm scroll's storm                           item/storm
+  items/return.mp3                               A scroll of return: back where she came in       item/return
+  items/horn_fill.mp3                            The drinking horn filled                         item/horn_fill
+  items/horn_drink.mp3                           Drinking from the horn                           item/horn_drink
+  items/crystal_ball.mp3                         Looking into the crystal ball                    item/crystal_ball
+  items/crystal_shield.mp3                       The crystal shield raised                        item/crystal_shield
+  fishing/cast.mp3                               Fishing: the cast                                fishing/cast
+  fishing/plop.mp3                               Fishing: the float landing                       fishing/plop
+  fishing/bite.mp3                               Fishing: a bite                                  fishing/bite
+  fishing/hooked.mp3                             Fishing: the hook set                            fishing/hooked
+  fishing/reel.mp3                               Fishing: reeling in                              fishing/reel
+  fishing/snap.mp3                               Fishing: the line snapping                       fishing/snap
+  fishing/catch.mp3                              Fishing: a fish landed                           fishing/catch
+  horde/rise.mp3                                 Horde: the dead clawing up out of the ground     horde/rise
+  horde/box_open.mp3                             Horde: the mystery box opened                    horde/box_open
+  horde/box_rattle.mp3                           Horde: the mystery box rattling through its weapons horde/box_rattle
+  horde/box_stop.mp3                             Horde: the mystery box stopping on one           horde/box_stop
+  horde/box_shut.mp3                             Horde: the mystery box shut                      horde/box_shut
+  horde/board_torn.mp3                           Horde: a board torn off a barricade              horde/board_torn
+  horde/board_nailed.mp3                         Horde: a board nailed back on                    horde/board_nailed
+  horde/gift_drop.mp3                            Horde: the dead dropping something               horde/gift_drop
+  horde/gift_take.mp3                            Horde: what they dropped taken                   horde/gift_take
 
   One body's or one object's own (silent until given a file):
 
@@ -689,5 +733,27 @@ Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines,
   ui/shop_open.mp3                               A shop opened                                    ui/shop_open
   ui/shop_buy.mp3                                Something bought                                 ui/shop_buy
   ui/shop_sell.mp3                               Something sold                                   ui/shop_sell
+  ui/open.mp3                                    A panel opened                                   ui/open
+  ui/close.mp3                                   A panel closed                                   ui/close
+  ui/tab.mp3                                     Menu: another tab                                ui/tab
+  ui/buy.mp3                                     Horde: bought off a wall or the box              ui/buy
+  ui/equip.mp3                                   Something put in hand from a menu                ui/equip
+  ui/talk.mp3                                    Talking to someone: the next thing said          ui/talk
+  ui/quest_new.mp3                               A quest taken                                    ui/quest_new
+  ui/quest_ready.mp3                             A quest done: go back for the reward             ui/quest_ready
+  ui/quest_done.mp3                              A quest handed in                                ui/quest_done
+  ui/craft.mp3                                   Workbench: starting to make something            ui/craft
+  ui/crafted.mp3                                 Workbench: made                                  ui/crafted
+  ui/brew.mp3                                    Cauldron: starting a brew                        ui/brew
+  ui/brewed.mp3                                  Cauldron: brewed                                 ui/brewed
+  ui/summon.mp3                                  A summoning station's button pressed             ui/summon
+  ui/card_open.mp3                               The card table opened                            ui/card_open
+  ui/card_draw.mp3                               A card drawn                                     ui/card_draw
+  ui/map_step.mp3                                Map: walking to the next place                   ui/map_step
+  ui/map_arrive.mp3                              Map: arriving at a place                         ui/map_arrive
+  ui/map_enter.mp3                               Map: going into a place                          ui/map_enter
+  ui/round_start.mp3                             Horde: a round begins                            ui/round_start
+  ui/round_end.mp3                               Horde: a round survived                          ui/round_end
+  ui/game_over.mp3                               Horde: overrun                                   ui/game_over
   combat/lock_on.mp3                             Locking on to a target                           combat/lock_on
   combat/lock_off.mp3                            Letting the target go                            combat/lock_off

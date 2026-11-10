@@ -31,6 +31,8 @@ public final class Ui implements AutoCloseable {
     /** The smallest: a label that would not otherwise fit, on two lines. */
     public final Font tiny;
     public final Font small;
+    /** What a gauge is called, on the HUD: small, but lettered like the rest. */
+    public final Font label;
     public final Font body;
     public final Font large;
     public final Font title;
@@ -51,6 +53,7 @@ public final class Ui implements AutoCloseable {
         // the small print stays plain, to be read; what is said larger is in serif, as inked
         tiny = new Font(12, false, s);
         small = new Font(14, false, s);
+        label = new Font(java.awt.Font.SERIF, 15, true, s);
         body = new Font(java.awt.Font.SERIF, 18, false, s);
         large = new Font(java.awt.Font.SERIF, 24, true, s);
         title = new Font(java.awt.Font.SERIF, 56, true, s);
@@ -357,6 +360,62 @@ public final class Ui implements AutoCloseable {
         outline(x + 1, y + 1, w - 2, h - 2, 1, Theme.withAlpha(Theme.BRASS, colour[3]));
     }
 
+    /**
+     * A gauge of her own - health, mana, stamina: a glass tube between two
+     * brass rails, ruled in quarters and capped at its far end, with a round
+     * boss at its head showing what it measures ({@code icon}, one of {@link
+     * CardArt}'s; none: a cap there too). {@code (x, y)} is the tube's
+     * top-left corner; {@code mirrored} puts the boss at its right end and
+     * fills the tube from there.
+     */
+    public void gauge(float x, float y, float w, float h, double filled, float[] colour, String icon,
+                      boolean mirrored) {
+        float f = (float) Math.max(0, Math.min(1, filled)), a = colour[3];
+        float[] soot = Theme.withAlpha(Theme.SOOT, 0.95f * a);
+        // the rails over and under the glass
+        rect(x - 2, y - 4, w + 4, h + 8, soot);
+        rect(x - 1, y - 3, w + 2, 1, Theme.withAlpha(Theme.BRASS_LIGHT, a));
+        rect(x - 1, y - 2, w + 2, 1, Theme.withAlpha(Theme.BRASS, a));
+        rect(x - 1, y + h + 1, w + 2, 1, Theme.withAlpha(Theme.BRASS, a));
+        rect(x - 1, y + h + 2, w + 2, 1, Theme.withAlpha(Theme.BRASS_DARK, a));
+        // the glass, and what is in it: lit along its top, bright where it ends
+        rect(x, y, w, h, Theme.rgb(24, 17, 13, 0.96f * a));
+        if (f > 0) {
+            float fw = w * f, fx = mirrored ? x + w - fw : x;
+            rect(fx, y, fw, h, colour);
+            rect(fx, y, fw, Math.max(1, h * 0.3f), new float[]{1, 1, 1, 0.26f * a});
+            float low = Math.max(1, h * 0.25f);
+            rect(fx, y + h - low, fw, low, new float[]{0, 0, 0, 0.28f * a});
+            if (f < 1) rect(mirrored ? fx : fx + fw - 1, y, 1, h, new float[]{1, 1, 1, 0.4f * a});
+        }
+        for (int i = 1; i < 4; i++) {
+            rect(x + Math.round(w * i / 4f), y, 1, Math.max(2, h * 0.4f), Theme.withAlpha(Theme.BRASS_LIGHT, 0.6f * a));
+        }
+        float cy = y + h / 2;
+        for (int end = 0; end < 2; end++) {
+            boolean head = (end == 0) != mirrored;                 // the boss's end
+            float ex = end == 0 ? x - 6 : x + w;
+            if (head && icon != null) continue;
+            rect(ex - 1, y - 6, 8, h + 12, soot);
+            rect(ex, y - 5, 6, h + 10, Theme.withAlpha(Theme.BRASS, a));
+            rect(ex, y - 5, 6, 1, Theme.withAlpha(Theme.BRASS_LIGHT, a));
+            rect(ex, y - 5, 1, h + 10, Theme.withAlpha(Theme.BRASS_LIGHT, 0.8f * a));
+            rect(ex + 5, y - 4, 1, h + 9, Theme.withAlpha(Theme.BRASS_DARK, a));
+            rect(ex, y + h + 4, 6, 1, Theme.withAlpha(Theme.BRASS_DARK, a));
+            image(rivet, ex + 0.5f, cy - 2.5f, 5, 5, new float[]{1, 1, 1, a});
+        }
+        if (icon != null) {
+            float r = 16, cx = mirrored ? x + w + r - 5 : x - r + 5;
+            disc(cx, cy, r + 1.5f, soot);
+            disc(cx, cy, r, Theme.withAlpha(Theme.BRASS_DARK, a));
+            disc(cx - 0.7f, cy - 0.7f, r - 0.8f, Theme.withAlpha(Theme.BRASS_LIGHT, a));
+            disc(cx, cy, r - 1.6f, Theme.withAlpha(Theme.BRASS, a));
+            disc(cx, cy, r - 3.4f, soot);
+            disc(cx, cy, r - 4.2f, Theme.rgb(34, 25, 19, a));
+            CardArt.icon(this, icon, Math.round(cx - 12), Math.round(cy - 12), 24, a);
+        }
+    }
+
     /** Dim everything behind a modal. */
     public void scrim() {
         rect(0, 0, width(), height(), Theme.SCRIM);
@@ -533,6 +592,7 @@ public final class Ui implements AutoCloseable {
     public void close() {
         tiny.close();
         small.close();
+        label.close();
         body.close();
         large.close();
         title.close();

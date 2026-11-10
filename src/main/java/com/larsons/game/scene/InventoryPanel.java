@@ -95,7 +95,7 @@ final class InventoryPanel {
 
     private static final float[] SLOT_FILL = Theme.rgb(10, 10, 18, 0.62f);
     private static final float[] SLOT_HOVER = Theme.rgb(255, 255, 255, 0.16f);
-    private static final float[] BORDER = Theme.rgb(255, 255, 255, 1f);
+    private static final float[] BORDER = Theme.BRASS_LIGHT;
     private static final float[] SELECTED = Theme.ACCENT;
     private static final float[] COIN = Theme.rgb(240, 192, 48, 1f);
     /** How much of its rarity's colour a full slot is tinted with, its inner edge, and the glow round the item. */
@@ -696,6 +696,20 @@ final class InventoryPanel {
         float r = 28, step = 64;
         float cx0 = ui.width() / 2f - step * (Inventory.HOTBAR - 1) / 2f;
         float cy = bottom - r - 6;
+        // the rail the slots hang on, a cog turning at each of its ends
+        float reach = step * (Inventory.HOTBAR - 1) / 2f + r + 20, mid = ui.width() / 2f;
+        ui.rect(mid - reach, cy - 4, 2 * reach, 8, Theme.SOOT);
+        ui.rect(mid - reach, cy - 3, 2 * reach, 6, Theme.BRASS_DARK);
+        ui.rect(mid - reach, cy - 3, 2 * reach, 1, Theme.BRASS_LIGHT);
+        ui.rect(mid - reach, cy - 2, 2 * reach, 2, Theme.BRASS);
+        double turn = world.time() * 0.5;
+        for (int side = -1; side <= 1; side += 2) {
+            float gx = mid + side * (reach - 8);
+            ui.cog(gx, cy, 12, side * turn, Theme.SOOT);
+            ui.cog(gx, cy, 11, side * turn, Theme.BRASS);
+            ui.disc(gx, cy, 4, Theme.SOOT);
+            ui.disc(gx, cy, 2.5f, Theme.BRASS_LIGHT);
+        }
         for (int i = 0; i < Inventory.HOTBAR; i++) {
             boolean sel = i == inv.selected();
             float rr = sel ? r + 4 : r;
@@ -726,7 +740,9 @@ final class InventoryPanel {
         }
         if (hot) ui.diamond(x, y, r, SLOT_HOVER);
         if (item != null) icon(ui, item, x, y, r, 1f, hot || selected);
+        ui.diamondOutline(x, y, r + 1.5f, 1.5f, Theme.SOOT);
         ui.diamondOutline(x, y, r, selected ? 3 : 2, selected ? SELECTED : BORDER);
+        if (!selected) ui.diamondOutline(x, y, r - 2.8f, 0.8f, Theme.withAlpha(Theme.BRASS_DARK, 0.9f));
         if (item != null) count(ui, amount, x, y, r);
     }
 

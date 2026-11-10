@@ -518,7 +518,7 @@ final class Story {
             case POTION, SCROLL -> {
                 if (!quaff(g)) return;
                 world.useUpHeld();
-                world.combat().sound(g.kind() == Goods.Kind.POTION ? "items/potion_drink" : "items/scroll_read", at);
+                world.combat().sound(g.kind() == Goods.Kind.POTION ? "item/potion_drink" : "item/scroll_read", at);
                 world.combat().say(g.about(), g.rarity().rgb(), p.feet(), 2.2, false);
             }
             case EGG -> {
@@ -535,7 +535,7 @@ final class Story {
                     return;
                 }
                 world.useUpHeld();
-                world.combat().sound("items/egg_hatch", front);
+                world.combat().sound("item/egg_hatch", front);
             }
             case PACK -> {
                 int more = Integer.parseInt(g.arg()), size = p.inventory().size();
@@ -577,18 +577,18 @@ final class Story {
             switch (g.arg()) {
                 case "frost" -> {
                     for (Target t : world.foes()) if (t.position().distance(at) <= 14) t.freeze(8);
-                    world.combat().sound("cards/freeze", at);
+                    world.combat().sound("combat/freeze", at);
                 }
                 case "storm" -> {
                     for (Target t : world.foes()) {
                         if (t.position().distance(at) > 16) continue;
                         world.strike(t, 60);
                     }
-                    world.combat().sound("items/storm", at);
+                    world.combat().sound("item/storm", at);
                 }
                 case "return" -> {
                     p.setPosition(world.spawnPoint());
-                    world.combat().sound("items/return", world.spawnPoint());
+                    world.combat().sound("item/return", world.spawnPoint());
                 }
                 default -> { }
             }
@@ -611,7 +611,7 @@ final class Story {
             if (swigs < most && water) {
                 swigs = most;
                 world.combat().say("Horn filled", 0x6FB8FF, p.feet(), 2.1, true);
-                world.combat().sound("items/horn_fill", at);
+                world.combat().sound("item/horn_fill", at);
                 return;
             }
             if (swigs <= 0) {
@@ -624,7 +624,7 @@ final class Story {
             p.setStamina(Math.min(Player.MAX_STAMINA, p.stamina() + g.stamina()));
             world.combat().say("+" + (int) g.stamina() + " stamina  (" + swigs + " left)", 0x4AC850, p.feet(), 2.1,
                     false);
-            world.combat().sound("items/horn_drink", at);
+            world.combat().sound("item/horn_drink", at);
             return;
         }
         double ready = readyAt.getOrDefault(g.id(), 0.0);
@@ -637,13 +637,13 @@ final class Story {
             int foes = world.foes().size();
             world.reveal(60);
             readyAt.put(g.id(), now + 30);
-            world.combat().sound("items/crystal_ball", p.ground());
+            world.combat().sound("item/crystal_ball", p.ground());
             game.toast(foes == 0 ? "The crystal shows no foe about" : "The crystal shows " + foes
                     + (foes == 1 ? " foe" : " foes") + " about", Theme.ACCENT);
         } else if (g == Goods.CRYSTAL_SHIELD) {
             p.buffs().add(new Buffs.Active(g.def().name(), Buffs.Kind.WARD, 80, 0, 1, null));
             readyAt.put(g.id(), now + 60);
-            world.combat().sound("items/crystal_shield", p.ground());
+            world.combat().sound("item/crystal_shield", p.ground());
             world.combat().say("Warded: 80", 0x7FE8FF, p.feet(), 2.2, false);
         }
     }

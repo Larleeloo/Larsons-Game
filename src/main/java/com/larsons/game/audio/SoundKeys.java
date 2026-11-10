@@ -66,6 +66,11 @@ public final class SoundKeys {
     public static final String AMBIENT = "ambient";
     public static final String CREATURES = "creatures";
     public static final String MUSIC = "music";
+    /** The people and beasts that fight her: noticing her, falling, coming through a portal. */
+    public static final String FOES = "foes";
+    public static final String FISHING = "fishing";
+    /** The horde game's: the dead rising, the mystery box, the barricades, what the dead drop. */
+    public static final String HORDE = "horde";
     /** Where a key from an unrecognised namespace lands. */
     public static final String OTHER = "other";
 
@@ -118,7 +123,10 @@ public final class SoundKeys {
             "inventory_open", "inventory_close", "hotbar_select", "item_pick", "item_place", "sort", "wear",
             "error", "screenshot", "secret", "dialogue",
             "select", "place", "remove", "rotate", "brush", "undo", "save", "playtest",
-            "level_up", "upgrade", "card_play", "card_shuffle", "perk", "shop_open", "shop_buy", "shop_sell");
+            "level_up", "upgrade", "card_play", "card_shuffle", "perk", "shop_open", "shop_buy", "shop_sell",
+            "open", "close", "tab", "buy", "equip", "talk", "quest_new", "quest_ready", "quest_done",
+            "craft", "crafted", "brew", "brewed", "summon", "card_open", "card_draw",
+            "map_step", "map_arrive", "map_enter", "round_start", "round_end", "game_over");
 
     /** The training dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
     public static final List<String> DUMMIES_IN_GAME = List.of("attack_dummy");
@@ -145,7 +153,8 @@ public final class SoundKeys {
      */
     public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
             "arrow_stick", "spell_cast", "spell_hit", "spell_burst", "fizzle", "venom_tick", "player_hurt",
-            "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off", "plunge", "out_of_ammo", "reload");
+            "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off", "plunge", "out_of_ammo", "reload",
+            "foe_shot", "foe_cast", "freeze");
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
@@ -156,7 +165,37 @@ public final class SoundKeys {
     public static final List<String> WORLD_SOUNDS = List.of("loot_throw", "loot_land", "loot_uncommon", "loot_rare",
             "loot_epic", "loot_legendary", "loot_mythic", "forage_pick", "door_open", "door_close", "stairs",
             "saddle_on", "mount", "dismount", "barrel_break", "crate_break", "chest_break", "pot_break",
-            "large_pot_break");
+            "large_pot_break", "locked", "unlock");
+
+    /**
+     * The foes: one noticing her and one falling, the Risen's groan and
+     * their fall, a Vérnees' hiss and its fall out of the sky, a sky portal
+     * opening, and a summoning station calling something up.
+     */
+    public static final List<String> FOE_SOUNDS = List.of("alert", "fall", "risen_groan", "risen_fall",
+            "vernees_hiss", "vernees_fall", "portal", "summon");
+
+    /** Fishing: the cast, the float landing, a bite, the hook set, the reel, the line snapping, the catch. */
+    public static final List<String> FISHING_SOUNDS = List.of("cast", "plop", "bite", "hooked", "reel", "snap",
+            "catch");
+
+    /**
+     * The horde game: the dead clawing up out of the ground; the mystery
+     * box opened, rattling through what it might give, stopping on one, and
+     * shut; a board torn off a barricade and one nailed back; what the dead
+     * drop, dropped and taken.
+     */
+    public static final List<String> HORDE_SOUNDS = List.of("rise", "box_open", "box_rattle", "box_stop", "box_shut",
+            "board_torn", "board_nailed", "gift_drop", "gift_take");
+
+    /**
+     * What is done with the goods she carries: a potion drunk, a scroll
+     * read, an egg hatching, a storm scroll's storm, a scroll of return, the
+     * drinking horn filled and drunk from, the crystal ball looked into and
+     * the crystal shield raised.
+     */
+    public static final List<String> GOODS_SOUNDS = List.of("potion_drink", "scroll_read", "egg_hatch", "storm",
+            "return", "horn_fill", "horn_drink", "crystal_ball", "crystal_shield");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -205,7 +244,9 @@ public final class SoundKeys {
             "cockatoo", List.of("screech", "squawk", "flap"),
             "flamingo", List.of("honk", "squawk", "flap"),
             "peacock", List.of("scream", "squawk", "rattle"),
-            "hummingbird", List.of("hum"));
+            "hummingbird", List.of("hum"),
+            "boar", List.of("grunt", "squeal", "snort"),
+            "buffalo", List.of("low", "bellow", "snort"));
 
     /**
      * The place itself, each a loop: the breeze over everything; each
@@ -304,6 +345,9 @@ public final class SoundKeys {
         out.add(CREATURES);
         for (String c : CRITTER_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         for (String c : ANIMAL_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
+        out.add(FOES);
+        out.add(FISHING);
+        out.add(HORDE);
         out.add(AMBIENT);
         out.add(MUSIC);
         return out;
@@ -409,6 +453,9 @@ public final class SoundKeys {
             case "ambient" -> AMBIENT;
             case "music" -> MUSIC;
             case "creature" -> CREATURES;
+            case "foes" -> FOES;
+            case "fishing" -> FISHING;
+            case "horde" -> HORDE;
             default -> null;
         };
     }
@@ -445,7 +492,7 @@ public final class SoundKeys {
                 yield VOICE_SOUNDS.contains(last) ? SoundCategory.VOICES : SoundCategory.MOVEMENT;
             }
             case "chest", "world" -> SoundCategory.WORLD;
-            case "creature" -> SoundCategory.CREATURES;
+            case "creature", "foes" -> SoundCategory.CREATURES;
             case "item" -> last.equals("equip") ? SoundCategory.WEAPONS : SoundCategory.WORLD;
             case "ui" -> SoundCategory.INTERFACE;
             case "ambient" -> SoundCategory.AMBIENT;
@@ -547,6 +594,7 @@ public final class SoundKeys {
                 out.add(row(SoundCategory.CREATURES, creature(c.getKey(), s), animalName(c.getKey(), s), s));
             }
         }
+        for (String s : FOE_SOUNDS) out.add(row(SoundCategory.CREATURES, "foes/" + s, foeName(s), s));
         for (String state : CHEST_STATES) {
             out.add(row(SoundCategory.WORLD, "chest/" + state, "Chest: " + chestName(state), state));
         }
@@ -554,6 +602,9 @@ public final class SoundKeys {
         out.add(row(SoundCategory.WORLD, "item/pickup", "Picking something up", "pickup"));
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
         out.add(row(SoundCategory.WORLD, "item/eat", "Eating something picked", "eat"));
+        for (String s : GOODS_SOUNDS) out.add(row(SoundCategory.WORLD, "item/" + s, goodsName(s), s));
+        for (String s : FISHING_SOUNDS) out.add(row(SoundCategory.WORLD, "fishing/" + s, fishingName(s), s));
+        for (String s : HORDE_SOUNDS) out.add(row(SoundCategory.WORLD, "horde/" + s, hordeName(s), s));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
         for (String s : MUSIC_PLACES.keySet().stream().sorted().toList()) {
             out.add(row(SoundCategory.MUSIC, music(s), musicName(s), s));
@@ -685,6 +736,9 @@ public final class SoundKeys {
             case "plunge" -> "A jump attack landing";
             case "out_of_ammo" -> "Out of ammunition";
             case "reload" -> "Ammunition used up: a fresh one";
+            case "foe_shot" -> "A foe's shot loosed";
+            case "foe_cast" -> "A foe's spell cast";
+            case "freeze" -> "Foes frozen where they stand";
             default -> s;
         };
     }
@@ -758,8 +812,11 @@ public final class SoundKeys {
             case "scream" -> "screaming";
             case "rattle" -> "rattling its train";
             case "hum" -> "wings humming";
+            case "grunt" -> "grunting";
+            case "low" -> "lowing";
             default -> sound;
         };
+        if ((animal.equals("boar") || animal.equals("buffalo")) && sound.equals("snort")) what = "snorting before it charges";
         if (animal.equals("macaw") && sound.equals("squawk")) what = "squawking";
         if ((animal.equals("owl") || animal.equals("eagle")) && sound.equals("screech")) what = "screeching, hit";
         String name = animal.replace('_', ' ');
@@ -792,6 +849,8 @@ public final class SoundKeys {
             case "chest_break" -> "A storage chest broken open";
             case "pot_break" -> "A pot shattering";
             case "large_pot_break" -> "A large pot shattering";
+            case "locked" -> "A locked door or gate tried";
+            case "unlock" -> "A key turned: a door or gate unlocked";
             default -> {
                 Rarity r = Rarity.byKey(s.substring("loot_".length()));
                 yield r == null ? s : "Loot: " + (r == Rarity.UNCOMMON || r == Rarity.EPIC ? "an " : "a ")
@@ -865,6 +924,85 @@ public final class SoundKeys {
             case "shop_open" -> "A shop opened";
             case "shop_buy" -> "Something bought";
             case "shop_sell" -> "Something sold";
+            case "open" -> "A panel opened";
+            case "close" -> "A panel closed";
+            case "tab" -> "Menu: another tab";
+            case "buy" -> "Horde: bought off a wall or the box";
+            case "equip" -> "Something put in hand from a menu";
+            case "talk" -> "Talking to someone: the next thing said";
+            case "quest_new" -> "A quest taken";
+            case "quest_ready" -> "A quest done: go back for the reward";
+            case "quest_done" -> "A quest handed in";
+            case "craft" -> "Workbench: starting to make something";
+            case "crafted" -> "Workbench: made";
+            case "brew" -> "Cauldron: starting a brew";
+            case "brewed" -> "Cauldron: brewed";
+            case "summon" -> "A summoning station's button pressed";
+            case "card_open" -> "The card table opened";
+            case "card_draw" -> "A card drawn";
+            case "map_step" -> "Map: walking to the next place";
+            case "map_arrive" -> "Map: arriving at a place";
+            case "map_enter" -> "Map: going into a place";
+            case "round_start" -> "Horde: a round begins";
+            case "round_end" -> "Horde: a round survived";
+            case "game_over" -> "Horde: overrun";
+            default -> s;
+        };
+    }
+
+    private static String foeName(String s) {
+        return switch (s) {
+            case "alert" -> "A foe noticing her";
+            case "fall" -> "A foe falling";
+            case "risen_groan" -> "The Risen: a groan as one notices her";
+            case "risen_fall" -> "The Risen: one falling";
+            case "vernees_hiss" -> "A Vérnees: its hiss before it strikes";
+            case "vernees_fall" -> "A Vérnees: falling out of the sky";
+            case "portal" -> "A sky portal opening";
+            case "summon" -> "A summoning station calling something up";
+            default -> s;
+        };
+    }
+
+    private static String fishingName(String s) {
+        return switch (s) {
+            case "cast" -> "Fishing: the cast";
+            case "plop" -> "Fishing: the float landing";
+            case "bite" -> "Fishing: a bite";
+            case "hooked" -> "Fishing: the hook set";
+            case "reel" -> "Fishing: reeling in";
+            case "snap" -> "Fishing: the line snapping";
+            case "catch" -> "Fishing: a fish landed";
+            default -> s;
+        };
+    }
+
+    private static String hordeName(String s) {
+        return switch (s) {
+            case "rise" -> "Horde: the dead clawing up out of the ground";
+            case "box_open" -> "Horde: the mystery box opened";
+            case "box_rattle" -> "Horde: the mystery box rattling through its weapons";
+            case "box_stop" -> "Horde: the mystery box stopping on one";
+            case "box_shut" -> "Horde: the mystery box shut";
+            case "board_torn" -> "Horde: a board torn off a barricade";
+            case "board_nailed" -> "Horde: a board nailed back on";
+            case "gift_drop" -> "Horde: the dead dropping something";
+            case "gift_take" -> "Horde: what they dropped taken";
+            default -> s;
+        };
+    }
+
+    private static String goodsName(String s) {
+        return switch (s) {
+            case "potion_drink" -> "A potion drunk";
+            case "scroll_read" -> "A scroll read";
+            case "egg_hatch" -> "A spawner egg hatching";
+            case "storm" -> "A storm scroll's storm";
+            case "return" -> "A scroll of return: back where she came in";
+            case "horn_fill" -> "The drinking horn filled";
+            case "horn_drink" -> "Drinking from the horn";
+            case "crystal_ball" -> "Looking into the crystal ball";
+            case "crystal_shield" -> "The crystal shield raised";
             default -> s;
         };
     }

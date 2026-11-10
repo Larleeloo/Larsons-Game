@@ -2295,6 +2295,582 @@ def _(k):
     return place(out, wood(700, 0.08, 0.04, k) * 0.5, 0.0)       # set down on the counter
 
 
+# The story's, the map's and the horde's ---------------------------------------------------
+
+
+@sound("ui/open", 0.3)
+def _(k):
+    # a ledger's cover lifted: leather, and the page falling open
+    d = 0.32
+    out = place(silence(d), leather(k, 0.2, 400, 2600) * 0.7, 0.0)
+    return place(out, rustle(k, 0.2, 1500, 7000, 0.4) * 0.6, 0.1)
+
+
+@sound("ui/close", 0.3)
+def _(k):
+    d = 0.3
+    out = place(silence(d), rustle(k, 0.14, 1500, 6000, 0.4) * 0.5, 0.0)
+    return place(out, thump(k, 0.16, 140, 0.5, 0.05, 0.5, 900), 0.1)
+
+
+@sound("ui/tab", 0.26)
+def _(k):
+    # a brass catch flicked across
+    d = 0.14
+    out = place(silence(d), wood(1500, 0.05, 0.02, k) * 0.6, 0.0)
+    return place(out, metal(2600, 0.1, 0.07, 0.4, k) * 0.5, 0.03)
+
+
+@sound("ui/buy", 0.38)
+def _(k):
+    # coins down, and the thing taken off its hook
+    d = 0.6
+    out = place(silence(d), coins(k, 0.4, 4), 0.0)
+    return place(out, metal(900, 0.25, 0.2, 0.6, k) * 0.5, 0.3)
+
+
+@sound("ui/equip", 0.34)
+def _(k):
+    d = 0.4
+    out = place(silence(d), leather(k, 0.22, 300, 2200) * 0.7, 0.0)
+    return place(out, metal(1700, 0.2, 0.14, 0.5, k) * 0.45, 0.16)
+
+
+@sound("ui/talk", 0.26)
+def _(k):
+    # a page turned to what she says next
+    d = 0.22
+    return place(silence(d), rustle(k, 0.2, 1800, 7500, 0.5), 0.0)
+
+
+@sound("ui/quest_new", 0.38)
+def _(k):
+    # a seal pressed, a quill's flourish, two rising notes
+    d = 1.0
+    out = place(silence(d), thump(k, 0.14, 160, 0.5, 0.05, 0.4, 1200) * 0.6, 0.0)
+    place(out, crunch(k, 0.25, 260, 2500, 8000, 0.02) * 0.3, 0.08)
+    return place(out, chime([587.33, 880.0], 0.8, 0.12, 0.7, 0.4), 0.18)
+
+
+@sound("ui/quest_ready", 0.38)
+def _(k):
+    d = 1.0
+    return place(silence(d), chime([659.25, 783.99, 987.77], 0.95, 0.1, 0.8, 0.45), 0.0)
+
+
+@sound("ui/quest_done", 0.42)
+def _(k):
+    # the reward counted out under a little fanfare
+    d = 1.5
+    out = place(silence(d), chime([523.25, 659.25, 783.99, 1046.5, 1318.51], 1.4, 0.1, 0.9, 0.45), 0.0)
+    place(out, coins(k, 0.5, 6) * 0.5, 0.55)
+    return place(out, sparkle(k, 0.8, 8, 3000, 7000) * 0.25, 0.5)
+
+
+@sound("ui/craft", 0.36)
+def _(k):
+    # tools taken up: a rasp, a tap
+    d = 0.55
+    out = place(silence(d), crunch(k, 0.3, 320, 1500, 6000, 0.03) * 0.6, 0.0)
+    return place(out, wood(820, 0.1, 0.05, k) * 0.7, 0.34)
+
+
+@sound("ui/crafted", 0.4)
+def _(k):
+    # two taps of the mallet and the piece rings true
+    d = 0.9
+    out = silence(d)
+    for i in range(2):
+        place(out, wood(640 + 90 * i, 0.1, 0.05, k) * 0.8, i * 0.16)
+    return place(out, metal(1320, 0.55, 0.45, 0.5, k) * 0.6, 0.34)
+
+
+def bubbles(k, d, n, lo=260, hi=900):
+    out = silence(d)
+    for _ in range(n):
+        f = k.uniform(lo, hi)
+        place(out, chirp(f, f * k.uniform(1.4, 2.0), k.uniform(0.03, 0.07)) * k.uniform(0.3, 0.9),
+              k.uniform(0, d * 0.9))
+    return out
+
+
+@sound("ui/brew", 0.36)
+def _(k):
+    # something dropped into the cauldron: a plop, and it starts to simmer
+    d = 0.9
+    out = place(silence(d), splash(k, 0.3, 300, 2600, 3, 0.4) * 0.8, 0.0)
+    return place(out, bubbles(k, 0.6, 9) * 0.6, 0.25)
+
+
+@sound("ui/brewed", 0.4)
+def _(k):
+    # the brew comes right: a rush of bubbles, a cork
+    d = 1.1
+    out = place(silence(d), bubbles(k, 0.6, 16, 300, 1200), 0.0)
+    place(out, thump(k, 0.1, 420, 0.4, 0.03, 0.2, 2000) * 0.9, 0.62)
+    return place(out, chime([880.0, 1318.51], 0.45, 0.08, 0.5, 0.5) * 0.5, 0.66)
+
+
+@sound("ui/summon", 0.4)
+def _(k):
+    # a brass plunger pressed home, the works behind it ratcheting
+    d = 0.7
+    out = place(silence(d), thump(k, 0.16, 120, 0.5, 0.06, 0.5, 800), 0.0)
+    place(out, metal(700, 0.3, 0.2, 0.7, k) * 0.5, 0.02)
+    for i in range(6):
+        place(out, wood(1900, 0.03, 0.012, k) * 0.4, 0.16 + i * 0.06)
+    return out
+
+
+@sound("ui/card_open", 0.32)
+def _(k):
+    # the deck fanned across the felt
+    d = 0.55
+    out = silence(d)
+    for i in range(9):
+        place(out, bp(k.noise(0.04), 1800, 7500) * env(0.04, 0.002, 0.025) * (0.5 + 0.05 * i), 0.04 * i)
+    return out
+
+
+@sound("ui/card_draw", 0.3)
+def _(k):
+    d = 0.22
+    slide = bp(k.noise(0.16), 2200, 8000) * bell(0.16, 0.6, 1.4)
+    return place(place(silence(d), slide, 0.0), bp(k.noise(0.03), 1200, 5000) * env(0.03, 0.001, 0.02), 0.17)
+
+
+@sound("ui/map_step", 0.3)
+def _(k):
+    # a wooden piece moved a square along the map
+    d = 0.2
+    out = place(silence(d), wood(520, 0.08, 0.04, k), 0.0)
+    return place(out, wood(700, 0.06, 0.03, k) * 0.6, 0.1)
+
+
+@sound("ui/map_arrive", 0.36)
+def _(k):
+    d = 0.7
+    out = place(silence(d), wood(460, 0.1, 0.06, k) * 0.8, 0.0)
+    return place(out, chime([783.99, 1174.66], 0.6, 0.09, 0.6, 0.4) * 0.7, 0.06)
+
+
+@sound("ui/map_enter", 0.4)
+def _(k):
+    # into the place: a low horn call and the gates
+    d = 1.2
+    f = glide(0.8, [(0, 196), (0.15, 220), (1, 220)])
+    horn = lp(signal.sawtooth(2 * np.pi * np.cumsum(f) / SR), 900) * bell(0.8, 0.25, 0.8)
+    out = place(silence(d), horn * 0.7, 0.0)
+    return place(out, whoosh(k, 0.6, 300, 900, 250, 1.4) * 0.5, 0.5)
+
+
+@sound("ui/round_start", 0.44)
+def _(k):
+    # a cracked bell tolled once, low, over a rising wind
+    d = 2.0
+    out = place(silence(d), metal(196, 1.9, 1.7, 0.6, k), 0.0)
+    place(out, metal(207.65, 1.6, 1.3, 0.2, k) * 0.5, 0.0)          # beating against it: out of true
+    return place(out, whoosh(k, 1.6, 200, 600, 300, 1.2, 0.7) * 0.35, 0.2)
+
+
+@sound("ui/round_end", 0.42)
+def _(k):
+    d = 1.6
+    out = place(silence(d), chime([392.0, 493.88, 587.33], 1.5, 0.16, 1.1, 0.35), 0.0)
+    return place(out, whoosh(k, 1.0, 700, 300, 150, 1.2, 0.2) * 0.3, 0.0)
+
+
+@sound("ui/game_over", 0.46)
+def _(k):
+    # three falling tolls
+    d = 2.6
+    out = silence(d)
+    for i, f in enumerate((220.0, 185.0, 146.83)):
+        place(out, metal(f, 1.6, 1.3, 0.5, k) * (1 - 0.1 * i), i * 0.55)
+    return out
+
+
+@sound("combat/foe_shot", 0.4)
+def _(k):
+    # a rough bow loosed somewhere off
+    d = 0.4
+    out = place(silence(d), pluck(140, 0.3, 0.985, 0.6, k) * 0.8, 0.0)
+    return place(out, whoosh(k, 0.28, 900, 2400, 1200, 2.0, 0.3) * 0.6, 0.02)
+
+
+@sound("combat/foe_cast", 0.4)
+def _(k):
+    d = 0.7
+    out = place(silence(d), whoosh(k, 0.6, 300, 1800, 700, 2.4, 0.5), 0.0)
+    f = glide(0.5, [(0, 330), (1, 520)])
+    return place(out, (osc(f) + 0.5 * osc(f * 1.5)) * bell(0.5, 0.5, 1.2) * 0.35, 0.05)
+
+
+@sound("combat/freeze", 0.42)
+def _(k):
+    # frost racing over everything: a crackle and a glassy ring
+    d = 1.1
+    out = place(silence(d), crunch(k, 0.6, 420, 3000, 9000, 0.02) * 0.6, 0.0)
+    place(out, sparkle(k, 0.9, 16, 3500, 9000, 0.09) * 0.7, 0.05)
+    return place(out, chime([1567.98, 2093.0], 0.9, 0.05, 0.8, 0.6) * 0.5, 0.1)
+
+
+@sound("world/locked", 0.4)
+def _(k):
+    # the handle tried twice against the bolt
+    d = 0.5
+    out = silence(d)
+    for i in range(2):
+        place(out, metal(430, 0.12, 0.07, 0.8, k) * 0.7, i * 0.17)
+        place(out, thump(k, 0.1, 110, 0.5, 0.04, 0.5, 700) * 0.8, i * 0.17 + 0.01)
+    return out
+
+
+@sound("world/unlock", 0.42)
+def _(k):
+    # the key in, round, and the bolt drawn
+    d = 0.95
+    out = place(silence(d), crunch(k, 0.2, 240, 2200, 7000, 0.02) * 0.4, 0.0)
+    place(out, metal(2400, 0.12, 0.08, 0.5, k) * 0.5, 0.22)
+    place(out, metal(1900, 0.12, 0.08, 0.5, k) * 0.5, 0.36)
+    place(out, thump(k, 0.2, 95, 0.6, 0.08, 0.6, 800), 0.52)
+    return place(out, metal(520, 0.4, 0.3, 0.6, k) * 0.5, 0.53)
+
+
+@sound("foes/alert", 0.42)
+def _(k):
+    # a rough shout: "hah!"
+    d = 0.5
+    return place(silence(d), syllable(k, 0.42, [(0, 190), (0.3, 250), (1, 170)], "a", 0.82, h=0.05, rough=0.7,
+                                      breath=0.25), 0.0)
+
+
+@sound("foes/fall", 0.42)
+def _(k):
+    d = 0.9
+    out = place(silence(d), animal(k, 0.4, [(0, 210), (1, 120)], "uh", 0.82, rough=0.6, breath=0.3), 0.0)
+    place(out, thump(k, 0.25, 70, 0.6, 0.12, 0.7, 600), 0.45)
+    return place(out, rustle(k, 0.3, 500, 3000, 0.4) * 0.4, 0.46)
+
+
+@sound("foes/risen_groan", 0.42)
+def _(k):
+    d = 1.5
+    return animal(k, d, [(0, 82), (0.4, 96), (0.8, 74), (1, 66)], "o", 0.7, rough=0.95, breath=0.5, vib=0.04,
+                  vib_rate=3.2)
+
+
+@sound("foes/risen_fall", 0.42)
+def _(k):
+    d = 1.1
+    out = place(silence(d), animal(k, 0.55, [(0, 110), (1, 58)], "uh", 0.68, rough=1.0, breath=0.5), 0.0)
+    place(out, thump(k, 0.3, 60, 0.6, 0.14, 0.8, 500), 0.5)
+    return place(out, crunch(k, 0.25, 90, 600, 3000, 0.05) * 0.4, 0.5)             # bones
+
+
+@sound("foes/vernees_hiss", 0.4)
+def _(k):
+    d = 0.9
+    flutter = 1 + 0.5 * np.sin(2 * np.pi * 22 * t_of(d))
+    return hiss(k, d, 2200, 10000, 0.3) * flutter + 0.25 * bp(k.noise(d), 500, 1500) * bell(d, 0.3, 1.0)
+
+
+@sound("foes/vernees_fall", 0.44)
+def _(k):
+    # its cry dropping away, and the length of it hitting the ground
+    d = 1.4
+    out = place(silence(d), nasal(k, 0.7, [(0, 620), (0.3, 760), (1, 240)],
+                                  [(900, 200, 1.0), (2300, 300, 0.6), (4200, 500, 0.3)], rough=0.8), 0.0)
+    place(out, thump(k, 0.35, 55, 0.6, 0.16, 0.8, 500), 0.75)
+    return place(out, thump(k, 0.25, 70, 0.6, 0.1, 0.6, 600) * 0.6, 0.95)
+
+
+@sound("foes/portal", 0.44)
+def _(k):
+    # the sky torn open: a falling roar, a hum that stays a moment
+    d = 1.8
+    out = place(silence(d), whoosh(k, 1.4, 2400, 500, 160, 1.3, 0.25, 1.2, 0.3), 0.0)
+    f = glide(1.5, [(0, 70), (0.3, 98), (1, 92)])
+    hum = (osc(f) + 0.5 * osc(f * 2.01) + 0.3 * osc(f * 3.02)) * bell(1.5, 0.35, 0.9)
+    place(out, hum * 0.45, 0.2)
+    return place(out, sparkle(k, 1.0, 10, 1800, 5000, 0.1) * 0.25, 0.3)
+
+
+@sound("foes/summon", 0.42)
+def _(k):
+    d = 1.1
+    out = place(silence(d), whoosh(k, 0.8, 200, 1400, 500, 1.8, 0.6), 0.0)
+    place(out, thump(k, 0.3, 80, 0.6, 0.14, 0.5, 500), 0.6)
+    return place(out, chime([311.13, 466.16], 0.6, 0.06, 0.5, 0.5) * 0.4, 0.55)
+
+
+@sound("fishing/cast", 0.36)
+def _(k):
+    # the rod whipped forward and the line running out
+    d = 0.75
+    out = place(silence(d), whoosh(k, 0.3, 700, 3200, 1500, 2.2, 0.45), 0.0)
+    whirr = bp(k.noise(0.45), 2500, 7000) * (0.6 + 0.4 * np.sin(2 * np.pi * 55 * t_of(0.45))) * bell(0.45, 0.2, 1.0)
+    return place(out, whirr * 0.4, 0.2)
+
+
+@sound("fishing/plop", 0.34)
+def _(k):
+    d = 0.4
+    return place(silence(d), splash(k, 0.35, 500, 3200, 3, 0.35), 0.0)
+
+
+@sound("fishing/bite", 0.36)
+def _(k):
+    # the float pulled under: two quick dips
+    d = 0.45
+    out = silence(d)
+    for i in range(2):
+        place(out, chirp(520, 300, 0.06) * 0.9, i * 0.14)
+        place(out, splash(k, 0.18, 800, 4000, 2, 0.1) * 0.5, i * 0.14 + 0.02)
+    return out
+
+
+@sound("fishing/hooked", 0.38)
+def _(k):
+    # the line snaps taut
+    d = 0.5
+    out = place(silence(d), pluck(330, 0.4, 0.99, 0.7, k), 0.0)
+    return place(out, splash(k, 0.3, 500, 3500, 4, 0.3) * 0.6, 0.04)
+
+
+@sound("fishing/reel", 0.3)
+def _(k):
+    # the ratchet, a few clicks of it
+    d = 0.32
+    out = silence(d)
+    for i in range(7):
+        place(out, wood(2100 + 60 * (i % 2), 0.03, 0.012, k) * 0.7, i * 0.042)
+    return out
+
+
+@sound("fishing/snap", 0.4)
+def _(k):
+    d = 0.5
+    out = place(silence(d), pluck(700, 0.12, 0.96, 0.9, k), 0.0)
+    return place(out, whoosh(k, 0.3, 3000, 1500, 600, 2.0, 0.15) * 0.6, 0.02)
+
+
+@sound("fishing/catch", 0.4)
+def _(k):
+    # out of the water it comes, thrashing, and a bright little turn
+    d = 1.0
+    out = place(silence(d), splash(k, 0.5, 400, 4200, 8, 0.4), 0.0)
+    for i in range(4):
+        place(out, thump(k, 0.07, 180, 0.4, 0.03, 0.6, 1500) * 0.5, 0.3 + i * 0.08)
+    return place(out, chime([783.99, 1046.5, 1318.51], 0.5, 0.07, 0.45, 0.45) * 0.5, 0.45)
+
+
+@sound("horde/rise", 0.42)
+def _(k):
+    # earth breaking open and a groan coming up with it
+    d = 1.4
+    out = place(silence(d), crunch(k, 1.0, 140, 300, 2600, 0.07) * 0.8, 0.0)
+    place(out, thump(k, 0.4, 55, 0.5, 0.2, 0.9, 400) * 0.8, 0.1)
+    return place(out, animal(k, 0.9, [(0, 70), (0.5, 92), (1, 78)], "uh", 0.68, rough=1.0, breath=0.5) * 0.7, 0.4)
+
+
+@sound("horde/box_open", 0.42)
+def _(k):
+    # the lid thrown back, and what is inside singing
+    d = 1.1
+    out = place(silence(d), creak(k, 0.4, 160, 300, 0.4) * 0.6, 0.0)
+    place(out, wood(300, 0.14, 0.08, k) * 0.9, 0.36)
+    return place(out, chime([523.25, 659.25, 783.99, 1046.5], 0.7, 0.06, 0.5, 0.5) * 0.6, 0.38)
+
+
+@sound("horde/box_rattle", 0.34)
+def _(k):
+    # one turn of the tumbler
+    d = 0.16
+    out = place(silence(d), wood(1300, 0.04, 0.018, k), 0.0)
+    return place(out, metal(k.uniform(2200, 3000), 0.1, 0.06, 0.4, k) * 0.5, 0.02)
+
+
+@sound("horde/box_stop", 0.42)
+def _(k):
+    d = 0.9
+    out = place(silence(d), wood(520, 0.12, 0.06, k), 0.0)
+    return place(out, chime([783.99, 1174.66, 1567.98], 0.85, 0.05, 0.7, 0.5), 0.03)
+
+
+@sound("horde/box_shut", 0.42)
+def _(k):
+    d = 0.6
+    out = place(silence(d), creak(k, 0.25, 280, 170, 0.4) * 0.5, 0.0)
+    place(out, thump(k, 0.22, 85, 0.6, 0.1, 0.7, 700), 0.24)
+    return place(out, wood(260, 0.14, 0.07, k) * 0.8, 0.24)
+
+
+@sound("horde/board_torn", 0.44)
+def _(k):
+    d = 0.7
+    return place(silence(d), splinter(k, 0.7, 3, 300, 700), 0.0)
+
+
+@sound("horde/board_nailed", 0.42)
+def _(k):
+    # the board set, and two blows of the hammer
+    d = 0.6
+    out = place(silence(d), wood(240, 0.12, 0.07, k) * 0.8, 0.0)
+    for i in range(2):
+        place(out, wood(900, 0.06, 0.03, k), 0.2 + i * 0.17)
+        place(out, metal(2800, 0.08, 0.05, 0.6, k) * 0.4, 0.2 + i * 0.17)
+    return out
+
+
+@sound("horde/gift_drop", 0.36)
+def _(k):
+    d = 0.9
+    out = place(silence(d), chime([1046.5, 1318.51, 1567.98], 0.8, 0.07, 0.7, 0.55), 0.0)
+    return place(out, sparkle(k, 0.8, 10, 3000, 8000) * 0.4, 0.0)
+
+
+@sound("horde/gift_take", 0.42)
+def _(k):
+    d = 1.2
+    out = place(silence(d), chime([523.25, 783.99, 1046.5, 1567.98], 1.1, 0.06, 0.9, 0.5), 0.0)
+    return place(out, whoosh(k, 0.5, 400, 2600, 1200, 1.8, 0.5) * 0.4, 0.0)
+
+
+@sound("items/potion_drink", 0.38)
+def _(k):
+    # the cork, three swallows, a breath out
+    d = 1.1
+    out = place(silence(d), thump(k, 0.08, 500, 0.4, 0.025, 0.2, 2500), 0.0)
+    for i in range(3):
+        place(out, chirp(240, 150, 0.09) * 0.9, 0.16 + i * 0.2)
+        place(out, bp(k.noise(0.06), 600, 2400) * env(0.06, 0.004, 0.04) * 0.4, 0.17 + i * 0.2)
+    return place(out, breathy(k, 0.3, "a", 1.0) * 0.4, 0.78)
+
+
+@sound("items/scroll_read", 0.4)
+def _(k):
+    # unrolled, and the words catch light
+    d = 1.2
+    out = place(silence(d), rustle(k, 0.35, 1500, 7000, 0.5), 0.0)
+    place(out, whoosh(k, 0.7, 500, 2600, 4200, 2.0, 0.6) * 0.6, 0.3)
+    return place(out, sparkle(k, 0.8, 12, 2500, 8000) * 0.5, 0.35)
+
+
+@sound("items/egg_hatch", 0.4)
+def _(k):
+    d = 0.9
+    out = silence(d)
+    for i in range(4):
+        place(out, crunch(k, 0.06, 500, 2500, 9000, 0.015) * (0.5 + 0.15 * i), i * 0.13)
+    place(out, shatter(k, 0.4, 5, 2500, 6000, 600) * 0.6, 0.5)
+    return place(out, whoosh(k, 0.35, 300, 1500, 700, 1.6, 0.4) * 0.5, 0.52)
+
+
+@sound("items/storm", 0.46)
+def _(k):
+    # the air splits: a crack, and it rolls away
+    d = 2.2
+    out = place(silence(d), hp(k.noise(0.08), 1500) * env(0.08, 0.0005, 0.05), 0.0)
+    roll = lp(k.noise(2.0), 220) * (0.5 + 0.5 * lp(np.abs(k.noise(2.0)), 6) / 0.4) * env(2.0, 0.02, 1.8)
+    place(out, roll * 1.4, 0.05)
+    return place(out, whoosh(k, 0.6, 4000, 900, 200, 1.2, 0.1) * 0.5, 0.0)
+
+
+@sound("items/return", 0.42)
+def _(k):
+    # drawn away and set down again somewhere else
+    d = 1.3
+    out = place(silence(d), whoosh(k, 0.7, 300, 3200, 6000, 2.2, 0.8, 1.4), 0.0)
+    place(out, whoosh(k, 0.45, 5000, 1200, 300, 2.0, 0.2) * 0.8, 0.7)
+    return place(out, chime([987.77, 1479.98], 0.5, 0.06, 0.45, 0.5) * 0.5, 0.75)
+
+
+@sound("items/horn_fill", 0.36)
+def _(k):
+    d = 1.0
+    pour = bp(k.noise(0.8), 500, 3500) * bell(0.8, 0.3, 0.9) * (0.7 + 0.3 * lp(np.abs(k.noise(0.8)), 30))
+    out = place(silence(d), pour * 0.6, 0.0)
+    return place(out, bubbles(k, 0.8, 12, 400, 1500) * 0.6, 0.05)
+
+
+@sound("items/horn_drink", 0.38)
+def _(k):
+    d = 1.0
+    out = silence(d)
+    for i in range(4):
+        place(out, chirp(220, 140, 0.1) * 0.9, i * 0.19)
+    return place(out, breathy(k, 0.25, "a", 0.95) * 0.5, 0.74)
+
+
+@sound("items/crystal_ball", 0.38)
+def _(k):
+    # a glass rubbed until it sings, and the far-off shows in it
+    d = 1.6
+    f = 880.0
+    sing = (osc(f, d) + 0.4 * osc(f * 2.005, d) + 0.2 * osc(f * 3.01, d)) * bell(d, 0.35, 0.8) \
+        * (1 + 0.15 * np.sin(2 * np.pi * 5 * t_of(d)))
+    return place(sing * 0.6, sparkle(k, 1.2, 12, 3000, 9000, 0.1) * 0.4, 0.3)
+
+
+@sound("items/crystal_shield", 0.42)
+def _(k):
+    # facets locking shut around her
+    d = 1.0
+    out = silence(d)
+    for i, f in enumerate((1318.51, 1567.98, 1975.53, 2637.02)):
+        place(out, metal(f, 0.5, 0.4, 0.3, k) * 0.6, i * 0.06)
+    return place(out, thump(k, 0.25, 110, 0.5, 0.1, 0.3, 600) * 0.6, 0.24)
+
+
+@sound("creatures/boar/grunt", 0.4)
+def _(k):
+    out = silence(0.7)
+    for i, f in enumerate((120, 105, 112)):
+        place(out, nasal(k, 0.15, [(0, f), (1, f * 0.75)], [(380, 110, 1.0), (900, 160, 0.5), (2200, 300, 0.2)],
+                         rough=0.8), i * 0.2)
+    return out
+
+
+@sound("creatures/boar/squeal", 0.4)
+def _(k):
+    d = 0.75
+    return animal(k, d, [(0, 600), (0.25, 980), (1, 620)], "i", 1.3, rough=0.6, vib=0.04, vib_rate=14)
+
+
+@sound("creatures/boar/snort", 0.42)
+def _(k):
+    # a blast through the snout, and a hoof scraping the ground
+    d = 0.7
+    flutter = 1 + 0.8 * np.sin(2 * np.pi * 28 * t_of(0.4))
+    out = place(silence(d), bp(k.noise(0.4), 160, 1300) * flutter * env(0.4, 0.008, 0.3), 0.0)
+    return place(out, crunch(k, 0.22, 200, 800, 4000, 0.04) * 0.5, 0.42)
+
+
+@sound("creatures/buffalo/low", 0.42)
+def _(k):
+    d = 1.6
+    out = silence(d)
+    place(out, animal(k, 0.3, [(0, 78), (1, 86)], "m", 0.66, rough=0.2), 0)
+    place(out, animal(k, d - 0.25, [(0, 88), (0.35, 108), (0.8, 98), (1, 72)], "o", 0.64, rough=0.3), 0.22)
+    return out
+
+
+@sound("creatures/buffalo/bellow", 0.46)
+def _(k):
+    d = 1.1
+    return animal(k, d, [(0, 110), (0.4, 138), (1, 80)], "a", 0.64, rough=0.7, breath=0.3)
+
+
+@sound("creatures/buffalo/snort", 0.44)
+def _(k):
+    d = 0.8
+    flutter = 1 + 0.8 * np.sin(2 * np.pi * 22 * t_of(0.5))
+    out = place(silence(d), bp(k.noise(0.5), 110, 1000) * flutter * env(0.5, 0.01, 0.4), 0.0)
+    place(out, thump(k, 0.16, 70, 0.5, 0.07, 0.6, 500) * 0.8, 0.5)                 # a hoof stamped
+    return out
+
+
 # --- writing -------------------------------------------------------------------------------
 
 
