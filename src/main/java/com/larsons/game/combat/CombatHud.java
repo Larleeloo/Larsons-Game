@@ -414,13 +414,9 @@ public final class CombatHud {
     /** The stealth meter's colour when she is hidden: a dusk green. */
     static final int STEALTH_HIDDEN = 0x9FD8A0;
 
-    /** What the cards she played are doing for her, a line each, down the left under the dice. */
+    /** What the cards she played are doing for her: a plate each, down the left under the dice ({@link com.larsons.game.ui.BuffPlates}). */
     public void drawBuffs(Ui ui, Player p, float x, float y) {
-        for (Buffs.Active a : p.buffs().active()) {
-            if (a.source.startsWith("Perk: ") && a.left() == Double.POSITIVE_INFINITY) continue;   // for good
-            ui.textShadowed(ui.small, a.source + ": " + a.describe(), x, y, CombatColours.rgba(Combat.CARD_RGB, 1f));
-            y += ui.small.lineHeight() + 2;
-        }
+        com.larsons.game.ui.BuffPlates.draw(ui, p.buffs(), x, y, System.nanoTime() / 1e9);
     }
 
     private static String trim(double d) {

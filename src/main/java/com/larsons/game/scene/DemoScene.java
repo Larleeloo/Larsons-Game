@@ -156,6 +156,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final OrbitCamera camera = new OrbitCamera(0.45, Math.toRadians(45), 6.5);
     private final PauseMenu pause;
     private final InventoryPanel inventory;
+    private final CardTable table;
     private final WorldSounds sounds = new WorldSounds();
     private final CombatHud combatHud;
     private final DebugCode debugCode = new DebugCode();
@@ -200,6 +201,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.table = new CardTable(game, world);
+        inventory.onCards(() -> table.show(CardTable.View.TABLE));
         // The sword lies a couple of metres ahead, unless it is already in
         // hand; the stances' weapons lie round about. What she wears is hers
         // (so it comes off when it leaves her inventory).
@@ -269,6 +272,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.back = back;
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.table = new CardTable(game, world);
+        inventory.onCards(() -> table.show(CardTable.View.TABLE));
         if (back != null) pause.setBack("Back to the editor", back);
         CombatTuning tuning = tune(game, world);
         LevelWorld.populate(world, level, game.scenerySprites(), tuning);
@@ -382,7 +387,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         // a menu up: the gamepad moves the pointer; playing: it plays
-        in.setUiMode(pause.open() || choosing || inventory.open());
+        in.setUiMode(pause.open() || choosing || inventory.open() || table.open());
         if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
@@ -390,7 +395,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(Action.PAUSE) || in.pressed(GLFW_KEY_ESCAPE)) {
             in.consume(Action.PAUSE);
             in.consumeKey(GLFW_KEY_ESCAPE);
-            if (inventory.open()) {
+            if (table.open()) {
+                table.escape();
+            } else if (inventory.open()) {
                 inventory.close();
             } else {
                 pause.open(PauseMenu.Page.MAIN);
@@ -402,8 +409,20 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             back.run();
             return;
         }
-        if (in.pressed(Action.INVENTORY)) inventory.toggle();
-        if (in.pressed(Action.CARDS)) inventory.toggleCards();
+        if (in.pressed(Action.INVENTORY)) {
+            table.close();
+            inventory.toggle();
+        }
+        if (in.pressed(Action.CARDS)) {
+            if (inventory.open()) inventory.close();
+            table.toggle();
+        }
+        // the card table laid: the game stands still behind it
+        if (table.open()) {
+            camera.update(dt, follow());
+            sounds.update(world, camera, durations());
+            return;
+        }
         Player p = world.player();
         for (int key = GLFW_KEY_KP_0; key <= GLFW_KEY_KP_9; key++) {
             if (in.pressed(key) && debugCode.type(DebugCode.digit(key), world.time())) toggleDebug();
@@ -1206,7 +1225,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // F3: what a developer wants to know - the sheets on screen, the frame times, every key
         boolean debug = game.settings().debugOverlay;
         if (debug) hud(ui);
-        if (!pause.open()) {
+        if (!pause.open() && table.open()) {
+            table.draw(ui, frameDt);
+        } else if (!pause.open()) {
             prompt(ui);
             float hotbar = debug ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
             if (hudShown || inventory.open()) inventory.drawHotbar(ui, frameDt, hotbar);
@@ -1623,8 +1644,28 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     choosing = false;
                 }
             }
-            // her cards beside the inventory (J); a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
-            case "cards" -> inventory.toggleCards();
+            // the card table (J): cards (laid, or cleared), cards hand|deck|draw|discard|perks (that page),
+            // cards play <n> (the n-th card of her hand played), cards close
+            case "cards" -> {
+                String[] a = argument.trim().split("\\s+");
+                switch (a[0]) {
+                    case "" -> table.toggle();
+                    case "close" -> table.close();
+                    case "hand" -> table.show(CardTable.View.TABLE);
+                    case "deck" -> table.show(CardTable.View.DECK);
+                    case "draw" -> table.show(CardTable.View.DRAW);
+                    case "discard" -> table.show(CardTable.View.DISCARD);
+                    case "perks" -> table.show(CardTable.View.PERKS);
+                    case "play" -> {
+                        if (!table.play(a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0)) return false;
+                    }
+                    default -> {
+                        return false;
+                    }
+                }
+                if (inventory.open() && table.open()) inventory.close();
+            }
+            // a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
             case "tiers" -> {
                 String[] a = argument.trim().split("\\s+");
                 int slot = Integer.parseInt(a[0]) - 1;

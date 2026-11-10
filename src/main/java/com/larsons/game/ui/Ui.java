@@ -128,11 +128,37 @@ public final class Ui implements AutoCloseable {
         glDepthMask(false);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        batch.begin(Mat4.orthographic(0, window.width(), window.height(), 0, -1, 1));
+        ortho = Mat4.orthographic(0, window.width(), window.height(), 0, -1, 1);
+        batch.begin(ortho);
         clickTaken = false;
+        turned = false;
+    }
+
+    private Mat4 ortho;
+    private boolean turned;
+
+    /**
+     * Draw what follows turned {@code angle} radians (clockwise) and {@code
+     * scale} times as large about {@code (cx, cy)} - a card fanned in the
+     * hand, a card drawn at any size from the one size it is laid out at -
+     * until {@link #straight()}. (The pointer is not turned with it: what is
+     * drawn so is looked at, not clicked.)
+     */
+    public void turn(float cx, float cy, double angle, float scale) {
+        batch.projection(ortho.mul(Mat4.translation(cx, cy, 0)).mul(Mat4.rotationZ(angle))
+                .mul(Mat4.scale(scale, scale, 1)).mul(Mat4.translation(-cx, -cy, 0)));
+        turned = true;
+    }
+
+    /** Draw straight and at its own size again. */
+    public void straight() {
+        if (!turned) return;
+        batch.projection(ortho);
+        turned = false;
     }
 
     public void end() {
+        straight();
         unclip();
         batch.end();
         glDepthMask(true);
@@ -281,6 +307,19 @@ public final class Ui implements AutoCloseable {
         outline(x, y, w, h, 1, Theme.rgb(70, 46, 24, 0.9f));
     }
 
+    /** Oak stained {@code c} (white: as it is): a card's body, a plank. */
+    public void wood(float x, float y, float w, float h, float[] c) {
+        lowest = Math.max(lowest, y + h);
+        float t = Medieval.TILE * 1.5f;
+        batch.rect(wood, x, y, w, h, x / t, y / t, (x + w) / t, (y + h) / t, c[0], c[1], c[2], c[3]);
+    }
+
+    /** Part of a texture - {@code (u0, v0)} to {@code (u1, v1)} - over a rectangle, tinted {@code c}. */
+    public void image(Texture tex, float x, float y, float w, float h, float u0, float v0, float u1, float v1,
+                      float[] c) {
+        batch.rect(tex, x, y, w, h, u0, v0, u1, v1, c[0], c[1], c[2], c[3]);
+    }
+
     /** A round disc {@code r} in radius, tinted {@code c}. */
     public void disc(float cx, float cy, float r, float[] c) {
         image(disc, cx - r, cy - r, 2 * r, 2 * r, c);
@@ -352,6 +391,18 @@ public final class Ui implements AutoCloseable {
         return paragraph(font, s, x, y, width, c, true);
     }
 
+    /** {@link #paragraph}, each line centred within {@code width}. */
+    public float paragraphCentered(Font font, String s, float x, float y, float width, float[] c) {
+        centred = true;
+        try {
+            return paragraph(font, s, x, y, width, c, true);
+        } finally {
+            centred = false;
+        }
+    }
+
+    private boolean centred;
+
     /** The height {@link #paragraph} would take, drawing nothing. */
     public float paragraphHeight(Font font, String s, float width) {
         return paragraph(font, s, 0, 0, width, null, false);
@@ -374,7 +425,7 @@ public final class Ui implements AutoCloseable {
                     end = wordEnd;
                     lineWidth = wordWidth;
                 } else if (lineWidth + space + wordWidth > width) {
-                    if (draw) text(font, para.substring(start, end), x, cy, c);
+                    if (draw) text(font, para.substring(start, end), centred ? x + (width - lineWidth) / 2 : x, cy, c);
                     cy += line;
                     start = i;
                     end = wordEnd;
@@ -386,7 +437,7 @@ public final class Ui implements AutoCloseable {
                 if (sp < 0) break;
                 i = sp + 1;
             }
-            if (draw) text(font, para.substring(start, end), x, cy, c);
+            if (draw) text(font, para.substring(start, end), centred ? x + (width - lineWidth) / 2 : x, cy, c);
             cy += line;
         }
         return cy - y;

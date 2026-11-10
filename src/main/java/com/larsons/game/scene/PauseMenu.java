@@ -17,17 +17,19 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 /**
  * The pause menu: resume, the wardrobe (cosmetics), settings, the sounds
  * ({@link SoundsPanel}: a tab for each category, a volume for each, and the
- * player's own file for any sound), the controls,
+ * player's own file for any sound), the controls, the compendium of every
+ * card ({@link Compendium}),
  * how to import sprite sheets, back to the main menu, quit - and, once the
  * debug code has been typed ({@link DebugCode}), a button that clears every
  * item off the ground ({@link World#clearGround}).
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, CLASS, SETTINGS, SOUNDS, CONTROLS, IMPORT }
+    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, SETTINGS, SOUNDS, CONTROLS, IMPORT }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Class", "Settings", "Sounds", "Controls", "Import sprite sheets", "Main menu", "Quit"};
+            "Resume", "Wardrobe", "Class", "Compendium", "Settings", "Sounds", "Controls", "Import sprite sheets",
+            "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
 
@@ -37,6 +39,7 @@ final class PauseMenu {
     private final WardrobePanel wardrobe;
     private final SoundsPanel sounds;
     private final ControlsPanel controls;
+    private final Compendium compendium;
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
@@ -48,6 +51,7 @@ final class PauseMenu {
         this.wardrobe = new WardrobePanel(game);
         this.sounds = new SoundsPanel(game);
         this.controls = new ControlsPanel(game);
+        this.compendium = new Compendium(world);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -119,11 +123,13 @@ final class PauseMenu {
                 return;
             }
             List<String> items = mainItems(game.settings().debugTools, backLabel);
-            float w = 360, h = 70 + items.size() * 58;
+            // (as many items as there are, on whatever height the window has)
+            float step = Math.max(38, Math.min(58, (ui.height() - 110f) / items.size()));
+            float w = 360, h = 70 + items.size() * step;
             float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
             ui.panel(x, y, w, h);
             ui.textCentered(ui.large, "Paused", x + w / 2, y + 18, Theme.TITLE);
-            int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, 46, 12);
+            int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, step - 10, 10);
             String pick = chosen < 0 ? "" : items.get(chosen);
             if (back != null && pick.equals(backLabel)) {
                 close();
@@ -134,6 +140,10 @@ final class PauseMenu {
                 case "Resume" -> close();
                 case "Wardrobe" -> page = Page.WARDROBE;
                 case "Class" -> page = Page.CLASS;
+                case "Compendium" -> {
+                    page = Page.COMPENDIUM;
+                    compendium.open();
+                }
                 case "Settings" -> page = Page.SETTINGS;
                 case "Sounds" -> {
                     page = Page.SOUNDS;
@@ -156,6 +166,10 @@ final class PauseMenu {
         }
 
         float w = Math.min(1100, ui.width() - 40), h = Math.min(640, ui.height() - 40);
+        if (page == Page.COMPENDIUM) {
+            w = Math.min(1500, ui.width() - 40);
+            h = Math.min(1000, ui.height() - 30);
+        }
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         if (page == Page.WARDROBE) {
             // the wardrobe draws its own armoire, title and Back button and all
@@ -167,6 +181,7 @@ final class PauseMenu {
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
             case CLASS -> "Class and pointer";
+            case COMPENDIUM -> "Compendium";
             case SETTINGS -> "Settings";
             case SOUNDS -> "Sounds";
             case CONTROLS -> "Controls";
@@ -181,6 +196,7 @@ final class PauseMenu {
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
             case CLASS -> heroClass(ui, cx, cy, cw, ch);
+            case COMPENDIUM -> compendium.draw(ui, cx, cy - 12, cw, ch + 12);
             case SETTINGS -> settings(ui, cx, cy);
             case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
             case CONTROLS -> controls.draw(ui, cx, cy, cw, ch);

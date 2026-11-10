@@ -106,7 +106,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge"), CARDS("Cards");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge");
 
         final String label;
 
@@ -189,12 +189,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private boolean snap;
     // --- the forge: the weapon being made, and which of its parts (or its dice) the swatches colour
     private Forged forging = Forged.fresh("New weapon");
-    private CardsTool cards;
-
-    private CardsTool cardsTool() {
-        if (cards == null) cards = new CardsTool(game, widgets);
-        return cards;
-    }
     private int forgeColour;
     /** The Forge's page: 0 the weapon, 1 its dice and ammunition, 2 its upgrade tiers; and the tier being edited. */
     private int forgePage, forgeTier = 1, tierColour;
@@ -585,7 +579,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Whether a right-click can put a plain pointer over the tool: one that works in the world, not Select's own. */
     private boolean pointerFits() {
-        return tool != Tool.SELECT && tool != Tool.FORGE && tool != Tool.CARDS;
+        return tool != Tool.SELECT && tool != Tool.FORGE;
     }
 
     /** A plain pointer over the tool ({@code on}), or back to the tool. */
@@ -1579,7 +1573,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean rightPanelShown() {
-        return placingShown() || selecting() && !selection.isEmpty() || tool == Tool.FORGE || tool == Tool.CARDS;
+        return placingShown() || selecting() && !selection.isEmpty() || tool == Tool.FORGE;
     }
 
     private void topBar(Ui ui) {
@@ -1775,8 +1769,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
                     + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
-            case CARDS -> "Every card of every class: its name, words, rarity, price and effects · a class's first deck "
-                    + "and its perk tree · Save writes assets/cards/cards.json";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
                 + "Ctrl+Z / Y undo, redo · Ctrl+S save · F5 play · H hide · Esc menu";
@@ -1854,7 +1846,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
             case FORGE -> forgePanel(ui, px, py, pw);
-            case CARDS -> cardsTool().panel(ui, px, py, pw);
         }
     }
 
@@ -3299,10 +3290,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private void rightPanelContent(Ui ui, float px, float py, float pw, float y, float h) {
         if (tool == Tool.FORGE) {
             forgePreview(ui, px, py, pw);
-            return;
-        }
-        if (tool == Tool.CARDS) {
-            cardsTool().preview(ui, px, py, pw);
             return;
         }
         if (placingShown()) {

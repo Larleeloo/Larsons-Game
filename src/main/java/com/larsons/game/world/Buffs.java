@@ -115,6 +115,9 @@ public final class Buffs {
         int charges;
         /** A ward's health still to soak up. */
         double ward;
+        /** What it started with: its seconds (infinite: none), its charges (-1: none). */
+        public final double total;
+        public final int chargesAtFirst;
 
         public Active(String source, Kind kind, double value, double seconds, int charges, Only only) {
             this.source = source;
@@ -124,6 +127,30 @@ public final class Buffs {
             this.charges = charges <= 0 ? -1 : charges;
             this.only = only == null ? Only.ANY : only;
             this.ward = kind == Kind.WARD ? value : 0;
+            this.total = left;
+            this.chargesAtFirst = this.charges;
+        }
+
+        /** A ward's health still to soak up (0 for any other kind). */
+        public double ward() { return ward; }
+
+        /** How much of it is left, 1 to 0: of its time, else of its charges, else of its ward (1: for good). */
+        public double share() {
+            if (total < Double.POSITIVE_INFINITY) return Math.max(0, Math.min(1, left / total));
+            if (chargesAtFirst > 0) return Math.max(0, Math.min(1, charges / (double) chargesAtFirst));
+            if (kind == Kind.WARD && value > 0) return Math.max(0, Math.min(1, ward / value));
+            return 1;
+        }
+
+        /** What it comes to, without its name or its time: "×1.5", "+2", "30%", "3 s", "35 left". */
+        public String amount() {
+            if (kind == Kind.WARD) return Math.round(ward) + " left";
+            if (kind.times()) return "×" + trim(value);
+            if (kind == Kind.FREEZE) return trim(value) + " s";
+            if (kind == Kind.TRANSFIGURE) return "";
+            if (kind == Kind.LIFESTEAL || kind == Kind.THORNS || kind == Kind.POISON) return Math.round(value * 100) + "%";
+            if (kind == Kind.AMMO_FREE || kind == Kind.SNEAK) return "";
+            return "+" + trim(value);
         }
 
         public double left() { return left; }

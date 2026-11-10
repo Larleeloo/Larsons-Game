@@ -100,6 +100,30 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // The pointer moved, nothing pressed: "move 640 600" (what is under it lights up).
+                case "move" -> {
+                    String[] xy = arg.split("[ ,]+");
+                    game.window().input().mouseMoved(Double.parseDouble(xy[0]), Double.parseDouble(xy[1]));
+                    waiting = 1e-6;
+                    return;
+                }
+                // The left button held down at a point, and let go at another: "press 640 600", "release 640 300".
+                case "press" -> {
+                    String[] xy = arg.split("[ ,]+");
+                    var in = game.window().input();
+                    in.mouseMoved(Double.parseDouble(xy[0]), Double.parseDouble(xy[1]));
+                    in.mouseButtonEvent(0, true);
+                    waiting = 1e-6;
+                    return;
+                }
+                case "release" -> {
+                    String[] xy = arg.split("[ ,]+");
+                    var in = game.window().input();
+                    in.mouseMoved(Double.parseDouble(xy[0]), Double.parseDouble(xy[1]));
+                    in.mouseButtonEvent(0, false);
+                    waiting = 1e-6;
+                    return;
+                }
                 // The drag-and-drop importer, as if files had been dropped and Save clicked.
                 case "drop" -> game.drop(java.util.List.of(Path.of(arg)));
                 case "importsave" -> game.importer().scriptSave(game, arg);

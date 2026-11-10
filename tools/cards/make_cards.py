@@ -1,11 +1,12 @@
 """
-Larson's Game's cards: the nine classes' starting decks, the 200 cards and
-each class's perk tree, written to assets/cards/cards.json - which the game
-reads (com.larsons.game.cards.CardBook) and Creative Mode's Cards tool edits
-and saves again. Run once to make the file afresh; after that, edit the cards
-in Creative Mode (or in the file).
+Larson's Game's cards: the nine classes' starting decks, the 210 cards
+(common to mythic) and each class's perk tree, written to
+assets/cards/cards.json - which the game reads
+(com.larsons.game.cards.CardBook). The cards are edited here; run this, then
+make_card_art.py for their pictures.
 
     python3 tools/cards/make_cards.py [assets/cards/cards.json]
+    python3 tools/cards/make_card_art.py
 
 A card's effects, one per ";", each "kind value [Ns] [xN] [melee|ranged|spell]":
 a help of world/Buffs's (damage, spell_damage, melee_damage, ranged_damage,
@@ -296,6 +297,31 @@ CARDS = {
 NEUTRAL = [("Fortune's Favor", "Coins x2 and experience x1.2 for 10 minutes.", "coins 2 600s; xp 1.2 600s"),
            ("Joker's Gambit", "Draw two cards.", "draw 2")]
 
+# one to a class and one for anyone: the rarest cards there are, sold only by
+# the best-stocked merchants (and found, a rare time, in a mystery box)
+MYTHIC = {
+    "mage": ("Clockwork Singularity", "A minute of spells at a quarter the mana, two dice more, freezing for 3 s.",
+             "mana_cost 0.25 60s; extra_dice 2 60s spell; freeze 3 60s spell"),
+    "bard": ("Symphony of the Spheres", "Two minutes at speed x1.5, a quarter the stamina, jumping twice as high; "
+             "draw two cards.", "speed 1.5 120s; stamina_cost 0.25 120s; jump 2 120s; draw 2"),
+    "knight": ("The Unbroken Oath", "Two minutes taking a third of the damage, melee x1.5, and a ward of 120.",
+               "defense 0.35 120s; melee_damage 1.5 120s; ward 120"),
+    "warrior": ("Wrath of the Forge-Titan", "45 s of melee x2.2 with three dice more, 30% of it back as health.",
+                "melee_damage 2.2 45s; extra_dice 3 45s melee; lifesteal 0.3 45s melee"),
+    "warlock": ("Pact of the Brass Devil", "A minute of spells x2 that poison for 60% more and drain 40% back.",
+                "spell_damage 2 60s; poison 0.6 60s spell; lifesteal 0.4 60s spell"),
+    "druid": ("Heart of the Elder Grove", "Two minutes mending 4 a second behind thorns of 80%; the next 6 foes "
+              "your spells hit become animals.", "regen_health 4 120s; thorns 0.8 120s; transfigure 180 x6 spell"),
+    "rogue": ("The Perfect Heist", "Two minutes all but unseen, the next 8 blows sneak attacks, coins x3.",
+              "stealth 0.15 120s; sneak 1 x8; coins 3 120s"),
+    "ranger": ("Skyfall Volley", "A minute of shots x1.8 with three dice more, and none of them used up.",
+               "ranged_damage 1.8 60s; extra_dice 3 60s ranged; ammo_free 60s"),
+    "cleric": ("Dawn of the Seventh Bell", "200 health at once, a ward of 100, and 3 health a second for 3 minutes.",
+               "heal 200; ward 100; regen_health 3 180s"),
+    None: ("The Grand Orrery", "Draw three cards; all damage x1.5 for 2 minutes; experience doubled for 10.",
+           "draw 3; damage 1.5 120s; xp 2 600s"),
+}
+
 START_COPIES = [4, 2, 1, 1]
 PERK_RARITY = ["uncommon", "uncommon", "rare", "rare", "epic", "epic", "legendary", "legendary", "legendary"]
 SHOP_RARITY = ["common", "common", "common", "uncommon", "uncommon", "uncommon", "rare", "rare", "rare"]
@@ -358,10 +384,12 @@ def main(path):
                     nodes.append({"id": cls + "_perk_" + slug(n), "name": n, "row": row, "cost": [1, 1, 2, 3][row],
                                   "card": slug(n)})
         perks[cls] = nodes
+        cards.append(card(*MYTHIC[cls], cls, "mythic", "shop"))
     for n, t, fx in NEUTRAL:
         cards.append(card(n, t, fx, None, "rare", "shop"))
+    cards.append(card(*MYTHIC[None], None, "mythic", "shop"))
     ids = [c["id"] for c in cards]
-    assert len(cards) == 200, len(cards)
+    assert len(cards) == 210, len(cards)
     assert len(set(ids)) == len(ids), "card names must be unique"
     book = {"format": 1, "drawAtStart": 4, "handMost": 8, "drawEverySeconds": 300,
             "classes": {k: dict(v, deck=decks[k]) for k, v in CLASSES.items()},

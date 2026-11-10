@@ -18,8 +18,8 @@ import java.util.Map;
 /**
  * Every card there is, the nine classes and their starting decks, and each
  * class's perk tree: {@code assets/cards/cards.json} (first written by
- * {@code tools/cards/make_cards.py}; Creative Mode's Cards tool edits it and
- * saves it again).
+ * {@code tools/cards/make_cards.py}, which is where the cards are written
+ * and changed; their pictures are {@code make_card_art.py}'s).
  *
  * <pre>
  *   {"format": 1, "drawAtStart": 4, "handMost": 8, "drawEverySeconds": 300,
@@ -139,7 +139,7 @@ public final class CardBook {
         return out;
     }
 
-    // --- editing (Creative Mode's Cards tool) ---------------------------------------
+    // --- changing the book (tests, tools) ------------------------------------------
 
     /** {@code c} in place of the card of its id, or added at the end. */
     public void put(Card c) {
