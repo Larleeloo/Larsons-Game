@@ -502,6 +502,11 @@ final class Story {
         return g != null && (g.usable() || g.kind() == Goods.Kind.ROD);
     }
 
+    /** For a scripted check: fishing done by itself (cast, strike, reel) while {@code on}. */
+    void autoFish(boolean on) {
+        fishing.setAuto(on);
+    }
+
     /** Use what she holds: a potion drunk, a scroll read, an egg hatched, a pack put on, a trinket used. */
     void useHeld() {
         Player p = world.player();

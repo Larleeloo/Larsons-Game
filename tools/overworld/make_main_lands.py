@@ -131,11 +131,11 @@ def build():
 
 NODES = [
     # id, name, kind, x, y, level, clear, open, about
-    ("oakhollow", "Oakhollow", "village", 22, 24, "village", "visit", True,
+    ("oakhollow", "Oakhollow", "village", 22, 24, "oakhollow", "visit", True,
      "Home: a village of oak and thatch on the edge of the Whispering Wood."),
     ("millers", "Miller's Crossing", "camp", 28, 21, "millers_crossing", "foes", False,
      "The mill on the Brassrun. Bortzal raiders have taken the bridge."),
-    ("brasswick", "Brasswick", "town", 37, 20, "town", "visit", True,
+    ("brasswick", "Brasswick", "town", 37, 20, "brasswick", "visit", True,
      "The market town of the Vale: smiths, alchemists and the notice board."),
     ("wood", "The Whispering Wood", "ruins", 13, 17, "whispering_wood", "quest", False,
      "Old pines and older stones. Something large and blue has been seen among them."),

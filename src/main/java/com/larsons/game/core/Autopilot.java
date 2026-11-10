@@ -91,6 +91,17 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // A key held down until it is let go: "hold w", "letgo w" (to walk her somewhere).
+                case "hold" -> {
+                    game.window().input().keyEvent(glfwKey(arg), true);
+                    waiting = 1e-6;
+                    return;
+                }
+                case "letgo" -> {
+                    game.window().input().keyEvent(glfwKey(arg), false);
+                    waiting = 1e-6;
+                    return;
+                }
                 case "click" -> {
                     String[] xy = arg.split("[ ,]+");
                     var in = game.window().input();

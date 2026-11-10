@@ -2129,6 +2129,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case "endtalk" -> story.close();
             case "coins" -> p.addCoins(Integer.parseInt(argument.trim()));
             case "usehand" -> story.useHeld();
+            case "autofish" -> story.autoFish(!argument.trim().equals("off"));
             case "summon" -> {
                 String[] a = argument.trim().split("\\s+");
                 double m = a.length > 2 ? Double.parseDouble(a[2]) : 6;

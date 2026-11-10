@@ -51,7 +51,7 @@
    "kind": "village",
    "x": 22,
    "y": 24,
-   "level": "village",
+   "level": "oakhollow",
    "open": true,
    "about": "Home: a village of oak and thatch on the edge of the Whispering Wood.",
    "clear": "visit"
@@ -73,7 +73,7 @@
    "kind": "town",
    "x": 37,
    "y": 20,
-   "level": "town",
+   "level": "brasswick",
    "open": true,
    "about": "The market town of the Vale: smiths, alchemists and the notice board.",
    "clear": "visit"

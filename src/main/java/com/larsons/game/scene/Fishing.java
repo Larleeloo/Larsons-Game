@@ -58,6 +58,15 @@ final class Fishing {
         this.world = world;
     }
 
+    /** For a scripted check: she casts, strikes and reels by herself. */
+    private boolean auto;
+    private double autoClock;
+
+    void setAuto(boolean on) {
+        auto = on;
+        autoClock = 0;
+    }
+
     Phase phase() { return phase; }
 
     /** The rod in her hand, or null. */
@@ -104,6 +113,13 @@ final class Fishing {
         }
         if (held == null) return;
         boolean click = in.pressed(Action.ATTACK);
+        if (auto) {
+            autoClock -= dt;
+            if (phase == Phase.BITE || phase == Phase.IDLE && autoClock <= 0) {
+                click = true;
+                autoClock = 1.5;
+            }
+        }
         time += dt;
         switch (phase) {
             case IDLE -> {
@@ -170,7 +186,7 @@ final class Fishing {
                     world.combat().say("It got away", 0xC8D2DC, to, 0.9, true);
                 }
             }
-            case REEL -> reel(dt, in.down(Action.ATTACK));
+            case REEL -> reel(dt, in.down(Action.ATTACK) || auto && fish > zone + zoneSize() * 0.5);
         }
         if (phase != Phase.IDLE) world.setFishingLine(line());
     }

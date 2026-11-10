@@ -300,6 +300,18 @@ tasks.register<Zip>("shareZip") {
     }
 }
 
+// The first of the main lands, laid out in code: a level for each destination of the
+// Brass Vale's map, written as Creative Mode saves one (and opened there to be changed).
+//   ./gradlew makeBrassVale            → assets/levels/<id>/
+tasks.register<JavaExec>("makeBrassVale") {
+    group = "application"
+    description = "Write the Brass Vale's levels into assets/levels"
+    mainClass = "com.larsons.game.tools.BrassVale"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("-Djava.awt.headless=true")
+    workingDir = projectDir
+}
+
 // A stand-in "Blender" sprite set rendered from the fallback puppet — body, a
 // cap and the sword on separate held-out layers — for trying the real-sheet
 // path and the drag-and-drop importer before the real renders exist.
