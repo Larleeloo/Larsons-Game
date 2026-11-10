@@ -20,9 +20,9 @@ import java.util.Map;
  * The demo as a {@link Level}: the meadow and the highlands - the same
  * ground, the same paths and groves, every tree, rock and tuft where the
  * demo plants it ({@link com.larsons.game.world.SceneryLayout}) - with the
- * weapons, the two chests, the seven training dummies and the two flying
- * dummies where {@link DemoScene} puts them, the vine cliff and the demo's
- * named spots. Creative Mode starts a new level from it ("New level from
+ * weapons, the two chests, the seven training dummies and the summoning
+ * yard's stations where {@link DemoScene} puts them, the vine cliff and the
+ * demo's named spots. Creative Mode starts a new level from it ("New level from
  * the demo"), to change it without touching the demo.
  */
 public final class DemoLevel {
@@ -74,6 +74,10 @@ public final class DemoLevel {
         for (int i = 0; i < DemoScene.FLIERS_AT.length; i++) {
             Vec3 at = DemoScene.FLIERS_AT[i];
             level.add(ObjectTypes.FLIER, at.x(), at.z(), i * 2.1, Map.of("health", 60));
+        }
+        for (DemoScene.Station st : DemoScene.STATIONS) {
+            level.add(com.larsons.game.level.FolkTypes.SUMMON, st.x(), st.z(), SpriteView.headingOf(0, 1),
+                    DemoScene.stationProps(st));
         }
         for (Terrain.Wall w : t.walls()) {
             level.add(ObjectTypes.VINES, (w.x0() + w.x1()) / 2, (w.z0() + w.z1()) / 2, w.facing() + Math.PI,

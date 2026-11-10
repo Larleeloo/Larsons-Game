@@ -629,7 +629,7 @@ public final class Folks {
             for (int j = i + 1; j < all.size(); j++) {
                 Folk b = all.get(j);
                 if (!b.standing()) continue;
-                double dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), r = a.radius() + b.radius();
+                double dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), r = (a.radius() + b.radius()) * 1.3;
                 if (d >= r || Math.abs(a.y - b.y) > 2) continue;
                 if (d < 1e-6) {
                     dx = 1;

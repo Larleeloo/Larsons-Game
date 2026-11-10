@@ -51,6 +51,7 @@ import com.larsons.game.world.World;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -132,7 +133,38 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /** The plateau's chest: at its north-east corner, looking down the ramp. */
     static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
     /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
-    static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
+    static final Vec3[] FLIERS_AT = {};
+
+    /**
+     * The summoning yard, south of where she starts: a row of stations, a
+     * button on each, and each calls its own kind of foe to its own spot out
+     * in front of it. The flying dummies are called here too (none fly about
+     * until one is).
+     */
+    public record Station(String summons, int count, double x, double z, double distance) {}
+
+    static final List<Station> STATIONS = stations();
+
+    private static List<Station> stations() {
+        String[] what = {"bortzal", "drurinean", "half_drurinean", "khorigale", "bandit", "boar", "buffalo",
+                World.VERNEES, World.FLIER, "risen_walker"};
+        List<Station> out = new ArrayList<>();
+        for (int i = 0; i < what.length; i++) {
+            out.add(new Station(what[i], what[i].equals("risen_walker") ? 3 : 1, -13.5 + i * 3.0, 11.0,
+                    i % 2 == 0 ? 7 : 12));
+        }
+        return List.copyOf(out);
+    }
+
+    /** What a station's level object - and its spot in the demo - says of itself. */
+    static Map<String, Object> stationProps(Station st) {
+        Map<String, Object> props = new java.util.LinkedHashMap<>();
+        props.put("name", "Summon: " + Story.summoned(st.summons()));
+        props.put("summons", st.summons());
+        props.put("count", st.count());
+        props.put("distance", st.distance());
+        return props;
+    }
     /**
      * The market stall: off to her left at the start, facing where she
      * starts - supplies, upgrade ingots, reshuffle scrolls and her class's
@@ -238,6 +270,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 SpriteView.headingOf(-0.6, 1)));
         addStall();
         for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
+        addStations();
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(shownScenery());
@@ -426,6 +459,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.addShop(new com.larsons.game.world.Shop(-2, "Market stall", counter, facing, "", true));
     }
 
+    /** The summoning yard's stations ({@link #STATIONS}), each with its button to press. */
+    private void addStations() {
+        double facing = SpriteView.headingOf(0, 1);
+        var profile = com.larsons.game.building.BuildingCatalog.get().profile("summon_station");
+        int id = -100;
+        for (Station st : STATIONS) {
+            Vec3 at = world.terrain().onGround(new Vec3(st.x(), 0, st.z()));
+            if (profile != null) {
+                world.addBuilding(new com.larsons.game.building.Building(id, profile, at, facing, null, null));
+            }
+            Map<String, Object> props = stationProps(st);
+            world.addSpot(new com.larsons.game.world.Spot(id, com.larsons.game.level.FolkTypes.SUMMON,
+                    String.valueOf(props.get("name")), at, facing, props).icon("skull").markerHeight(1.9));
+            id--;
+        }
+    }
+
     /** A flying dummy on its rounds round {@code centre}, starting {@code start} radians round them. */
     private FlyingDummy addFlier(Vec3 centre, double start) {
         CombatTuning t = world.combat().tuning();
@@ -450,6 +500,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Vec3 at : HIGHLAND_DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         clear.add(new SceneryLayout.Clearing(PLATEAU_CHEST_AT.x(), PLATEAU_CHEST_AT.z(), CHEST_CLEAR));
         clear.add(new SceneryLayout.Clearing(STALL_AT.x(), STALL_AT.z(), STALL_CLEAR));
+        for (Station st : STATIONS) {
+            clear.add(new SceneryLayout.Clearing(st.x(), st.z(), 1.6));
+            clear.add(new SceneryLayout.Clearing(st.x(), st.z() + st.distance(), 2.4));
+        }
         // room to land below the ledge, and to stand at the foot of the cliff
         Terrain t = Terrain.highlands();
         for (String place : new String[]{"cliff", "hollow"}) {
