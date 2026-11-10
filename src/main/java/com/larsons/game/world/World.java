@@ -5,6 +5,7 @@ import com.larsons.game.ambient.AnimalKind;
 import com.larsons.game.ambient.Animals;
 import com.larsons.game.ambient.Critters;
 import com.larsons.game.ambient.Life;
+import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.building.Building;
 import com.larsons.game.combat.Combat;
@@ -703,6 +704,7 @@ public final class World {
         for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
         for (com.larsons.game.actor.Folk f : folks.all()) if (f.alive()) out.add(f);
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) if (sp.alive()) out.add(sp);
         return out;
     }
 
@@ -793,6 +795,173 @@ public final class World {
 
     public void setHordeLoot(java.util.function.Predicate<com.larsons.game.actor.Folk> leaves) {
         hordeLoot = leaves;
+    }
+
+    /** A part of the level with a name: where a quest's quarry is, what it asks her to clear or to reach. */
+    public record Area(String name, Vec3 at, double radius) {
+        public boolean holds(Vec3 p) {
+            return p != null && Math.hypot(p.x() - at.x(), p.z() - at.z()) <= radius;
+        }
+    }
+
+    private final List<com.larsons.game.story.Quest> quests = new ArrayList<>();
+
+    /** What the level's people ask of her (the level's Quest objects). */
+    public List<com.larsons.game.story.Quest> quests() { return quests; }
+
+    /** One of what is in her hand used up. */
+    public Item useUpHeld() {
+        Item item = player.inventory().takeOne(player.inventory().selected());
+        equipSelected();
+        return item;
+    }
+
+    /** {@code damage} dealt to {@code t} from nowhere - a scroll's lightning - and what its fall leaves, if it falls. */
+    public void strike(Target t, double damage) {
+        if (t == null || !t.alive()) return;
+        t.hurt(damage, null, true);
+        combat.say("-" + Combat.format(damage), 0xFFF07A, t.position(), t.height() + 0.2, false);
+        if (!t.alive()) felled(t);          // (an animal and one of the folk leave what they leave as they fall)
+    }
+
+    /** A locked door opened: it is taken out of her way, and there is nothing left to use. */
+    public void unlock(Spot s) {
+        buildings.removeIf(b -> b.id() == s.id());
+        s.setGone(true);
+    }
+
+    /**
+     * Her rod, its line and its float, while she fishes: from her hand to the
+     * rod's tip, on to the float on the water - the line taut when something
+     * is on it - the rod in its colour, the water round the float stirred.
+     */
+    public record FishingLine(Vec3 hand, Vec3 tip, Vec3 bobber, boolean taut, int rgb, double splash) {}
+
+    private FishingLine fishingLine;
+
+    public FishingLine fishingLine() { return fishingLine; }
+
+    public void setFishingLine(FishingLine line) {
+        fishingLine = line;
+    }
+
+    private double revealedUntil = -1;
+
+    /** Mark every foe about for {@code seconds} (the crystal ball). */
+    public void reveal(double seconds) {
+        revealedUntil = time + seconds;
+    }
+
+    public boolean revealed() { return time < revealedUntil; }
+
+    /** Every foe about: the hostile folk, the Vérnees, the beasts that go for her. */
+    public List<Target> foes() {
+        List<Target> out = new ArrayList<>();
+        for (com.larsons.game.actor.Folk f : folks.all()) if (f.alive() && f.hostile()) out.add(f);
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) if (sp.alive()) out.add(sp);
+        for (Animal a : animals.live()) if (a.alive() && a.temperament() == Temperament.HOSTILE) out.add(a);
+        return out;
+    }
+
+    /** What a summoning can call, beside the {@link com.larsons.game.actor.Breed}s and the animals. */
+    public static final String VERNEES = "vernees", FLIER = "flier", DUMMY = "dummy";
+
+    /**
+     * Call {@code count} of {@code what} - a breed's key, an animal's, {@link
+     * #VERNEES} (out of a hole in the sky over the spot), {@link #FLIER}, {@link
+     * #DUMMY} - to round {@code at}, facing {@code heading}. Returns how many came.
+     */
+    public int summon(String what, int count, Vec3 at, double heading, com.larsons.game.actor.Folks.Spec spec) {
+        count = Math.max(1, Math.min(40, count));
+        Vec3 g = terrain.onGround(at);
+        com.larsons.game.actor.Breed breed = com.larsons.game.actor.Breed.byKey(what);
+        AnimalKind animal = AnimalKind.byKey(what);
+        int came = 0;
+        if (VERNEES.equals(what)) {
+            com.larsons.game.actor.Serpent.Colour c = spec == null ? null
+                    : com.larsons.game.actor.Serpent.Colour.byKey(spec.skin());
+            folks.addPortal(new com.larsons.game.actor.Folks.Portal(folks.nextId(), g.add(0, 15, 0), 2.4,
+                    0xB060FF, count, 1.6, 0, c, spec == null ? 0 : spec.size()));
+            combat.sound("foes/portal", g);
+            return count;
+        }
+        for (int i = 0; i < count; i++) {
+            double a = i * 2.399963, r = count == 1 ? 0 : 0.9 + 0.55 * Math.sqrt(i);
+            Vec3 p = terrain.onGround(new Vec3(g.x() + Math.cos(a) * r, g.y(), g.z() + Math.sin(a) * r));
+            if (breed != null) {
+                folks.spawn(breed, p, heading, spec);
+            } else if (animal != null) {
+                Animal an = animals.add(animal, p, spec != null && !spec.hostile() ? null : Temperament.HOSTILE,
+                        place());
+                if (an == null) continue;
+            } else if (FLIER.equals(what)) {
+                addFlier(new FlyingDummy(new Vec3(p.x(), 0, p.z()), heading, 60, combat.tuning().dummyDownSeconds,
+                        terrain));
+            } else if (DUMMY.equals(what)) {
+                addDummy(new Dummy(p, heading, 100, combat.tuning().dummyDownSeconds));
+            } else {
+                return 0;
+            }
+            came++;
+            combat.say("✦", 0xB060FF, p, 1.2, false);
+        }
+        if (came > 0) combat.sound("foes/summon", g);
+        return came;
+    }
+
+    /** How many foes - folk, wild beasts, Vérnees - are still about within {@code area} (null: anywhere). */
+    public int foesIn(Area area) {
+        int n = 0;
+        for (com.larsons.game.actor.Folk f : folks.all()) {
+            if (f.alive() && f.hostile() && (area == null || area.holds(f.position()))) n++;
+        }
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) {
+            if (sp.alive() && (area == null || area.holds(sp.position()))) n++;
+        }
+        for (com.larsons.game.actor.Folks.Portal p : folks.portals()) {
+            if (area == null || area.holds(p.at())) n += p.left();
+        }
+        for (Animal a : animals.live()) {
+            if (a.alive() && a.temperament() == Temperament.HOSTILE && (area == null || area.holds(a.position()))) n++;
+        }
+        return n;
+    }
+
+    /** What a Vérnees' dive did to her, said over her - and heard. */
+    private void struckBy(com.larsons.game.actor.Serpent sp, com.larsons.game.actor.Serpent.Outcome o) {
+        Vec3 at = player.ground();
+        switch (o) {
+            case WARNED -> {
+                combat.say("!", 0xFFD27A, sp.position(), sp.height() + 0.3, false);
+                combat.sound("foes/vernees_hiss", sp.position());
+            }
+            case STRUCK -> {
+                combat.say("Bitten! -" + Combat.format(sp.damage()), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", sp.position());
+            }
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/parry", sp.position());
+            }
+            case FELL -> {
+                Vec3 g = sp.position();
+                Random r = new Random(Double.doubleToLongBits(g.x() * 31 + g.z() + time));
+                spawn(Item.of(Supplies.COINS), new Vec3(g.x(), 0, g.z()), 4 + r.nextInt(8));
+                if (r.nextInt(3) == 0) {
+                    Item drop = loot.pick(r, Rarity.roll(r));
+                    if (drop != null) spawn(drop, new Vec3(g.x() + 0.5, 0, g.z() + 0.3));
+                }
+            }
+            case NONE -> { }
+        }
     }
 
     /** A foe's shot reached her: she may have rolled through it, parried it or blocked it. */
@@ -1038,6 +1207,9 @@ public final class World {
             combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
         }
         for (Combat.FoeHit hit : combat.drainFoeHits()) shotAt(hit);
+        if (folks.drainEmerged() > 0) combat.sound("foes/portal", player.ground());
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) struckBy(sp, sp.tick(dt, terrain, player));
+        folks.serpents().removeIf(com.larsons.game.actor.Serpent::gone);
         if (!player.passesThrough()) {
             for (com.larsons.game.actor.Folk f : folks.all()) {
                 if (f.standing() && Math.abs(f.position().y() - player.ground().y()) < 1.2) {
@@ -1333,6 +1505,12 @@ public final class World {
      */
     public void felled(com.larsons.game.combat.Target t) {
         if (t instanceof Animal || t instanceof com.larsons.game.actor.Folk) return;
+        if (t instanceof com.larsons.game.actor.Serpent sp) {
+            kills.add(new Kill(com.larsons.game.actor.Serpent.SPRITES, null, sp.position(), false));
+            earn(com.larsons.game.actor.Serpent.XP * sp.size());
+            combat.sound("foes/vernees_fall", sp.position());
+            return;
+        }
         kills.add(new Kill(t instanceof FlyingDummy ? "flying_dummy" : "dummy", null, t.position(), false));
         int xp = t instanceof FlyingDummy ? com.larsons.game.cards.Hero.XP_FLIER : com.larsons.game.cards.Hero.XP_FELLED;
         earn(xp);

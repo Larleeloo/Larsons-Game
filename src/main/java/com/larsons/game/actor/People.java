@@ -89,6 +89,11 @@ public enum People {
     /** Whether the player can be one. */
     public boolean playable() { return playable; }
 
+    /** The keys of the peoples she can be one of - and the people of a town are. */
+    public static java.util.List<String> playableKeys() {
+        return java.util.Arrays.stream(values()).filter(People::playable).map(People::key).toList();
+    }
+
     public static People byKey(String key) {
         if (key != null) {
             String k = key.trim().toLowerCase(Locale.ROOT).replace(' ', '_');

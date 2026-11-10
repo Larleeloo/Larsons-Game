@@ -89,6 +89,93 @@ public final class Folks {
     /** Everyone here: the people, the foes, the felled not yet faded. */
     public List<Folk> all() { return all; }
 
+    /**
+     * A hole in the sky the Vérnees come out of: where, how wide, in what
+     * light - and how many more are to come out of it, one every so often
+     * while she is within {@code range} of the ground under it (0: wherever
+     * she is).
+     */
+    public static final class Portal {
+        private final int id;
+        private final Vec3 at;
+        private final double radius, every, range, size;
+        private final int rgb;
+        private final Serpent.Colour colour;
+        private int left;
+        private double clock = 1.2;
+
+        public Portal(int id, Vec3 at, double radius, int rgb, int count, double every, double range,
+                      Serpent.Colour colour, double size) {
+            this.id = id;
+            this.at = at;
+            this.radius = radius;
+            this.rgb = rgb;
+            this.left = count;
+            this.every = Math.max(0.5, every);
+            this.range = range;
+            this.colour = colour;
+            this.size = size;
+        }
+
+        public int id() { return id; }
+
+        public Vec3 at() { return at; }
+
+        public double radius() { return radius; }
+
+        public int rgb() { return rgb; }
+
+        /** How many are still to come out of it. */
+        public int left() { return left; }
+
+        /** {@code n} more to come out of it. */
+        public void open(int n) {
+            left += Math.max(0, n);
+        }
+    }
+
+    private final List<Serpent> serpents = new ArrayList<>();
+    private final List<Portal> portals = new ArrayList<>();
+
+    /** The Vérnees about. */
+    public List<Serpent> serpents() { return serpents; }
+
+    public List<Portal> portals() { return portals; }
+
+    public Portal addPortal(Portal p) {
+        portals.add(p);
+        return p;
+    }
+
+    /** A Vérnees out of the sky at {@code from}, to go round over {@code over}: {@code colour} null, any of theirs. */
+    public Serpent serpent(Serpent.Colour colour, double size, Vec3 from, Vec3 over) {
+        if (colour == null) colour = Serpent.Colour.values()[random.nextInt(Serpent.Colour.values().length)];
+        if (size <= 0) size = 0.75 + random.nextDouble() * 0.6;
+        Serpent sp = new Serpent(nextId++, colour, size, from, over);
+        serpents.add(sp);
+        return sp;
+    }
+
+    /** Take everyone and everything of theirs away (the level is being put together again). */
+    public void clear() {
+        all.clear();
+        serpents.clear();
+        portals.clear();
+        events.clear();
+    }
+
+    private int emerged;
+
+    /** How many Vérnees have come out of their portals since this was last asked. */
+    public int drainEmerged() {
+        int n = emerged;
+        emerged = 0;
+        return n;
+    }
+
+    /** A number of its own for something summoned. */
+    public int nextId() { return nextId++; }
+
     /** The foes still standing. */
     public List<Folk> foes() {
         List<Folk> out = new ArrayList<>();
@@ -229,6 +316,20 @@ public final class Folks {
         events.clear();
         for (Folk f : all) one(f, dt, her, place);
         apart();
+        if (her != null) {
+            for (Portal p : portals) {
+                if (p.left <= 0) continue;
+                Vec3 me = her.feet();
+                if (p.range > 0 && Math.hypot(me.x() - p.at.x(), me.z() - p.at.z()) > p.range) continue;
+                p.clock -= dt;
+                if (p.clock > 0) continue;
+                p.clock = p.every;
+                p.left--;
+                double gx = p.at.x(), gz = p.at.z();
+                serpent(p.colour, p.size, p.at, new Vec3(gx, place.ground(gx, gz), gz));
+                emerged++;
+            }
+        }
         all.removeIf(Folk::gone);
         return List.copyOf(events);
     }

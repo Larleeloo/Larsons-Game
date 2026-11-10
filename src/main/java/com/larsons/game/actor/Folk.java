@@ -194,6 +194,22 @@ public final class Folk implements Target {
         return this;
     }
 
+    /** Give it {@code times} its health (a level's champion, a quest's quarry). */
+    public Folk tougher(double times) {
+        maxHealth = Math.max(1, Math.round(maxHealth * times));
+        health = maxHealth;
+        return this;
+    }
+
+    /** The icon over its head ({@code assets/cards/icons.png}), or null: none. */
+    public String icon() { return icon; }
+
+    public void setIcon(String key) {
+        icon = key;
+    }
+
+    private String icon;
+
     /** What it holds, or null (bare hands; a creature's weapon is in its sheets). */
     public Item weapon() { return weapon; }
 

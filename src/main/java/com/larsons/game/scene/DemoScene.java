@@ -170,6 +170,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final Campaign campaign;
     /** Whether the playthrough's rule for clearing this place has been met. */
     private boolean clearedHere;
+    /** The people, the quests, the workbenches and what the goods in her hand do. */
+    private final Story story;
+    /** Whether the level has had a foe in it (a place cleared of its foes had some to clear). */
+    private boolean hadFoes;
+    private double clearClock;
     /** The scenery of where she is - the demo's, the level's, a floor of a building's - as it is when shown. */
     private Scenery scenery;
     /** Where she is inside a building, or null: outdoors. */
@@ -206,6 +211,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.story = new Story(game, world, inventory, null, "The demo");
         this.table = new CardTable(game, world);
         inventory.onCards(() -> table.show(CardTable.View.TABLE));
         // The sword lies a couple of metres ahead, unless it is already in
@@ -304,6 +310,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.back = back;
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.story = new Story(game, world, inventory, campaign != null ? campaign.save().quests() : null,
+                campaign != null ? campaign.placeName() : level.name());
         this.table = new CardTable(game, world);
         inventory.onCards(() -> table.show(CardTable.View.TABLE));
         if (back != null) pause.setBack("Back to the editor", back);
@@ -343,6 +351,33 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         campaign.save().take(world.player());
         if (clearedHere) campaign.save().cleared().add(campaign.place());
         com.larsons.game.save.Saves.write();
+    }
+
+    /**
+     * The map's rule for this place met while she is still here: every foe
+     * felled ({@code foes}), or its quest handed in ({@code quest}: the one
+     * the map names, or every one the level has).
+     */
+    private void clearedByRule(double dt) {
+        if (clearedHere || campaign.save().cleared().contains(campaign.place())) return;
+        clearClock -= dt;
+        if (clearClock > 0) return;
+        clearClock = 0.5;
+        boolean met = false;
+        if ("foes".equals(campaign.clear())) {
+            int foes = world.foesIn(null);
+            hadFoes |= foes > 0;
+            met = hadFoes && foes == 0;
+        } else if ("quest".equals(campaign.clear())) {
+            String id = campaign.quest() == null ? "" : campaign.quest().strip().toLowerCase().replace(' ', '_');
+            met = id.isEmpty() ? story.quests().allDone()
+                    : story.quests().state(id) == com.larsons.game.story.Quests.State.DONE;
+        }
+        if (!met) return;
+        clearedHere = true;
+        Sounds.play(SoundKeys.ui("quest_done"));
+        game.toast(campaign.placeName() + " cleared", Theme.OK);
+        keep();
     }
 
     /** Leave for the overworld map: {@code cleared} when the way out that clears the place was reached. */
@@ -453,10 +488,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
         // a menu up: the gamepad moves the pointer; playing: it plays
-        in.setUiMode(pause.open() || choosing || inventory.open() || table.open());
+        in.setUiMode(pause.open() || choosing || inventory.open() || table.open() || story.modal());
         if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
+        }
+        // the story's own panels - someone talking, a workbench, the journal - take the keys while they are up
+        boolean told = !inventory.open() && !table.open() && story.update(dt, in);
+        if (campaign != null) {
+            campaign.save().played(dt);
+            clearedByRule(dt);
         }
         if (in.pressed(Action.PAUSE) || in.pressed(GLFW_KEY_ESCAPE)) {
             in.consume(Action.PAUSE);
@@ -578,12 +619,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         // --- items, the chest -----------------------------------------------------------
         keepStoreInReach();
-        if (in.pressed(Action.USE) && !inventory.open()) use();
+        if (in.pressed(Action.USE) && !inventory.open() && !told) use();
         else if (in.pressed(Action.USE) && (inventory.store() != null || inventory.shop() != null)) inventory.close();
         if (in.pressed(Action.DROP) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
-        Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
+        Player.Intent intent = scripted != null ? scripted : inventory.open() || told ? Player.Intent.NONE
+                : intent(in);
         intent = eatInstead(intent);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
@@ -728,7 +770,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
     private enum Use {
-        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT, SPOT
+        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON
     }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
@@ -765,6 +807,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
         if (b != null) return Use.BUSH;
+        if (story.person() != null) return Use.PERSON;
         return world.reachableSpot() != null ? Use.SPOT : Use.NOTHING;
     }
 
@@ -800,12 +843,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
             }
             case SPOT -> useSpot(world.reachableSpot());
+            case PERSON -> story.talk(story.person());
             default -> { }
         }
     }
 
     /** What E does at {@code s}, by its kind. */
     private void useSpot(com.larsons.game.world.Spot s) {
+        if (story.use(s)) return;
         switch (s.kind()) {
             case com.larsons.game.level.StoryTypes.WAY_OUT -> {
                 if (campaign != null) {
@@ -822,6 +867,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** What the prompt says E does at {@code s}. */
     private String spotText(com.larsons.game.world.Spot s) {
+        String told = story.text(s);
+        if (told != null) return told;
         return switch (s.kind()) {
             case com.larsons.game.level.StoryTypes.WAY_OUT -> campaign == null ? "Leave"
                     : "Leave for the map" + (s.bool("clears", true) && "exit".equals(campaign.clear())
@@ -1134,10 +1181,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (!intent.attack()) return intent;
         Player p = world.player();
         Item held = p.inventory().held();
-        if (held == null || !held.def().edible()) return intent;
+        boolean used = story.usesHeld();
+        if (held == null || !(held.def().edible() || used)) return intent;
         if (world.time() - lastBite >= BITE) {
             lastBite = world.time();
-            eatHeld();
+            if (used) story.useHeld();
+            else eatHeld();
         }
         return new Player.Intent(intent.moveX(), intent.moveZ(), intent.run(), intent.sprint(), intent.jump(),
                 false, false, intent.crouch(), intent.heavy(), intent.spin(), intent.parry(), intent.block(),
@@ -1337,6 +1386,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!game.importer().visible()) inventory.draw(ui);
+            if (!inventory.open()) story.draw(ui, hudShown);
         }
         if (pause.open()) {
             // the pause menu is not graded: what has been drawn is, before it goes over
@@ -1426,6 +1476,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     d.food().rgb() & 255, 1f);
         } else if (use == Use.SPOT) {
             text = "   " + spotText(world.reachableSpot());
+        } else if (use == Use.PERSON) {
+            text = "   Talk to ";
+            name = story.person().name();
         } else {
             return;
         }

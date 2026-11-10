@@ -749,7 +749,9 @@ public final class ObjectTypes {
                     "stock", sh[3], "buys", true)));
         }
         out.addAll(templateEntries());
+        out.addAll(FolkTypes.entries());
         for (ObjectType t : TYPES.values()) {
+            if (t.key().equals(FolkTypes.FOE)) continue;        // (one entry for each breed, above)
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)

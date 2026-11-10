@@ -252,12 +252,23 @@ public final class Shop {
     public static int worth(Item item) {
         if (item == null) return 0;
         ItemDef d = item.def();
+        Goods.Good good = Goods.of(d);
+        if (good != null) return good.price();
         if (d == Supplies.UPGRADE_INGOT) return 40;
         if (d == Supplies.RESHUFFLE_SCROLL) return 25;
         if (d == Supplies.LARGE_CRYSTAL) return 6;
         if (d == Supplies.COINS) return 1;
         if (Supplies.isAmmo(d)) return 3;
-        if (d.isFood()) return d.edible() ? 2 : 4;
+        if (d.isFood()) {
+            // a picking, a cut, a hide: a coin or two, more the rarer it is
+            int base = d.edible() ? 2 : 4;
+            return base * switch (item.rarity()) {
+                case COMMON -> 1;
+                case UNCOMMON -> 2;
+                case RARE -> 5;
+                default -> 10;
+            };
+        }
         int base = switch (item.rarity()) {
             case COMMON -> 12;
             case UNCOMMON -> 25;

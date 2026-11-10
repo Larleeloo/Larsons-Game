@@ -124,6 +124,7 @@ public final class WorldRenderer implements AutoCloseable {
     private Map<Critter, ObjectStack.Memory> critterMemory = new IdentityHashMap<>();
     private Map<Animal, ObjectStack.Memory> animalMemory = new IdentityHashMap<>();
     private Map<com.larsons.game.actor.Folk, ObjectStack.Memory> folkMemory = new IdentityHashMap<>();
+    private Map<com.larsons.game.actor.Serpent, ObjectStack.Memory> serpentMemory = new IdentityHashMap<>();
     /** A herd's animals in their colours: their coats' palette entries recoloured. */
     private com.larsons.game.sprite.CoatTint coats;
     private final CombatRenderer combat;
@@ -654,8 +655,111 @@ public final class WorldRenderer implements AutoCloseable {
             draws.add(one);
             if (alpha > 0.5f) solids.add(one);
             dist.add(at.sub(eye).dot(forward));
+            // the mark over someone with something to say: a task to give, a task done
+            float[] uv = f.standing() ? com.larsons.game.ui.CardArt.iconUv(f.icon()) : null;
+            if (uv != null && at.sub(eye).length() <= MARK_REACH) {
+                Vec3 mark = at.add(0, f.height() + 0.45 + Math.sin(t * 2.2 + f.id()) * 0.06, 0);
+                Vec3 mr = right.scale(MARK_SIZE), md = up.scale(-MARK_SIZE);
+                Vec3 tl = mark.sub(mr.scale(0.5)).sub(md.scale(0.5));
+                Texture marks = com.larsons.game.ui.CardArt.iconTexture();
+                draws.add(() -> {
+                    batch.depthAnchor(at);
+                    batch.quad(marks, tl, mr, md, uv[0], uv[1], uv[2], uv[3], 1f, 1f, 1f, 1f);
+                });
+                dist.add(mark.sub(eye).dot(forward) - 0.01);
+            }
         }
         folkMemory = folkMemories;
+        // her rod, its line and its float
+        World.FishingLine fl = world.fishingLine();
+        if (fl != null) {
+            draws.add(() -> {
+                batch.depthAnchor(fl.hand());
+                float rr = ((fl.rgb() >> 16) & 255) / 255f, rg = ((fl.rgb() >> 8) & 255) / 255f,
+                        rb = (fl.rgb() & 255) / 255f;
+                stroke(fl.hand().add(0, -0.25, 0), fl.tip(), 0.04, forward, rr * 0.75f, rg * 0.75f, rb * 0.75f, 1f);
+                batch.depthAnchor(fl.bobber());
+                // the line: sagging while it lies slack
+                Vec3 mid = fl.tip().add(fl.bobber()).scale(0.5).add(0, fl.taut() ? 0 : -0.35, 0);
+                stroke(fl.tip(), mid, 0.014, forward, 0.92f, 0.92f, 0.88f, 0.9f);
+                stroke(mid, fl.bobber().add(0, 0.1, 0), 0.014, forward, 0.92f, 0.92f, 0.88f, 0.9f);
+                // the float: red over white
+                Vec3 b = fl.bobber();
+                double s = 0.11;
+                batch.quad(piece, b.sub(right.scale(s / 2)).add(up.scale(s)), right.scale(s), up.scale(-s / 2), 0, 0, 1, 1,
+                        0.85f, 0.16f, 0.14f, 1f);
+                batch.quad(piece, b.sub(right.scale(s / 2)).add(up.scale(s / 2)), right.scale(s), up.scale(-s / 2), 0, 0,
+                        1, 1, 0.95f, 0.95f, 0.92f, 1f);
+                if (fl.splash() > 0.02) {
+                    double w = 0.5 + 0.5 * fl.splash() + 0.12 * Math.sin(t * 9);
+                    Vec3 fx = new Vec3(w, 0, 0), fz = new Vec3(0, 0, w * 0.6);
+                    batch.glow(glow, b.sub(fx.scale(0.5)).sub(fz.scale(0.5)), fx, fz, 0.8f, 0.9f, 1f,
+                            (float) (0.35 * fl.splash()));
+                }
+            });
+            dist.add(fl.bobber().sub(eye).dot(forward));
+        }
+        // what the crystal ball shows: a skull over every foe about
+        if (world.revealed()) {
+            float[] uv = com.larsons.game.ui.CardArt.iconUv("skull");
+            if (uv != null) {
+                Texture marks = com.larsons.game.ui.CardArt.iconTexture();
+                for (com.larsons.game.combat.Target foe : world.foes()) {
+                    Vec3 base = foe.position();
+                    Vec3 mark = base.add(0, foe.height() + 0.5 + Math.sin(t * 3 + base.x()) * 0.08, 0);
+                    Vec3 mr = right.scale(MARK_SIZE * 1.2), md = up.scale(-MARK_SIZE * 1.2);
+                    Vec3 tl = mark.sub(mr.scale(0.5)).sub(md.scale(0.5));
+                    draws.add(() -> {
+                        batch.depthAnchor(eye.add(forward.scale(0.6)));        // (seen through anything)
+                        batch.quad(marks, tl, mr, md, uv[0], uv[1], uv[2], uv[3], 1f, 0.5f, 0.45f, 0.95f);
+                    });
+                    dist.add(-1e6);                                              // (over everything else)
+                }
+            }
+        }
+
+        // the Vérnees, in their colours - and the holes in the sky they come out of
+        Map<com.larsons.game.actor.Serpent, ObjectStack.Memory> serpentMemories = new IdentityHashMap<>();
+        ObjectSprites.Entry vernees = objects.entry(com.larsons.game.actor.Serpent.SPRITES);
+        for (com.larsons.game.actor.Serpent sp : world.folks().serpents()) {
+            if (vernees == null || sp.alpha() < 0.02) continue;
+            Vec3 at = sp.position();
+            if (at.sub(eye).length() > ANIMAL_REACH * 1.5) continue;
+            com.larsons.game.sprite.SpriteProfile prof = vernees.profile();
+            ObjectStack.Memory memory = serpentMemory.get(sp);
+            if (memory == null) memory = new ObjectStack.Memory();
+            serpentMemories.put(sp, memory);
+            double size = sp.size();
+            SpriteView sv = SpriteView.of(eye, at.add(0, prof.pivotHeight() * size, 0), sp.heading(), camera.yaw());
+            ObjectStack.Result sr = ObjectStack.resolve(sprites, objects, com.larsons.game.actor.Serpent.SPRITES,
+                    sp.sheet(), sp.loops(), sp.sheetTime(), t, sv, 0, memory);
+            if (coats == null) coats = new com.larsons.game.sprite.CoatTint(items.pixelPalette());
+            double flash = sp.flash();
+            List<LayerStack.Layer> layers = new ArrayList<>(sr.layers().size());
+            for (LayerStack.Layer l : sr.layers()) {
+                int[] pal = l.palette();
+                if (pal != null && prof.tint().length > 0) pal = coats.tinted(pal, prof.tint(), sp.colour().rgb());
+                if (pal != null && flash > 0) pal = com.larsons.game.combat.CombatColours.flashed(pal, flash);
+                layers.add(pal == l.palette() ? l : l.withPalette(pal));
+            }
+            Vec3 sRight = right.scale(size), sUp = up.scale(size);
+            float alpha = (float) sp.alpha();
+            Runnable one = () -> {
+                batch.depthAnchor(at);
+                LayerStack.drawBillboard(batch, layers, sr.framing(), sr.view().elevation(), at, sRight, sUp, alpha);
+            };
+            draws.add(one);
+            if (alpha > 0.5f) solids.add(one);
+            dist.add(at.sub(eye).dot(forward));
+        }
+        serpentMemory = serpentMemories;
+        for (com.larsons.game.actor.Folks.Portal portal : world.folks().portals()) {
+            draws.add(() -> {
+                batch.depthAnchor(portal.at());
+                portalGlow(portal, t, right, up);
+            });
+            dist.add(portal.at().sub(eye).dot(forward));
+        }
         if (steed != null && !drawnWithHorse[0]) {
             // (her horse not drawn - too far off to be, or no sheets: she is drawn all the same)
             draws.add(her);
@@ -884,6 +988,36 @@ public final class WorldRenderer implements AutoCloseable {
     }
 
     /** A placed light's own glow: a small bright spot where it is, and a soft halo round it. */
+    /** A line from {@code a} to {@code b}, {@code width} metres wide, turned to face the camera. */
+    private void stroke(Vec3 a, Vec3 b, double width, Vec3 forward, float r, float g, float bl, float alpha) {
+        Vec3 along = b.sub(a);
+        Vec3 side = along.cross(forward);
+        double len = side.length();
+        if (len < 1e-9) return;
+        side = side.scale(width / len);
+        batch.quad(piece, a.sub(side.scale(0.5)), along, side, 0, 0, 1, 1, r, g, bl, alpha);
+    }
+
+    /** A hole in the sky: a dark heart, rings of its light turning round it, breathing. */
+    private void portalGlow(com.larsons.game.actor.Folks.Portal p, double t, Vec3 right, Vec3 up) {
+        float r = ((p.rgb() >> 16) & 255) / 255f, g = ((p.rgb() >> 8) & 255) / 255f, b = (p.rgb() & 255) / 255f;
+        double breath = 1 + 0.06 * Math.sin(t * 1.7 + p.id());
+        double size = p.radius() * 2 * breath;
+        for (double[] k : new double[][]{{1.9, 0.22}, {1.25, 0.5}, {0.8, 0.9}}) {
+            double sz = size * k[0];
+            Vec3 tl = p.at().sub(right.scale(sz / 2)).add(up.scale(sz / 2));
+            batch.glow(glow, tl, right.scale(sz), up.scale(-sz), r, g, b, (float) k[1]);
+        }
+        // the sparks going round its rim
+        for (int i = 0; i < 10; i++) {
+            double a = t * 0.9 + i * Math.PI * 2 / 10 + p.id(), rr = p.radius() * (0.95 + 0.12 * Math.sin(t * 2 + i));
+            Vec3 c = p.at().add(right.scale(Math.cos(a) * rr)).add(up.scale(Math.sin(a) * rr));
+            double sz = p.radius() * 0.5;
+            batch.glow(glow, c.sub(right.scale(sz / 2)).add(up.scale(sz / 2)), right.scale(sz), up.scale(-sz),
+                    Math.min(1, r + 0.4f), Math.min(1, g + 0.4f), Math.min(1, b + 0.4f), 0.9f);
+        }
+    }
+
     private void lightGlow(World.LightSpot ls, Vec3 right, Vec3 up) {
         float r = ((ls.rgb() >> 16) & 255) / 255f, g = ((ls.rgb() >> 8) & 255) / 255f, b = (ls.rgb() & 255) / 255f;
         double night = daylight == null ? 1 : 1 - 0.6 * daylight.day();

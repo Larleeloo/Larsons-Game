@@ -21,7 +21,7 @@ import java.util.List;
  */
 public final class StoryTypes {
 
-    public static final String WAY_OUT = "wayout";
+    public static final String WAY_OUT = "wayout", WORKBENCH = "workbench", CAULDRON = "cauldron", LOCK = "lock";
 
     private StoryTypes() {}
 
@@ -49,5 +49,26 @@ public final class StoryTypes {
                 List.of(Prop.text("name", "Name", "The road on"),
                         Prop.toggle("clears", "Reaching it clears the destination", true)),
                 "signpost", "wayout", 0.6, 2.4, 0x7FE8FF);
+        // where things are made: a workbench (the makings, rods, packs, keys, trinkets) and a cauldron (potions, meals)
+        spot(WORKBENCH, "Workbench", Category.CRAFT,
+                List.of(Prop.text("name", "Name", "Workbench"),
+                        Prop.choice("model", "Looks like", "workbench",
+                                o -> List.of("workbench", "prep_table", "desk", "alchemy_table", "none"))),
+                "workbench", "hammer", 0.8, 1.0, 0xD6AA5C);
+        spot(CAULDRON, "Cauldron (brewing)", Category.CRAFT,
+                List.of(Prop.text("name", "Name", "Cauldron"),
+                        Prop.choice("model", "Looks like", "cauldron",
+                                o -> List.of("cauldron", "large_pot", "alchemy_table", "distiller", "none"))),
+                "cauldron", "cauldron", 0.6, 1.0, 0x60BE78);
+        // a locked door or gate, in the way until she has its key (the skeleton key opens any)
+        spot(LOCK, "Locked door", Category.STORY,
+                List.of(Prop.text("name", "Name", "The door"),
+                        Prop.choice("key", "Opened by", "iron_key", o -> com.larsons.game.world.Goods.KEYS.stream()
+                                .map(com.larsons.game.world.Goods.Good::id).toList()),
+                        Prop.toggle("consumes", "Uses the key up", true),
+                        Prop.choice("model", "Looks like", "locked_door",
+                                o -> List.of("locked_door", "iron_gate", "none"))),
+                "locked_door", "lock", 1.1, 2.4, 0xD8DCE4);
+        FolkTypes.registerAll();
     }
 }

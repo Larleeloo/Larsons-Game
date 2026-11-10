@@ -57,7 +57,7 @@ public record Item(ItemDef def, Tier tier, Rarity rarity, Border border, Forged 
 
     /** The rarity an item with no tiers is found as: a wearable's own, else Common. */
     private static Rarity foundAs(ItemDef def) {
-        return def.isWearable() ? def.wearable().rarity() : Rarity.COMMON;
+        return def.isWearable() ? def.wearable().rarity() : Goods.rarityOf(def);
     }
 
     /** {@code def} in {@code tier}. */
