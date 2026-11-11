@@ -285,6 +285,17 @@ public final class Batch implements AutoCloseable {
     }
 
     /**
+     * Draw what is queued from now on through {@code projection} instead (what
+     * is already queued is drawn first, through the one it was queued under):
+     * a card turned in the hand, a menu drawn smaller.
+     */
+    public void projection(Mat4 projection) {
+        if (!drawing) throw new IllegalStateException("batch not begun");
+        flush();
+        shader.set("uProj", projection);
+    }
+
+    /**
      * Discard fragments whose alpha is at or below {@code cut} from here to
      * the end of this batch (or the next call). A cut of a half or more draws
      * a <b>cutout</b>: every texel is in or out, nothing half-blended, and
@@ -548,6 +559,7 @@ public final class Batch implements AutoCloseable {
             glDrawElementsBaseVertex(GL_TRIANGLES, count * 6, GL_UNSIGNED_INT, (long) first * 6 * Integer.BYTES,
                     baseVertex);
             drawCalls++;
+            com.larsons.game.core.Perf.drew(count);
         }
         clearQueue();
     }

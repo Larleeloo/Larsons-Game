@@ -73,7 +73,7 @@ public record Card(String id, String name, String hero, Rarity rarity, String te
 
         public Instant instant() { return Instant.byKey(kind); }
 
-        /** Every kind there is, the helps then the at-once ones (the Cards tool's list). */
+        /** Every kind there is, the helps then the at-once ones (in the order their icons are drawn). */
         public static List<String> kinds() {
             List<String> out = new ArrayList<>();
             for (Buffs.Kind k : Buffs.Kind.values()) out.add(k.key());

@@ -10,6 +10,7 @@ import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.GpuInfo;
 import com.larsons.game.gfx.Window;
+import com.larsons.game.input.Action;
 import com.larsons.game.input.Input;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
@@ -67,6 +68,10 @@ public final class Game implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Ui ui;
+    /** The colour grade (Pause, Colours) and what puts it on the picture; made when first asked for. */
+    private com.larsons.game.grade.Grading grading;
+    private com.larsons.game.gfx.GradeFilter gradeFilter;
+    private boolean graded;
     /** The mouse pointer: her class's, or the one chosen ({@link Pointers}). */
     private final com.larsons.game.ui.Pointers pointers;
     private final SpriteLibrary sprites;
@@ -130,6 +135,7 @@ public final class Game implements AutoCloseable {
         batch = new Batch();
         ui = new Ui(window, batch);
         pointers = new com.larsons.game.ui.Pointers(settings.assets);
+        window.input().setBindings(com.larsons.game.input.Bindings.load(settings.config.resolve("controls.json")));
         long uiNs = System.nanoTime() - t1;
 
         // From here on the loading screen is up, showing each step as it runs.
@@ -300,6 +306,8 @@ public final class Game implements AutoCloseable {
     static String startName(String start) {
         String n = start == null ? "" : start.trim();
         String lower = n.toLowerCase();
+        if (lower.startsWith("hordeedit:")) return "the horde map " + n.substring(10).trim() + " in the horde editor";
+        if (lower.startsWith("horde:")) return "the horde map " + n.substring(6).trim();
         if (lower.startsWith("edit:")) return "the level " + n.substring(5).trim() + " in Creative Mode";
         if (lower.startsWith("play:")) return "the level " + n.substring(5).trim();
         return switch (lower) {
@@ -353,6 +361,9 @@ public final class Game implements AutoCloseable {
             System.err.println("[sound] cannot set up " + settings.soundsDir() + ": " + e.getMessage());
         }
         Sounds.useStore(settings.config);
+        com.larsons.game.save.Saves.useFolder(settings.config.resolve("saves"));
+        com.larsons.game.overworld.MapView.useAssets(settings.assets);
+        com.larsons.game.overworld.MapView.useAssets(settings.assets);
         Sounds.load();
         Sounds.setMasterVolume(settings.masterVolume);
         for (SoundCategory c : SoundCategory.values()) {
@@ -473,25 +484,35 @@ public final class Game implements AutoCloseable {
             if (!booting) autopilot.step(dt, this);
             Music.update(dt);
 
+            long t0 = System.nanoTime();
             sprites.beginFrame();
             if (booting) {
                 sprites.pump(BOOT_UPLOAD_NS);
                 in.endFrame();
             } else {
+                if (in.pressed(Action.PERF)) {
+                    settings.perfOverlay = !settings.perfOverlay;
+                    settings.save();
+                }
                 sprites.pump();
                 if (!importer.visible()) scene.update(dt);
                 pointers.apply(window, settings.pointer, settings.heroClass);
             }
+            long t1 = System.nanoTime();
 
             glViewport(0, 0, window.framebufferWidth(), window.framebufferHeight());
             glClearColor(Theme.BACKGROUND[0], Theme.BACKGROUND[1], Theme.BACKGROUND[2], 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            graded = false;
             scene.render();
+            if (!booting) applyGrade();
             if (booting) bootRenders++;
             if (loading != null) drawLoading(dt);
             drawOverlays(dt);
 
             takeShot(!autopilot.active());
+            // (the drawing's time is to here: the swap after it waits for the display, which is no work of ours)
+            Perf.endFrame(t1 - t0, System.nanoTime() - t1, dt, settings.logPerf);
             window.swapBuffers();
             in.endFrame();
             pacer.endFrame();
@@ -556,19 +577,50 @@ public final class Game implements AutoCloseable {
             float a = (float) Math.min(1, t.life()[0] / 0.4);
             float w = ui.body.width(t.text()) + 28;
             float x = (ui.width() - w) / 2;
-            ui.rect(x, y, w, 32, Theme.withAlpha(Theme.PANEL, 0.92f * a));
-            ui.text(ui.body, t.text(), x + 14, y + 7, Theme.withAlpha(t.color(), a));
+            ui.rect(x, y, w, 32, Theme.withAlpha(Theme.rgb(26, 19, 14, 1f), 0.92f * a));
+            ui.outline(x, y, w, 32, 1, Theme.withAlpha(Theme.SOOT, a));
+            ui.outline(x + 1, y + 1, w - 2, 30, 1, Theme.withAlpha(Theme.BRASS, 0.8f * a));
+            ui.text(ui.body, t.text(), x + 14, y + 5, Theme.withAlpha(t.color(), a));
             y -= 38;
         }
+        if (settings.perfOverlay && booted) drawPerf();
         // The importer is modal: it draws over everything, toasts included.
         importer.draw(ui, this);
         ui.end();
     }
 
+    /**
+     * The performance overlay (F8): a brass plate in the top right corner
+     * with the frame rate, what the update and the drawing take, the draw
+     * calls, and what the scene is running - in the game and the editors.
+     */
+    private void drawPerf() {
+        List<String> lines = new java.util.ArrayList<>();
+        lines.add(String.format("%.0f fps  ·  %.1f ms  ·  longest %.1f ms", pacer.fps(), pacer.averageMs(),
+                pacer.worstMs()));
+        lines.addAll(Perf.lines());
+        float w = 0;
+        for (String l : lines) w = Math.max(w, ui.small.width(l));
+        w += 24;
+        float[] inset = scene.perfInset();
+        float h = 12 + 18 * lines.size(), x = ui.width() - w - inset[0], y = inset[1];
+        ui.rect(x, y, w, h, Theme.withAlpha(Theme.rgb(26, 19, 14, 1f), 0.88f));
+        ui.outline(x, y, w, h, 1, Theme.SOOT);
+        ui.outline(x + 1, y + 1, w - 2, h - 2, 1, Theme.withAlpha(Theme.BRASS, 0.8f));
+        // the frame's time against the display's: green with room to spare, amber near it, red over
+        double budget = 1000.0 / Math.max(30, pacer.target() > 0 ? pacer.target() : pacer.refresh());
+        double spent = Perf.updateMs() + Perf.renderMs();
+        float[] first = spent > budget ? Theme.WARNING : spent > budget * 0.7 ? Theme.ACCENT : Theme.OK;
+        for (int i = 0; i < lines.size(); i++) {
+            ui.text(ui.small, lines.get(i), x + 12, y + 6 + 18 * i, i == 0 ? first : i < 4 ? Theme.ITEM : Theme.HINT);
+        }
+    }
+
     // --- scenes ----------------------------------------------------------------------
 
     /**
-     * Switch to "menu", "demo", "cutscene", "creative" (Creative Mode on a
+     * Switch to "menu", "demo", "cutscene", "mapedit" (the overworld map
+     * editor), "newgame" (the character creator), "creative" (Creative Mode on a
      * new level), "edit:&lt;level&gt;" or "play:&lt;level&gt;" (a level's folder
      * in {@code assets/levels}).
      */
@@ -576,7 +628,20 @@ public final class Game implements AutoCloseable {
         String n = name.trim();
         String lower = n.toLowerCase();
         Scene next;
-        if (lower.startsWith("edit:") || lower.startsWith("play:")) {
+        if (lower.startsWith("horde:") || lower.startsWith("hordeedit:")) {
+            boolean edit = lower.startsWith("hordeedit:");
+            String id = n.substring(n.indexOf(':') + 1).trim();
+            Path folder = settings.hordeDir().resolve(id);
+            try {
+                com.larsons.game.level.Level level = com.larsons.game.level.LevelIO.load(folder);
+                next = edit ? com.larsons.game.editor.CreativeScene.horde(this, level, folder)
+                        : DemoScene.horde(this, level, id, null);
+            } catch (java.io.IOException | RuntimeException e) {
+                System.err.println("[horde] cannot open " + folder + ": " + e.getMessage());
+                toast("Cannot open " + relative(folder) + ": " + e.getMessage(), Theme.WARNING);
+                next = new MainMenuScene(this);
+            }
+        } else if (lower.startsWith("edit:") || lower.startsWith("play:")) {
             Path folder = settings.levelsDir().resolve(n.substring(5).trim());
             try {
                 com.larsons.game.level.Level level = com.larsons.game.level.LevelIO.load(folder);
@@ -590,6 +655,9 @@ public final class Game implements AutoCloseable {
         } else {
             next = switch (lower) {
                 case "demo" -> new DemoScene(this);
+                case "mapedit" -> new com.larsons.game.editor.OverworldEditor(this, null);
+                case "newgame" -> new com.larsons.game.scene.CreatorScene(this,
+                        Math.max(0, com.larsons.game.save.Saves.free()));
                 case "cutscene" -> new com.larsons.game.scene.CutsceneScene(this);
                 case "creative" -> new com.larsons.game.editor.CreativeScene(this,
                         com.larsons.game.level.Level.blank("New level", com.larsons.game.level.Level.DEFAULT_SIZE),
@@ -665,6 +733,57 @@ public final class Game implements AutoCloseable {
 
     public Ui ui() { return ui; }
 
+    /**
+     * The colour grade: what the art's 128 colours are shown as (Pause,
+     * Colours). Read from {@code config/colours.json} the first time.
+     */
+    public com.larsons.game.grade.Grading grading() {
+        if (grading == null) {
+            com.larsons.game.sprite.PixelPalette p = com.larsons.game.sprite.PixelPalette.load(settings.spritesDir());
+            int[] colours;
+            if (p == null) {
+                // (no palette with the art: a plain spread of 128 colours to grade by)
+                colours = new int[128];
+                for (int i = 0; i < 128; i++) {
+                    colours[i] = i < 16 ? 0x111111 * i : com.larsons.game.grade.Colours.rgb((i % 16) * 22.5,
+                            0.35 + 0.6 * ((i / 16) % 2), 0.25 + 0.107 * (i / 16));
+                }
+            } else {
+                int[] f = p.fills(), l = p.lines();
+                colours = new int[f.length + l.length];
+                System.arraycopy(f, 0, colours, 0, f.length);
+                System.arraycopy(l, 0, colours, f.length, l.length);
+            }
+            grading = new com.larsons.game.grade.Grading(colours);
+            grading.load(gradingFile());
+        }
+        return grading;
+    }
+
+    /** {@code config/colours.json}. */
+    public Path gradingFile() {
+        return settings.config.resolve("colours.json");
+    }
+
+    public void saveGrading() {
+        if (grading != null) grading.save(gradingFile());
+    }
+
+    /**
+     * Put the colour grade on what has been drawn this frame so far. A scene
+     * calls it before drawing what is not to be graded (a menu over the
+     * game); whatever has not been graded by the frame's end is graded then.
+     * Once a frame; never in the middle of a batch.
+     */
+    public void applyGrade() {
+        if (graded) return;
+        graded = true;
+        com.larsons.game.grade.Grading g = grading();
+        if (g.identity()) return;
+        if (gradeFilter == null) gradeFilter = new com.larsons.game.gfx.GradeFilter();
+        gradeFilter.apply(g, window.framebufferWidth(), window.framebufferHeight());
+    }
+
     public com.larsons.game.ui.Pointers pointers() { return pointers; }
 
     public Batch batch() { return batch; }
@@ -726,6 +845,8 @@ public final class Game implements AutoCloseable {
         groundTexture.close();
         sprites.close();
         pointers.close();
+        if (gradeFilter != null) gradeFilter.close();
+        com.larsons.game.ui.CardArt.dispose();
         ui.close();
         batch.close();
         window.close();

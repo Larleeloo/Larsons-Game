@@ -17,65 +17,45 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 /**
  * The pause menu: resume, the wardrobe (cosmetics), settings, the sounds
  * ({@link SoundsPanel}: a tab for each category, a volume for each, and the
- * player's own file for any sound), the controls,
+ * player's own file for any sound), the controls, the compendium of every
+ * card ({@link Compendium}),
  * how to import sprite sheets, back to the main menu, quit - and, once the
  * debug code has been typed ({@link DebugCode}), a button that clears every
  * item off the ground ({@link World#clearGround}).
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, CLASS, SETTINGS, SOUNDS, CONTROLS, IMPORT }
+    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, SETTINGS, COLOURS, SOUNDS, CONTROLS, IMPORT }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Class", "Settings", "Sounds", "Controls", "Import sprite sheets", "Main menu", "Quit"};
+            "Resume", "Wardrobe", "Class", "Compendium", "Settings", "Colours", "Sounds", "Controls",
+            "Import sprite sheets",
+            "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
-
-    static final String[][] CONTROLS = {
-            {"W A S D", "walk (relative to the camera)"},
-            {"Shift / Ctrl", "run / sprint while moving"},
-            {"C", "crouch / stand (Shift: fast crouch walk)"},
-            {"Space", "jump"},
-            {"Left Alt / Z", "dash (tap) / combat roll (hold); in the air: land in a roll"},
-            {"Left click / F", "attack (bow: hold to draw, let go)"},
-            {"X / R / Q", "heavy attack / spin attack / parry"},
-            {"B (held) / V", "block / shield bash"},
-            {"L / K", "lock on to a target (L again: let go) / the next one"},
-            {"Walk into vines", "climb: W up, S down, A D along; Space lets go (uses stamina)"},
-            {"1 – 5 / mouse wheel", "choose a hotbar slot: what is in it is in hand"},
-            {"I", "the inventory (click to move items, right-click: hotbar)"},
-            {"F1 – F4", "laugh, cry, surprise, anger"},
-            {"E / G", "pick up, or open / close the chest / drop what you hold"},
-            {"E by a horse", "saddle / ride / get off; riding: Shift canter, Ctrl gallop"},
-            {"Right drag / arrows", "orbit the camera (wheel while dragging: zoom)"},
-            {"+ -", "zoom"},
-            {"Tab / O", "camera height: side → 45° → top-down / automatic on hills, or fixed"},
-            {"[ / ]", "preview the previous / next state"},
-            {"Backspace", "stop previewing"},
-            {", / .", "turn the character 45°"},
-            {"T", "turntable: all 8 directions"},
-            {"H / P", "toggle the HUD / the scenery (trees, grass, rocks)"},
-            {"F9", "animations: new / classic (the first version, to compare)"},
-            {"F11", "full screen at the display's fastest refresh rate / back to the window"},
-            {"F12", "screenshot"},
-            {"Esc", "this menu"},
-    };
 
     private final Game game;
     private final World world;
     private final MenuList menu = new MenuList();
     private final WardrobePanel wardrobe;
     private final SoundsPanel sounds;
+    private final ControlsPanel controls;
+    private final Compendium compendium;
+    private final ColoursPanel colours;
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
-    private Runnable back;
+    private Runnable back, leaving;
+    private final java.util.Set<String> hidden = new java.util.HashSet<>();
 
     PauseMenu(Game game, World world) {
         this.game = game;
         this.world = world;
         this.wardrobe = new WardrobePanel(game);
         this.sounds = new SoundsPanel(game);
+        this.controls = new ControlsPanel(game);
+        this.compendium = new Compendium(world);
+        this.colours = new ColoursPanel(game);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -100,7 +80,22 @@ final class PauseMenu {
         back = action;
     }
 
+    /** Leave {@code item} off the main page (a playthrough's class is not changed from here). */
+    void hide(String item) {
+        hidden.add(item);
+    }
+
+    /** Run {@code r} before "Main menu" and "Quit" leave the game (a playthrough saves itself). */
+    void onLeave(Runnable r) {
+        leaving = r;
+    }
+
     boolean open() { return open; }
+
+    /** Let go of what the pages hold on the graphics card (the scene is closing). */
+    void dispose() {
+        colours.close();
+    }
 
     void open(Page p) {
         open = true;
@@ -130,14 +125,18 @@ final class PauseMenu {
             sounds.leave();
             game.setDropTarget(null);
         }
+        if (page == Page.CONTROLS) controls.leave();
+        if (page == Page.COLOURS) colours.leave();
     }
 
     /** Draw and handle the menu. Returns false once it has closed itself. */
     void draw(Ui ui, double dt, Player player) {
         if (!open) return;
-        boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE);
+        // (while the Controls page waits for a key, Esc is its to take)
+        boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE) && !(page == Page.CONTROLS && controls.capturing());
         if (escape) ui.input().consumeKey(GLFW_KEY_ESCAPE);
-        ui.scrim();
+        // (the Colours page leaves the game in view beside it, to see the grade on)
+        if (page != Page.COLOURS) ui.scrim();
 
         if (page == Page.MAIN) {
             if (escape) {
@@ -145,11 +144,14 @@ final class PauseMenu {
                 return;
             }
             List<String> items = mainItems(game.settings().debugTools, backLabel);
-            float w = 360, h = 70 + items.size() * 58;
+            items.removeAll(hidden);
+            // (as many items as there are, on whatever height the window has)
+            float step = Math.max(38, Math.min(58, (ui.height() - 110f) / items.size()));
+            float w = 360, h = 70 + items.size() * step;
             float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
             ui.panel(x, y, w, h);
             ui.textCentered(ui.large, "Paused", x + w / 2, y + 18, Theme.TITLE);
-            int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, 46, 12);
+            int chosen = menu.show(ui, items.toArray(String[]::new), x + 30, y + 64, w - 60, step - 10, 10);
             String pick = chosen < 0 ? "" : items.get(chosen);
             if (back != null && pick.equals(backLabel)) {
                 close();
@@ -160,7 +162,12 @@ final class PauseMenu {
                 case "Resume" -> close();
                 case "Wardrobe" -> page = Page.WARDROBE;
                 case "Class" -> page = Page.CLASS;
+                case "Compendium" -> {
+                    page = Page.COMPENDIUM;
+                    compendium.open();
+                }
                 case "Settings" -> page = Page.SETTINGS;
+                case "Colours" -> page = Page.COLOURS;
                 case "Sounds" -> {
                     page = Page.SOUNDS;
                     game.setDropTarget(sounds::drop);
@@ -173,16 +180,31 @@ final class PauseMenu {
                 }
                 case "Main menu" -> {
                     close();
+                    if (leaving != null) leaving.run();
                     game.switchTo("menu");
                 }
-                case "Quit" -> game.quit();
+                case "Quit" -> {
+                    if (leaving != null) leaving.run();
+                    game.quit();
+                }
                 default -> { }
             }
             return;
         }
 
         float w = Math.min(1100, ui.width() - 40), h = Math.min(640, ui.height() - 40);
+        if (page == Page.COMPENDIUM) {
+            w = Math.min(1500, ui.width() - 40);
+            h = Math.min(1000, ui.height() - 30);
+        }
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        if (page == Page.COLOURS) {
+            float[] b = ColoursPanel.box(ui);
+            x = b[0];
+            y = b[1];
+            w = b[2];
+            h = b[3];
+        }
         if (page == Page.WARDROBE) {
             // the wardrobe draws its own armoire, title and Back button and all
             boolean done = wardrobe.draw(ui, dt, x, y, w, h, player);
@@ -193,7 +215,9 @@ final class PauseMenu {
         String title = switch (page) {
             case WARDROBE -> "Wardrobe";
             case CLASS -> "Class and pointer";
+            case COMPENDIUM -> "Compendium";
             case SETTINGS -> "Settings";
+            case COLOURS -> "Colours";
             case SOUNDS -> "Sounds";
             case CONTROLS -> "Controls";
             case IMPORT -> "Import sprite sheets";
@@ -207,9 +231,11 @@ final class PauseMenu {
         float cx = x + 24, cy = y + 70, cw = w - 48, ch = h - 94;
         switch (page) {
             case CLASS -> heroClass(ui, cx, cy, cw, ch);
+            case COMPENDIUM -> compendium.draw(ui, cx, cy - 12, cw, ch + 12);
             case SETTINGS -> settings(ui, cx, cy);
+            case COLOURS -> colours.draw(ui, cx, cy - 10, cw, ch + 10);
             case SOUNDS -> sounds.draw(ui, cx, cy, cw, ch);
-            case CONTROLS -> controls(ui, cx, cy, ch);
+            case CONTROLS -> controls.draw(ui, cx, cy, cw, ch);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }
         }
@@ -351,15 +377,6 @@ final class PauseMenu {
         ui.text(ui.small, "Sprite cache: " + lib.residentCount() + " sheets, "
                 + (lib.residentBytes() >> 20) + " MB of " + (s.vramBytes >> 20) + " MB budget",
                 x + 220, y + 46, Theme.ITEM_DISABLED);
-    }
-
-    private void controls(Ui ui, float x, float y, float h) {
-        float step = Math.min(26, h / CONTROLS.length);      // (closer together where the window is short)
-        for (String[] row : CONTROLS) {
-            ui.text(ui.body, row[0], x, y, Theme.ITEM_SELECTED);
-            ui.text(ui.body, row[1], x + 240, y, Theme.ITEM);
-            y += step;
-        }
     }
 
     private void importHelp(Ui ui, float x, float y, float w) {

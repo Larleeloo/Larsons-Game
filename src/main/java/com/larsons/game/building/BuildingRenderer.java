@@ -423,6 +423,7 @@ public final class BuildingRenderer implements AutoCloseable {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferSubData(GL_ARRAY_BUFFER, 0, quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        com.larsons.game.core.Perf.drew(0);
     }
 
     private void put(Vec3 at, Vec3 right, Vec3 up, double x, double y, float u, float v) {

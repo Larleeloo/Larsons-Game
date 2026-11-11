@@ -5,6 +5,7 @@ import com.larsons.game.ambient.AnimalKind;
 import com.larsons.game.ambient.Animals;
 import com.larsons.game.ambient.Critters;
 import com.larsons.game.ambient.Life;
+import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.building.Building;
 import com.larsons.game.combat.Combat;
@@ -202,6 +203,8 @@ public final class World {
     private final List<Store> stores = new ArrayList<>();
     /** The market stalls and shop counters: what each sells, and what is left of it. */
     private final List<Shop> shops = new ArrayList<>();
+    /** The other things she can use: the way back to the map, a cauldron, a locked door ... */
+    private final List<Spot> spots = new ArrayList<>();
     /** The pieces what she breaks shatters into. */
     private final Shards shards = new Shards();
     private final Map<Chest, Integer> opensSeen = new IdentityHashMap<>();
@@ -230,6 +233,11 @@ public final class World {
     private final List<RaySpot> raySpots = new ArrayList<>();
     private Critters critters = new Critters();
     private Animals animals = new Animals();
+    /** The people and the foes of the place. */
+    private com.larsons.game.actor.Folks folks = new com.larsons.game.actor.Folks();
+    private com.larsons.game.actor.Folks.Clock folkClock;
+    /** What has been felled since the scene last asked ({@link #drainKills}). */
+    private final List<Kill> kills = new ArrayList<>();
     private Animal steed;
     private RideTrack rideTrack = RideTrack.standard();
     /** Whether she is inside a building: no sky over it, its own dim light, nothing comes by. */
@@ -261,6 +269,7 @@ public final class World {
         private final List<Building> buildings;
         private final List<Store> stores;
         private final List<Shop> shops;
+        private final List<Spot> spots;
         private final List<Dummy> dummies;
         private final List<FlyingDummy> fliers;
         private final List<SoundSpot> soundSpots;
@@ -268,6 +277,7 @@ public final class World {
         private final List<RaySpot> raySpots;
         private final Critters critters;
         private final Animals animals;
+        private final com.larsons.game.actor.Folks folks;
         private final Terrain terrain;
         private final Vec3 spawnPoint;
         private final Scenery scenery;
@@ -284,6 +294,7 @@ public final class World {
             buildings = List.copyOf(w.buildings);
             stores = List.copyOf(w.stores);
             shops = List.copyOf(w.shops);
+            spots = List.copyOf(w.spots);
             dummies = List.copyOf(w.dummies);
             fliers = List.copyOf(w.fliers);
             soundSpots = List.copyOf(w.soundSpots);
@@ -291,6 +302,7 @@ public final class World {
             raySpots = List.copyOf(w.raySpots);
             critters = w.critters;
             animals = w.animals;
+            folks = w.folks;
             terrain = w.terrain;
             spawnPoint = w.spawnPoint;
             scenery = w.scenery;
@@ -321,6 +333,7 @@ public final class World {
         buildings.clear();
         stores.clear();
         shops.clear();
+        spots.clear();
         shards.clear();
         dummies.clear();
         fliers.clear();
@@ -330,6 +343,8 @@ public final class World {
         Life life = critters.life();
         critters = new Critters();
         animals = new Animals();
+        folks = new com.larsons.game.actor.Folks();
+        folks.setClock(folkClock);
         setLife(life);
         setScenery(Scenery.NONE);
         picked.clear();
@@ -352,6 +367,8 @@ public final class World {
         stores.addAll(p.stores);
         shops.clear();
         shops.addAll(p.shops);
+        spots.clear();
+        spots.addAll(p.spots);
         dummies.clear();
         dummies.addAll(p.dummies);
         fliers.clear();
@@ -364,6 +381,7 @@ public final class World {
         raySpots.addAll(p.raySpots);
         critters = p.critters;
         animals = p.animals;
+        folks = p.folks;
         setTerrain(p.terrain);
         spawnPoint = p.spawnPoint;
         setScenery(p.scenery);
@@ -438,6 +456,54 @@ public final class World {
 
     /** The market stalls and shop counters. */
     public List<Shop> shops() { return shops; }
+
+    /** Keep {@code s} in the world: something she can walk up to and use. */
+    public Spot addSpot(Spot s) {
+        spots.add(s);
+        return s;
+    }
+
+    /** The building with the level's object id {@code id}, taken out of the world (a barricade torn down), or null. */
+    public Building takeBuilding(int id) {
+        for (int i = 0; i < buildings.size(); i++) {
+            if (buildings.get(i).id() == id) return buildings.remove(i);
+        }
+        return null;
+    }
+
+    /**
+     * Where a horde map's Risen come from: {@code kind} a breed's key (or
+     * "any"), used from round {@code from} on, and - {@code after} not blank
+     * - only once the door or gate of that name has been opened.
+     */
+    public record HordeSpawn(int id, Vec3 at, String kind, int from, String after) {}
+
+    private final List<HordeSpawn> hordeSpawns = new ArrayList<>();
+
+    public List<HordeSpawn> hordeSpawns() { return hordeSpawns; }
+
+    private int knockOuts;
+
+    /** How many times she has been knocked out here (the horde counts her lives by it). */
+    public int knockOuts() { return knockOuts; }
+
+    /** The other things she can use. */
+    public List<Spot> spots() { return spots; }
+
+    /** The nearest spot she can reach, or null. */
+    public Spot reachableSpot() {
+        Spot best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Spot s : spots) {
+            if (!s.inReach(player.ground())) continue;
+            double d = s.position().horizontalDistance(player.ground());
+            if (d < bestD) {
+                best = s;
+                bestD = d;
+            }
+        }
+        return best;
+    }
 
     /** The nearest shop she can reach, or null. */
     public Shop reachableShop() {
@@ -661,7 +727,293 @@ public final class World {
         for (FlyingDummy f : fliers) if (!f.hidden()) out.add(f);
         for (Store s : stores) if (s.alive()) out.add(s);
         for (Animal a : animals.live()) if (a.alive() && !a.ridden()) out.add(a);
+        for (com.larsons.game.actor.Folk f : folks.all()) if (f.alive()) out.add(f);
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) if (sp.alive()) out.add(sp);
         return out;
+    }
+
+    // --- the folk: people to talk to, foes to fight ------------------------------------
+
+    /** Something felled: what kind of thing ("bear", "bortzal", "risen_walker", "dummy"), its name if it had one, where. */
+    public record Kill(String kind, String name, Vec3 at, boolean risen) {}
+
+    /** What has been felled since the last call: the quests and the horde count them. */
+    public List<Kill> drainKills() {
+        List<Kill> out = List.copyOf(kills);
+        kills.clear();
+        return out;
+    }
+
+    /** The people and the foes of the place she is in. */
+    public com.larsons.game.actor.Folks folks() { return folks; }
+
+    /** Take the length of the folk's attacks from {@code c} (the sprites' own). */
+    public void setFolkClock(com.larsons.game.actor.Folks.Clock c) {
+        folkClock = c;
+        folks.setClock(c);
+    }
+
+    /** The person near enough to talk to, or null. */
+    public com.larsons.game.actor.Folk reachablePerson() {
+        return player.airborne() || player.mounted() ? null : folks.reachable(player.ground());
+    }
+
+    /** What one of the folk did to her (or had done to it), said over her and heard. */
+    private void metFolk(com.larsons.game.actor.Folks.Event e) {
+        com.larsons.game.actor.Folk f = e.folk();
+        Vec3 at = player.ground();
+        switch (e.outcome()) {
+            case NOTICED -> {
+                combat.say("!", 0xFF6A5A, f.position(), f.height() + 0.25, false);
+                combat.sound(f.breed() != null && f.breed().risen() ? "foes/risen_groan" : "foes/alert", f.position());
+            }
+            case STRUCK -> {
+                double thorns = player.buffs().plus(Buffs.Kind.THORNS);
+                if (thorns > 0 && e.damage() > 0 && f.alive()) f.hurt(e.damage() * thorns, player.ground(), true);
+                combat.say("-" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", f.position());
+            }
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/parry", f.position());
+            }
+            case GUARDED -> {
+                combat.say("Guarded", 0xC8D2DC, f.position(), f.height() + 0.2, true);
+                combat.sound("combat/block", f.position());
+            }
+            case FELL -> fellFolk(f);
+        }
+    }
+
+    /** One of the folk felled: experience, what it carried, and the count kept of it. */
+    private void fellFolk(com.larsons.game.actor.Folk f) {
+        com.larsons.game.actor.Breed b = f.breed();
+        Vec3 at = f.position();
+        combat.sound(b != null && b.risen() ? "foes/risen_fall" : "foes/fall", at);
+        kills.add(new Kill(b == null ? f.people().key() : b.key(), f.hasName() ? f.name() : null, at,
+                b != null && b.risen()));
+        if (b == null) return;
+        earn(b.xp() * Math.max(0.6, f.size()));
+        if (b.risen() && hordeLoot != null && !hordeLoot.test(f)) return;
+        Random r = new Random(Double.doubleToLongBits(at.x() * 31 + at.z() + time));
+        int coins = 1 + r.nextInt(Math.max(1, b.xp() / 4));
+        spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
+        Item w = f.weapon();
+        if (w != null && r.nextInt(6) == 0) spawn(w, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
+        else if (r.nextInt(5) == 0) {
+            Item drop = loot.pick(r, Rarity.roll(r));
+            if (drop != null) spawn(drop, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
+        }
+    }
+
+    /** Whether one of the horde, felled, leaves what a foe leaves (the horde mode pays in points instead); null: yes. */
+    private java.util.function.Predicate<com.larsons.game.actor.Folk> hordeLoot;
+
+    public void setHordeLoot(java.util.function.Predicate<com.larsons.game.actor.Folk> leaves) {
+        hordeLoot = leaves;
+    }
+
+    /** A part of the level with a name: where a quest's quarry is, what it asks her to clear or to reach. */
+    public record Area(String name, Vec3 at, double radius) {
+        public boolean holds(Vec3 p) {
+            return p != null && Math.hypot(p.x() - at.x(), p.z() - at.z()) <= radius;
+        }
+    }
+
+    private final List<com.larsons.game.story.Quest> quests = new ArrayList<>();
+
+    /** What the level's people ask of her (the level's Quest objects). */
+    public List<com.larsons.game.story.Quest> quests() { return quests; }
+
+    /** One of what is in her hand used up. */
+    public Item useUpHeld() {
+        Item item = player.inventory().takeOne(player.inventory().selected());
+        equipSelected();
+        return item;
+    }
+
+    /** {@code damage} dealt to {@code t} from nowhere - a scroll's lightning - and what its fall leaves, if it falls. */
+    public void strike(Target t, double damage) {
+        if (t == null || !t.alive()) return;
+        t.hurt(damage, null, true);
+        combat.say("-" + Combat.format(damage), 0xFFF07A, t.position(), t.height() + 0.2, false);
+        if (!t.alive()) felled(t);          // (an animal and one of the folk leave what they leave as they fall)
+    }
+
+    /** A locked door opened: it is taken out of her way, and there is nothing left to use. */
+    public void unlock(Spot s) {
+        buildings.removeIf(b -> b.id() == s.id());
+        s.setGone(true);
+    }
+
+    /**
+     * Her rod, its line and its float, while she fishes: from her hand to the
+     * rod's tip, on to the float on the water - the line taut when something
+     * is on it - the rod in its colour, the water round the float stirred.
+     */
+    public record FishingLine(Vec3 hand, Vec3 tip, Vec3 bobber, boolean taut, int rgb, double splash) {}
+
+    private FishingLine fishingLine;
+
+    public FishingLine fishingLine() { return fishingLine; }
+
+    public void setFishingLine(FishingLine line) {
+        fishingLine = line;
+    }
+
+    /** A place marked for her: an icon standing over it, seen from far off, and its ring on the ground. */
+    public record Mark(Vec3 at, String icon, double radius) {}
+
+    private final List<Mark> marks = new ArrayList<>();
+
+    public List<Mark> marks() { return marks; }
+
+    private double revealedUntil = -1;
+
+    /** Mark every foe about for {@code seconds} (the crystal ball). */
+    public void reveal(double seconds) {
+        revealedUntil = time + seconds;
+    }
+
+    public boolean revealed() { return time < revealedUntil; }
+
+    /** Every foe about: the hostile folk, the Vérnees, the beasts that go for her. */
+    public List<Target> foes() {
+        List<Target> out = new ArrayList<>();
+        for (com.larsons.game.actor.Folk f : folks.all()) if (f.alive() && f.hostile()) out.add(f);
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) if (sp.alive()) out.add(sp);
+        for (Animal a : animals.live()) if (a.alive() && a.temperament() == Temperament.HOSTILE) out.add(a);
+        return out;
+    }
+
+    /** What a summoning can call, beside the {@link com.larsons.game.actor.Breed}s and the animals. */
+    public static final String VERNEES = "vernees", FLIER = "flier", DUMMY = "dummy";
+
+    /**
+     * Call {@code count} of {@code what} - a breed's key, an animal's, {@link
+     * #VERNEES} (out of a hole in the sky over the spot), {@link #FLIER}, {@link
+     * #DUMMY} - to round {@code at}, facing {@code heading}. Returns how many came.
+     */
+    public int summon(String what, int count, Vec3 at, double heading, com.larsons.game.actor.Folks.Spec spec) {
+        count = Math.max(1, Math.min(40, count));
+        Vec3 g = terrain.onGround(at);
+        com.larsons.game.actor.Breed breed = com.larsons.game.actor.Breed.byKey(what);
+        AnimalKind animal = AnimalKind.byKey(what);
+        int came = 0;
+        if (VERNEES.equals(what)) {
+            com.larsons.game.actor.Serpent.Colour c = spec == null ? null
+                    : com.larsons.game.actor.Serpent.Colour.byKey(spec.skin());
+            folks.addPortal(new com.larsons.game.actor.Folks.Portal(folks.nextId(), g.add(0, 15, 0), 2.4,
+                    0xB060FF, count, 1.6, 0, c, spec == null ? 0 : spec.size()));
+            combat.sound("foes/portal", g);
+            return count;
+        }
+        for (int i = 0; i < count; i++) {
+            double a = i * 2.399963, r = count == 1 ? 0 : 0.9 + 0.55 * Math.sqrt(i);
+            Vec3 p = terrain.onGround(new Vec3(g.x() + Math.cos(a) * r, g.y(), g.z() + Math.sin(a) * r));
+            if (breed != null) {
+                folks.spawn(breed, p, heading, spec);
+            } else if (animal != null) {
+                Animal an = animals.add(animal, p, spec != null && !spec.hostile() ? null : Temperament.HOSTILE,
+                        place());
+                if (an == null) continue;
+            } else if (FLIER.equals(what)) {
+                addFlier(new FlyingDummy(new Vec3(p.x(), 0, p.z()), heading, 60, combat.tuning().dummyDownSeconds,
+                        terrain));
+            } else if (DUMMY.equals(what)) {
+                addDummy(new Dummy(p, heading, 100, combat.tuning().dummyDownSeconds));
+            } else {
+                return 0;
+            }
+            came++;
+            combat.say("✦", 0xB060FF, p, 1.2, false);
+        }
+        if (came > 0) combat.sound("foes/summon", g);
+        return came;
+    }
+
+    /** How many foes - folk, wild beasts, Vérnees - are still about within {@code area} (null: anywhere). */
+    public int foesIn(Area area) {
+        int n = 0;
+        for (com.larsons.game.actor.Folk f : folks.all()) {
+            if (f.alive() && f.hostile() && (area == null || area.holds(f.position()))) n++;
+        }
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) {
+            if (sp.alive() && (area == null || area.holds(sp.position()))) n++;
+        }
+        for (com.larsons.game.actor.Folks.Portal p : folks.portals()) {
+            if (area == null || area.holds(p.at())) n += p.left();
+        }
+        for (Animal a : animals.live()) {
+            if (a.alive() && a.temperament() == Temperament.HOSTILE && (area == null || area.holds(a.position()))) n++;
+        }
+        return n;
+    }
+
+    /** What a Vérnees' dive did to her, said over her - and heard. */
+    private void struckBy(com.larsons.game.actor.Serpent sp, com.larsons.game.actor.Serpent.Outcome o) {
+        Vec3 at = player.ground();
+        switch (o) {
+            case WARNED -> {
+                combat.say("!", 0xFFD27A, sp.position(), sp.height() + 0.3, false);
+                combat.sound("foes/vernees_hiss", sp.position());
+            }
+            case STRUCK -> {
+                combat.say("Bitten! -" + Combat.format(sp.damage()), HURT_RGB, at, 2.1, false);
+                combat.sound("combat/player_hurt", at);
+            }
+            case BLOCKED -> {
+                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+                combat.sound("combat/block", at);
+            }
+            case DODGED -> {
+                combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+                combat.sound("combat/dodge", sp.position());
+            }
+            case PARRIED -> {
+                combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+                combat.sound("combat/parry", sp.position());
+            }
+            case FELL -> {
+                Vec3 g = sp.position();
+                Random r = new Random(Double.doubleToLongBits(g.x() * 31 + g.z() + time));
+                spawn(Item.of(Supplies.COINS), new Vec3(g.x(), 0, g.z()), 4 + r.nextInt(8));
+                if (r.nextInt(3) == 0) {
+                    Item drop = loot.pick(r, Rarity.roll(r));
+                    if (drop != null) spawn(drop, new Vec3(g.x() + 0.5, 0, g.z() + 0.3));
+                }
+            }
+            case NONE -> { }
+        }
+    }
+
+    /** A foe's shot reached her: she may have rolled through it, parried it or blocked it. */
+    private void shotAt(Combat.FoeHit hit) {
+        Vec3 at = player.ground();
+        if (player.invulnerable()) {
+            combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
+            combat.sound("combat/dodge", at);
+            return;
+        }
+        Animals.Quarry her = quarry();
+        if (her.parrying()) {
+            combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+            combat.sound("combat/parry", at);
+            return;
+        }
+        double dealt = her.blocking() ? Math.round(hit.damage() / 2) : hit.damage();
+        double took = player.hurt(dealt);
+        combat.say((her.blocking() ? "Blocked -" : "-") + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at,
+                2.1, her.blocking());
+        combat.sound(her.blocking() ? "combat/block" : "combat/player_hurt", at);
     }
 
     /** The solid scenery by {@value #CELL} m square, for the animals to go round quickly. */
@@ -881,6 +1233,21 @@ public final class World {
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
+        for (com.larsons.game.actor.Folks.Event e : folks.tick(dt, quarry(), place())) metFolk(e);
+        for (com.larsons.game.actor.Folks.Loosed l : folks.drainLoosed()) {
+            combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
+        }
+        for (Combat.FoeHit hit : combat.drainFoeHits()) shotAt(hit);
+        if (folks.drainEmerged() > 0) combat.sound("foes/portal", player.ground());
+        for (com.larsons.game.actor.Serpent sp : folks.serpents()) struckBy(sp, sp.tick(dt, terrain, player));
+        folks.serpents().removeIf(com.larsons.game.actor.Serpent::gone);
+        if (!player.passesThrough()) {
+            for (com.larsons.game.actor.Folk f : folks.all()) {
+                if (f.standing() && Math.abs(f.position().y() - player.ground().y()) < 1.2) {
+                    player.keepOut(f.position(), f.radius() + FEET * 0.5);
+                }
+            }
+        }
     }
 
     /** How far round her she keeps out of things: her feet - riding, her horse's body. */
@@ -1168,7 +1535,14 @@ public final class World {
      * where it stood (an animal leaves what it leaves when it falls: {@link #hunted}).
      */
     public void felled(com.larsons.game.combat.Target t) {
-        if (t instanceof Animal) return;
+        if (t instanceof Animal || t instanceof com.larsons.game.actor.Folk) return;
+        if (t instanceof com.larsons.game.actor.Serpent sp) {
+            kills.add(new Kill(com.larsons.game.actor.Serpent.SPRITES, null, sp.position(), false));
+            earn(com.larsons.game.actor.Serpent.XP * sp.size());
+            combat.sound("foes/vernees_fall", sp.position());
+            return;
+        }
+        kills.add(new Kill(t instanceof FlyingDummy ? "flying_dummy" : "dummy", null, t.position(), false));
         int xp = t instanceof FlyingDummy ? com.larsons.game.cards.Hero.XP_FLIER : com.larsons.game.cards.Hero.XP_FELLED;
         earn(xp);
         int coins = 2 + new Random(Double.doubleToLongBits(t.position().x() * 31 + t.position().z() + time))
@@ -1188,6 +1562,7 @@ public final class World {
     /** What {@code a}, hunted down, leaves where it fell: its meat, its hide, its feathers - in heaps, round it. */
     void hunted(Animal a) {
         earn(com.larsons.game.cards.Hero.XP_HUNTED);
+        kills.add(new Kill(a.kind().key(), null, a.position(), false));
         java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
                 + time));
         int i = 0;
@@ -1214,6 +1589,8 @@ public final class World {
             case SWAN -> "Battered!";
             case BEE -> "Stung!";
             case BEAR -> "Mauled!";
+            case BOAR -> "Gored!";
+            case BUFFALO -> "Trampled!";
             case EAGLE -> "Clawed!";
             case HORSE, COW, SHEEP, DEER -> "Kicked!";
             case CAT -> "Scratched!";
@@ -1322,6 +1699,7 @@ public final class World {
                 case KNOCKED_OUT -> {
                     combat.say("Knocked out", HURT_RGB, at, 2.1, false);
                     combat.sound(SoundKeys.player(body, "knocked_out"), at);
+                    knockOuts++;
                     player.respawn(spawnPoint);
                     combat.lock(null);
                 }
@@ -1428,6 +1806,7 @@ public final class World {
         for (Chest c : chests) c.tick(dt, s -> 0);
         for (Dummy d : dummies) d.tick(dt);
         live(dt, focus != null ? focus : player.ground(), null);
+        folks.tick(dt, null, place());
     }
 
     // --- life: the little creatures, the foraging bushes, eating ------------------

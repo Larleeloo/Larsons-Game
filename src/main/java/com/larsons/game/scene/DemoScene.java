@@ -14,6 +14,7 @@ import com.larsons.game.combat.Target;
 import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
+import com.larsons.game.input.Action;
 import com.larsons.game.input.Input;
 import com.larsons.game.building.Building;
 import com.larsons.game.building.Room;
@@ -50,6 +51,7 @@ import com.larsons.game.world.World;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -92,9 +94,11 @@ import static org.lwjgl.glfw.GLFW.*;
 public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** 1–5: the hotbar's slots. */
-    private static final int[] HOTBAR_KEYS = {GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5};
+    private static final Action[] HOTBAR_KEYS = {Action.HOTBAR_1, Action.HOTBAR_2, Action.HOTBAR_3, Action.HOTBAR_4,
+            Action.HOTBAR_5};
     /** F1–F4: the emotes (the number keys are the hotbar's). */
-    private static final int[] EMOTE_KEYS = {GLFW_KEY_F1, GLFW_KEY_F2, GLFW_KEY_F3, GLFW_KEY_F4};
+    private static final Action[] EMOTE_KEYS = {Action.EMOTE_LAUGH, Action.EMOTE_CRY, Action.EMOTE_SURPRISE,
+            Action.EMOTE_ANGRY};
     private static final AnimState[] EMOTES = {AnimState.EMOTE_LAUGH, AnimState.EMOTE_CRY,
             AnimState.EMOTE_SURPRISE, AnimState.EMOTE_ANGRY};
     /**
@@ -129,7 +133,38 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /** The plateau's chest: at its north-east corner, looking down the ramp. */
     static final Vec3 PLATEAU_CHEST_AT = new Vec3(9.5, 0, -39.0);
     /** The middles of the flying dummies' rounds: just north of the spawn, and over the hollow by the cliff. */
-    static final Vec3[] FLIERS_AT = {new Vec3(-2.0, 0, -9.5), new Vec3(16.0, 0, -29.0)};
+    static final Vec3[] FLIERS_AT = {};
+
+    /**
+     * The summoning yard, south of where she starts: a row of stations, a
+     * button on each, and each calls its own kind of foe to its own spot out
+     * in front of it. The flying dummies are called here too (none fly about
+     * until one is).
+     */
+    public record Station(String summons, int count, double x, double z, double distance) {}
+
+    static final List<Station> STATIONS = stations();
+
+    private static List<Station> stations() {
+        String[] what = {"bortzal", "drurinean", "half_drurinean", "khorigale", "bandit", "boar", "buffalo",
+                World.VERNEES, World.FLIER, "risen_walker"};
+        List<Station> out = new ArrayList<>();
+        for (int i = 0; i < what.length; i++) {
+            out.add(new Station(what[i], what[i].equals("risen_walker") ? 3 : 1, -13.5 + i * 3.0, 11.0,
+                    i % 2 == 0 ? 7 : 12));
+        }
+        return List.copyOf(out);
+    }
+
+    /** What a station's level object - and its spot in the demo - says of itself. */
+    static Map<String, Object> stationProps(Station st) {
+        Map<String, Object> props = new java.util.LinkedHashMap<>();
+        props.put("name", "Summon: " + Story.summoned(st.summons()));
+        props.put("summons", st.summons());
+        props.put("count", st.count());
+        props.put("distance", st.distance());
+        return props;
+    }
     /**
      * The market stall: off to her left at the start, facing where she
      * starts - supplies, upgrade ingots, reshuffle scrolls and her class's
@@ -153,6 +188,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final OrbitCamera camera = new OrbitCamera(0.45, Math.toRadians(45), 6.5);
     private final PauseMenu pause;
     private final InventoryPanel inventory;
+    private final CardTable table;
     private final WorldSounds sounds = new WorldSounds();
     private final CombatHud combatHud;
     private final DebugCode debugCode = new DebugCode();
@@ -162,6 +198,15 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public static final double MUSIC_VOLUME = 0.7;
     /** Back to the editor, or null: the level is not being play-tested. */
     private final Runnable back;
+    /** The playthrough this level is played in, or null: the demo, a play-test, a level from the Dev tab. */
+    private final Campaign campaign;
+    /** Whether the playthrough's rule for clearing this place has been met. */
+    private boolean clearedHere;
+    /** The people, the quests, the workbenches and what the goods in her hand do. */
+    private final Story story;
+    /** Whether the level has had a foe in it (a place cleared of its foes had some to clear). */
+    private boolean hadFoes;
+    private double clearClock;
     /** The scenery of where she is - the demo's, the level's, a floor of a building's - as it is when shown. */
     private Scenery scenery;
     /** Where she is inside a building, or null: outdoors. */
@@ -191,12 +236,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = null;
         this.back = null;
+        this.campaign = null;
         this.scenery = game.demoScenery();
         world.setTerrain(game.terrain());
         world.setGround(game.demoScenery().ground());
         world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.story = new Story(game, world, inventory, null, "The demo");
+        this.table = new CardTable(game, world);
+        inventory.onCards(() -> table.show(CardTable.View.TABLE));
         // The sword lies a couple of metres ahead, unless it is already in
         // hand; the stances' weapons lie round about. What she wears is hers
         // (so it comes off when it leaves her inventory).
@@ -221,6 +270,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 SpriteView.headingOf(-0.6, 1)));
         addStall();
         for (int i = 0; i < FLIERS_AT.length; i++) addFlier(FLIERS_AT[i], i * 2.1);
+        addStations();
         combatHud = new CombatHud(game.worldRenderer().combat().fx());
         world.equipSelected();
         world.setScenery(shownScenery());
@@ -238,6 +288,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      */
     private void startHero() {
         Player p = world.player();
+        if (campaign != null) return;                   // (a playthrough's hero is the save's, with what she has)
         String cls = game.settings().heroClass;
         if (com.larsons.game.cards.CardBook.get().hero(cls) != null) p.hero().choose(cls, p);
         else choosing = true;
@@ -259,17 +310,61 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
      * the editor" and F5 go.
      */
     public DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back) {
+        this(game, level, at, heading, back, null);
+    }
+
+    /**
+     * A playthrough's level: who she is, where on the map this is, what
+     * clears it (the map's rule for the destination: {@code visit}, {@code
+     * exit}, {@code foes} or {@code quest}, and the quest for that) and the
+     * way back to the map.
+     */
+    public record Campaign(com.larsons.game.save.SaveGame save, String place, String placeName, String clear,
+                           String quest, Runnable toMap) {}
+
+    /**
+     * Play {@code level} as part of a playthrough: she is the save's - her
+     * looks, what she carries, her purse, her class and cards - and starts at
+     * the level's spawn; leaving (its way out, or Pause → "Return to the
+     * map") writes her back to the save and returns to the map.
+     */
+    public DemoScene(Game game, Level level, Campaign campaign) {
+        this(game, level, null, 0, null, campaign);
+    }
+
+    private DemoScene(Game game, Level level, Vec3 at, double heading, Runnable back, Campaign campaign) {
         this.game = game;
-        this.world = new World(game.wardrobe(), game.settings().inventorySlots);
+        this.campaign = campaign;
+        this.world = campaign != null
+                ? new World(campaign.save().wardrobe(), campaign.save().inventorySize())
+                : new World(game.wardrobe(), game.settings().inventorySlots);
         world.setRideTrack(RideTrack.load(game.objects().root().resolve(RIDE_SHEETS)));
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
         this.inventory = new InventoryPanel(game, world);
+        this.story = new Story(game, world, inventory, campaign != null ? campaign.save().quests() : null,
+                campaign != null ? campaign.placeName() : level.name());
+        this.table = new CardTable(game, world);
+        inventory.onCards(() -> table.show(CardTable.View.TABLE));
         if (back != null) pause.setBack("Back to the editor", back);
+        if (campaign != null) {
+            pause.setBack("Return to the map", () -> toMap(false));
+            pause.hide("Class");
+            pause.hide("Import sprite sheets");
+            pause.onLeave(() -> {
+                keep();
+                com.larsons.game.save.Saves.stop();
+            });
+        }
         CombatTuning tuning = tune(game, world);
         LevelWorld.populate(world, level, game.scenerySprites(), tuning);
         this.scenery = world.scenery();
+        if (campaign != null) {
+            campaign.save().give(world.player());
+            world.player().setSize(campaign.save().size());
+            world.ammo().setEnabled(true);
+        }
         world.ownWhatIsWorn();
         Player p = world.player();
         if (at != null) {
@@ -281,6 +376,87 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.equipSelected();
         camera.setDesiredYaw(p.heading());
         camera.snapTo(pivot());
+        if (campaign == null && com.larsons.game.level.HordeRules.has(level)) startHorde();
+    }
+
+    /** The horde game played here (a horde map: {@link com.larsons.game.level.HordeRules}), or null. */
+    private HordeGame horde;
+    /** The horde map's id (its folder's name), for its best round; null when it is not a saved one. */
+    private String hordeMap;
+
+    /**
+     * Play the horde map {@code level}, saved as {@code id}: the Risen in
+     * rounds until she is knocked out ({@link HordeGame}). Leaving goes
+     * {@code back} (null: the main menu's Horde tab).
+     */
+    public static DemoScene horde(Game game, Level level, String id, Runnable back) {
+        if (!com.larsons.game.level.HordeRules.has(level)) com.larsons.game.level.HordeRules.DEFAULT.put(level);
+        DemoScene s = new DemoScene(game, level, null, 0, back, null);
+        s.hordeMap = id;
+        s.horde.named(id);
+        return s;
+    }
+
+    private void startHorde() {
+        Runnable leave = back != null ? back : () -> {
+            MainMenuScene.openOnHordeTab();
+            game.switchTo("menu");
+        };
+        horde = new HordeGame(game, world, story, com.larsons.game.level.HordeRules.of(level), hordeMap, level.name(),
+                () -> game.switchTo(horde(game, level, hordeMap, back)), leave);
+        horde.outfit();
+        combatHud.showCoins(false);
+        world.ammo().setEnabled(true);
+        if (back == null) pause.setBack("Leave the horde", leave);
+    }
+
+    /** The horde game played here, or null (for a scripted check). */
+    HordeGame hordeGame() { return horde; }
+
+    /** Write her, as she is now, into the playthrough's save - and the place cleared, if it has been. */
+    private void keep() {
+        if (campaign == null) return;
+        campaign.save().take(world.player());
+        if (clearedHere) campaign.save().cleared().add(campaign.place());
+        com.larsons.game.save.Saves.write();
+    }
+
+    /**
+     * The map's rule for this place met while she is still here: every foe
+     * felled ({@code foes}), or its quest handed in ({@code quest}: the one
+     * the map names, or every one the level has).
+     */
+    private void clearedByRule(double dt) {
+        if (clearedHere || campaign.save().cleared().contains(campaign.place())) return;
+        clearClock -= dt;
+        if (clearClock > 0) return;
+        clearClock = 0.5;
+        boolean met = false;
+        if ("foes".equals(campaign.clear())) {
+            int foes = world.foesIn(null);
+            hadFoes |= foes > 0;
+            met = hadFoes && foes == 0;
+        } else if ("quest".equals(campaign.clear())) {
+            String id = campaign.quest() == null ? "" : campaign.quest().strip().toLowerCase().replace(' ', '_');
+            met = id.isEmpty() ? story.quests().allDone()
+                    : story.quests().state(id) == com.larsons.game.story.Quests.State.DONE;
+        }
+        if (!met) return;
+        clearedHere = true;
+        Sounds.play(SoundKeys.ui("quest_done"));
+        game.toast(campaign.placeName() + " cleared", Theme.OK);
+        keep();
+    }
+
+    /** Leave for the overworld map: {@code cleared} when the way out that clears the place was reached. */
+    private void toMap(boolean cleared) {
+        if (campaign == null) return;
+        if (cleared && !clearedHere) {
+            clearedHere = true;
+            game.toast(campaign.placeName() + " cleared", Theme.OK);
+        }
+        keep();
+        campaign.toMap().run();
     }
 
     /** The fighting tuned as {@code assets/combat/combat.json} has it: her mana full, her cooldowns. */
@@ -318,6 +494,23 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.addShop(new com.larsons.game.world.Shop(-2, "Market stall", counter, facing, "", true));
     }
 
+    /** The summoning yard's stations ({@link #STATIONS}), each with its button to press. */
+    private void addStations() {
+        double facing = SpriteView.headingOf(0, 1);
+        var profile = com.larsons.game.building.BuildingCatalog.get().profile("summon_station");
+        int id = -100;
+        for (Station st : STATIONS) {
+            Vec3 at = world.terrain().onGround(new Vec3(st.x(), 0, st.z()));
+            if (profile != null) {
+                world.addBuilding(new com.larsons.game.building.Building(id, profile, at, facing, null, null));
+            }
+            Map<String, Object> props = stationProps(st);
+            world.addSpot(new com.larsons.game.world.Spot(id, com.larsons.game.level.FolkTypes.SUMMON,
+                    String.valueOf(props.get("name")), at, facing, props).icon("skull").markerHeight(1.9));
+            id--;
+        }
+    }
+
     /** A flying dummy on its rounds round {@code centre}, starting {@code start} radians round them. */
     private FlyingDummy addFlier(Vec3 centre, double start) {
         CombatTuning t = world.combat().tuning();
@@ -342,6 +535,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         for (Vec3 at : HIGHLAND_DUMMIES_AT) clear.add(new SceneryLayout.Clearing(at.x(), at.z(), DUMMY_CLEAR));
         clear.add(new SceneryLayout.Clearing(PLATEAU_CHEST_AT.x(), PLATEAU_CHEST_AT.z(), CHEST_CLEAR));
         clear.add(new SceneryLayout.Clearing(STALL_AT.x(), STALL_AT.z(), STALL_CLEAR));
+        for (Station st : STATIONS) {
+            clear.add(new SceneryLayout.Clearing(st.x(), st.z(), 1.6));
+            clear.add(new SceneryLayout.Clearing(st.x(), st.z() + st.distance(), 2.4));
+        }
         // room to land below the ledge, and to stand at the foot of the cliff
         Terrain t = Terrain.highlands();
         for (String place : new String[]{"cliff", "hollow"}) {
@@ -365,6 +562,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     public void exit() {
         sounds.stop();
         inventory.dispose();
+        pause.dispose();
         Music.stop();
     }
 
@@ -378,13 +576,38 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         fade = Math.max(0, fade - dt * 2.8);
         Input in = game.window().input();
         world.setScenery(shownScenery());           // (P, or Pause → Settings, may have hidden it)
+        // a menu up: the gamepad moves the pointer; playing: it plays
+        in.setUiMode(pause.open() || choosing || inventory.open() || table.open() || story.modal()
+                || (horde != null && horde.over()));
         if (pause.open() || choosing) {
             sounds.update(world, camera, durations());
             return;
         }
-        if (in.pressed(GLFW_KEY_ESCAPE)) {
+        // the story's own panels - someone talking, a workbench, the journal - take the keys while they are up
+        boolean told = !inventory.open() && !table.open() && story.update(dt, in);
+        if (horde != null) {
+            boolean was = horde.over();
+            horde.update(dt, in);
+            if (horde.over()) {
+                if (!was) {
+                    inventory.close();
+                    table.close();
+                }
+                in.consume(Action.PAUSE);
+                sounds.update(world, camera, durations());
+                return;                                 // (it is over: the world stands still under the tally)
+            }
+        }
+        if (campaign != null) {
+            campaign.save().played(dt);
+            clearedByRule(dt);
+        }
+        if (in.pressed(Action.PAUSE) || in.pressed(GLFW_KEY_ESCAPE)) {
+            in.consume(Action.PAUSE);
             in.consumeKey(GLFW_KEY_ESCAPE);
-            if (inventory.open()) {
+            if (table.open()) {
+                table.escape();
+            } else if (inventory.open()) {
                 inventory.close();
             } else {
                 pause.open(PauseMenu.Page.MAIN);
@@ -396,8 +619,20 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             back.run();
             return;
         }
-        if (in.pressed(GLFW_KEY_I)) inventory.toggle();
-        if (in.pressed(GLFW_KEY_J)) inventory.toggleCards();
+        if (in.pressed(Action.INVENTORY)) {
+            table.close();
+            inventory.toggle();
+        }
+        if (in.pressed(Action.CARDS)) {
+            if (inventory.open()) inventory.close();
+            table.toggle();
+        }
+        // the card table laid: the game stands still behind it
+        if (table.open()) {
+            camera.update(dt, follow());
+            sounds.update(world, camera, durations());
+            return;
+        }
         Player p = world.player();
         for (int key = GLFW_KEY_KP_0; key <= GLFW_KEY_KP_9; key++) {
             if (in.pressed(key) && debugCode.type(DebugCode.digit(key), world.time())) toggleDebug();
@@ -409,6 +644,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             if (inventory.hovered() >= 0) inventory.swapWithHotbar(inventory.hovered(), i);
             else select(i);
         }
+        if (in.pressed(Action.HOTBAR_PREV)) select(Math.floorMod(world.player().inventory().selected() - 1, Inventory.HOTBAR));
+        if (in.pressed(Action.HOTBAR_NEXT)) select(Math.floorMod(world.player().inventory().selected() + 1, Inventory.HOTBAR));
         boolean orbiting = !inventory.open()
                 && (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE));
         if (in.scroll() != 0 && !orbiting) {
@@ -420,16 +657,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
         // --- camera -----------------------------------------------------------------
         if (orbiting) camera.rotate(-in.mouseDX() * 0.008, in.mouseDY() * 0.006);
-        double orbit = 0, tilt = 0;
-        if (in.down(GLFW_KEY_LEFT)) orbit += 1;
-        if (in.down(GLFW_KEY_RIGHT)) orbit -= 1;
-        if (in.down(GLFW_KEY_UP)) tilt += 1;
-        if (in.down(GLFW_KEY_DOWN)) tilt -= 1;
+        // (a stick turns it as far as it is pushed; nothing while the inventory is open)
+        double orbit = inventory.open() ? 0 : in.value(Action.CAMERA_LEFT) - in.value(Action.CAMERA_RIGHT);
+        double tilt = inventory.open() ? 0 : in.value(Action.CAMERA_UP) - in.value(Action.CAMERA_DOWN);
         if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
         camera.zoom(in.scroll());                      // the wheel zooms while orbiting
-        if (in.repeated(GLFW_KEY_EQUAL) || in.repeated(GLFW_KEY_KP_ADD)) camera.zoom(1);
-        if (in.repeated(GLFW_KEY_MINUS) || in.repeated(GLFW_KEY_KP_SUBTRACT)) camera.zoom(-1);
-        if (in.pressed(GLFW_KEY_TAB)) {
+        if (in.repeated(Action.ZOOM_IN)) camera.zoom(1);
+        if (in.repeated(Action.ZOOM_OUT)) camera.zoom(-1);
+        if (in.pressed(Action.CAMERA_HEIGHT)) {
             toggled();
             int preset = camera.cyclePreset();
             game.toast("Camera: " + Elevation.values()[preset].label() + " sprites ("
@@ -454,12 +689,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 p.turnSteps(1);
             }
         }
-        if (in.pressed(GLFW_KEY_H)) {
+        if (in.pressed(Action.HIDE_HUD)) {
             toggled();
             game.settings().showHud = !game.settings().showHud;
         }
-        if (in.pressed(GLFW_KEY_L)) toggleLock();
-        if (in.pressed(GLFW_KEY_K)) nextLock();
+        if (in.pressed(Action.LOCK)) toggleLock();
+        if (in.pressed(Action.LOCK_NEXT)) nextLock();
         if (in.pressed(GLFW_KEY_O)) {
             toggled();
             game.settings().autoCamera = !game.settings().autoCamera;
@@ -470,25 +705,30 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             toggled();
             game.settings().showProps = !game.settings().showProps;
         }
+        if (in.pressed(Action.DEBUG)) {
+            toggled();
+            game.settings().debugOverlay = !game.settings().debugOverlay;
+        }
         if (in.pressed(GLFW_KEY_F9)) {
             toggled();
             setClassic(!game.settings().classicAnimations);
         }
 
         // --- the time of day: N held runs it fast ---------------------------------------------
-        if (!scriptedTimeLapse) world.clock().setSpeed(in.down(GLFW_KEY_N) && !inventory.open() ? DayCycle.TIME_LAPSE : 1);
-        if (in.pressed(GLFW_KEY_N) && !inventory.open() && !world.sky().air().timeRuns()) {
+        if (!scriptedTimeLapse) world.clock().setSpeed(in.down(Action.TIME_LAPSE) && !inventory.open() ? DayCycle.TIME_LAPSE : 1);
+        if (in.pressed(Action.TIME_LAPSE) && !inventory.open() && !world.sky().air().timeRuns()) {
             game.toast("The time stands still here", Theme.HINT);
         }
 
         // --- items, the chest -----------------------------------------------------------
         keepStoreInReach();
-        if (in.pressed(GLFW_KEY_E) && !inventory.open()) use();
-        else if (in.pressed(GLFW_KEY_E) && (inventory.store() != null || inventory.shop() != null)) inventory.close();
-        if (in.pressed(GLFW_KEY_G) && !inventory.open()) drop();
+        if (in.pressed(Action.USE) && !inventory.open() && !told) use();
+        else if (in.pressed(Action.USE) && (inventory.store() != null || inventory.shop() != null)) inventory.close();
+        if (in.pressed(Action.DROP) && !inventory.open()) drop();
 
         // --- the character (still while the inventory is open) ----------------------------
-        Player.Intent intent = scripted != null ? scripted : inventory.open() ? Player.Intent.NONE : intent(in);
+        Player.Intent intent = scripted != null ? scripted : inventory.open() || told ? Player.Intent.NONE
+                : intent(in);
         intent = eatInstead(intent);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
@@ -632,7 +872,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
-    private enum Use { NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT }
+    private enum Use {
+        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON
+    }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
     private Chest storeChest;
@@ -667,7 +909,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
         if (c != null && dc < dg && dc <= db) return Use.CHEST;
         if (g != null && dg <= db) return Use.ITEM;
-        return b != null ? Use.BUSH : Use.NOTHING;
+        if (b != null) return Use.BUSH;
+        if (story.person() != null) return Use.PERSON;
+        return world.reachableSpot() != null ? Use.SPOT : Use.NOTHING;
     }
 
     /**
@@ -701,8 +945,40 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case DISMOUNT -> {
                 if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
             }
+            case SPOT -> useSpot(world.reachableSpot());
+            case PERSON -> story.talk(story.person());
             default -> { }
         }
+    }
+
+    /** What E does at {@code s}, by its kind. */
+    private void useSpot(com.larsons.game.world.Spot s) {
+        if (story.use(s)) return;
+        switch (s.kind()) {
+            case com.larsons.game.level.StoryTypes.WAY_OUT -> {
+                if (campaign != null) {
+                    toMap(s.bool("clears", true) && "exit".equals(campaign.clear()));
+                } else if (back != null) {
+                    game.toast("The way back to the map: in a playthrough she leaves here", Theme.HINT);
+                } else {
+                    game.switchTo("menu");
+                }
+            }
+            default -> { }
+        }
+    }
+
+    /** What the prompt says E does at {@code s}. */
+    private String spotText(com.larsons.game.world.Spot s) {
+        String told = story.text(s);
+        if (told != null) return told;
+        return switch (s.kind()) {
+            case com.larsons.game.level.StoryTypes.WAY_OUT -> campaign == null ? "Leave"
+                    : "Leave for the map" + (s.bool("clears", true) && "exit".equals(campaign.clear())
+                    && !campaign.save().cleared().contains(campaign.place()) ? " (clears " + campaign.placeName() + ")"
+                    : "");
+            default -> "Use " + s.name();
+        };
     }
 
     /** E by a horse with a saddle on her: it is saddled, and hers to ride. */
@@ -1008,10 +1284,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (!intent.attack()) return intent;
         Player p = world.player();
         Item held = p.inventory().held();
-        if (held == null || !held.def().edible()) return intent;
+        boolean used = story.usesHeld();
+        if (held == null || !(held.def().edible() || used)) return intent;
         if (world.time() - lastBite >= BITE) {
             lastBite = world.time();
-            eatHeld();
+            if (used) story.useHeld();
+            else eatHeld();
         }
         return new Player.Intent(intent.moveX(), intent.moveZ(), intent.run(), intent.sprint(), intent.jump(),
                 false, false, intent.crouch(), intent.heavy(), intent.spin(), intent.parry(), intent.block(),
@@ -1088,24 +1366,33 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     private Player.Intent intent(Input in) {
-        double f = 0, r = 0;
-        if (in.down(GLFW_KEY_W)) f += 1;
-        if (in.down(GLFW_KEY_S)) f -= 1;
-        if (in.down(GLFW_KEY_D)) r += 1;
-        if (in.down(GLFW_KEY_A)) r -= 1;
+        // (a key is all the way; a stick as far as it is pushed - and pushed right out, she runs)
+        double f = in.value(Action.MOVE_FORWARD) - in.value(Action.MOVE_BACK);
+        double r = in.value(Action.MOVE_RIGHT) - in.value(Action.MOVE_LEFT);
+        double push = Math.hypot(f, r);
+        if (push > 1) {
+            f /= push;
+            r /= push;
+        }
+        boolean stick = in.usingPad() && push > 0;
+        if (stick && push < 1) {
+            // (she has no slower walk than her walk: any push is a whole step that way)
+            f /= push;
+            r /= push;
+        }
         Vec3 move = camera.groundForward().scale(f).add(camera.right().scale(r));
-        boolean ctrl = in.down(GLFW_KEY_LEFT_CONTROL) || in.down(GLFW_KEY_RIGHT_CONTROL);
-        boolean shift = in.down(GLFW_KEY_LEFT_SHIFT) || in.down(GLFW_KEY_RIGHT_SHIFT);
-        boolean attack = in.pressed(GLFW_KEY_F) || in.mousePressed(GLFW_MOUSE_BUTTON_LEFT);
-        boolean attackHeld = in.down(GLFW_KEY_F) || in.mouseDown(GLFW_MOUSE_BUTTON_LEFT);
+        boolean ctrl = in.down(Action.SPRINT);
+        boolean shift = in.down(Action.RUN) || (stick && push > 0.82);
+        boolean attack = in.pressed(Action.ATTACK);
+        boolean attackHeld = in.down(Action.ATTACK);
         AnimState emote = null;
         for (int i = 0; i < EMOTE_KEYS.length; i++) if (in.pressed(EMOTE_KEYS[i])) emote = EMOTES[i];
         // the dodge: a tap dashes, held it turns into a roll
-        boolean dodge = in.pressed(GLFW_KEY_LEFT_ALT) || in.pressed(GLFW_KEY_Z);
-        boolean dodgeHeld = in.down(GLFW_KEY_LEFT_ALT) || in.down(GLFW_KEY_Z);
-        return new Player.Intent(move.x(), move.z(), shift && !ctrl, ctrl, in.pressed(GLFW_KEY_SPACE), attack,
-                attackHeld, in.pressed(GLFW_KEY_C), in.pressed(GLFW_KEY_X), in.pressed(GLFW_KEY_R),
-                in.pressed(GLFW_KEY_Q), in.down(GLFW_KEY_B), in.pressed(GLFW_KEY_V), emote, dodge, dodgeHeld);
+        boolean dodge = in.pressed(Action.DODGE);
+        boolean dodgeHeld = in.down(Action.DODGE);
+        return new Player.Intent(move.x(), move.z(), shift && !ctrl, ctrl, in.pressed(Action.JUMP), attack,
+                attackHeld, in.pressed(Action.CROUCH), in.pressed(Action.HEAVY), in.pressed(Action.SPIN),
+                in.pressed(Action.PARRY), in.down(Action.BLOCK), in.pressed(Action.BASH), emote, dodge, dodgeHeld);
     }
 
     private SpriteView currentView() {
@@ -1170,6 +1457,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void render() {
         var w = game.window();
+        if (game.settings().perfOverlay || game.settings().logPerf) {
+            com.larsons.game.core.Perf.count("folk", world.folks().all().size());
+            com.larsons.game.core.Perf.count("animals", world.animals().live().size());
+            com.larsons.game.core.Perf.count("critters", world.critters().live().size());
+            com.larsons.game.core.Perf.count("scenery", world.scenery().placed().size());
+            com.larsons.game.core.Perf.count("scenery in view", game.worldRenderer().sceneryInView());
+            com.larsons.game.core.Perf.count("buildings", world.buildings().size());
+            com.larsons.game.core.Perf.count("lights", world.lights().size());
+            com.larsons.game.core.Perf.count("sheets", game.sprites().residentCount());
+            com.larsons.game.core.Perf.count("MB of sheets", (int) (game.sprites().residentBytes() >> 20));
+        }
         game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();
@@ -1184,12 +1482,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
         boolean hudShown = game.settings().showHud;
-        if (hudShown) hud(ui);
-        if (!pause.open()) {
+        // F7: what a developer wants to know - the sheets on screen, the frame times, every key
+        boolean debug = game.settings().debugOverlay;
+        if (debug) hud(ui);
+        if (!pause.open() && table.open()) {
+            table.draw(ui, frameDt);
+        } else if (!pause.open()) {
             prompt(ui);
-            float hotbar = hudShown ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
-            inventory.drawHotbar(ui, frameDt, hotbar);
-            if (!inventory.open()) {
+            float hotbar = debug ? ui.height() - 14 - 22 * HELP.length - 4 : ui.height() - 10;
+            if (hudShown || inventory.open()) inventory.drawHotbar(ui, frameDt, hotbar);
+            if (!inventory.open() && hudShown) {
                 combatHud.drawMana(ui, world.combat(), hotbar - 34);
                 combatHud.drawHeavy(ui, world.player(), hotbar - 34);
                 combatHud.drawVitals(ui, world.player(), hotbar - 34);
@@ -1198,6 +1500,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!game.importer().visible()) inventory.draw(ui);
+            if (!inventory.open()) story.draw(ui, hudShown);
+            if (horde != null && (hudShown || horde.over()) && (!inventory.open() || horde.over())) horde.draw(ui);
+        }
+        if (pause.open()) {
+            // the pause menu is not graded: what has been drawn is, before it goes over
+            ui.end();
+            game.applyGrade();
+            ui.begin();
         }
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
         if (choosing && !pause.open()) chooseClass(ui);
@@ -1245,49 +1555,64 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Use use = usable();
         if (use == Use.DISMOUNT && world.player().speed() > 0.5) return;      // (only once it stands)
         if (use == Use.MOUNT) {
-            text = "E   Ride the horse";
+            text = "   Ride the horse";
         } else if (use == Use.SADDLE) {
-            text = "E   Saddle the horse";
+            text = "   Saddle the horse";
         } else if (use == Use.DISMOUNT) {
-            text = "E   Get off the horse";
+            text = "   Get off the horse";
         } else if (use == Use.DOOR) {
-            text = "E   " + doorText(usableDoor());
+            text = "   " + doorText(usableDoor());
         } else if (use == Use.PASSAGE) {
-            text = "E   " + passageText(usablePassage());
+            text = "   " + passageText(usablePassage());
         } else if (use == Use.WARDROBE) {
-            text = "E   Change clothes at the " + world.reachableWardrobe().profile().label().toLowerCase();
+            text = "   Change clothes at the " + world.reachableWardrobe().profile().label().toLowerCase();
         } else if (use == Use.CHEST) {
             Chest c = world.reachableChest();
-            text = "E   " + (c.store() != null ? "Look in the chest"
+            text = "   " + (c.store() != null ? "Look in the chest"
                     : c.isOpen() ? "Close the chest" : "Open the chest");
         } else if (use == Use.SHOP) {
-            text = "E   Shop at ";
+            text = "   Shop at ";
             name = world.reachableShop().name();
             edge = nameColour = Theme.rgb(240, 192, 48, 1f);
         } else if (use == Use.STORE) {
-            text = "E   Look in the " + world.reachableStore().kind().label().toLowerCase();
+            text = "   Look in the " + world.reachableStore().kind().label().toLowerCase();
         } else if (use == Use.ITEM) {
             // the item's name in its rarity's colour
             World.GroundItem g = world.reachable();
-            text = "E   Pick up ";
+            text = "   Pick up ";
             name = (g.amount() > 1 ? g.amount() + " " : "") + g.item.fullName()
                     + (world.player().crouched() ? " (crouched)" : "");
             edge = nameColour = g.item.rarity().colour(1f);
         } else if (use == Use.BUSH) {
             ItemDef d = ItemDef.byId(world.reachableBush().profile().forage().item());
-            text = "E   Pick ";
+            text = "   Pick ";
             name = d == null ? "the bush" : d.name().toLowerCase();
             if (d != null) edge = nameColour = Theme.rgb((d.food().rgb() >> 16) & 255, (d.food().rgb() >> 8) & 255,
                     d.food().rgb() & 255, 1f);
+        } else if (use == Use.SPOT) {
+            text = "   " + spotText(world.reachableSpot());
+        } else if (use == Use.PERSON) {
+            text = "   Talk to ";
+            name = story.person().name();
         } else {
             return;
         }
-        float tw = ui.large.width(text + name) + 40;
+        drawPrompt(ui, Action.USE, text.strip(), name, edge, nameColour);
+    }
+
+    /**
+     * A prompt over the hotbar: what to press for {@code action} - the key's cap, or the gamepad's
+     * button - then what it does, {@code name} after it in {@code nameColour}.
+     */
+    private void drawPrompt(Ui ui, Action action, String text, String name, float[] edge, float[] nameColour) {
+        Input in = ui.input();
+        float cap = com.larsons.game.ui.Glyphs.width(ui, in, action, 30);
+        float tw = cap + 12 + ui.large.width(text + (name.isEmpty() ? "" : " " + name)) + 36;
         float x = (ui.width() - tw) / 2, y = ui.height() * 0.62f;
-        ui.rect(x, y, tw, 44, Theme.withAlpha(Theme.PANEL, 0.85f));
-        ui.outline(x, y, tw, 44, 1, edge);
-        float done = ui.text(ui.large, text, x + 20, y + 9, Theme.TITLE);
-        if (!name.isEmpty()) ui.text(ui.large, name, x + 20 + done, y + 9, nameColour);
+        ui.plate(x, y, tw, 44, edge);
+        com.larsons.game.ui.Glyphs.draw(ui, in, action, x + 16, y + 7, 30);
+        float done = ui.text(ui.large, text + (name.isEmpty() ? "" : " "), x + 16 + cap + 12, y + 9, Theme.TITLE);
+        if (!name.isEmpty()) ui.text(ui.large, name, x + 16 + cap + 12 + done, y + 9, nameColour);
     }
 
     /** The A/B switch: the first version of the re-animated states, or the new. */
@@ -1592,8 +1917,38 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     choosing = false;
                 }
             }
-            // her cards beside the inventory (J); a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
-            case "cards" -> inventory.toggleCards();
+            // the card table (J): cards (laid, or cleared), cards hand|deck|draw|discard|perks (that page),
+            // cards play <n> (the n-th card of her hand played), cards close
+            case "cards" -> {
+                String[] a = argument.trim().split("\\s+");
+                switch (a[0]) {
+                    case "" -> table.toggle();
+                    case "close" -> table.close();
+                    case "hand" -> table.show(CardTable.View.TABLE);
+                    case "deck" -> table.show(CardTable.View.DECK);
+                    case "draw" -> table.show(CardTable.View.DRAW);
+                    case "discard" -> table.show(CardTable.View.DISCARD);
+                    case "perks" -> table.show(CardTable.View.PERKS);
+                    case "play" -> {
+                        if (!table.play(a.length > 1 ? Integer.parseInt(a[1]) - 1 : 0)) return false;
+                    }
+                    default -> {
+                        return false;
+                    }
+                }
+                if (inventory.open() && table.open()) inventory.close();
+            }
+            // the colour grade: grade <preset> (gameboy, n64, one_colour ...), grade count <n>, grade reset
+            case "grade" -> {
+                String[] a = argument.trim().split("\\s+");
+                var g = game.grading();
+                if (a[0].equals("reset")) g.resetAll();
+                else if (a[0].equals("count") && a.length > 1) g.setCount(Integer.parseInt(a[1]));
+                else if (com.larsons.game.grade.Preset.byKey(a[0]) != null) {
+                    g.apply(com.larsons.game.grade.Preset.byKey(a[0]));
+                } else return false;
+            }
+            // a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
             case "tiers" -> {
                 String[] a = argument.trim().split("\\s+");
                 int slot = Integer.parseInt(a[0]) - 1;
@@ -1749,6 +2104,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         : Double.parseDouble(a));
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
+            // round <n>: the horde game's round n begins now
+            case "round" -> {
+                if (horde != null) horde.skipTo(Integer.parseInt(argument.trim()));
+            }
             case "stamina" -> p.setStamina(Double.parseDouble(argument.trim()));
             // fall <metres>: up in the air where she stands, falling (roll: fall 6 roll)
             case "fall" -> {
@@ -1776,6 +2135,24 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "autocamera" -> game.settings().autoCamera = !argument.trim().equals("off");
             case "pickup" -> pickUp();
+            // the story: E, an answer picked ("say 2"), something called before her ("summon bortzal 3"),
+            // a bench opened ("station cauldron" / "station workbench"), the journal, what is in hand used
+            case "use" -> use();
+            case "say" -> story.script("say", argument.trim());
+            case "station" -> story.script("station", argument.trim());
+            case "journal" -> story.script("journal", "");
+            case "endtalk" -> story.close();
+            case "coins" -> p.addCoins(Integer.parseInt(argument.trim()));
+            case "usehand" -> story.useHeld();
+            case "autofish" -> story.autoFish(!argument.trim().equals("off"));
+            case "summon" -> {
+                String[] a = argument.trim().split("\\s+");
+                double m = a.length > 2 ? Double.parseDouble(a[2]) : 6;
+                Vec3 at = world.terrain().onGround(p.ground().add(SpriteView.headingVector(p.heading()).scale(m)));
+                boolean peaceful = a.length > 3 && a[3].equals("peaceful");
+                world.summon(a[0], a.length > 1 ? Integer.parseInt(a[1]) : 1, at, p.heading() + Math.PI,
+                        new com.larsons.game.actor.Folks.Spec("either", "own", 0, 0, null, null, !peaceful, null));
+            }
             // riding: a saddled horse put before her ("steed [metres]"), saddling the one by her, on, off
             case "steed" -> {
                 double m = argument.isBlank() ? 3 : Double.parseDouble(argument.trim());

@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "liquid": [
+   0
+  ],
+  "glass": [
+   1
+  ],
+  "cork": [
+   2
+  ]
+ },
+ "materials": [
+  "liquid",
+  "glass",
+  "cork"
+ ]
+}

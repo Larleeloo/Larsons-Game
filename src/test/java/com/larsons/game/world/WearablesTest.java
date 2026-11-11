@@ -37,7 +37,8 @@ class WearablesTest {
             assertNotNull(d.fallbackIcon().get(), d.id());
         }
         assertTrue(ItemDef.ALL.stream().noneMatch(ItemDef::isWearable), "ItemDef.ALL is the weapons");
-        assertEquals(61, Wearables.ALL.size());
+        assertEquals(61 + 32, Wearables.ALL.size(), "and the 32 tailored garments of the four peoples");
+        assertEquals(32, Wearables.tailored().size());
         assertEquals(Rarity.RARE, Item.parse("silver_necklace").rarity());
         assertEquals("Silver necklace", Item.parse("silver_necklace").name());
         assertEquals("Pink dye", Item.parse("dye_pink").name());
@@ -110,13 +111,14 @@ class WearablesTest {
         }
         // weapons as before: a Basic one of all eight but the wand, and eight Mythic
         assertEquals(7, new Loot().pool(Rarity.COMMON).size());
-        assertEquals(5, loot.pool(Rarity.COMMON).size() - 7, "and the five Common wearables");
+        assertEquals(5 + 13, loot.pool(Rarity.COMMON).size() - 7,
+                "and the five Common wearables and the thirteen Common tailored garments");
         assertEquals(8, loot.pool(Rarity.MYTHIC).size());
         // each family is one drop
         List<List<Item>> rare = loot.drops(Rarity.RARE);
-        assertEquals(4 + 4 + 1 + 1 + 1 + 1 + 1 + 4, rare.size(),
+        assertEquals(4 + 4 + 1 + 1 + 1 + 1 + 1 + 4 + 1, rare.size(),
                 "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; the dyes, the makeup, the lipstick, the hair "
-                        + "styles and the eyebrows one each; the iron armour");
+                        + "styles and the eyebrows one each; the iron armour; the Rare tailored garments, one drop");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 14), "the dyes");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 9), "the hair styles, less the starter's two");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 2 && d.get(0).id().startsWith("eyebrows_")));

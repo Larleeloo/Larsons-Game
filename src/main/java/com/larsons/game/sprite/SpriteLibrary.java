@@ -763,14 +763,29 @@ public final class SpriteLibrary implements AutoCloseable {
      * room after all is dropped instead of uploaded, so it is not asked for
      * again until room appears.
      */
-    public void prefetch(Resolved r) {
-        if (r == null || !loadable(r.key()) || prefetching.size() >= threads) return;
+    public Prefetch prefetch(Resolved r) {
+        if (r == null || !loadable(r.key())) return Prefetch.NOTHING;
+        if (prefetching.size() >= threads) return Prefetch.BUSY;
         long typical = sizes.isEmpty() ? 0 : sizesTotal / sizes.size();
         long need = sizes.getOrDefault(r.key(), typical);
         for (Key p : prefetching) need += sizes.getOrDefault(p, typical);
-        if (residentBytes + need > budgetBytes) return;
+        if (residentBytes + need > budgetBytes) return Prefetch.NO_ROOM;
         prefetching.add(r.key());
         request(r);
+        return Prefetch.QUEUED;
+    }
+
+    /**
+     * What came of a {@link #prefetch}: nothing to load (it is in, on its
+     * way, or not there to be had); queued; the decoders busy with other
+     * prefetches (ask again next frame); or no room for it in the budget
+     * (asking again soon is no use).
+     */
+    public enum Prefetch {
+        NOTHING, QUEUED, BUSY, NO_ROOM;
+
+        /** Whether asking again next frame may get somewhere. */
+        public boolean more() { return this == QUEUED || this == BUSY; }
     }
 
     private boolean loadable(Key key) {

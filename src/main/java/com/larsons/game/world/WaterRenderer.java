@@ -322,6 +322,7 @@ public final class WaterRenderer implements AutoCloseable {
         scene.bind(shader);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, count);
+        com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
         glDepthMask(true);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

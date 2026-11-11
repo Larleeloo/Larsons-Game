@@ -1,0 +1,60 @@
+{
+ "key": "workbench",
+ "label": "Workbench",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.782,
+ "model": true,
+ "parts": [
+  {
+   "key": "top",
+   "label": "Top",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#4a4a52",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "tools",
+   "label": "Tool handles",
+   "colour": "#7a5030",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.87,
+   0.825
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

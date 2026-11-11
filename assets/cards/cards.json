@@ -575,6 +575,34 @@
       "source": "shop"
     },
     {
+      "id": "clockwork_singularity",
+      "name": "Clockwork Singularity",
+      "class": "mage",
+      "rarity": "mythic",
+      "text": "A minute of spells at a quarter the mana, two dice more, freezing for 3 s.",
+      "effects": [
+        {
+          "kind": "mana_cost",
+          "value": 0.25,
+          "seconds": 60.0
+        },
+        {
+          "kind": "extra_dice",
+          "value": 2.0,
+          "seconds": 60.0,
+          "only": "spell"
+        },
+        {
+          "kind": "freeze",
+          "value": 3.0,
+          "seconds": 60.0,
+          "only": "spell"
+        }
+      ],
+      "price": 320,
+      "source": "shop"
+    },
+    {
       "id": "quickstep",
       "name": "Quickstep",
       "class": "bard",
@@ -925,6 +953,36 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "symphony_of_the_spheres",
+      "name": "Symphony of the Spheres",
+      "class": "bard",
+      "rarity": "mythic",
+      "text": "Two minutes at speed x1.5, a quarter the stamina, jumping twice as high; draw two cards.",
+      "effects": [
+        {
+          "kind": "speed",
+          "value": 1.5,
+          "seconds": 120.0
+        },
+        {
+          "kind": "stamina_cost",
+          "value": 0.25,
+          "seconds": 120.0
+        },
+        {
+          "kind": "jump",
+          "value": 2.0,
+          "seconds": 120.0
+        },
+        {
+          "kind": "draw",
+          "value": 2.0
+        }
+      ],
+      "price": 320,
       "source": "shop"
     },
     {
@@ -1282,6 +1340,31 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "the_unbroken_oath",
+      "name": "The Unbroken Oath",
+      "class": "knight",
+      "rarity": "mythic",
+      "text": "Two minutes taking a third of the damage, melee x1.5, and a ward of 120.",
+      "effects": [
+        {
+          "kind": "defense",
+          "value": 0.35,
+          "seconds": 120.0
+        },
+        {
+          "kind": "melee_damage",
+          "value": 1.5,
+          "seconds": 120.0
+        },
+        {
+          "kind": "ward",
+          "value": 120.0
+        }
+      ],
+      "price": 320,
       "source": "shop"
     },
     {
@@ -1646,6 +1729,34 @@
       "source": "shop"
     },
     {
+      "id": "wrath_of_the_forge_titan",
+      "name": "Wrath of the Forge-Titan",
+      "class": "warrior",
+      "rarity": "mythic",
+      "text": "45 s of melee x2.2 with three dice more, 30% of it back as health.",
+      "effects": [
+        {
+          "kind": "melee_damage",
+          "value": 2.2,
+          "seconds": 45.0
+        },
+        {
+          "kind": "extra_dice",
+          "value": 3.0,
+          "seconds": 45.0,
+          "only": "melee"
+        },
+        {
+          "kind": "lifesteal",
+          "value": 0.3,
+          "seconds": 45.0,
+          "only": "melee"
+        }
+      ],
+      "price": 320,
+      "source": "shop"
+    },
+    {
       "id": "hex",
       "name": "Hex",
       "class": "warlock",
@@ -1995,6 +2106,34 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "pact_of_the_brass_devil",
+      "name": "Pact of the Brass Devil",
+      "class": "warlock",
+      "rarity": "mythic",
+      "text": "A minute of spells x2 that poison for 60% more and drain 40% back.",
+      "effects": [
+        {
+          "kind": "spell_damage",
+          "value": 2.0,
+          "seconds": 60.0
+        },
+        {
+          "kind": "poison",
+          "value": 0.6,
+          "seconds": 60.0,
+          "only": "spell"
+        },
+        {
+          "kind": "lifesteal",
+          "value": 0.4,
+          "seconds": 60.0,
+          "only": "spell"
+        }
+      ],
+      "price": 320,
       "source": "shop"
     },
     {
@@ -2350,6 +2489,33 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "heart_of_the_elder_grove",
+      "name": "Heart of the Elder Grove",
+      "class": "druid",
+      "rarity": "mythic",
+      "text": "Two minutes mending 4 a second behind thorns of 80%; the next 6 foes your spells hit become animals.",
+      "effects": [
+        {
+          "kind": "regen_health",
+          "value": 4.0,
+          "seconds": 120.0
+        },
+        {
+          "kind": "thorns",
+          "value": 0.8,
+          "seconds": 120.0
+        },
+        {
+          "kind": "transfigure",
+          "value": 180.0,
+          "charges": 6,
+          "only": "spell"
+        }
+      ],
+      "price": 320,
       "source": "shop"
     },
     {
@@ -2716,6 +2882,32 @@
       "source": "shop"
     },
     {
+      "id": "the_perfect_heist",
+      "name": "The Perfect Heist",
+      "class": "rogue",
+      "rarity": "mythic",
+      "text": "Two minutes all but unseen, the next 8 blows sneak attacks, coins x3.",
+      "effects": [
+        {
+          "kind": "stealth",
+          "value": 0.15,
+          "seconds": 120.0
+        },
+        {
+          "kind": "sneak",
+          "value": 1.0,
+          "charges": 8
+        },
+        {
+          "kind": "coins",
+          "value": 3.0,
+          "seconds": 120.0
+        }
+      ],
+      "price": 320,
+      "source": "shop"
+    },
+    {
       "id": "steady_aim",
       "name": "Steady Aim",
       "class": "ranger",
@@ -3070,6 +3262,32 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "skyfall_volley",
+      "name": "Skyfall Volley",
+      "class": "ranger",
+      "rarity": "mythic",
+      "text": "A minute of shots x1.8 with three dice more, and none of them used up.",
+      "effects": [
+        {
+          "kind": "ranged_damage",
+          "value": 1.8,
+          "seconds": 60.0
+        },
+        {
+          "kind": "extra_dice",
+          "value": 3.0,
+          "seconds": 60.0,
+          "only": "ranged"
+        },
+        {
+          "kind": "ammo_free",
+          "seconds": 60.0
+        }
+      ],
+      "price": 320,
       "source": "shop"
     },
     {
@@ -3430,6 +3648,30 @@
       "source": "shop"
     },
     {
+      "id": "dawn_of_the_seventh_bell",
+      "name": "Dawn of the Seventh Bell",
+      "class": "cleric",
+      "rarity": "mythic",
+      "text": "200 health at once, a ward of 100, and 3 health a second for 3 minutes.",
+      "effects": [
+        {
+          "kind": "heal",
+          "value": 200.0
+        },
+        {
+          "kind": "ward",
+          "value": 100.0
+        },
+        {
+          "kind": "regen_health",
+          "value": 3.0,
+          "seconds": 180.0
+        }
+      ],
+      "price": 320,
+      "source": "shop"
+    },
+    {
       "id": "fortune_s_favor",
       "name": "Fortune's Favor",
       "class": null,
@@ -3463,6 +3705,31 @@
         }
       ],
       "price": 80,
+      "source": "shop"
+    },
+    {
+      "id": "the_grand_orrery",
+      "name": "The Grand Orrery",
+      "class": null,
+      "rarity": "mythic",
+      "text": "Draw three cards; all damage x1.5 for 2 minutes; experience doubled for 10.",
+      "effects": [
+        {
+          "kind": "draw",
+          "value": 3.0
+        },
+        {
+          "kind": "damage",
+          "value": 1.5,
+          "seconds": 120.0
+        },
+        {
+          "kind": "xp",
+          "value": 2.0,
+          "seconds": 600.0
+        }
+      ],
+      "price": 320,
       "source": "shop"
     }
   ],

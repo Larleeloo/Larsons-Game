@@ -1,0 +1,110 @@
+{
+ "tile": 16,
+ "variants": 4,
+ "terrains": [
+  {
+   "key": "g",
+   "id": "grass",
+   "name": "Grassland",
+   "water": false
+  },
+  {
+   "key": "f",
+   "id": "forest",
+   "name": "Forest",
+   "water": false
+  },
+  {
+   "key": "p",
+   "id": "pines",
+   "name": "Pine forest",
+   "water": false
+  },
+  {
+   "key": "j",
+   "id": "jungle",
+   "name": "Jungle",
+   "water": false
+  },
+  {
+   "key": "h",
+   "id": "hills",
+   "name": "Hills",
+   "water": false
+  },
+  {
+   "key": "m",
+   "id": "mountains",
+   "name": "Mountains",
+   "water": false
+  },
+  {
+   "key": "s",
+   "id": "snow",
+   "name": "Snow",
+   "water": false
+  },
+  {
+   "key": "b",
+   "id": "sand",
+   "name": "Sand",
+   "water": false
+  },
+  {
+   "key": "y",
+   "id": "savannah",
+   "name": "Savannah",
+   "water": false
+  },
+  {
+   "key": "x",
+   "id": "marsh",
+   "name": "Marsh",
+   "water": false
+  },
+  {
+   "key": "a",
+   "id": "waste",
+   "name": "Waste",
+   "water": false
+  },
+  {
+   "key": "c",
+   "id": "crystal",
+   "name": "Crystal",
+   "water": false
+  },
+  {
+   "key": "w",
+   "id": "water",
+   "name": "Water",
+   "water": true
+  },
+  {
+   "key": "d",
+   "id": "deep",
+   "name": "Deep water",
+   "water": true
+  }
+ ],
+ "icon": 24,
+ "icons": [
+  "town",
+  "village",
+  "castle",
+  "camp",
+  "cave",
+  "tower",
+  "port",
+  "ruins",
+  "mine",
+  "workshop",
+  "shrine",
+  "arena",
+  "crypt",
+  "portal",
+  "cleared",
+  "locked",
+  "here"
+ ]
+}

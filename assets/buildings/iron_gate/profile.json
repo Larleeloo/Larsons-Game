@@ -1,0 +1,52 @@
+{
+ "key": "iron_gate",
+ "label": "Iron gate",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.375,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Pillars",
+   "colour": "#7a7a84",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Bars",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lock",
+   "label": "Lock",
+   "colour": "#d6aa5c",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "caps",
+   "label": "Caps",
+   "colour": "#8a8a90",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   4.25,
+   0.625
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

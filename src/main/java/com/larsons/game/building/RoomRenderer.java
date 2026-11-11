@@ -188,6 +188,7 @@ final class RoomRenderer implements AutoCloseable {
             setLook(b);
             upload(v);
             glDrawArrays(GL_TRIANGLES, 0, v.length / FLOATS);
+            com.larsons.game.core.Perf.drew(0);
             if (highlight != null && highlight.contains(b.id())) picked.add(b);
         }
         meshes = seen;
@@ -196,6 +197,7 @@ final class RoomRenderer implements AutoCloseable {
             setLook(b);
             upload(v);
             glDrawArrays(GL_TRIANGLES, 0, v.length / FLOATS);
+            com.larsons.game.core.Perf.drew(0);
         });
         glBindVertexArray(0);
     }

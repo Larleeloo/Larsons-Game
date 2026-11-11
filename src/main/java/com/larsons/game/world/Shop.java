@@ -252,20 +252,34 @@ public final class Shop {
     public static int worth(Item item) {
         if (item == null) return 0;
         ItemDef d = item.def();
+        Goods.Good good = Goods.of(d);
+        if (good != null) return good.price();
         if (d == Supplies.UPGRADE_INGOT) return 40;
         if (d == Supplies.RESHUFFLE_SCROLL) return 25;
         if (d == Supplies.LARGE_CRYSTAL) return 6;
         if (d == Supplies.COINS) return 1;
         if (Supplies.isAmmo(d)) return 3;
-        if (d.isFood()) return d.edible() ? 2 : 4;
+        if (d.isFood()) {
+            // a picking, a cut, a hide: a coin or two, more the rarer it is
+            int base = d.edible() ? 2 : 4;
+            return base * switch (item.rarity()) {
+                case COMMON -> 1;
+                case UNCOMMON -> 2;
+                case RARE -> 5;
+                default -> 10;
+            };
+        }
+        // a weapon, a garment, a piece of tack: by how rare it is (each step a little over twice the last, as
+        // the potions, rods and packs are priced), half again with a border (venom, mystic, bonded)
         int base = switch (item.rarity()) {
-            case COMMON -> 12;
-            case UNCOMMON -> 25;
-            case RARE -> 50;
-            case EPIC -> 100;
-            case LEGENDARY -> 200;
-            case MYTHIC -> 400;
+            case COMMON -> 40;
+            case UNCOMMON -> 90;
+            case RARE -> 180;
+            case EPIC -> 380;
+            case LEGENDARY -> 800;
+            case MYTHIC -> 2000;
         };
+        if (item.ring() != null) base = base * 3 / 2;
         if (d.isWearable()) base = base * 3 / 4;
         if (d.isTack()) base = Math.max(base, 30);
         if (item.forged() != null) base += 20 * item.forged().level();

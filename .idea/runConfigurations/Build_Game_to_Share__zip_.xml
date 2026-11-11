@@ -7,7 +7,7 @@
     press Run. It takes a few minutes (packing two million sprite sheets
     into build/sprite-pack/, in 1 GB parts), then the Run window prints
     where the zip is:
-      build/distributions/Larsons-Game.zip   (about 4.2 GB)
+      build/distributions/Larsons-Game.zip   (about 4.3 GB)
     It stops with an error rather than make a zip without the sprites.
     Upload that file to Google Drive, OneDrive or Dropbox and send friends
     the link; HOW TO PLAY.txt inside it tells them the rest.

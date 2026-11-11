@@ -1,0 +1,51 @@
+{
+ "key": "signpost",
+ "label": "Signpost",
+ "group": "town",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.325,
+ "model": true,
+ "parts": [
+  {
+   "key": "post",
+   "label": "Post",
+   "colour": "#6a4026",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "arms",
+   "label": "Arms",
+   "colour": "#a07040",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "cap",
+   "label": "Cap",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "stones",
+   "label": "Stones",
+   "colour": "#8a8a90",
+   "texture": "fieldstone",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.275
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

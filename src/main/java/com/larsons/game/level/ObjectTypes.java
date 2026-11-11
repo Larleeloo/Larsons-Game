@@ -311,6 +311,7 @@ public final class ObjectTypes {
                     b.world().addShop(new Shop(o.id(), o.str("name", "Shop"), counter, o.yaw(), o.str("stock", ""),
                             o.bool("buys", true)));
                 }));
+        StoryTypes.registerAll();
         // a set of buildings placed together (a small castle): each piece is a building of its own once placed
         register(new ObjectType(PREFAB, "Set of buildings", Category.BUILDINGS,
                 List.of(Prop.choice("set", "Set", "small_castle", o -> prefabKeys())), 12, 10, 0xC8A27A, false, null));
@@ -748,7 +749,11 @@ public final class ObjectTypes {
                     "stock", sh[3], "buys", true)));
         }
         out.addAll(templateEntries());
+        out.addAll(HordeTypes.entries());
+        out.addAll(FolkTypes.entries());
         for (ObjectType t : TYPES.values()) {
+            if (t.key().equals(FolkTypes.FOE)) continue;        // (one entry for each breed, above)
+            if (HordeTypes.OWN.contains(t.key())) continue;     // (what a horde map is built of: first on its shelf)
             if (t.key().equals(SCENERY) || t.key().equals(ITEM) || t.key().equals(SOUND)
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)

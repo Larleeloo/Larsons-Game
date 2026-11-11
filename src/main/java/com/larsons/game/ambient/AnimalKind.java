@@ -100,7 +100,13 @@ public enum AnimalKind {
     PEACOCK("peacock", "Peacock", "Peacocks", Gait.FOWL, Temperament.DEFENSIVE, 0.25, 1.0, 14, 0.5, 2.6, 0.5, 0.5,
             0, 3.0, 3, 0.8, 1, 2, 0, w(0.4, 0, 0, 0.6, 0.2, 0, 0, 0, 0), "scream", "squawk", "rattle", null),
     HUMMINGBIRD("hummingbird", "Hummingbird", "Hummingbirds", Gait.FLY, Temperament.CALM, 0.1, 0.12, 2, 1.6, 5,
-            1.6, 1.6, 0, 0, 0, 0.4, 3, 2, 0, w(0.4, 0.2, 0, 1.0, 0.2, 0, 0.3, 0, 0.3), "hum", null, null, null);
+            1.6, 1.6, 0, 0, 0, 0.4, 3, 2, 0, w(0.4, 0.2, 0, 1.0, 0.2, 0, 0.3, 0, 0.3), "hum", null, null, null),
+    // the wild ones she fights (they live only where a level puts them, or a summoning station calls them):
+    // the boar, quick and bad-tempered; the buffalo, slow to turn and very hard to stop
+    BOAR("boar", "Wild boar", "Wild boars", Gait.FOUR, Temperament.HOSTILE, 0.45, 0.85, 45, 0.9, 5.4, 0.68, 3.2,
+            0, 0, 9, 1.25, 0, 3, 0, w(0, 0, 0, 0, 0, 0, 0, 0, 0), "grunt", "squeal", "snort", null),
+    BUFFALO("buffalo", "Buffalo", "Buffalo", Gait.FOUR, Temperament.HOSTILE, 0.72, 1.75, 110, 1.0, 5.8, 1.1, 4.6,
+            0, 0, 16, 1.75, 0, 4, 0, w(0, 0, 0, 0, 0, 0, 0, 0, 0), "low", "bellow", "snort", null);
 
     /** How it goes - which sheets its sprite has. */
     public enum Gait {
@@ -271,6 +277,8 @@ public enum AnimalKind {
             case CAT -> 0.35;
             case DEER -> 1.05;
             case IGUANA -> 0.09;
+            case BOAR -> 0.755;
+            case BUFFALO -> 1.254;
             default -> 0;
         };
     }
@@ -278,8 +286,8 @@ public enum AnimalKind {
     /** How deep a water it walks into, metres (deeper: it swims, or it keeps out). */
     public double wade() {
         return switch (this) {
-            case HORSE, COW, BEAR, DEER -> 0.35;
-            case SHEEP, PIG, DOG -> 0.15;
+            case HORSE, COW, BEAR, DEER, BUFFALO -> 0.35;
+            case SHEEP, PIG, DOG, BOAR -> 0.15;
             case FLAMINGO -> 0.4;
             default -> 0.04;
         };

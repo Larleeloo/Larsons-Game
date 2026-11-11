@@ -37,6 +37,11 @@ public final class LevelWorld {
         private final CombatTuning tuning;
         private final List<Scenery.Placed> scenery = new ArrayList<>();
 
+        private String levelName = "";
+
+        /** The name of the level being built. */
+        public String levelName() { return levelName; }
+
         Build(World world, Terrain terrain, ScenerySprites sprites, CombatTuning tuning) {
             this.world = world;
             this.terrain = terrain;
@@ -145,7 +150,12 @@ public final class LevelWorld {
         world.raySpots().clear();
         world.critters().spots().clear();          // (those about stay while their spot is the same)
         world.animals().herds().clear();           // (and a herd's, while it is the same)
+        world.spots().clear();
+        world.folks().clear();
+        world.quests().clear();
+        world.hordeSpawns().clear();
         Build b = new Build(world, terrain, sprites, tuning);
+        b.levelName = level.name() == null ? "" : level.name();
         world.setSpawnPoint(terrain.onGround(Vec3.ZERO));
         world.player().setPosition(Vec3.ZERO);
         for (LevelObject o : objects) {

@@ -142,6 +142,20 @@ public final class Variants {
      * their own colours. {@code null} if nothing changes.
      */
     public Recolor recolor(Map<String, String> choice) {
+        Recolor[] kept = recolors.get(choice);
+        if (kept != null) return kept[0];
+        Recolor made = swap(choice);
+        // (a colour dragged about a picker is a new choice each frame: the few there usually are, are kept)
+        if (recolors.size() >= KEPT) recolors.clear();
+        recolors.put(Map.copyOf(choice), new Recolor[]{made});
+        return made;
+    }
+
+    /** How many choices' swaps are kept: asked for every layer of everyone on screen, every frame. */
+    private static final int KEPT = 64;
+    private final Map<Map<String, String>, Recolor[]> recolors = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Recolor swap(Map<String, String> choice) {
         List<int[]> parts = new ArrayList<>();
         StringBuilder key = new StringBuilder();
         for (Map.Entry<String, Channel> e : channels.entrySet()) {

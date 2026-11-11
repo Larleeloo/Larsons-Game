@@ -1,0 +1,53 @@
+{
+ "key": "wall_buy",
+ "label": "Weapon board",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.035,
+ "model": true,
+ "parts": [
+  {
+   "key": "board",
+   "label": "Board",
+   "colour": "#6a4026",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "frame",
+   "label": "Frame",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "chalk",
+   "label": "Chalk outline",
+   "colour": "#f0f0e8",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "pegs",
+   "label": "Pegs",
+   "colour": "#d6aa5c",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.65,
+   0.22
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

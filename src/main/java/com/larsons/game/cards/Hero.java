@@ -127,6 +127,66 @@ public final class Hero {
         deck.gain(id);
     }
 
+    // --- kept in a save ---------------------------------------------------------------
+
+    /** Everything about her as a fighter, for a save: her class, experience, perks and each pile of her deck. */
+    public java.util.Map<String, Object> json() {
+        java.util.Map<String, Object> j = new java.util.LinkedHashMap<>();
+        j.put("class", hero == null ? "" : hero);
+        j.put("xp", (double) xp);
+        j.put("level", (double) level);
+        j.put("points", (double) points);
+        j.put("perks", new ArrayList<Object>(perks));
+        j.put("draw", new ArrayList<Object>(deck.drawPile()));
+        j.put("hand", new ArrayList<Object>(deck.hand()));
+        j.put("discard", new ArrayList<Object>(deck.discardPile()));
+        j.put("untilDraw", deck.untilDraw());
+        return j;
+    }
+
+    /**
+     * Take up what {@link #json} wrote: her class and deck as they were (a
+     * card the book no longer has is left out), her perks' helps for good put
+     * on {@code player} again. Nothing when {@code j} names no class.
+     */
+    public void read(java.util.Map<String, Object> j, Player player) {
+        CardBook book = CardBook.get();
+        String cls = j == null ? null : String.valueOf(j.getOrDefault("class", ""));
+        if (cls == null || book.hero(cls) == null) return;
+        hero = cls;
+        xp = Math.max(0, (int) num(j, "xp", 0));
+        level = Math.max(1, (int) num(j, "level", 1));
+        points = Math.max(0, (int) num(j, "points", 0));
+        perks.clear();
+        for (String id : strings(j.get("perks"))) if (book.perk(cls, id) != null) perks.add(id);
+        if (j.containsKey("draw") || j.containsKey("hand") || j.containsKey("discard")) {
+            deck.restore(known(book, j.get("draw")), known(book, j.get("hand")), known(book, j.get("discard")),
+                    num(j, "untilDraw", 0), book.drawAtStart(), book.handMost(), book.drawEvery());
+        } else {
+            deck.start(book.startingDeck(cls), book.drawAtStart(), book.handMost(), book.drawEvery());
+        }
+        if (player != null) {
+            player.buffs().clear();
+            restorePerks(player);
+        }
+    }
+
+    private static double num(java.util.Map<String, Object> j, String key, double fallback) {
+        return j.get(key) instanceof Number n ? n.doubleValue() : fallback;
+    }
+
+    private static List<String> strings(Object o) {
+        List<String> out = new ArrayList<>();
+        if (o instanceof List<?> l) for (Object x : l) out.add(String.valueOf(x));
+        return out;
+    }
+
+    private static List<String> known(CardBook book, Object o) {
+        List<String> out = strings(o);
+        out.removeIf(id -> book.card(id) == null);
+        return out;
+    }
+
     /** What playing a card did, for the toast. */
     public record Played(Card card, List<String> said) {}
 

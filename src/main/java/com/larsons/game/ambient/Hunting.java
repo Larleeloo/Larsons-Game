@@ -59,6 +59,8 @@ public final class Hunting {
             case COW -> List.of(new Drop(RAW_BEEF, 2, 3), new Drop(COW_HIDE, 1, 1));
             case DEER -> List.of(new Drop(RAW_VENISON, 2, 3), new Drop(DEER_HIDE, 1, 1), new Drop(ANTLER, 0, 2));
             case PIG -> List.of(new Drop(RAW_PORK, 2, 3));
+            case BOAR -> List.of(new Drop(RAW_PORK, 2, 4));
+            case BUFFALO -> List.of(new Drop(RAW_BEEF, 3, 5), new Drop(COW_HIDE, 1, 2));
             case SHEEP -> List.of(new Drop(RAW_MUTTON, 1, 2), new Drop(WOOL, 1, 3));
             case BEAR -> List.of(new Drop(BEAR_MEAT, 2, 4), new Drop(BEAR_PELT, 1, 1));
             case FOX -> List.of(new Drop(RAW_GAME, 1, 1), new Drop(FOX_PELT, 1, 1));

@@ -1,0 +1,17 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "metal": [
+   0,
+   1
+  ],
+  "gem": [
+   2
+  ]
+ },
+ "materials": [
+  "metal",
+  "metal",
+  "gem"
+ ]
+}

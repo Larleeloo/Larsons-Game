@@ -77,6 +77,9 @@ public final class BuildingCatalog {
             // the town's
             "market_stall", "market_stall_awning", "row_house", "shop_house", "workshop", "clocktower", "foundry",
             "wishing_well", "fountain", "notice_board", "stocks", "market_cross", "planter", "statue",
+            // the story's: what is made at, read, kept shut and called up - and the horde game's
+            "workbench", "signpost", "locked_door", "iron_gate", "summon_station", "wall_buy", "mystery_box",
+            "barricade",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
             "lantern_post");

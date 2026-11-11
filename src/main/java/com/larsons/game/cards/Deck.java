@@ -120,4 +120,19 @@ public final class Deck {
     private void deal() {
         drawCards(dealt);
     }
+
+    /** Her cards as a save had them: each pile as it lay, the next card as far off as it was. */
+    public void restore(List<String> drawPile, List<String> inHand, List<String> discarded, double untilDraw,
+                        int dealt, int most, double every) {
+        this.dealt = Math.max(0, dealt);
+        this.most = Math.max(1, most);
+        this.every = Math.max(1, every);
+        draw.clear();
+        hand.clear();
+        discard.clear();
+        draw.addAll(drawPile);
+        hand.addAll(inHand);
+        discard.addAll(discarded);
+        this.untilDraw = untilDraw <= 0 ? this.every : Math.min(untilDraw, this.every);
+    }
 }

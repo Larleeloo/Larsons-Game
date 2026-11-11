@@ -1,0 +1,59 @@
+{
+ "key": "summon_station",
+ "label": "Summoning station",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.21,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#6a6a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "button",
+   "label": "Button",
+   "colour": "#d8283c",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "runes",
+   "label": "Runes",
+   "colour": "#b060ff",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "pipes",
+   "label": "Pipes",
+   "colour": "#4a4a52",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.55
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

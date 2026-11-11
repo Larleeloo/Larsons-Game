@@ -750,6 +750,7 @@ public final class VoidRenderer implements AutoCloseable {
         bindHills(terrain, GroundTexture.UNITS);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
         glDepthFunc(GL_LEQUAL);
     }

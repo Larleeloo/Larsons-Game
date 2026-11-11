@@ -37,7 +37,9 @@ assets/sprites/
 ├── mouth/           <item>/
 ├── hair/            <item>/
 ├── hat/             <item>/
+├── horns/           <item>/   a Khorigale's horns, over the hair and the hat
 ├── other/           <item>/
+├── tail/            <item>/   a Khorigale's tail: behind her from the front, over what she wears from behind
 ├── carry_left/      <item>/   held in the left hand
 ├── carry_right/     <item>/   held in the right hand (the sword: carry_right/sword/)
 └── items/           <item>/icon.png   a pickup lying in the world
@@ -51,6 +53,23 @@ there (`world/Wearables` in the game: the silver necklace is
 `necklace/gold_pendant` in its `silver` colour) - see the root README's
 *Wearing what you own*. A folder no item puts there is drawn when an outfit
 already wears it, and not offered otherwise.
+
+### Horns and tails
+
+The Khorigale's horns (`horns/khorigale_horns`, in bone, ebony or amber) and
+tail (`tail/khorigale_tail`, in her skin's colours) are not rendered in
+Blender: `tools/sprites/make_khorigale.py` draws them straight onto sheets,
+frame by frame, from where the rendered sheets put her head (the crew cut)
+and her hips (the briefs) - for both bodies, both sizes, every state. Run it
+again after new animations are rendered:
+
+```
+python3 tools/sprites/make_khorigale.py                      # every sheet
+python3 tools/sprites/make_khorigale.py --state fish_cast    # one state's
+python3 tools/sprites/make_khorigale.py --preview out.png --state walk --skin emerald
+```
+
+They are worn by being a Khorigale (`actor/People`), not from the Wardrobe.
 
 ### Bodies
 
@@ -431,7 +450,7 @@ holdouts were cut against.
 | chestplate, leg_plating | `iron_chestplate`, `steel_chestplate`; `iron_leg_plating`, `steel_leg_plating` | plate armour: breast- and backplate with a hip lame and pauldrons; thigh plates, knee cops and greaves - iron dark and plain, steel polished with brass edges |
 | gloves, hat | `iron_gauntlets`, `steel_gauntlets`; `iron_helmet`, `steel_helmet` | gauntlets (leather gloves under a flared cuff and plates); open-faced helmets, the iron one with a nasal bar, the steel one crested |
 | sheath | `sword_left_hip`, `sword_right_hip` | a leather scabbard for the sword, hung from the belt on the left or the right hip |
-| ears | `round` ●, `pointed` ●, `elven` ● | human ears; half-elf points; long, swept-back elven ears |
+| ears | `round` ●, `pointed` ●, `elven` ● | human ears; a Half Drurinean's or a Khorigale's points; a Drurinean's long, swept-back ears (the folder is still `elven`; the game calls it Drurinean) |
 | earrings | `gold_hoops` ● | gold hoops |
 | nose | `straight` ●, `button` ●, `aquiline` ● | |
 | eyes | `hazel` ●, `ice_blue` ●, `amber_slit` ● | the amber eyes have slit pupils and a faint glow; in the pixel art an eye is coloured whole |

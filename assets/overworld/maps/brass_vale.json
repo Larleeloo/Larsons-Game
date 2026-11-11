@@ -1,0 +1,311 @@
+{
+ "name": "The Brass Vale",
+ "width": 60,
+ "height": 38,
+ "start": "oakhollow",
+ "music": "shuffle",
+ "tiles": [
+  "dwwhppphhffgffgppppppphgggghggggghhhhhhhhhhhmmmmsssmmmmmmmmm",
+  "dwbbpphhfffgffggpppppphgggggggggghhhhhhhhhhhhmmmmmmmmmhhhhhm",
+  "dwbgggfgfffggfgggghpphhggggggggggghhhhhhhhhhhhmmmmmmhhhhhhhh",
+  "dwbggffgggggggggggggfhhggggggggggwwffffpppphhhhmmmmphhhhhhhp",
+  "dwbgggggggggggggggggggggggghgggggwwgffgfpphhhhhmmmhhhgggffgp",
+  "dbbgggggggghggggfgggggggggggggggggwwfggfffhhhhmmhhhhcgggfgff",
+  "dwbggggggghhhggfggggggggggggggfgggwwggfffffhhhhhaaagcggffgff",
+  "dwbfggggggghggfgggggggggggggggggggwwgffffffhhhaaaaaaaggggccc",
+  "dwbbfggggggggggggghgggggggggggggggwwggffffpccgaaaaaaagggcccg",
+  "dwwbfpffppppppppfggfffgggggggggggwwgggfffppccaaaaaaaaagggccc",
+  "dwwbffffpppppppfffggffggggggggggwwggffffffpcccaaaaaaacgggccc",
+  "dwwbggfffggppppffppfffggggggggggwggggffffffcccaaaaaaaggggccc",
+  "dwwbgggggggggppffffffpgghggggggggggfgfffgfhcccccaaagggcccccc",
+  "dwbbggggggggggfffggffpfghgggggwwgggffffggggccccccgggcccccccc",
+  "dwbggggggggggffffgfffffghggggwwggfgfffgggggcggggggggcccccgcc",
+  "dwbggfffgggfffffffffffggghggggwwgggfffgggggcgggggggggcccgggc",
+  "dwbffffffgffffffffffffggggggggwwgggfffgffggggggggggggggggggg",
+  "dwbbfffffgfpfffffffffpgggggggggwwggfffgfgggggyyygggggggggggg",
+  "dwwbgfgffffffffgfffffpgghgggggggwwffffffggggyyyyggggggggghhh",
+  "dwwbffgfffffffffffffffgggggggggggwwfgfggggyyyyyygggggggggggg",
+  "dwwbffgfffffffffffffffgggggggggggwwfgfgggggyyyyygggggggggggg",
+  "dwwbbggfffffffffffgffpfgyyggggggggwwgghghhhyyyyygggggggggggg",
+  "dwwwbfffffffffffffgfffggyyyyygggggwwffghggggyxxxxxgxxxxxxxxx",
+  "dwwwbfffgggffffffggfffggyyyyyygggwwffffhgggggxxxxxxxxxxxxxgg",
+  "dwwbbffffggffffffgggffggyyyyyyfgwwgggpffggfggxxxxxxxxxwxxgxx",
+  "dwwbfffffffffffffgggffggfyyyyyygwwggggfffffggxxxxgxxxwwxxxxx",
+  "dwwbfffffffffffpgggggfgggyyyyyywwgggggggfppfpxxxggxxxxxxxxxx",
+  "dwwbpfgggggggggfgggfgggggyyyyyywwgggggggffpffgxxxxxxxxxxxxxx",
+  "dwwbbbbbbbbbbbbbbbbbggggyyyyyyygwwgggggffffffxxxxxxxxxxxxxxx",
+  "dwwwwwwwwwwwwwwwwwwbbbggggyyyyggwwggggggfffffgxxxxxxxxxxxxxx",
+  "dwwwwwwwwwwwwwwwwwwwgbbggggybbbbbwwbggfggfgghggxxxxxxxxxxxxx",
+  "dwwwwwwwwwwwwwwwwwwwwwbbfbbbbwwwwwwwbbbbbbbbgxxxxxxxxxxxxxxx",
+  "dddddddwwwwwwwwddwwwwwwbbbwwwwwwwwwwwwwwwwwbbbbbbbbxxxxxbbbb",
+  "ddddddddddddddddddddwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwbbbbbbbwww",
+  "dddddddddddddddddddddddwwwdddddddddddwwwwwwwwwwwwwwwbbwwwwww",
+  "dddddddddddddddddddddddddddddddddddddddddddwwwwwwwwwwwwwwwww",
+  "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+ ],
+ "nodes": [
+  {
+   "id": "oakhollow",
+   "name": "Oakhollow",
+   "kind": "village",
+   "x": 22,
+   "y": 24,
+   "level": "oakhollow",
+   "open": true,
+   "about": "Home: a village of oak and thatch on the edge of the Whispering Wood.",
+   "clear": "visit"
+  },
+  {
+   "id": "millers",
+   "name": "Miller's Crossing",
+   "kind": "camp",
+   "x": 28,
+   "y": 21,
+   "level": "millers_crossing",
+   "open": false,
+   "about": "The mill on the Brassrun. Bortzal raiders have taken the bridge.",
+   "clear": "foes"
+  },
+  {
+   "id": "brasswick",
+   "name": "Brasswick",
+   "kind": "town",
+   "x": 37,
+   "y": 20,
+   "level": "brasswick",
+   "open": true,
+   "about": "The market town of the Vale: smiths, alchemists and the notice board.",
+   "clear": "visit"
+  },
+  {
+   "id": "wood",
+   "name": "The Whispering Wood",
+   "kind": "ruins",
+   "x": 13,
+   "y": 17,
+   "level": "whispering_wood",
+   "open": false,
+   "about": "Old pines and older stones. Something large and blue has been seen among them.",
+   "clear": "quest"
+  },
+  {
+   "id": "fishers",
+   "name": "Fisher's Rest",
+   "kind": "port",
+   "x": 20,
+   "y": 30,
+   "level": "fishers_rest",
+   "open": true,
+   "about": "A jetty, a smokehouse and the best fishing on the south shore.",
+   "clear": "visit"
+  },
+  {
+   "id": "mine",
+   "name": "Copperpit Mine",
+   "kind": "mine",
+   "x": 30,
+   "y": 11,
+   "level": "copperpit_mine",
+   "open": false,
+   "about": "The Vale's copper comes from here - or did, before the lamps went out.",
+   "clear": "exit"
+  },
+  {
+   "id": "observatory",
+   "name": "The Drurin Observatory",
+   "kind": "tower",
+   "x": 42,
+   "y": 13,
+   "level": "drurin_observatory",
+   "open": true,
+   "about": "Drurinean scholars watch the great planet from its brass dome.",
+   "clear": "visit"
+  },
+  {
+   "id": "camp",
+   "name": "Khorigale Camp",
+   "kind": "camp",
+   "x": 45,
+   "y": 26,
+   "level": "khorigale_camp",
+   "open": true,
+   "about": "Wagons and cook-fires on the dry meadows: the Khorigale trade in everything.",
+   "clear": "visit"
+  },
+  {
+   "id": "marsh",
+   "name": "The Sallow Marsh",
+   "kind": "crypt",
+   "x": 52,
+   "y": 30,
+   "level": "sallow_marsh",
+   "open": false,
+   "about": "Reeds, mist and the dead who do not lie still.",
+   "clear": "foes"
+  },
+  {
+   "id": "watchtower",
+   "name": "The Old Watchtower",
+   "kind": "castle",
+   "x": 49,
+   "y": 9,
+   "level": "old_watchtower",
+   "open": false,
+   "about": "The Bortzal warband's hold, on a hill it burnt bare.",
+   "clear": "exit"
+  },
+  {
+   "id": "hollow",
+   "name": "Crystal Hollow",
+   "kind": "shrine",
+   "x": 54,
+   "y": 14,
+   "level": "crystal_hollow",
+   "open": false,
+   "about": "The edge of the Crystal Reach, where the sky serpents come through.",
+   "clear": "exit"
+  },
+  {
+   "id": "gate",
+   "name": "The East Gate",
+   "kind": "portal",
+   "x": 57,
+   "y": 20,
+   "level": "",
+   "open": false,
+   "about": "The road east, out of the Vale. Beyond it the main lands go on.",
+   "clear": "visit"
+  }
+ ],
+ "paths": [
+  {
+   "from": "oakhollow",
+   "to": "millers",
+   "via": [
+    [
+     25,
+     23
+    ]
+   ]
+  },
+  {
+   "from": "oakhollow",
+   "to": "wood",
+   "via": [
+    [
+     18,
+     21
+    ],
+    [
+     15,
+     19
+    ]
+   ]
+  },
+  {
+   "from": "oakhollow",
+   "to": "fishers",
+   "via": [
+    [
+     21,
+     27
+    ]
+   ]
+  },
+  {
+   "from": "millers",
+   "to": "brasswick",
+   "via": [
+    [
+     32,
+     21
+    ]
+   ]
+  },
+  {
+   "from": "millers",
+   "to": "mine",
+   "via": [
+    [
+     29,
+     16
+    ]
+   ]
+  },
+  {
+   "from": "brasswick",
+   "to": "observatory",
+   "via": [
+    [
+     40,
+     17
+    ]
+   ]
+  },
+  {
+   "from": "brasswick",
+   "to": "camp",
+   "via": [
+    [
+     41,
+     23
+    ]
+   ]
+  },
+  {
+   "from": "camp",
+   "to": "marsh",
+   "via": [
+    [
+     49,
+     28
+    ]
+   ]
+  },
+  {
+   "from": "observatory",
+   "to": "watchtower",
+   "via": [
+    [
+     45,
+     11
+    ]
+   ]
+  },
+  {
+   "from": "watchtower",
+   "to": "hollow",
+   "via": [
+    [
+     52,
+     11
+    ]
+   ]
+  },
+  {
+   "from": "hollow",
+   "to": "gate",
+   "via": [
+    [
+     56,
+     17
+    ]
+   ]
+  },
+  {
+   "from": "camp",
+   "to": "gate",
+   "via": [
+    [
+     51,
+     23
+    ],
+    [
+     55,
+     21
+    ]
+   ]
+  }
+ ]
+}

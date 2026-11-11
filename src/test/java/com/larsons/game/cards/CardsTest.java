@@ -13,16 +13,16 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** The cards: the book of 200, the nine classes' decks, drawing, playing, reshuffling, the perk trees. */
+/** The cards: the book of 210, the nine classes' decks, drawing, playing, reshuffling, the perk trees. */
 class CardsTest {
 
     private static final List<String> CLASSES = List.of("mage", "bard", "knight", "warrior", "warlock", "druid",
             "rogue", "ranger", "cleric");
 
     @Test
-    void theBookHasTwoHundredUniquelyNamedCardsAndNineClasses() {
+    void theBookHasTwoHundredAndTenUniquelyNamedCardsAndNineClasses() {
         CardBook book = CardBook.get();
-        assertEquals(200, book.cards().size());
+        assertEquals(210, book.cards().size());
         Set<String> names = new HashSet<>();
         for (Card c : book.cards()) {
             assertTrue(names.add(c.name()), "one card called " + c.name());

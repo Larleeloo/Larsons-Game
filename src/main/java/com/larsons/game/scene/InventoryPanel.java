@@ -95,7 +95,7 @@ final class InventoryPanel {
 
     private static final float[] SLOT_FILL = Theme.rgb(10, 10, 18, 0.62f);
     private static final float[] SLOT_HOVER = Theme.rgb(255, 255, 255, 0.16f);
-    private static final float[] BORDER = Theme.rgb(255, 255, 255, 1f);
+    private static final float[] BORDER = Theme.BRASS_LIGHT;
     private static final float[] SELECTED = Theme.ACCENT;
     private static final float[] COIN = Theme.rgb(240, 192, 48, 1f);
     /** How much of its rarity's colour a full slot is tinted with, its inner edge, and the glow round the item. */
@@ -122,12 +122,12 @@ final class InventoryPanel {
     private int shownSelected = -1;
     private Item shownHeld;
     private double nameTimer;
-    /** Beside the inventory instead of a store: the tiers of the weapon in this slot (-1: none), or her cards. */
+    /** Beside the inventory instead of a store: the tiers of the weapon in this slot (-1: none). */
     private int tiersOf = -1;
-    private boolean cards;
     private final SidePanels side;
     /** The shop open beside the inventory, or null; how far down its stock is scrolled. */
     private Shop shop;
+    private boolean carried;
     private int shopScroll;
 
     InventoryPanel(Game game, World world) {
@@ -136,23 +136,17 @@ final class InventoryPanel {
         this.side = new SidePanels(game, world);
     }
 
-    /** Open the screen with her cards beside it (J), or shut them. */
-    void toggleCards() {
-        if (open && cards) {
-            close();
-            return;
-        }
-        if (open && (store != null || shop != null)) close();
-        show();
-        cards = true;
-        tiersOf = -1;
+    /** What the Cards button does: the card table laid ({@link DemoScene}). */
+    private Runnable cardTable;
+
+    void onCards(Runnable open) {
+        cardTable = open;
     }
 
     /** Open the screen with the tiers of the weapon in {@code slot} beside it. */
     void showTiers(int slot) {
         if (open && (store != null || shop != null)) close();
         show();
-        cards = false;
         tiersOf = slot;
     }
 
@@ -193,9 +187,16 @@ final class InventoryPanel {
         if (open && shop == s) return;
         if (open) close();
         shop = s;
+        carried = false;
         shopScroll = 0;
         show();
         Sounds.play(SoundKeys.ui("shop_open"));
+    }
+
+    /** {@link #showShop} for what a person carries to sell: a shop that is no stall of the world's. */
+    void showWares(Shop s) {
+        showShop(s);
+        carried = true;
     }
 
     /** The shop open beside the inventory, or null. */
@@ -229,7 +230,6 @@ final class InventoryPanel {
         store = null;
         shop = null;
         tiersOf = -1;
-        cards = false;
         Sounds.play(SoundKeys.ui("inventory_close"));
     }
 
@@ -364,8 +364,8 @@ final class InventoryPanel {
         }
         Inventory inv = inventory();
         if (tiersOf >= 0 && !com.larsons.game.world.Upgrades.has(inv.get(tiersOf))) tiersOf = -1;
-        if (shop != null && !world.shops().contains(shop)) shop = null;
-        boolean beside = store != null || shop != null || tiersOf >= 0 || cards;
+        if (shop != null && !carried && !world.shops().contains(shop)) shop = null;
+        boolean beside = store != null || shop != null || tiersOf >= 0;
         float[][] both = beside ? panels(ui.width(), ui.height()) : null;
         float[] p = both == null ? panel(ui.width(), ui.height()) : both[0];
         float px = p[0], py = p[1], pw = p[2], ph = p[3];
@@ -417,19 +417,16 @@ final class InventoryPanel {
             float[] q = both[1];
             if (!side.tiers(ui, inv, tiersOf, q[0], q[1], q[2], q[3])) tiersOf = -1;
             inside |= ui.hover(q[0], q[1], q[2], q[3]);
-        } else if (cards) {
-            float[] q = both[1];
-            if (!side.cards(ui, q[0], q[1], q[2], q[3])) cards = false;
-            inside |= ui.hover(q[0], q[1], q[2], q[3]);
         }
         if (store == null && shop == null) {
             // her cards, beside the inventory (J)
             float bw = 96, bh = 30;
             float bx = px >= bw + 16 ? px - bw - 8 : px + pw / 2 - bw / 2;
             float by = px >= bw + 16 ? py + 8 : py + ph * 0.035f + 50;
-            if (ui.button(cards ? "Cards ◂" : "Cards (J)", bx, by, bw, bh, cards, true)) {
-                cards = !cards;
-                tiersOf = -1;
+            if (ui.button("Cards", bx, by, bw, bh) && cardTable != null) {
+                close();
+                cardTable.run();
+                return;
             }
             inside |= ui.hover(bx, by, bw, bh);
         }
@@ -467,7 +464,6 @@ final class InventoryPanel {
                 else if (held == null && !shift && com.larsons.game.world.Upgrades.has(there)) {
                     // a weapon with tiers: them, beside the inventory
                     tiersOf = tiersOf == hovered ? -1 : hovered;
-                    cards = false;
                     Sounds.play(SoundKeys.ui("click"));
                 } else if (held != null) transfer(inv, hovered, held, false);
                 else quickMove(hovered);
@@ -700,6 +696,20 @@ final class InventoryPanel {
         float r = 28, step = 64;
         float cx0 = ui.width() / 2f - step * (Inventory.HOTBAR - 1) / 2f;
         float cy = bottom - r - 6;
+        // the rail the slots hang on, a cog turning at each of its ends
+        float reach = step * (Inventory.HOTBAR - 1) / 2f + r + 20, mid = ui.width() / 2f;
+        ui.rect(mid - reach, cy - 4, 2 * reach, 8, Theme.SOOT);
+        ui.rect(mid - reach, cy - 3, 2 * reach, 6, Theme.BRASS_DARK);
+        ui.rect(mid - reach, cy - 3, 2 * reach, 1, Theme.BRASS_LIGHT);
+        ui.rect(mid - reach, cy - 2, 2 * reach, 2, Theme.BRASS);
+        double turn = world.time() * 0.5;
+        for (int side = -1; side <= 1; side += 2) {
+            float gx = mid + side * (reach - 8);
+            ui.cog(gx, cy, 12, side * turn, Theme.SOOT);
+            ui.cog(gx, cy, 11, side * turn, Theme.BRASS);
+            ui.disc(gx, cy, 4, Theme.SOOT);
+            ui.disc(gx, cy, 2.5f, Theme.BRASS_LIGHT);
+        }
         for (int i = 0; i < Inventory.HOTBAR; i++) {
             boolean sel = i == inv.selected();
             float rr = sel ? r + 4 : r;
@@ -730,7 +740,9 @@ final class InventoryPanel {
         }
         if (hot) ui.diamond(x, y, r, SLOT_HOVER);
         if (item != null) icon(ui, item, x, y, r, 1f, hot || selected);
+        ui.diamondOutline(x, y, r + 1.5f, 1.5f, Theme.SOOT);
         ui.diamondOutline(x, y, r, selected ? 3 : 2, selected ? SELECTED : BORDER);
+        if (!selected) ui.diamondOutline(x, y, r - 2.8f, 0.8f, Theme.withAlpha(Theme.BRASS_DARK, 0.9f));
         if (item != null) count(ui, amount, x, y, r);
     }
 
