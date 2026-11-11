@@ -68,7 +68,7 @@ digits) and holds [Creative Mode](#creative-mode), the level editor.
 ## Sharing the game
 
 ```bash
-./gradlew shareZip      # build/distributions/Larsons-Game.zip, about 4.2 GB
+./gradlew shareZip      # build/distributions/Larsons-Game.zip, about 4.3 GB
 ./gradlew shareZip -x spritePack   # only the code changed: keep the last pack (packing takes minutes)
 ```
 

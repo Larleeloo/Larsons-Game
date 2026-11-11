@@ -8,8 +8,8 @@ feels odd, confusing, slow or broken is exactly what Larson wants to hear.
 WHAT YOU NEED
 -------------
 - Windows 10 or 11, macOS 11 (Big Sur) or newer, or Linux.
-- About 10 GB of free disk space while you unzip (4.2 GB for the zip,
-  4.2 GB for the game, and 1 GB more the first time it starts). You can
+- About 10 GB of free disk space while you unzip (4.3 GB for the zip,
+  4.3 GB for the game, and 1 GB more the first time it starts). You can
   delete the zip afterwards.
 - 8 GB of memory (RAM) or more.
 - A graphics chip from the last ten years or so (it needs OpenGL 3.3).
