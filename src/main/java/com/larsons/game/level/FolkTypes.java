@@ -137,7 +137,7 @@ public final class FolkTypes {
                         Prop.number("xp", "Experience", 50, 0, 5000, 5),
                         Prop.text("turnin", "Handed in to (blank: who gave it)", ""),
                         Prop.text("needs", "Only after the quest (its id)", ""),
-                        Prop.text("id", "Id (blank: one of its own)", "")),
+                        Prop.text(Quest.ID, "Id (blank: one of its own)", "")),
                 0.6, 1.2, 0xFFD27A, false,
                 (o, b) -> b.world().quests().add(Quest.of(b.levelName(), o.id(), b.onGround(o), o.props()))));
 

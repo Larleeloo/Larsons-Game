@@ -57,9 +57,16 @@ public record Quest(String id, String title, Kind kind, String target, int count
         }
     }
 
+    /**
+     * The property a quest's own id is kept under. (Not "id": that is the
+     * number every object of a level has, and a level's file has room for
+     * one of them.)
+     */
+    public static final String ID = "quest";
+
     /** The quest a level's object {@code objectId} at {@code at} keeps in {@code props}; {@code level}: its level's name. */
     public static Quest of(String level, int objectId, Vec3 at, Map<String, Object> props) {
-        String id = str(props, "id", "");
+        String id = str(props, ID, "");
         if (id.isBlank()) id = (level == null || level.isBlank() ? "level" : level) + ":" + objectId;
         Kind kind = Kind.byKey(str(props, "kind", "kill"));
         String giver = str(props, "giver", "");

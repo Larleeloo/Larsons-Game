@@ -1,6 +1,7 @@
 package com.larsons.game.tools;
 
 import com.larsons.game.level.LevelObject;
+import com.larsons.game.story.Quest;
 import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Goods;
 import com.larsons.game.world.GroundMap;
@@ -148,17 +149,17 @@ public final class BrassVale {
                 "Garrick at the forge has been asking after you. Hear him out, then come and tell me what he wants.",
                 "Garrick's forge is east of the well.",
                 "So he means to arm you. Good. You will need it on the road.", "coins x20, health potion x2", 30)
-                .set("id", "oakhollow_smith");
+                .set(Quest.ID, "oakhollow_smith");
         l.quest(52, 58, "Boars in the barley", "Farmer Odo", KILL, "boar", 3, 40,
                 "Boars have been at my barley every night this week. Fell three of them and I will make it worth "
                         + "your while.", "They root about the south-east corner, past the cabbages.",
                 "That is three fewer. Here - and some leather, for the trouble.",
-                "coins x60, leather x4, roast meat x2", 80).set("id", "oakhollow_boars");
+                "coins x60, leather x4, roast meat x2", 80).set(Quest.ID, "oakhollow_boars");
         l.quest(-14.5, 14.5, "Sage for the pot", "Tilda", FETCH, "sage", 3, 0,
                 "I am out of sage, and my knees will not take the walk to the wood. Bring me three bunches?",
                 "Sage grows grey-green at the edge of the wood, west of here.",
                 "That will do nicely. Take these - you will want them out there.",
-                "health potion x3, empty bottle x4, coins x15", 40).set("id", "oakhollow_sage");
+                "health potion x3, empty bottle x4, coins x15", 40).set(Quest.ID, "oakhollow_sage");
 
         l.chest(-82, -66, 135, "coins x35, scroll of return, bilberries x4");
         l.scatter(12, -76, -12, 22, 0.9, 1.2, "sage_bush");
@@ -208,7 +209,7 @@ public final class BrassVale {
                 "Drive them off my mill, every last one, and the key to the old mine gate is yours. I have no use "
                         + "for it now.", "They are still there. I can hear them.",
                 "Quiet. Listen to that - just the wheel. Here is the key, and something for the road.",
-                "iron key x1, coins x80, grilled fish x3", 150).set("id", "millers_mill");
+                "iron key x1, coins x80, grilled fish x3", 150).set(Quest.ID, "millers_mill");
 
         l.band("bortzal", 4, -5, -13, 7, 5);
         l.band("bortzal", 2, 0, 8, 4, 4);
@@ -362,14 +363,14 @@ public final class BrassVale {
         l.animal("cat", 14, -30);
 
         l.quest(12, -11, "Word for the Magister", "Reeve Aldous", TALK, "Magister Ilvaren", 1, 0, MAGISTER[0],
-                MAGISTER[1], MAGISTER[2], MAGISTER[3], 120).set("id", "brasswick_magister");
+                MAGISTER[1], MAGISTER[2], MAGISTER[3], 120).set(Quest.ID, "brasswick_magister");
         l.quest(5, 102, "The warlord's head", "Captain Rhosyn", KILL, "Warlord Thrakk", 1, 0, WARLORD[0],
-                WARLORD[1], WARLORD[2], WARLORD[3], 300).set("id", "brasswick_warlord");
+                WARLORD[1], WARLORD[2], WARLORD[3], 300).set(Quest.ID, "brasswick_warlord");
         l.quest(-21, -23, "Blue for the vats", "Dyer Maud", FETCH, "bilberries", 5, 0,
                 "Bring me five handfuls of bilberries and I will pay better than the market does.",
                 "Bilberries grow in the Whispering Wood, and by Oakhollow.",
                 "Look at that colour. Here - a little luck, bottled.", "fortune potion x1, coins x40", 60)
-                .set("id", "brasswick_dye");
+                .set(Quest.ID, "brasswick_dye");
 
         l.keepOpen(0, 0, 100);
         l.everywhere(90, 0.9, 1.5, "oak_tree", "birch_tree", "great_oak");
@@ -433,11 +434,14 @@ public final class BrassVale {
                         + "seen. It has had two of my dogs. Put it down, and my best bow is yours.",
                 "The stone ring is north-west, where the path ends.",
                 "Blue. I would not have believed it. A bargain is a bargain - she shoots true.",
-                "coins x120, longbow crafted x1, bear pelt x1", 200).set("id", "wood_blue_bear");
+                "coins x120, longbow crafted x1, bear pelt x1", 200).set(Quest.ID, "wood_blue_bear");
 
         l.keepOpen(64, 28, 7);
         l.fire(64, 28);
         l.band("bandit", 3, 64, 28, 5, 5);
+        // two Khorigale outcasts ride with them
+        l.foe("khorigale", 60, 33, 200).set("roam", 5.0);
+        l.foe("khorigale", 69, 30, 120).set("weapon", "longbow").set("roam", 5.0);
         l.prop("crate", 68, 24, 30);
         l.chest(70, 32, 250, "coins x60, dagger sharper, stamina potion x2");
         l.herd("boar", 3, 70, -70, 10);
@@ -517,7 +521,7 @@ public final class BrassVale {
                         + "you can have my reedcane rod.",
                 "Stand at the water's edge with a rod in hand and cast.",
                 "Fine fish. The rod is yours - she takes a little longer over the bait, and that is all to the good.",
-                "reed rod x1, coins x40, grilled fish x2", 90).set("id", "fishers_bass");
+                "reed rod x1, coins x40, grilled fish x2", 90).set(Quest.ID, "fishers_bass");
         l.item("willow_rod", 1, 9, 24);
 
         l.scatter(60, 0, 24, 90, 0.8, 1.2, "beach_grass");
@@ -595,7 +599,7 @@ public final class BrassVale {
                 "Eight of them, at the least, between here and the lower gallery. Lay them down and I can get my "
                         + "lamplighters back in.", "They are still down there. I can hear them on the gravel.",
                 "Eight. I counted the quiet. Take this - and the brass key, it opens more doors than mine.",
-                "coins x150, brass key x1, crystal dust x4", 220).set("id", "mine_risen");
+                "coins x150, brass key x1, crystal dust x4", 220).set(Quest.ID, "mine_risen");
         l.spawn(0, 53, 0);
         l.wayOut("The way up", -5, 57, 0, false);
         l.wayOut("The old adit", -3, -55, 180, true);
@@ -652,13 +656,13 @@ public final class BrassVale {
         l.person("Apprentice Niv", HALF, "workshop", -8, 4, 140,
                 "The Magister says I may use the great glass when I can find the far stone without a map.");
         l.quest(0, -17, "Word for the Magister", "Reeve Aldous", TALK, "Magister Ilvaren", 1, 0, MAGISTER[0],
-                MAGISTER[1], MAGISTER[2], MAGISTER[3], 120).set("id", "brasswick_magister");
+                MAGISTER[1], MAGISTER[2], MAGISTER[3], 120).set(Quest.ID, "brasswick_magister");
         l.quest(70, -66, "The far stone", "Apprentice Niv", REACH, "", 1, 7,
                 "There is a sighting stone on the knoll north-east of the hill. Stand at it for me and tell me it "
                         + "is still upright? I have a chart to finish.",
                 "The far stone: down the east path, on its own knoll.",
                 "Still standing. Then my chart is right and the Magister is wrong. Do not tell the Magister.",
-                "scroll of haste x1, coins x30, crystal dust x2", 70).set("id", "observatory_stone");
+                "scroll of haste x1, coins x30, crystal dust x2", 70).set(Quest.ID, "observatory_stone");
         l.scenery("standing_stone", 70, -66, 2.2);
         l.glow("moonlight", 70, -66, 8, 3);
 
@@ -743,7 +747,7 @@ public final class BrassVale {
                         + "gore another calf. I will not ask my drovers - will you?",
                 "The bulls keep to the north-east, where the grass is tall.",
                 "It had to be done. Drink to them with this - they were fine beasts once.",
-                "coins x90, drinking horn x1, leather x6", 140).set("id", "camp_buffalo");
+                "coins x90, drinking horn x1, leather x6", 140).set(Quest.ID, "camp_buffalo");
         l.herd("buffalo", 5, 58, -44, 14);
         l.herd("deer", 3, -60, -50, 14);
 
@@ -809,7 +813,7 @@ public final class BrassVale {
                 "Every one of the dead in this marsh, laid down for good. Do that, and the silver key I carry is "
                         + "yours, and welcome.", "I can still hear them out there.",
                 "Listen. Frogs. I had forgotten the marsh had frogs. Here is the key - and my thanks.",
-                "silver key x1, coins x120, scroll of warding x1", 260).set("id", "marsh_clear");
+                "silver key x1, coins x120, scroll of warding x1", 260).set(Quest.ID, "marsh_clear");
 
         l.everywhere(300, 0.8, 1.3, "reeds");
         l.everywhere(60, 1.0, 1.6, "willow_tree");
@@ -882,7 +886,7 @@ public final class BrassVale {
                                 + "; Beyond=Past the tower the road runs on to the Crystal Hollow. Nobody has "
                                 + "come back down it since spring.");
         l.quest(0, -16, "The warlord's head", "Captain Rhosyn", KILL, "Warlord Thrakk", 1, 0, WARLORD[0],
-                WARLORD[1], WARLORD[2], WARLORD[3], 300).set("id", "brasswick_warlord");
+                WARLORD[1], WARLORD[2], WARLORD[3], 300).set(Quest.ID, "brasswick_warlord");
 
         l.everywhere(120, 0.9, 1.5, "dead_tree");
         l.everywhere(70, 0.8, 1.5, "ash_spire", "boulder", "stones");
@@ -912,6 +916,9 @@ public final class BrassVale {
         l.put("portal", -26, -14, 0, "count", 3, "every", 7.0, "height", 18.0, "range", 36.0);
         l.put("portal", 28, 16, 0, "count", 3, "every", 7.0, "height", 20.0, "range", 34.0, "colour", "any");
         l.band("drurinean", 3, 62, -4, 7, 5);
+        // and the cabal's engineers, with their crossbows
+        l.foe("half_drurinean", 57, -9, 250).set("weapon", "crossbow").set("roam", 4.0);
+        l.foe("half_drurinean", 67, 1, 250).set("roam", 4.0);
         for (double[] p : new double[][]{{-40, 20}, {-20, -30}, {24, -26}, {40, 18}, {0, 30}, {-60, -8}, {66, 6}}) {
             l.glow("crystal", p[0], p[1], 12, 2);
         }
@@ -929,7 +936,7 @@ public final class BrassVale {
                 "Four crystal blooms from the hollow - picked, not cut. The serpents will not thank you for it.",
                 "The blooms grow low, among the crystal grass round the pool.",
                 "Still humming. Yes. Take these: the dust is theirs, the storm is mine.",
-                "crystal dust x6, scroll of the storm x1, coins x100", 240).set("id", "hollow_blooms");
+                "crystal dust x6, scroll of the storm x1, coins x100", 240).set(Quest.ID, "hollow_blooms");
 
         l.scatter(18, 0, 0, 60, 0.9, 1.2, "crystal_bloom");
         l.scatter(60, 0, 0, 74, 0.9, 1.7, "crystal_tree");
