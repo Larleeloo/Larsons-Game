@@ -258,6 +258,11 @@ final class HordeGame {
         Sounds.play(SoundKeys.ui("round_start"));
     }
 
+    /** Round {@code n} begins now, whatever round it was (a script's: to see a late round without playing to it). */
+    void skipTo(int n) {
+        if (phase != Phase.OVER) begin(Math.max(1, n));
+    }
+
     private void end() {
         phase = Phase.OVER;
         newBest = round > best;

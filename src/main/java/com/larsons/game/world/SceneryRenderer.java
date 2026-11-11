@@ -100,6 +100,11 @@ public final class SceneryRenderer implements AutoCloseable {
         bare = picked == null ? p -> false : picked;
     }
 
+    /** How many pieces of scenery the last {@link #draw} had in view. */
+    private int drawn;
+
+    public int drawn() { return drawn; }
+
     /** Whether there is any scenery to draw. */
     public boolean isEmpty() { return sheets.isEmpty(); }
 
@@ -121,15 +126,24 @@ public final class SceneryRenderer implements AutoCloseable {
         batch.setAlphaCut(CUT);
         batch.setDepthPlane(camera.eye(), uprightNormal);
         Vec3 right = camera.right(), up = camera.up();
+        com.larsons.game.math.Frustum frustum = new com.larsons.game.math.Frustum(viewProj);
+        drawn = 0;
         for (Map.Entry<ScenerySprites.Sprite, List<Scenery.Placed>> e : scenery.bySprite().entrySet()) {
             Texture sheet = sheets.get(e.getKey().name());
             if (sheet == null) continue;
+            double wide = e.getKey().profile().frameWorldSize() / 2, tall = e.getKey().profile().frameWorldHeight();
             boolean facing = e.getKey().profile().facesCamera(), bends = e.getKey().profile().bend();
             SceneryProfile.Forage forage = e.getKey().profile().forage();
             ScenerySprites.Sprite bareSprite = forage == null || forage.picked() == null ? null
                     : byName.get(forage.picked());
             Texture bareSheet = bareSprite == null ? null : sheets.get(bareSprite.name());
             for (Scenery.Placed p : e.getValue()) {
+                // (out of view: not drawn - a ball round its card or cross, with room for a lean)
+                double sc = p.scale();
+                // (a card that faces the camera leans back with the view: its top may be half its height off)
+                double reach = Math.hypot(wide, tall / 2) * sc + (facing ? tall * sc / 2 : 0) + 0.5;
+                if (!frustum.sees(p.x(), p.y() + tall * sc / 2, p.z(), reach)) continue;
+                drawn++;
                 batch.tint(p.tint());
                 Texture t = sheet;
                 ScenerySprites.Sprite frames = p.sprite();

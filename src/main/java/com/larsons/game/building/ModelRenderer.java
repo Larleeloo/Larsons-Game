@@ -280,7 +280,10 @@ final class ModelRenderer implements AutoCloseable {
         shader.set("uScale", (float) sc[0], (float) sc[1], (float) sc[2]);
         glBindVertexArray(g.vao());
         BuildingModel m = g.model();
-        if (m.fixedCorners() > 0) glDrawArrays(GL_TRIANGLES, 0, m.fixedCorners());
+        if (m.fixedCorners() > 0) {
+            glDrawArrays(GL_TRIANGLES, 0, m.fixedCorners());
+            com.larsons.game.core.Perf.drew(0);
+        }
         if (m.turningCorners() > 0 && m.pivot() != null) {
             BuildingProfile.Anim anim = p.anim();
             double speed = anim == null ? 30 : anim.speed();
@@ -291,6 +294,7 @@ final class ModelRenderer implements AutoCloseable {
             double turn = Math.toRadians((time * speed) % 360.0);
             shader.set("uTurn", (float) (turn == 0 ? 1e-6 : turn));
             glDrawArrays(GL_TRIANGLES, m.fixedCorners(), m.turningCorners());
+            com.larsons.game.core.Perf.drew(0);
         }
     }
 

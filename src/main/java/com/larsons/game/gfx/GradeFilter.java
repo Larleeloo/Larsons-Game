@@ -77,6 +77,7 @@ public final class GradeFilter implements AutoCloseable {
         glBindTexture(GL_TEXTURE_2D, scene);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
         glEnable(GL_BLEND);
         glDepthMask(true);

@@ -284,6 +284,7 @@ public final class TerrainRenderer implements AutoCloseable {
         ground.bind(shader, 0);
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+        com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
     }
 

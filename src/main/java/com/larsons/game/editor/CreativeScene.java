@@ -1395,9 +1395,26 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     // --- drawing ------------------------------------------------------------------------------
 
     @Override
+    public float[] perfInset() {
+        return hideUi ? new float[]{10, 10} : new float[]{RIGHT_W + 10, TOP_H + 10};
+    }
+
+    @Override
     public void render() {
         var w = game.window();
         int fw = w.framebufferWidth(), fh = w.framebufferHeight();
+        if (game.settings().perfOverlay || game.settings().logPerf) {
+            var world = view.world();
+            com.larsons.game.core.Perf.count("objects", level.objects().size());
+            com.larsons.game.core.Perf.count("folk", world.folks().all().size());
+            com.larsons.game.core.Perf.count("animals", world.animals().live().size());
+            com.larsons.game.core.Perf.count("scenery", world.scenery().placed().size());
+            com.larsons.game.core.Perf.count("scenery in view", game.worldRenderer().sceneryInView());
+            com.larsons.game.core.Perf.count("buildings", world.buildings().size());
+            com.larsons.game.core.Perf.count("lights", world.lights().size());
+            com.larsons.game.core.Perf.count("sheets", game.sprites().residentCount());
+            com.larsons.game.core.Perf.count("MB of sheets", (int) (game.sprites().residentBytes() >> 20));
+        }
         java.util.Set<Integer> lit = new java.util.HashSet<>();
         for (LevelObject o : selection) if (ObjectTypes.builds(o.type())) lit.add(o.id());
         game.worldRenderer().highlightBuildings(lit);

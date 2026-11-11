@@ -108,7 +108,17 @@ public final class LayerStack {
     /** Per-character memory: the last stack that was complete. */
     public static final class Memory {
         private Result last;
+        /** What was last prefetched for (state, view and outfit, hashed), and frames to rest before asking again. */
+        private int prefetched, rest;
     }
+
+    /**
+     * Frames a character's prefetch rests once a pass found nothing more to
+     * queue (all in, or no room): asking is some hundreds of look-ups a
+     * character, which with a crowd on screen was most of a frame's work.
+     * A change of state, view or outfit asks again at once.
+     */
+    static final int PREFETCH_REST = 30;
 
     private LayerStack() {}
 
@@ -238,8 +248,17 @@ public final class LayerStack {
         // Only once what is on screen is all in: until then the decoders work
         // on nothing else.
         if (!missing) {
-            for (Want w : wants) {
-                if (w.file() != null) prefetch(lib, w.source(), state, hands, elev, facing);
+            int key = 31 * (31 * (31 * state.hashCode() + hands.hashCode()) + elev.hashCode()) + facing.hashCode();
+            for (Want w : wants) if (w.file() != null) key = 31 * key + w.source().hashCode();
+            if (memory == null || memory.prefetched != key || --memory.rest <= 0) {
+                boolean more = false;
+                for (Want w : wants) {
+                    if (w.file() != null) more |= prefetch(lib, w.source(), state, hands, elev, facing);
+                }
+                if (memory != null) {
+                    memory.prefetched = key;
+                    memory.rest = more ? 0 : PREFETCH_REST;
+                }
             }
         }
         if (missing && memory.last != null && usable(memory.last)) {
@@ -345,16 +364,19 @@ public final class LayerStack {
      * state from the two neighbouring directions (the camera or the character
      * may turn). Queued loads are cheap to ask for twice, and the library only
      * takes them while the memory budget has room (see {@link SpriteLibrary#prefetch}).
+     * Returns whether asking again next frame may queue more.
      */
-    private static void prefetch(SpriteLibrary lib, SpriteLibrary.Source src,
-                                 AnimState state, Stance stance, Elevation elev, Facing facing) {
+    private static boolean prefetch(SpriteLibrary lib, SpriteLibrary.Source src,
+                                    AnimState state, Stance stance, Elevation elev, Facing facing) {
+        boolean more = false;
         for (AnimState other : AnimState.values()) {
             if (other != state && (other.stance() == stance || other.stance() == Stance.ALL)) {
-                lib.prefetch(lib.resolve(src, other, elev, facing));
+                more |= lib.prefetch(lib.resolve(src, other, elev, facing)).more();
             }
         }
-        lib.prefetch(lib.resolve(src, state, elev, facing.clockwise()));
-        lib.prefetch(lib.resolve(src, state, elev, facing.counterClockwise()));
+        more |= lib.prefetch(lib.resolve(src, state, elev, facing.clockwise())).more();
+        more |= lib.prefetch(lib.resolve(src, state, elev, facing.counterClockwise())).more();
+        return more;
     }
 
     // --- drawing ---------------------------------------------------------------------

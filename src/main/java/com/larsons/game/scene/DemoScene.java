@@ -705,7 +705,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             toggled();
             game.settings().showProps = !game.settings().showProps;
         }
-        if (in.pressed(GLFW_KEY_F3)) {
+        if (in.pressed(Action.DEBUG)) {
             toggled();
             game.settings().debugOverlay = !game.settings().debugOverlay;
         }
@@ -1457,6 +1457,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     @Override
     public void render() {
         var w = game.window();
+        if (game.settings().perfOverlay || game.settings().logPerf) {
+            com.larsons.game.core.Perf.count("folk", world.folks().all().size());
+            com.larsons.game.core.Perf.count("animals", world.animals().live().size());
+            com.larsons.game.core.Perf.count("critters", world.critters().live().size());
+            com.larsons.game.core.Perf.count("scenery", world.scenery().placed().size());
+            com.larsons.game.core.Perf.count("scenery in view", game.worldRenderer().sceneryInView());
+            com.larsons.game.core.Perf.count("buildings", world.buildings().size());
+            com.larsons.game.core.Perf.count("lights", world.lights().size());
+            com.larsons.game.core.Perf.count("sheets", game.sprites().residentCount());
+            com.larsons.game.core.Perf.count("MB of sheets", (int) (game.sprites().residentBytes() >> 20));
+        }
         game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();
@@ -1471,7 +1482,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         combatHud.draw(ui, world, camera, w.scale());
         combatHud.drawLock(ui, world, camera);
         boolean hudShown = game.settings().showHud;
-        // F3: what a developer wants to know - the sheets on screen, the frame times, every key
+        // F7: what a developer wants to know - the sheets on screen, the frame times, every key
         boolean debug = game.settings().debugOverlay;
         if (debug) hud(ui);
         if (!pause.open() && table.open()) {
@@ -2093,6 +2104,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         : Double.parseDouble(a));
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
+            // round <n>: the horde game's round n begins now
+            case "round" -> {
+                if (horde != null) horde.skipTo(Integer.parseInt(argument.trim()));
+            }
             case "stamina" -> p.setStamina(Double.parseDouble(argument.trim()));
             // fall <metres>: up in the air where she stands, falling (roll: fall 6 roll)
             case "fall" -> {

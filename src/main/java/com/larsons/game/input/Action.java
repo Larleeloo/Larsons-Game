@@ -64,6 +64,8 @@ public enum Action {
     EMOTE_ANGRY("Anger", Group.OTHER, keys(GLFW_KEY_F4), pads()),
     TIME_LAPSE("Time-lapse (held)", Group.OTHER, keys(GLFW_KEY_N), pads()),
     HIDE_HUD("Hide the HUD", Group.OTHER, keys(GLFW_KEY_H), pads()),
+    DEBUG("Developer's readout", Group.OTHER, keys(GLFW_KEY_F7), pads()),
+    PERF("Performance overlay", Group.OTHER, keys(GLFW_KEY_F8), pads()),
     PAUSE("Pause menu", Group.OTHER, keys(GLFW_KEY_ESCAPE), pads(Pad.MENU));
 
     /** The Controls page's sections. */

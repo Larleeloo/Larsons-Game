@@ -17,6 +17,13 @@ public interface Scene {
 
     default void exit() {}
 
+    /**
+     * How far in from the window's top right corner the performance overlay
+     * (F8) goes, pixels across and down: clear of whatever the scene keeps
+     * there (an editor's panels).
+     */
+    default float[] perfInset() { return new float[]{10, 10}; }
+
     /** Title-bar suffix. */
     default String name() { return getClass().getSimpleName(); }
 

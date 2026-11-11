@@ -559,6 +559,7 @@ public final class Batch implements AutoCloseable {
             glDrawElementsBaseVertex(GL_TRIANGLES, count * 6, GL_UNSIGNED_INT, (long) first * 6 * Integer.BYTES,
                     baseVertex);
             drawCalls++;
+            com.larsons.game.core.Perf.drew(count);
         }
         clearQueue();
     }

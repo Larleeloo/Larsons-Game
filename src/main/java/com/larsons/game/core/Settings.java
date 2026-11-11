@@ -20,6 +20,7 @@ import java.util.Map;
  *   -Dlarsons.gpu.vsync=on        wait for the display's refresh, for this run (else Pause → Settings → Vsync)
  *   -Dlarsons.fps=120             the frame rate to hold (0 = as fast as it goes; see FramePacer)
  *   -Dlarsons.fps.log=true        print the frame rate and frame times to the console twice a second
+ *   -Dlarsons.perf.log=true       print the performance overlay's numbers to the console once a second
  *   -Dlarsons.sprites.scale=1     shrink sprite frames on load (0.5 = half size)
  *   -Dlarsons.sprites.vramMB=1536 video memory the sprite cache may use
  *   -Dlarsons.assets=assets       where the assets are (sprites/, scenery/, sounds/ ...)
@@ -63,12 +64,16 @@ public final class Settings {
     private int savedFps = FramePacer.DEFAULT_FPS;
     /** Print the frame numbers to the console ({@code -Dlarsons.fps.log}). */
     public final boolean logFrames;
+    /** Print the performance overlay's numbers to the console once a second ({@code -Dlarsons.perf.log}). */
+    public final boolean logPerf;
     public boolean showHud = true;
     /**
-     * F3: the developer's overlay over the game - which sheets are on
+     * F7: the developer's overlay over the game - which sheets are on
      * screen, the frame times, the entity counts, and every key's help.
      */
     public boolean debugOverlay;
+    /** The performance overlay (F8): frame times, draw calls, what the scene is running. */
+    public boolean perfOverlay;
     /** Her class (Mage, Bard ... Cleric: {@link com.larsons.game.cards.CardBook}), "" before she has chosen one. */
     public String heroClass = "";
     /**
@@ -146,6 +151,7 @@ public final class Settings {
         spriteScale = doubleProperty("larsons.sprites.scale", -1);
         fps = intProperty("larsons.fps", -1);
         logFrames = Boolean.getBoolean("larsons.fps.log");
+        logPerf = Boolean.getBoolean("larsons.perf.log");
     }
 
     public static Settings load() {
@@ -160,6 +166,7 @@ public final class Settings {
                 s.savedFps = Math.max(0, (int) Json.num(j, "fps", FramePacer.DEFAULT_FPS));
                 s.showHud = Json.bool(j, "showHud", true);
                 s.debugOverlay = Json.bool(j, "debugOverlay", false);
+                s.perfOverlay = Json.bool(j, "perfOverlay", false);
                 s.heroClass = Json.str(j, "heroClass", "");
                 s.pointer = Json.str(j, "pointer", "class");
                 s.showProps = Json.bool(j, "showProps", true);
@@ -198,6 +205,7 @@ public final class Settings {
         j.put("fps", savedFps);
         j.put("showHud", showHud);
         j.put("debugOverlay", debugOverlay);
+        j.put("perfOverlay", perfOverlay);
         j.put("heroClass", heroClass);
         j.put("pointer", pointer);
         j.put("showProps", showProps);

@@ -218,6 +218,9 @@ public final class WorldRenderer implements AutoCloseable {
     /** The player's layer stack as last drawn — for the HUD. */
     public LayerStack.Result playerStack() { return playerStack; }
 
+    /** How many pieces of scenery were in view, the last frame drawn. */
+    public int sceneryInView() { return scenery.drawn(); }
+
     /** Draw {@code world} - its scenery as {@link World#scenery()} has it - from {@code camera}. */
     public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
         glViewport(0, 0, fbWidth, fbHeight);
@@ -235,6 +238,7 @@ public final class WorldRenderer implements AutoCloseable {
         float fogFar = world.indoors() ? INDOOR_FOG : indoors ? (float) (sky.fog() * (over == Sky.Cover.CAVE
                 ? CAVE_FOG : 0.8)) : (float) sky.fog();
         Vec3 eye = camera.eye();
+        frustum = new com.larsons.game.math.Frustum(viewProj);
 
         ground = world.terrain();
         lightUp(world, camera, light);
@@ -1116,6 +1120,9 @@ public final class WorldRenderer implements AutoCloseable {
     /** How dark the shadows are this frame: fainter by night, when the light is weaker. */
     private float shadowStrength = 1f;
 
+    /** What the camera sees this frame: what lies on the ground outside it is not laid. */
+    private com.larsons.game.math.Frustum frustum;
+
     private void groundShadow(Vec3 at, double radius, float alpha) {
         groundQuad(shadow, at, radius, 0, 0, 0, alpha * shadowStrength);
     }
@@ -1144,6 +1151,11 @@ public final class WorldRenderer implements AutoCloseable {
 
     private void groundQuad(Texture tex, Vec3 at, double radius, float r, float g, float b, float alpha,
                             boolean light) {
+        // (a level's every tree has its shadow: only the ones in view are laid - the square's corners, and the
+        // rise of a slope under it, within the ball asked about)
+        if (frustum != null && !frustum.sees(at.x(), ground.height(at.x(), at.z()), at.z(), radius * 1.5 + 1)) {
+            return;
+        }
         double x0 = at.x() - radius, x1 = at.x() + radius, z0 = at.z() - radius, z1 = at.z() + radius;
         boolean flat = ground.flat() || Math.abs(ground.height(x0, z0)) + Math.abs(ground.height(x1, z0))
                 + Math.abs(ground.height(x0, z1)) + Math.abs(ground.height(x1, z1))

@@ -41,6 +41,8 @@ public final class ObjectStack {
     /** Per-object memory: the last complete stack. */
     public static final class Memory {
         private Result last;
+        /** What was last prefetched for (the object and view, hashed), and frames to rest before asking again. */
+        private int prefetched, rest;
     }
 
     private ObjectStack() {}
@@ -100,7 +102,14 @@ public final class ObjectStack {
         Result result = new Result(layers, framing, view, missing);
         if (!missing) {
             if (memory != null) memory.last = result;
-            prefetch(lib, objects, object, e, view);
+            int key = 31 * (31 * object.hashCode() + view.elevation().hashCode()) + view.facing().hashCode();
+            if (memory == null || memory.prefetched != key || --memory.rest <= 0) {
+                boolean more = prefetch(lib, objects, object, e, view);
+                if (memory != null) {
+                    memory.prefetched = key;
+                    memory.rest = more ? 0 : LayerStack.PREFETCH_REST;
+                }
+            }
         }
         return result;
     }
@@ -110,8 +119,9 @@ public final class ObjectStack {
      * at any moment - into room the library's budget has spare, once what is
      * on screen is all in.
      */
-    private static void prefetch(SpriteLibrary lib, ObjectSprites objects, String object, ObjectSprites.Entry e,
-                                 SpriteView view) {
+    private static boolean prefetch(SpriteLibrary lib, ObjectSprites objects, String object, ObjectSprites.Entry e,
+                                    SpriteView view) {
+        boolean more = false;
         String suffix = "_" + view.elevation().key() + "_" + view.facing().key();
         String twin = view.facing().hasMirror() ? "_" + view.elevation().key() + "_" + view.facing().mirrorOf().key()
                 : suffix;
@@ -120,9 +130,11 @@ public final class ObjectStack {
                 String end = key.endsWith(suffix) ? suffix : key.endsWith(twin) ? twin : null;
                 if (end == null) continue;
                 String state = key.substring(0, key.length() - end.length());
-                lib.prefetch(objects.resolve(object, layer.getKey(), state, view.elevation(), view.facing()));
+                more |= lib.prefetch(objects.resolve(object, layer.getKey(), state, view.elevation(),
+                        view.facing())).more();
             }
         }
+        return more;
     }
 
     /** The state an ambient layer loops: the first it has sheets for. */

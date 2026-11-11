@@ -10,6 +10,7 @@ import com.larsons.game.audio.Sounds;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.GpuInfo;
 import com.larsons.game.gfx.Window;
+import com.larsons.game.input.Action;
 import com.larsons.game.input.Input;
 import com.larsons.game.scene.DemoScene;
 import com.larsons.game.scene.MainMenuScene;
@@ -482,15 +483,21 @@ public final class Game implements AutoCloseable {
             if (!booting) autopilot.step(dt, this);
             Music.update(dt);
 
+            long t0 = System.nanoTime();
             sprites.beginFrame();
             if (booting) {
                 sprites.pump(BOOT_UPLOAD_NS);
                 in.endFrame();
             } else {
+                if (in.pressed(Action.PERF)) {
+                    settings.perfOverlay = !settings.perfOverlay;
+                    settings.save();
+                }
                 sprites.pump();
                 if (!importer.visible()) scene.update(dt);
                 pointers.apply(window, settings.pointer, settings.heroClass);
             }
+            long t1 = System.nanoTime();
 
             glViewport(0, 0, window.framebufferWidth(), window.framebufferHeight());
             glClearColor(Theme.BACKGROUND[0], Theme.BACKGROUND[1], Theme.BACKGROUND[2], 1);
@@ -503,6 +510,8 @@ public final class Game implements AutoCloseable {
             drawOverlays(dt);
 
             takeShot(!autopilot.active());
+            // (the drawing's time is to here: the swap after it waits for the display, which is no work of ours)
+            Perf.endFrame(t1 - t0, System.nanoTime() - t1, dt, settings.logPerf);
             window.swapBuffers();
             in.endFrame();
             pacer.endFrame();
@@ -573,9 +582,37 @@ public final class Game implements AutoCloseable {
             ui.text(ui.body, t.text(), x + 14, y + 5, Theme.withAlpha(t.color(), a));
             y -= 38;
         }
+        if (settings.perfOverlay && booted) drawPerf();
         // The importer is modal: it draws over everything, toasts included.
         importer.draw(ui, this);
         ui.end();
+    }
+
+    /**
+     * The performance overlay (F8): a brass plate in the top right corner
+     * with the frame rate, what the update and the drawing take, the draw
+     * calls, and what the scene is running - in the game and the editors.
+     */
+    private void drawPerf() {
+        List<String> lines = new java.util.ArrayList<>();
+        lines.add(String.format("%.0f fps  ·  %.1f ms  ·  longest %.1f ms", pacer.fps(), pacer.averageMs(),
+                pacer.worstMs()));
+        lines.addAll(Perf.lines());
+        float w = 0;
+        for (String l : lines) w = Math.max(w, ui.small.width(l));
+        w += 24;
+        float[] inset = scene.perfInset();
+        float h = 12 + 18 * lines.size(), x = ui.width() - w - inset[0], y = inset[1];
+        ui.rect(x, y, w, h, Theme.withAlpha(Theme.rgb(26, 19, 14, 1f), 0.88f));
+        ui.outline(x, y, w, h, 1, Theme.SOOT);
+        ui.outline(x + 1, y + 1, w - 2, h - 2, 1, Theme.withAlpha(Theme.BRASS, 0.8f));
+        // the frame's time against the display's: green with room to spare, amber near it, red over
+        double budget = 1000.0 / Math.max(30, pacer.target() > 0 ? pacer.target() : pacer.refresh());
+        double spent = Perf.updateMs() + Perf.renderMs();
+        float[] first = spent > budget ? Theme.WARNING : spent > budget * 0.7 ? Theme.ACCENT : Theme.OK;
+        for (int i = 0; i < lines.size(); i++) {
+            ui.text(ui.small, lines.get(i), x + 12, y + 6 + 18 * i, i == 0 ? first : i < 4 ? Theme.ITEM : Theme.HINT);
+        }
     }
 
     // --- scenes ----------------------------------------------------------------------
