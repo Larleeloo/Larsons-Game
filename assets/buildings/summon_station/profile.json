@@ -11,7 +11,7 @@
    "key": "stone",
    "label": "Stone",
    "colour": "#6a6a74",
-   "texture": "stone",
+   "texture": "stone_blocks",
    "glow": false
   },
   {

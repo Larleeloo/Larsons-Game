@@ -277,6 +277,8 @@ public enum AnimalKind {
             case CAT -> 0.35;
             case DEER -> 1.05;
             case IGUANA -> 0.09;
+            case BOAR -> 0.755;
+            case BUFFALO -> 1.254;
             default -> 0;
         };
     }
@@ -284,8 +286,8 @@ public enum AnimalKind {
     /** How deep a water it walks into, metres (deeper: it swims, or it keeps out). */
     public double wade() {
         return switch (this) {
-            case HORSE, COW, BEAR, DEER -> 0.35;
-            case SHEEP, PIG, DOG -> 0.15;
+            case HORSE, COW, BEAR, DEER, BUFFALO -> 0.35;
+            case SHEEP, PIG, DOG, BOAR -> 0.15;
             case FLAMINGO -> 0.4;
             default -> 0.04;
         };
