@@ -68,11 +68,19 @@ public final class Bindings {
     /**
      * Make {@code bind} slot {@code slot} of {@code a}: it is taken from
      * whatever action had it. Returns the action it was taken from (null:
-     * none, or {@code a} itself).
+     * none, or {@code a} itself - or it was not taken at all: the only key
+     * of an action that must have one).
      */
     public Action set(Action a, int slot, Bind bind) {
         if (bind == null) return null;
         Map<Action, List<Bind>> map = bind.onPad() ? pads : keys;
+        // the last key of an action that must have one stays its, unless it has another to fall back to
+        Action holder = actionOf(bind);
+        if (holder != null && holder != a && holder.required() && !bind.onPad() && map.get(holder).size() == 1) {
+            boolean spare = false;
+            for (Bind d : holder.defaultKeys()) spare |= !d.equals(bind) && actionOf(d) == null;
+            if (!spare) return null;
+        }
         Action had = null;
         for (Map.Entry<Action, List<Bind>> e : map.entrySet()) {
             if (e.getValue().remove(bind) && e.getKey() != a) had = e.getKey();

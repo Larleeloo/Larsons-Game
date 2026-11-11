@@ -84,13 +84,13 @@ public final class Recipes {
         recipe(b, "ink", 1, "thornberries", 3, "empty_bottle", 1);
         recipe(b, "twine", 3, "wool", 1);
         recipe(b, "cloth", 2, "wool", 2);
-        recipe(b, "leather", 2, "cow_hide", 1);
-        recipe(b, "leather", 2, "deer_hide", 1);
-        recipe(b, "leather", 3, "bear_pelt", 1);
+        recipe(b, "leather", 1, "cow_hide", 1);
+        recipe(b, "leather", 1, "deer_hide", 1);
+        recipe(b, "leather", 2, "bear_pelt", 1);
         recipe(b, "iron_bar", 1, "iron_wedges", 4);
         recipe(b, "fish_hook", 2, "iron_bar", 1);
         recipe(b, "brass_gear", 1, "mace_studs", 3, "iron_bar", 1);
-        recipe(b, "crystal_dust", 1, "large_crystal", 2);
+        recipe(b, "crystal_dust", 1, "large_crystal", 3);
         // --- ammunition, the ingot, the reshuffle scroll ---
         recipe(b, "arrow_bundle", 6, "feather", 2, "iron_bar", 1);
         recipe(b, "bolt_bundle", 6, "feather", 1, "iron_bar", 1);
@@ -98,19 +98,19 @@ public final class Recipes {
         recipe(b, "upgrade_ingot", 1, "iron_bar", 3, "brass_gear", 1);
         recipe(b, "reshuffle_scroll", 1, "parchment", 1, "ink", 1);
         // --- fishing rods, each made of the last ---
-        recipe(b, "willow_rod", 1, "twine", 2, "fish_hook", 1);
+        recipe(b, "willow_rod", 1, "twine", 3, "fish_hook", 1);
         recipe(b, "reed_rod", 1, "willow_rod", 1, "twine", 2, "feather", 2);
         recipe(b, "brass_rod", 1, "reed_rod", 1, "brass_gear", 2, "iron_bar", 1);
         recipe(b, "clockwork_rod", 1, "brass_rod", 1, "brass_gear", 4, "upgrade_ingot", 1);
         recipe(b, "crystal_rod", 1, "clockwork_rod", 1, "crystal_dust", 4, "large_crystal", 4);
         // --- packs, each made of the last ---
-        recipe(b, "satchel", 1, "leather", 3, "twine", 2);
+        recipe(b, "satchel", 1, "leather", 4, "cloth", 4, "twine", 2, "brass_gear", 1);
         recipe(b, "backpack", 1, "satchel", 1, "leather", 4, "cloth", 3, "brass_gear", 1);
         recipe(b, "explorers_pack", 1, "backpack", 1, "leather", 6, "cloth", 4, "brass_gear", 3, "upgrade_ingot", 1);
         // --- keys and trinkets ---
         recipe(b, "iron_key", 1, "iron_bar", 1);
         recipe(b, "brass_key", 1, "brass_gear", 1, "iron_bar", 1);
-        recipe(b, "drinking_horn", 1, "antler", 1, "leather", 1, "twine", 1);
+        recipe(b, "drinking_horn", 1, "antler", 1, "leather", 1, "twine", 2);
         recipe(b, "crystal_ball", 1, "crystal_dust", 3, "large_crystal", 3, "brass_gear", 2);
         recipe(b, "crystal_shield", 1, "crystal_dust", 4, "iron_bar", 3, "leather", 2);
         // --- potions ---
@@ -122,11 +122,11 @@ public final class Recipes {
         recipe(c, "swiftness_potion", 1, "empty_bottle", 1, "feather", 2, "rabbit_pelt", 1);
         recipe(c, "might_potion", 1, "empty_bottle", 1, "bear_meat", 1, "thornberries", 3);
         recipe(c, "might_potion", 1, "empty_bottle", 1, "raw_beef", 2, "thornberries", 3);
-        recipe(c, "stoneskin_potion", 1, "empty_bottle", 1, "antler", 1, "sage", 2, "large_crystal", 1);
+        recipe(c, "stoneskin_potion", 1, "empty_bottle", 1, "antler", 1, "sage", 2, "large_crystal", 2);
         recipe(c, "shadow_potion", 1, "empty_bottle", 1, "ink", 1, "thornberries", 3);
         recipe(c, "gills_potion", 1, "empty_bottle", 1, "minnow", 2, "sea_buckthorn", 1);
-        recipe(c, "gills_potion", 1, "empty_bottle", 1, "trout", 1, "sage", 1);
-        recipe(c, "spring_potion", 1, "empty_bottle", 1, "rabbit_pelt", 1, "sunfruit", 1);
+        recipe(c, "gills_potion", 1, "empty_bottle", 1, "trout", 1, "sage", 2);
+        recipe(c, "spring_potion", 1, "empty_bottle", 1, "rabbit_pelt", 1, "sunfruit", 2);
         recipe(c, "thorn_potion", 1, "empty_bottle", 1, "thornberries", 4, "emberfin", 1);
         recipe(c, "fortune_potion", 1, "empty_bottle", 1, "goldscale", 1, "sunfruit", 2, "crystal_dust", 1);
         recipe(c, "crystal_elixir", 1, "empty_bottle", 1, "crystal_bloom", 3, "crystal_dust", 2, "crystal_eel", 1);
@@ -141,8 +141,8 @@ public final class Recipes {
         recipe(c, "grilled_fish", 1, "sea_bass", 1);
         recipe(c, "grilled_fish", 1, "minnow", 3);
         recipe(c, "grilled_fish", 2, "pike", 1);
-        recipe(c, "hunters_stew", 1, "raw_venison", 1, "sage", 1, "wild_berries", 2);
-        recipe(c, "hunters_stew", 1, "bear_meat", 1, "sage", 1, "wild_berries", 2);
+        recipe(c, "hunters_stew", 1, "raw_venison", 1, "sage", 2, "wild_berries", 2);
+        recipe(c, "hunters_stew", 1, "bear_meat", 1, "sage", 2, "wild_berries", 2);
         recipe(c, "berry_tart", 1, "wild_berries", 4, "bilberries", 2);
     }
 

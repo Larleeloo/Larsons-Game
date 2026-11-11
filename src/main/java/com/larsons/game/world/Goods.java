@@ -285,7 +285,7 @@ public final class Goods {
                 stamina, null);
     }
 
-    public static final Good ROAST_MEAT = meal("roast_meat", "Roast meat", Rarity.COMMON, 8, "hunt_meat", "meat",
+    public static final Good ROAST_MEAT = meal("roast_meat", "Roast meat", Rarity.COMMON, 5, "hunt_meat", "meat",
             0x8A4A2A, 40, 15, 0);
     public static final Good GRILLED_FISH = meal("grilled_fish", "Grilled fish", Rarity.COMMON, 9, P_FISH, "body",
             0xC8A070, 35, 25, 0);
