@@ -2259,6 +2259,15 @@ palette, the picking, undo, copy and paste, and saving take it as it is.
 
 ## A playthrough: the main menu, saves and the map
 
+<p align="center">
+  <img src="docs/screenshots/play-creator.png" width="49%" alt="The character creator's second step: her wardrobe, layer by layer, with her standing in it">
+  <img src="docs/screenshots/play-overworld.png" width="49%" alt="The Brass Vale's map: its roads and destinations, Miller's Crossing chosen">
+</p>
+<p align="center">
+  <img src="docs/screenshots/play-map-editor.png" width="49%" alt="The map editor with a destination selected: its name, its level and its roads">
+  <img src="docs/screenshots/play-brasswick.png" width="49%" alt="Brasswick's market: stalls on the cobbles, half-timbered houses and the clock tower">
+</p>
+
 The main menu has four tabs: **Play**, **Horde**, **Cutscene** and **Dev**
 (the Dev tab shows once 1 0 2 5 is typed on the main menu; typed again, it hides).
 
@@ -2302,6 +2311,15 @@ leads to), draw the roads between them, and choose where a new game starts.
 
 ## People, foes and quests
 
+<p align="center">
+  <img src="docs/screenshots/folk-quest-offer.png" width="49%" alt="Marta, a quest mark over her head, asking for help with a great blue bear">
+  <img src="docs/screenshots/folk-journal.png" width="49%" alt="The journal with the blue bear's quest done">
+</p>
+<p align="center">
+  <img src="docs/screenshots/folk-foes.png" width="49%" alt="The demo's summoning yard: a station for each kind of foe, and those called from them">
+  <img src="docs/screenshots/folk-khorigale.png" width="49%" alt="The Khorigale camp: a horned, long-tailed Khorigale among the stalls">
+</p>
+
 **Peoples** (`actor/People`, `actor/Looks`): Humans, Drurineans (tall, long
 ears), Half Drurineans, Khorigale (horned and long-tailed, a little
 smaller), Bortzal (goblin yellow or ashy purple, half a person's height to
@@ -2344,6 +2362,11 @@ tracked at the side of the screen, and their places are marked in the world.
 
 ## Goods, crafting and brewing
 
+<p align="center">
+  <img src="docs/screenshots/goods-cauldron.png" width="49%" alt="Brewing at a cauldron: the potions she can make and what each takes">
+  <img src="docs/screenshots/goods-shop.png" width="49%" alt="Marta's shop beside her inventory: a health potion, a willow rod and a satchel">
+</p>
+
 Everything has a rarity, Common (white) to Mythic (cyan). The goods
 (`world/Goods`) are new kinds of item beside the weapons and the clothes:
 
@@ -2383,6 +2406,11 @@ that buys pays half what a thing is worth.
 
 ## The horde
 
+<p align="center">
+  <img src="docs/screenshots/horde-round.png" width="49%" alt="A horde round: a Risen walker under her dice, her points and the round, weapon boards on the wall">
+  <img src="docs/screenshots/horde-editor.png" width="49%" alt="The horde editor: a map's rules - points, rounds, lives, her kit, the kinds that come">
+</p>
+
 The **Horde** tab plays a horde map (`scene/HordeGame`): the Risen come in
 rounds, more and tougher each round, out of the map's spawns and through
 its barricades, until she is knocked out. **Points** are her purse - 10 for
@@ -2405,6 +2433,11 @@ come).
 
 ## Cards
 
+<p align="center">
+  <img src="docs/screenshots/cards-table.png" width="49%" alt="The card table: her hand fanned along the bottom, one card raised under the pointer">
+  <img src="docs/screenshots/cards-compendium.png" width="49%" alt="The compendium: the Warlock's cards of every rarity, and where each is come by">
+</p>
+
 **J** opens the **card table** (`scene/CardTable`): the game stands still
 behind it and her hand is fanned along the bottom. The card under the
 pointer rises to be read; click it, or drag it up off the board, to play
@@ -2418,6 +2451,11 @@ with where it is had. (Cards are no longer edited in Creative Mode.)
 
 ## Colour grading
 
+<p align="center">
+  <img src="docs/screenshots/colours-page.png" width="49%" alt="The Colours page: the presets, the 128 colours, the wheel and the sliders, the game graded behind it">
+  <img src="docs/screenshots/colours-gameboy.png" width="49%" alt="The game in the Gameboy preset's four greens">
+</p>
+
 **Pause → Colours** (`grade/Grading`, `scene/ColoursPanel`): each of the
 art's 128 colours can be given another, all of them shifted together (hue,
 saturation, brightness, contrast, one hue), and the 128 brought down to as
@@ -2428,6 +2466,10 @@ in the palette and nothing else; *smooth* keeps the light's and the mist's
 shades. Kept in `config/colours.json`.
 
 ## Controllers and the Controls page
+
+<p align="center">
+  <img src="docs/screenshots/controls-page.png" width="49%" alt="The Controls page: every action with its keys and its gamepad buttons">
+</p>
 
 An Xbox-style gamepad works throughout (`input/Pad`, `input/Input`): the
 left stick walks, the right stick turns the camera, **A** jumps, **B**
@@ -2443,6 +2485,10 @@ it should be. A key given to an action is taken from the one that had it
 (the pause menu always keeps a key). Kept in `config/controls.json`.
 
 ## Performance
+
+<p align="center">
+  <img src="docs/screenshots/perf-overlay.png" width="49%" alt="The performance overlay over the Whispering Wood: frame times, draw calls, quads and what the scene is running">
+</p>
 
 **F8** shows the performance overlay, in the game and in the editors
 (`core/Perf`): the frame rate, what the update and the drawing take, draw
