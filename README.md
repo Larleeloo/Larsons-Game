@@ -213,11 +213,15 @@ window could even open).
 | **T** | turntable — step through all eight directions |
 | **H** / **P** | hide the HUD / the scenery (trees, grass and rocks) |
 | **N** (held) | time-lapse: the day runs sixty times as fast while it is held ([Day and night](#day-and-night)) |
+| **U** | the **quest journal** ([People, foes and quests](#people-foes-and-quests)) |
+| **F7** / **F8** | the developer's readout (the sheets on screen) / the [performance overlay](#performance) |
 | **F9** | animations: new / classic - the first version of the weapon moves, to compare (also Pause → Settings → Animations) |
 | **F11** | full screen, with the display switched to its fastest refresh rate - or back to the window ([frame rate](#120-frames-a-second)) |
 | **F12** | screenshot (to `screenshots/`) |
 | **Num-pad 1 0 2 5** | the debug code: every cosmetic offered in the wardrobe, and **Clear the ground** in the pause menu (every item lying about, the starting weapons and the chests' loot, taken away); typed again, off |
-| **Esc** | pause menu — Wardrobe, Settings, Sounds, Controls, Import help, Main menu, Quit (or closes the inventory) |
+| **Esc** | pause menu — Wardrobe, Class, Compendium, Settings, Colours, Sounds, Controls, Import help, Main menu, Quit (or closes the inventory) |
+
+Every key above can be changed, and a gamepad used instead: [Controllers and the Controls page](#controllers-and-the-controls-page).
 
 Drop sprite sheets on the window at any time to import them.
 
@@ -2253,6 +2257,205 @@ Its props are edited in the editor's right panel and saved in `level.json`
 with no more work; its spawner says what it is when the level is played. The
 palette, the picking, undo, copy and paste, and saving take it as it is.
 
+## A playthrough: the main menu, saves and the map
+
+The main menu has four tabs: **Play**, **Horde**, **Cutscene** and **Dev**
+(the Dev tab shows once 1 0 2 5 is typed on the main menu; typed again, it hides).
+
+**Play** has three save slots. *New game* in an empty slot opens the
+**character creator**; *Continue* takes up the slot saved to last.
+
+- **The character creator** (`scene/CreatorScene`) has four pages: *Who* (her
+  name, her people - Human, Drurinean, Half Drurinean or Khorigale - her
+  body, her skin and how tall she stands, 0.7 to 1.3 of the usual height),
+  *Look* (the wardrobe: face, hair, the clothes she sets out in), *Class*
+  (the nine classes, each with its deck and its first weapon) and *Begin*.
+- **The overworld map** (`scene/OverworldScene`) is walked like the map of a
+  platform game: the move keys, the arrows or the stick take the road that
+  sets off that way, a click on a destination walks her there. **Use**,
+  **Jump** or **Enter** loads the destination's level at its spawn. The
+  roads on from a destination are shut until it is **cleared** - by going
+  there, by reaching the level's far way out, by felling its foes or by
+  handing in its quest, as the map says - and she can always go back the
+  way she came.
+- **Saving** (`save/SaveGame`, `save/Saves`): her place on the map is
+  written each time she arrives somewhere, and all of her - what she
+  carries, her purse, her class, cards and level, her quests, the doors she
+  has opened - when she comes back from a level. The slots are
+  `config/saves/slot1.json` to `slot3.json`.
+
+The game comes with one map, **the Brass Vale** - the first of the main
+lands - and its eleven levels (`assets/overworld/maps/brass_vale.json`,
+`assets/levels/`): Oakhollow (home), Miller's Crossing, Brasswick, the
+Whispering Wood, Fisher's Rest, Copperpit Mine, the Drurin Observatory, the
+Khorigale Camp, the Sallow Marsh, the Old Watchtower and Crystal Hollow,
+with the East Gate leading on. `./gradlew makeBrassVale` writes the levels
+again from `tools/BrassVale.java`; `tools/overworld/make_main_lands.py`
+writes the map.
+
+**The map editor** (Dev tab, or `-Dlarsons.start=mapedit`;
+`editor/OverworldEditor`): paint the fourteen terrains, place destinations
+(a name, an icon, **the level it loads** - any level saved in Creative Mode -
+what clears it, whether its roads are open from the start, another map it
+leads to), draw the roads between them, and choose where a new game starts.
+*Try it* walks the map as a playthrough would, with nothing saved.
+
+## People, foes and quests
+
+**Peoples** (`actor/People`, `actor/Looks`): Humans, Drurineans (tall, long
+ears), Half Drurineans, Khorigale (horned and long-tailed, a little
+smaller), Bortzal (goblin yellow or ashy purple, half a person's height to
+half as tall again) and the Risen. A person's look - skin, hair, face and
+clothes in their people's way of dressing - comes from a seed, the same
+every time. The Khorigale's horns and tails are sprite layers of their own
+(`tools/sprites/make_khorigale.py`).
+
+**Foes** (`actor/Breed`, `actor/Folk`, `actor/Folks`): Bortzal, Drurineans
+(wands and staffs), Half Drurineans (crossbows), Khorigale, bandits, six
+kinds of Risen (walker, runner, brute, crawler, spitter and the Risen
+Bortzal), and from the sky the Vérnees serpents, which come through
+portals. They notice her by sight, close in, strike, loose arrows and
+spells, guard and dodge; wild boar and buffalo charge. In a level they are
+placed in Creative Mode (the Foes shelf: a foe, a **summoning station** that
+calls a band when used, a **sky portal**), each with its breed, size
+(0.5 to 1.5), weapon, name and health.
+
+**People** to talk to are placed the same way (the Story shelf): a name, a
+people, an outfit, what they say when greeted, **topics** to ask about
+(`Topic=Answer; Topic=Answer`), and - for a shopkeeper - a stock and
+whether they buy.
+
+**Quests** (`story/Quest`, `story/Quests`) are objects of a level too: who
+gives it, what kind, and what it pays (items, coins and experience).
+
+| Kind | Done when |
+|---|---|
+| **Fell something** | so many of a kind - or someone by name - are felled, anywhere or inside the quest's ring ("a large blue bear in the Whispering Wood") |
+| **Clear the area** | no foe is left inside its ring (or in the level) |
+| **Talk to someone** | she has talked to the one it names |
+| **Bring something** | she has so many of an item to hand over |
+| **Get to the area** | she stands inside its ring |
+
+A quest with an **id** is one quest wherever it is told: the Reeve of
+Brasswick's word for the Magister is given in Brasswick, done at the
+observatory and handed in back in Brasswick. A quest can wait for another
+(*Only after the quest*). **U** opens the journal; the quests under way are
+tracked at the side of the screen, and their places are marked in the world.
+
+## Goods, crafting and brewing
+
+Everything has a rarity, Common (white) to Mythic (cyan). The goods
+(`world/Goods`) are new kinds of item beside the weapons and the clothes:
+
+- **Potions** (drunk from the hand: health, mana, stamina, swiftness, might,
+  stoneskin, shadow, gills, springheel, fortune, thornblood, the crystal
+  elixir) and **scrolls** (read: stronger, never made - fury, warding,
+  frost, haste, renewal, venom, insight, the storm, return).
+- **Keys** (rusty, iron, brass, silver, gold, bone, crystal, and the Mythic
+  skeleton key that opens anything) for the **locked doors and gates** of a
+  level: each lock says which key opens it, whether the key is used up, or
+  a price it opens for instead.
+- **Spawner eggs**, one for each animal and foe, hatched where she stands -
+  and the Mythic dragon egg, which hatches nothing yet.
+- **Fishing rods** (willow, reedcane, brass-reel, clockwork, crystal) and
+  the **fish** they catch; **meals**; the **crystal ball**, the **crystal
+  shield** and the **drinking horn**; **packs** (satchel, backpack,
+  explorer's pack) that add slots to her inventory for good.
+- **Makings**: bottles, parchment, ink, twine, hooks, gears, iron bars,
+  crystal dust, leather, cloth.
+
+**Fishing** (`scene/Fishing`): with a rod in her hand and water before her,
+a click casts; when the float dips, a click in time hooks what took it;
+then hold and let go of the attack key to keep the fish inside the catch on
+the gauge until the line is in. A better rod gives a longer moment to
+strike, a wider catch, and rarer fish.
+
+**Crafting and brewing** (`world/Recipes`): at a **workbench** the makings,
+the rods, the packs, keys, ammunition and trinkets are made; at a
+**cauldron** the potions and the meals are brewed (a brew bubbles a few
+seconds). Both are objects to place in a level. Nothing made sells for more
+than its parts cost to buy (a test holds the recipes to that).
+
+**Shops**: a stall, a counter or a person sells what its **stock** line says
+(`sword sharper, health potion x5 @20, satchel`): any item in any tier,
+rarity or colour, with a count and a price - set in Creative Mode. A shop
+that buys pays half what a thing is worth.
+
+## The horde
+
+The **Horde** tab plays a horde map (`scene/HordeGame`): the Risen come in
+rounds, more and tougher each round, out of the map's spawns and through
+its barricades, until she is knocked out. **Points** are her purse - 10 for
+a blow that lands, 60 for a Risen felled, more for a board nailed back on -
+and buy the weapons chalked on the **boards** on the walls, a turn of the
+**mystery box**, and the **gates** to the rest of the map. The felled now
+and then leave a gift: max ammo, insta-kill, double points, kaboom,
+carpenter. The best round on each map is kept in `config/horde.json`.
+
+Two maps come with the game (`assets/horde/`): the Foundry Yard and
+Gravewood Clearing (`tools/levels/make_horde_maps.py`). The **horde
+editor** (the Horde tab's *New horde map* and *Edit*, with the Dev tab
+unlocked; or `-Dlarsons.start=hordeedit:<map>`) is Creative
+Mode with a Zombies shelf - Risen spawns (which kind, from which round,
+behind which gate), barricades, weapon boards (what, which tier, the
+price), the mystery box, gates that open for points - and a Horde panel
+for the map's rules (`level/HordeRules`: the points she starts with, how
+the rounds grow, how many are up at once, her lives, her kit, which Risen
+come).
+
+## Cards
+
+**J** opens the **card table** (`scene/CardTable`): the game stands still
+behind it and her hand is fanned along the bottom. The card under the
+pointer rises to be read; click it, or drag it up off the board, to play
+it. The draw pile lies on the left and the discard pile on the right;
+*Deck* and *Perks* are along the top. Every card has a **rarity**, Common
+to Mythic, shown in its frame, and a background of its class in brass, oak
+and parchment (`ui/CardArt`). What her cards are doing for her now stands
+down the left of the screen as brass plates with the time left on each.
+**Pause → Compendium** shows every card there is, by class and by rarity,
+with where it is had. (Cards are no longer edited in Creative Mode.)
+
+## Colour grading
+
+**Pause → Colours** (`grade/Grading`, `scene/ColoursPanel`): each of the
+art's 128 colours can be given another, all of them shifted together (hue,
+saturation, brightness, contrast, one hue), and the 128 brought down to as
+few as two. Presets: Original, Gameboy, Pocket, 8-bit console, Home
+computer, Four-colour PC, N64, Red visor, One colour, Greyscale and Sepia.
+*Snapped* draws the picture
+in the palette and nothing else; *smooth* keeps the light's and the mist's
+shades. Kept in `config/colours.json`.
+
+## Controllers and the Controls page
+
+An Xbox-style gamepad works throughout (`input/Pad`, `input/Input`): the
+left stick walks, the right stick turns the camera, **A** jumps, **B**
+dodges, **X** uses, **Y** spins, **RB** attacks, **RT** is the heavy
+attack, **LB** blocks, **LT** parries, the d-pad steps along the hotbar and
+opens the cards, **View** opens the inventory and **Menu** pauses. The
+prompts on screen follow whichever was touched last, the keyboard or the
+pad.
+
+**Pause → Controls** (`input/Bindings`, `scene/ControlsPanel`) lists every
+action with two keys and two gamepad inputs each; click one and press what
+it should be. A key given to an action is taken from the one that had it
+(the pause menu always keeps a key). Kept in `config/controls.json`.
+
+## Performance
+
+**F8** shows the performance overlay, in the game and in the editors
+(`core/Perf`): the frame rate, what the update and the drawing take, draw
+calls and quads, and what the scene is running - folk, animals, scenery and
+how much of it is in view, buildings, lights, sprite sheets and their
+memory. `-Dlarsons.perf.log=true` prints the same once a second. (**F7** is
+the developer's readout of the sheets on screen.)
+
+What keeps a frame short: ground shadows and scenery outside the view are
+not drawn (`math/Frustum`); a character's sheets for what she may do next
+are asked for when her state, view or outfit changes, not every frame; a
+colour choice's palette swap is made once.
+
 ## GPU acceleration
 
 **The whole game renders through OpenGL 3.3 core** (via LWJGL 3.3.3): the ground,
@@ -2361,8 +2564,14 @@ src/main/java/com/larsons/game/
                             AnimationSound, SoundEmitter, WorldSounds; Music (a scene's song, faded in and out)
   gfx/                      the GPU layer: Window (GLFW), Shader, Texture, Batch, PaletteAtlas, Font,
                             GpuInfo, Images (a PNG from any Path, the sprite pack's too)
-  math/                     Vec3, Mat4
-  input/                    Input — keys, mouse, typed text, dropped files
+  math/                     Vec3, Mat4, Frustum (what the camera sees)
+  input/                    Input — keys, mouse, gamepad, typed text, dropped files; Action (what she does),
+                            Bind and Bindings (what is pressed for it), Pad (a gamepad's inputs)
+  actor/                    People, Looks, Breed, Folk, Folks, Serpent — the peoples, the foes and how they fight
+  story/                    Quest, Quests — the kinds of quest, and the log of them a save keeps
+  save/                     SaveGame, Saves — a playthrough and its three slots
+  overworld/                Overworld (a map: terrain, destinations, roads), MapView (drawing it)
+  grade/                    Grading, Preset, Colours — the colour grade over the 128 colours
   sprite/                   Facing, Elevation, AnimState, Slot, SpriteView, SpriteProfile,
                             SpriteNames, SheetImage, SheetTexture, SpriteLibrary, LayerStack, Wardrobe,
                             Variants, Palettes, ObjectSprites and ObjectStack (things that are not characters),
@@ -2389,13 +2598,18 @@ src/main/java/com/larsons/game/
                             DiceRoll, Strike, Target, Dummy, FlyingDummy, Projectile; drawing: CombatRenderer, CombatHud,
                             CombatSprites, CombatColours
   scene/                    MainMenuScene, DemoScene, CutsceneScene, PauseMenu, WardrobePanel, InventoryPanel,
-                            SoundsPanel, DebugCode, DemoLevel (the demo as a level)
+                            SoundsPanel, DebugCode, DemoLevel (the demo as a level); CreatorScene (a new
+                            character), OverworldScene (the map walked), Story (talk, quests, the workbench and
+                            the cauldron, goods used), Fishing, HordeGame and HordeProps (the horde), CardTable
+                            and Compendium (the cards), ControlsPanel, ColoursPanel
   level/                    Creative Mode's levels: Level, LevelObject, ObjectType and ObjectTypes (every kind
                             of thing, by key), HeightField (the sculpted ground), LevelWorld (a level played),
                             LevelIO (its folder), Interiors (each kind of building's floors as it comes)
-  editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets
+  editor/                   the level editor: CreativeScene, LevelView, Picking, Gizmos, Undo, Scatter, Widgets;
+                            OverworldEditor (the map editor)
   ui/                       Ui (immediate-mode GPU UI), MenuList, Theme, ImportPanel, FilePicker
-  tools/                    SampleSprites, PackSprites (the sprites folders into one sprites.pack, in parts)
+  tools/                    SampleSprites, PackSprites (the sprites folders into one sprites.pack, in parts),
+                            Land and BrassVale (the Brass Vale's eleven levels, written by ./gradlew makeBrassVale)
   util/                     Json
 assets/sprites/             the sprite sheets (one folder per layer) and their contract; objects/: the chest,
                             the attack dummy, the flying dummy, the critters and the animals; items/<id>/spin_px128/: the turning items; combat/: the
@@ -2573,7 +2787,14 @@ the item's own colours) and
 `config/wardrobe.json` when it closes, a scripted run included.
 
 `scene` also takes `creative` (a new level), `edit:<folder>` and
-`play:<folder>` (a level of `assets/levels/`). In the level editor: `tool
+`play:<folder>` (a level of `assets/levels/`), `newgame` (the character
+creator), `mapedit` (the map editor), `horde:<map>` and `hordeedit:<map>`
+(a map of `assets/horde/`). In a level: `hero <class>`, `coins <n>`, `give
+<item>`, `say [n]` / `endtalk` (talk to whoever is nearest; choose topic n),
+`journal`, `station cauldron|workbench`, `usehand` (what is in her hand),
+`shop`, `summon`, `autofish [off]`, `round <n>` (the horde's). In the
+creator: `name`, `class`, `people`, `size`, `skin`, `begin`. On the map: `go
+<destination>`, `enter`, `mapmenu`. In the level editor: `tool
 <place|select|sculpt|paint|scatter|sky|time|level|water|life>`, `entry <sprite|item|kind|label>`
 (the palette's), `place <x> <z> [degrees] [lift]`, `set <key> <value>` (on what is selected), `pointer on|off`,
 `draw <x0> <z0> <x1> <z1>` (a wall or a room, as dragged), `copylook <id>`, `pastelook <id> [id …]`,

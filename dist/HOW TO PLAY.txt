@@ -84,12 +84,20 @@ it joins them into one file, once (anything from a few seconds to a
 couple of minutes). Then a loading screen shows for a few seconds while
 the game reads them. After that:
 
-  1. In the main menu, choose Play > Demo.
-  2. Pick a class (Mage, Knight, Rogue ...). You can change it later in
-     the pause menu.
-  3. You start as a plain stand-in figure. Press Esc and open Wardrobe to
-     choose your character's body, face and hair. More clothes, armour
-     and dyes are found in the world and in chests.
+  1. In the main menu, choose Play, pick one of the three save slots
+     and choose New game.
+  2. Make your character: a name, a people (Human, Drurinean, Half
+     Drurinean or Khorigale), a look, and a class (Mage, Knight, Rogue
+     ...). You can change the look and the class later in the pause menu.
+  3. You arrive on the map of the Brass Vale. Walk the roads with W A S D
+     (or click a place) and press Enter or E to go in. The roads past a
+     place open once it is cleared - the map says how. The game saves by
+     itself: Continue in the main menu takes you back to where you were.
+
+  The Horde tab of the main menu is a game of its own: the Risen come in
+  rounds until they take you. Blows and kills earn points, and points
+  buy the weapons chalked on the walls, a turn of the mystery box, and
+  the gates to the rest of the map.
 
 
 CONTROLS (the basics)
@@ -106,19 +114,28 @@ CONTROLS (the basics)
   1 - 5, mouse wheel   choose what is in your hands (the hotbar)
   I                    inventory
   J                    your class cards
-  E                    pick up, open chests, go through doors, shop,
-                       ride a horse ... whatever is nearest
+  U                    quest journal
+  E                    pick up, open chests, go through doors, talk,
+                       shop, use a workbench or a cauldron, ride a
+                       horse ... whatever is nearest
   G                    drop what you are holding
   Right mouse drag     turn the camera (also the arrow keys)
   + / -                zoom in / out
   Tab                  camera height: side, 45 degrees, top-down
   F11                  full screen on / off
   F12                  screenshot (saved in the "screenshots" folder)
-  Esc                  pause menu: settings, sounds, the full list of
-                       controls, and quit
+  Esc                  pause menu: settings, colours, sounds, every
+                       control (each can be changed there), and quit
+
+  A gamepad (Xbox style) works too: plug it in and press a button. The
+  left stick walks, the right stick turns the camera, A jumps, B dodges,
+  X uses, RB attacks, Menu pauses. Pause > Controls lists the rest.
 
   In deep water you swim: C dives under, Space comes back up.
   Walk into vines on a cliff to climb them.
+  With a fishing rod in your hands, click at the water to cast, click
+  again when the float dips, then hold and let go of the attack button
+  to keep the fish in the marked part of the gauge.
 
 
 SENDING FEEDBACK TO LARSON

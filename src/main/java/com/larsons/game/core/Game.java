@@ -363,6 +363,7 @@ public final class Game implements AutoCloseable {
         Sounds.useStore(settings.config);
         com.larsons.game.save.Saves.useFolder(settings.config.resolve("saves"));
         com.larsons.game.overworld.MapView.useAssets(settings.assets);
+        com.larsons.game.overworld.MapView.useAssets(settings.assets);
         Sounds.load();
         Sounds.setMasterVolume(settings.masterVolume);
         for (SoundCategory c : SoundCategory.values()) {
