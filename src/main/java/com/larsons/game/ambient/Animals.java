@@ -76,6 +76,9 @@ public final class Animals {
 
         /** The level's edges they keep within - x from, x to, z from, z to - or null (none). */
         default double[] bounds() { return null; }
+
+        /** Whether a building (a wall, a house) stands at {@code (x, z)} taller than {@code y}: nobody sees through it. */
+        default boolean sightBlocked(double x, double z, double y) { return false; }
     }
 
     /** How far inside a level's edges they keep, metres. */

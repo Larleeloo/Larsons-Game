@@ -8,6 +8,7 @@ import com.larsons.game.ambient.Life;
 import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingProfile;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
@@ -198,7 +199,53 @@ public final class World {
     private final Player player;
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
-    private final List<Building> buildings = new ArrayList<>();
+    private final Buildings buildings = new Buildings();
+
+    /** The buildings: a list that counts its changes, so the index of where they stand knows when to be made again. */
+    private static final class Buildings extends ArrayList<Building> {
+        int version() { return modCount; }
+    }
+
+    /** The buildings by the 8 m cells their footprints reach into (made again when the list changes). */
+    private final Map<Long, List<Building>> buildingCells = new java.util.HashMap<>();
+    private int buildingsIndexed = -1;
+    private static final double BUILDING_CELL = 8;
+
+    /** The buildings that may reach within {@code radius} of {@code (x, z)} (a few, of a town's hundreds). */
+    private List<Building> buildingsNear(double x, double z, double radius) {
+        if (buildingsIndexed != buildings.version()) {
+            buildingCells.clear();
+            for (Building b : buildings) {
+                double r = b.reach() + 0.5;
+                long i0 = (long) Math.floor((b.position().x() - r) / BUILDING_CELL);
+                long i1 = (long) Math.floor((b.position().x() + r) / BUILDING_CELL);
+                long j0 = (long) Math.floor((b.position().z() - r) / BUILDING_CELL);
+                long j1 = (long) Math.floor((b.position().z() + r) / BUILDING_CELL);
+                for (long i = i0; i <= i1; i++) {
+                    for (long j = j0; j <= j1; j++) {
+                        buildingCells.computeIfAbsent((i << 32) ^ Math.floorMod(j, 1L << 32), k -> new ArrayList<>())
+                                .add(b);
+                    }
+                }
+            }
+            buildingsIndexed = buildings.version();
+        }
+        long i0 = (long) Math.floor((x - radius) / BUILDING_CELL), i1 = (long) Math.floor((x + radius) / BUILDING_CELL);
+        long j0 = (long) Math.floor((z - radius) / BUILDING_CELL), j1 = (long) Math.floor((z + radius) / BUILDING_CELL);
+        if (i0 == i1 && j0 == j1) {
+            List<Building> in = buildingCells.get((i0 << 32) ^ Math.floorMod(j0, 1L << 32));
+            return in == null ? List.of() : in;
+        }
+        List<Building> out = new ArrayList<>();
+        for (long i = i0; i <= i1; i++) {
+            for (long j = j0; j <= j1; j++) {
+                List<Building> in = buildingCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Building b : in) if (!out.contains(b)) out.add(b);
+            }
+        }
+        return out;
+    }
     /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
     private final List<Store> stores = new ArrayList<>();
     /** The market stalls and shop counters: what each sells, and what is left of it. */
@@ -1043,8 +1090,23 @@ public final class World {
     }
 
     /** Whether a tree's or a rock's trunk stands within {@code radius} of {@code (x, z)}. */
+    /**
+     * Whether a building stands at {@code (x, z)} taller than {@code y} - a
+     * wall, a house, a tower: nobody sees through it (a floor, a rug, a low
+     * fence and a candle do not hide anyone).
+     */
+    public boolean sightBlocked(double x, double z, double y) {
+        for (Building b : buildingsNear(x, z, 0)) {
+            BuildingProfile p = b.profile();
+            if (p.fixture() || p.height() < 1.2) continue;
+            if (p.room() != null && p.room().piece() == com.larsons.game.building.Room.Piece.FLOOR) continue;
+            if (y < b.position().y() + p.height() && b.blocks(x, z, 0)) return true;
+        }
+        return false;
+    }
+
     public boolean solidNear(double x, double z, double radius) {
-        for (Building b : buildings) if (b.blocks(x, z, radius)) return true;
+        for (Building b : buildingsNear(x, z, radius)) if (b.blocks(x, z, radius)) return true;
         long cx = (long) Math.floor(x / CELL), cz = (long) Math.floor(z / CELL);
         for (long i = cx - 1; i <= cx + 1; i++) {
             for (long j = cz - 1; j <= cz + 1; j++) {
@@ -1636,6 +1698,11 @@ public final class World {
             @Override
             public double[] bounds() {
                 return bounds;
+            }
+
+            @Override
+            public boolean sightBlocked(double x, double z, double y) {
+                return World.this.sightBlocked(x, z, y);
             }
 
             @Override

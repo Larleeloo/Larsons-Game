@@ -332,6 +332,7 @@ public final class Folks {
      */
     public List<Event> tick(double dt, Animals.Quarry her, Animals.Place place) {
         events.clear();
+        searches = SEARCHES;
         for (Folk f : all) one(f, dt, her, place);
         apart();
         if (her != null) {
@@ -414,7 +415,10 @@ public final class Folks {
             return;
         }
         if (f.mode == Folk.Mode.WANDER) {
-            if (go(f, f.toX, f.toZ, f.walk, dt, place) || f.modeTime > 9) {
+            // (home from a chase may be round a wall: the way found; a stroll is short and straight)
+            boolean far = Math.hypot(f.toX - f.x, f.toZ - f.z) > 6;
+            boolean there = far ? travel(f, f.toX, f.toZ, f.walk, dt, place) : go(f, f.toX, f.toZ, f.walk, dt, place);
+            if (there || f.modeTime > (far ? 40 : 9)) {
                 f.enter(Folk.Mode.STAND);
                 f.timer = 2 + random.nextDouble() * 6;
                 f.act(Folk.Act.IDLE, 0);
@@ -445,10 +449,51 @@ public final class Folks {
         }
     }
 
+    /** How wide its eyes take in what is before it, either way of where it faces (radians), and how near it hears her. */
+    static final double CONE = Math.toRadians(65), HEARS = 3.5;
+
+    /**
+     * Whether {@code f} sees her: near enough (its sight, less when she is
+     * hidden, more once it is after her), before it (its eyes' cone - or so
+     * near it hears her, or once it is after her), and nothing in the way
+     * (no hill, no wall: {@link Paths#sees}). Looked at a few times a second.
+     */
+    private boolean seesHer(Folk f, Vec3 h, double dist, double dt, Animals.Place place) {
+        if (f.relentless) return true;
+        double range = f.alerted ? f.sight * 1.6 : f.sight * placeSight(f, place) * conspicuous;
+        if (dist > range) return false;
+        f.lookIn -= dt;
+        if (f.lookIn > 0) return f.seesHer;
+        f.lookIn = 0.2 + random.nextDouble() * 0.1;
+        boolean before = true;
+        if (!f.alerted && dist > HEARS) {
+            Vec3 fwd = SpriteView.headingVector(f.heading);
+            double dot = ((h.x() - f.x) * fwd.x() + (h.z() - f.z) * fwd.z()) / Math.max(1e-6, dist);
+            before = dot >= Math.cos(CONE);
+        }
+        double eyes = f.y + (f.crouched ? 0.7 : 1.55) * f.size();
+        f.seesHer = before && Paths.sees(f.x, eyes, f.z, h.x(), h.y() + 1.2, h.z(), place);
+        return f.seesHer;
+    }
+
+    /** How far it sees where it stands (1: as its kind does). */
+    private static double placeSight(Folk f, Animals.Place place) {
+        return 1;
+    }
+
+    /** How plain she is to see this frame (her stealth): set from her each tick. */
+    private double conspicuous = 1;
+
     private void fight(Folk f, double dt, Animals.Quarry her, Animals.Place place) {
         Vec3 h = her.feet();
         double dx = h.x() - f.x, dz = h.z() - f.z, dist = Math.hypot(dx, dz), dy = h.y() - f.y;
-        boolean sees = f.relentless || dist <= (f.alerted ? f.sight * 1.6 : f.sight * her.conspicuous());
+        conspicuous = her.conspicuous();
+        boolean sees = seesHer(f, h, dist, dt, place);
+        if (sees) {
+            f.seenHer = true;
+            f.seenX = h.x();
+            f.seenZ = h.z();
+        }
         switch (f.mode) {
             case STAND, WANDER -> {
                 if (sees) {
@@ -462,12 +507,22 @@ public final class Folks {
             }
             case CHASE -> {
                 if (!sees) {
+                    // out of its sight: to where it last saw her, looking about; then it gives up and goes home
                     f.lostFor += dt;
-                    if (f.lostFor > 3) {
+                    if (f.lostFor > 6 || !f.seenHer) {
                         f.alerted = false;
+                        f.seenHer = false;
+                        f.path = null;
                         f.toX = f.homeX;
                         f.toZ = f.homeZ;
                         f.enter(Folk.Mode.WANDER);
+                        return;
+                    }
+                    if (!f.hasVia) {
+                        if (travel(f, f.seenX, f.seenZ, f.run, dt, place)) {
+                            f.heading += dt * 1.8;          // (there, and turning to look for her)
+                            f.act(Folk.Act.IDLE, 0);
+                        }
                         return;
                     }
                 } else {
@@ -477,7 +532,7 @@ public final class Folks {
                     // by way of the gap it comes through: up to it, at what bars it, and on
                     double vx = f.viaX - f.x, vz = f.viaZ - f.z, vd = Math.hypot(vx, vz);
                     if (vd > 1.0) {
-                        go(f, f.viaX, f.viaZ, f.run, dt, place);
+                        travel(f, f.viaX, f.viaZ, f.run, dt, place);
                         return;
                     }
                     if (f.barred) {
@@ -489,19 +544,19 @@ public final class Folks {
                     f.hasVia = false;
                 }
                 if (f.shot() != null) {
-                    if (dist > f.keep) {
-                        go(f, h.x(), h.z(), f.run, dt, place);
+                    if (dist > f.keep || !sees) {
+                        travel(f, h.x(), h.z(), f.run, dt, place);
                     } else if (dist < 2.6 && dist > 1e-3 && f.cooldown > 0.2) {
                         go(f, f.x - dx / dist * 4, f.z - dz / dist * 4, f.walk * 1.4, dt, place);
                     } else {
                         turn(f, dx, dz, dt * 2);
                         f.act(Folk.Act.IDLE, 0);
                     }
-                    if (f.cooldown <= 0 && dist <= f.keep * 1.2 && dist > 1.0) strike(f, dx, dz);
+                    if (f.cooldown <= 0 && sees && dist <= f.keep * 1.2 && dist > 1.0) strike(f, dx, dz);
                 } else {
                     double near = f.reach + 0.3;
                     if (dist > near * 0.85) {
-                        go(f, h.x(), h.z(), f.run, dt, place);
+                        travel(f, h.x(), h.z(), f.run, dt, place);
                     } else {
                         turn(f, dx, dz, dt * 2);
                         f.act(Folk.Act.IDLE, 0);
@@ -622,7 +677,7 @@ public final class Folks {
             double c = Math.cos(t * side), s = Math.sin(t * side);
             double vx = ux * c - uz * s, vz = ux * s + uz * c;
             double nx = f.x + vx * step, nz = f.z + vz * step;
-            if (!free(f, nx, nz, place)) continue;
+            if (!free(f, nx, nz, t == 0 ? d : Paths.CELL, place)) continue;
             f.x = nx;
             f.z = nz;
             f.mvx = vx * speed;
@@ -635,13 +690,85 @@ public final class Folks {
         return true;
     }
 
+    /** How many ways may be looked for in a frame, between them all (a horde does not stall the game). */
+    static final int SEARCHES = 2;
+    private int searches = SEARCHES;
+
+    /**
+     * Toward {@code (tx, tz)} at {@code speed} the way there is: straight
+     * when the straight way is clear, else round what is in the way - a way
+     * found ({@link Paths#find}) and walked point by point, looked for again
+     * when she has moved on, when it is stuck, and every second or so. True
+     * once there - or when there is no way nearer.
+     */
+    private boolean travel(Folk f, double tx, double tz, double speed, double dt, Animals.Place place) {
+        double d = Math.hypot(tx - f.x, tz - f.z);
+        if (d < 0.3) {
+            f.path = null;
+            return true;
+        }
+        double r = f.radius() * 0.8;
+        f.replan -= dt;
+        boolean moved = f.path != null && Math.hypot(tx - f.pathTx, tz - f.pathTz) > Math.max(1.5, d * 0.25);
+        if ((f.replan <= 0 || moved || f.stuckFor > 1.0) && searches > 0) {
+            f.replan = 0.9 + random.nextDouble() * 0.6;
+            if (d < 40 && Paths.clear(f.x, f.z, tx, tz, r, place)) {
+                f.path = null;
+            } else {
+                searches--;
+                f.path = Paths.find(f.x, f.z, tx, tz, r, place);
+                f.pathAt = 0;
+                f.pathTx = tx;
+                f.pathTz = tz;
+                // no way there (walled in, the far side of a river): it looks again less often
+                f.hopeless = f.path == null || Math.hypot(f.path[f.path.length - 2] - tx,
+                        f.path[f.path.length - 1] - tz) > 0.5;
+                if (f.hopeless) f.replan = 3 + random.nextDouble() * 2;
+            }
+            f.stuckFor = 0;
+            f.nearest = Double.MAX_VALUE;
+        }
+        double gx = tx, gz = tz;
+        if (f.path != null) {
+            int n = f.path.length / 2;
+            while (f.pathAt < n - 1 && Math.hypot(f.path[2 * f.pathAt] - f.x, f.path[2 * f.pathAt + 1] - f.z) < 0.3) {
+                f.pathAt++;
+                f.nearest = Double.MAX_VALUE;
+            }
+            gx = f.path[2 * f.pathAt];
+            gz = f.path[2 * f.pathAt + 1];
+            if (f.pathAt == n - 1 && Math.hypot(gx - f.x, gz - f.z) < 0.3) {
+                // the end of the way found: there - or as near as there is a way (then it waits to look again)
+                f.path = null;
+                if (!f.hopeless) f.replan = 0;
+                return Math.hypot(tx - f.x, tz - f.z) < 1.0 || f.stuckFor > 2;
+            }
+        }
+        go(f, gx, gz, speed, dt, place);
+        // stuck: no nearer to where it is going for a while (going round in a dither counts)
+        double dg = Math.hypot(gx - f.x, gz - f.z);
+        if (dg < f.nearest - 0.15) {
+            f.nearest = dg;
+            f.stuckFor = 0;
+        } else {
+            f.stuckFor += dt;
+        }
+        return f.stuckFor > 3;
+    }
+
+    /** Whether {@code f} can step to {@code (x, z)}: in bounds, clear, not deep water - and not up a cliff or a wall. */
     private static boolean free(Folk f, double x, double z, Animals.Place place) {
-        double[] b = place.bounds();
-        if (b != null && (x < b[0] + 0.5 || x > b[1] - 0.5 || z < b[2] + 0.5 || z > b[3] - 0.5)) return false;
-        if (place.blocked(x, z, f.radius() * 0.8)) return false;
-        double g = place.ground(x, z);
-        if (Math.abs(g - f.y) > 1.3) return false;
-        return place.water(x, z, g) < 0.9;
+        return free(f, x, z, Paths.CELL, place);
+    }
+
+    /**
+     * {@link #free(Folk, double, double, Animals.Place)}, {@code left} metres
+     * short of where it is going: the slope judged over a cell's length the
+     * way it goes, or what is left (a frame's step is too short to tell a
+     * cliff by).
+     */
+    private static boolean free(Folk f, double x, double z, double left, Animals.Place place) {
+        return Paths.steps(f.x, f.z, f.y, x, z, left, f.radius() * 0.8, place);
     }
 
     /** Turn towards {@code (dx, dz)}, as fast as it can in {@code dt}. */

@@ -82,6 +82,13 @@ public final class Folk implements Target {
     double sinceHurt = Double.MAX_VALUE, alpha = 1;
     boolean struck, gone, talking;
     double toX, toZ;
+    // the way it is going round what is in the way (Paths): its points, the next, where it was going, when to
+    // look again; how long it has hardly moved; whether it saw her when it last looked, and where she was
+    double[] path;
+    int pathAt;
+    double pathTx, pathTz, replan, stuckFor, lookIn, nearest = Double.MAX_VALUE;
+    boolean seesHer, seenHer, hopeless;
+    double seenX, seenZ;
 
     private Act act = Act.IDLE;
     private AnimState state = AnimState.IDLE;
