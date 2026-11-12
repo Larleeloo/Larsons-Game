@@ -331,8 +331,23 @@ public final class Widgets {
      */
     private double slideAndType(Ui ui, String id, double value, double step, double min, double max, String format,
                                 float bx, float y, float bw) {
+        return slideAndType(ui, id, value, step, min, max, format, bx, y, bw, null);
+    }
+
+    /**
+     * A number in a box alone (a row's column), {@code shown} its words
+     * while it is not being typed in (null: the number) - "∞" for a count
+     * of 0 - the wheel over it a {@code step} a notch.
+     */
+    public double numberBox(Ui ui, String id, double value, double step, double min, double max, String format,
+                            String shown, float x, float y, float w) {
+        return slideAndType(ui, id, value, step, min, max, format, x, y, w, shown);
+    }
+
+    private double slideAndType(Ui ui, String id, double value, double step, double min, double max, String format,
+                                float bx, float y, float bw, String words) {
         Input in = ui.input();
-        float vw = Math.min(70, Math.max(46, bw * 0.34f));
+        float vw = Math.min(72, Math.max(54, bw * 0.38f));
         boolean railed = bw - vw - 8 >= 34;
         if (!railed) vw = bw;
         float rw = railed ? bw - vw - 8 : 0, vx = bx + bw - vw;
@@ -412,11 +427,16 @@ public final class Widgets {
             }
         }
         boolean over = ui.hover(vx, y, vw, ROW);
+        if (!railed && over && !mine && in.scroll() != 0) {
+            out = value + Math.signum(in.scroll()) * nudge;
+            in.consumeScroll();
+            changed = true;
+        }
         if (over && !mine) ui.hint("text");
         ui.rect(vx, y, vw, ROW, mine ? Theme.BUTTON_HOVER : over ? Theme.withAlpha(Theme.BUTTON_HOVER, 0.8f) : Theme.BUTTON);
         ui.outline(vx, y, vw, ROW, 1, mine ? Theme.ACCENT : Theme.PANEL_EDGE);
         String shown = mine ? buffer + ((System.nanoTime() / 500_000_000L) % 2 == 0 ? "|" : "")
-                : String.format(format, value).trim();
+                : words != null ? words : String.format(format, value).trim();
         if (mine && buffer.isEmpty()) ui.text(ui.tiny, original, vx + 6, y + (ROW - ui.tiny.lineHeight()) / 2,
                 Theme.ITEM_DISABLED);
         shown = Ui.fit(ui.small, shown, vw - 8);
@@ -498,7 +518,30 @@ public final class Widgets {
         final float aw = 22;
         if (ui.button("<", bx, y, aw, ROW)) i = Math.floorMod(i - 1, n);
         if (ui.button(">", bx + bw - aw, y, aw, ROW)) i = Math.floorMod(i + 1, n);
-        float mw = bw - 2 * aw - 4, mx = bx + aw + 2;
+        return box(ui, id, shown, i, bx + aw + 2, y, bw - 2 * aw - 4, bx, bw);
+    }
+
+    /**
+     * One of {@code shown}, in a box {@code w} wide with no arrows (a row's
+     * column): a click drops down the list of them all - typed over, it
+     * narrows - and the gamepad's left and right step through them.
+     * {@code id} tells it from every other on the screen.
+     */
+    public int dropdown(Ui ui, String id, List<String> shown, int index, float x, float y, float w) {
+        int n = shown.size();
+        if (n == 0) return index;
+        int i = Math.floorMod(index, n);
+        String key = id + "#" + n;
+        if (key.equals(pickedId)) {
+            pickedId = null;
+            if (pickedIndex >= 0 && pickedIndex < n) i = pickedIndex;
+        }
+        return box(ui, key, shown, i, x, y, w, x, w);
+    }
+
+    /** The box of a choice ({@code (mx, mw)}) and the list it drops down ({@code (bx, bw)} at the least). */
+    private int box(Ui ui, String id, List<String> shown, int i, float mx, float y, float mw, float bx, float bw) {
+        int n = shown.size();
         // the gamepad's left and right step through it while it has the focus
         ui.target(mx, y, mw, ROW, Ui.Kind.CHOICE);
         Input pad = ui.input();
@@ -506,14 +549,16 @@ public final class Widgets {
             i = Math.floorMod(i + pad.navAdjust(), n);
             pad.adjust(0);
         }
-        String full = shown.get(i), text = Ui.fit(ui.small, full, mw - (n > 2 ? 22 : 8));
+        // (a narrow box - a row's column - has no room for the mark of a list)
+        boolean mark = n > 2 && mw >= 70;
+        String full = shown.get(i), text = Ui.fit(ui.small, full, mw - (mark ? 22 : 8));
         boolean open = id.equals(dropId);
         boolean hot = open || ui.hover(mx, y, mw, ROW);
         ui.rect(mx, y, mw, ROW, hot ? Theme.BUTTON_HOVER : Theme.BUTTON);
         if (open) ui.outline(mx, y, mw, ROW, 1, Theme.ACCENT);
-        float tx = mx + (mw - (n > 2 ? 14 : 0) - ui.small.width(text)) / 2;
+        float tx = mx + (mw - (mark ? 14 : 0) - ui.small.width(text)) / 2;
         ui.text(ui.small, text, tx, y + (ROW - ui.small.lineHeight()) / 2, Theme.TITLE);
-        if (n > 2) {
+        if (mark) {
             // the mark of a list that drops down
             float cx = mx + mw - 10, cy = y + ROW / 2f;
             ui.rect(cx - 4, cy - 2, 8, 2, Theme.HINT);
@@ -592,7 +637,7 @@ public final class Widgets {
         }
         String out = value;
         if (mine) {
-            for (char c : in.typedText().toCharArray()) if (c >= ' ' && buffer.length() < 60) buffer += c;
+            for (char c : in.typedText().toCharArray()) if (c >= ' ' && buffer.length() < 600) buffer += c;
             if (in.repeated(GLFW_KEY_BACKSPACE) && !buffer.isEmpty()) buffer = buffer.substring(0, buffer.length() - 1);
             if (in.pressed(GLFW_KEY_ENTER) || in.pressed(GLFW_KEY_KP_ENTER)) {
                 typing = null;

@@ -1,6 +1,8 @@
 package com.larsons.game.level;
 
 import com.larsons.game.actor.Breed;
+import com.larsons.game.actor.Schedule;
+import com.larsons.game.building.Building;
 import com.larsons.game.actor.Folk;
 import com.larsons.game.actor.Folks;
 import com.larsons.game.actor.Looks;
@@ -37,9 +39,18 @@ import java.util.Map;
 public final class FolkTypes {
 
     public static final String FOE = "foe", PERSON = "person", QUEST = "quest", SUMMON = "summon", PORTAL = "portal";
-    public static final String EITHER = "either", OWN = "own", NONE = "none", ANY = "any";
+    public static final String EITHER = "either", OWN = "own", NONE = "none", ANY = "any", AUTO = "auto";
 
     private FolkTypes() {}
+
+    /** What a person can hold: nothing, or anything carried in a hand (and what she holds already). */
+    static List<String> held(LevelObject o) {
+        List<String> out = new ArrayList<>(List.of(""));
+        for (ItemDef d : ItemDef.ALL) if (d.carrySlot() != null) out.add(d.id());
+        String cur = o == null ? "" : o.str("weapon", "");
+        if (!out.contains(cur)) out.add(cur);
+        return out;
+    }
 
     /** The weapons a foe can be handed: its kind's own, none, or any there is. */
     static List<String> weapons() {
@@ -67,6 +78,112 @@ public final class FolkTypes {
         out.addAll(List.of(AnimalKind.BOAR.key(), AnimalKind.BUFFALO.key(), AnimalKind.BEAR.key(), World.VERNEES,
                 World.FLIER, World.DUMMY));
         return out;
+    }
+
+    /**
+     * What a quest of {@code o}'s kind can be after: for felling, any foe,
+     * each kind of foe and beast, and the foes of the level by name; for
+     * talking, the people of the level; for bringing, every item there is.
+     * What it has already is among them, whatever it is.
+     */
+    static List<String> targets(LevelObject o) {
+        List<String> out = new ArrayList<>();
+        Quest.Kind kind = Quest.Kind.byKey(o.str("kind", Quest.Kind.KILL.key()));
+        Level l = ObjectTypes.context();
+        switch (kind) {
+            case KILL -> {
+                out.add("");
+                if (l != null) {
+                    for (LevelObject f : l.ofType(FOE)) {
+                        String n = f.str("name", "").strip();
+                        if (!n.isEmpty() && !out.contains(n)) out.add(n);
+                    }
+                }
+                for (String k : Breed.keys()) if (!out.contains(k)) out.add(k);
+                for (AnimalKind a : AnimalKind.values()) if (!out.contains(a.key())) out.add(a.key());
+                out.add(World.VERNEES);
+                out.add("risen");
+            }
+            case TALK -> out.addAll(ObjectTypes.personNames(null, "target", false, ""));
+            case FETCH -> out.addAll(ObjectTypes.itemIds());
+            default -> out.add("");
+        }
+        String cur = o.str("target", "");
+        if (!out.contains(cur)) out.add(cur);
+        return out;
+    }
+
+    /** What a quest's target is called in the editor: "Any foe", "Bandit", "Health potion". */
+    public static String targetLabel(LevelObject o, String key) {
+        Quest.Kind kind = Quest.Kind.byKey(o.str("kind", Quest.Kind.KILL.key()));
+        if (key.isBlank()) return switch (kind) {
+            case KILL -> "Any foe";
+            case CLEAR, REACH -> "(the ring round this spot)";
+            default -> "(none picked)";
+        };
+        if (kind == Quest.Kind.FETCH) return Rows.itemLabel(key);
+        if (kind == Quest.Kind.KILL) {
+            Breed b = Breed.byKey(key);
+            if (b != null) return "Any " + b.label().toLowerCase(java.util.Locale.ROOT);
+            AnimalKind a = AnimalKind.byKey(key);
+            if (a != null) return "Any " + a.singular().toLowerCase(java.util.Locale.ROOT);
+            if (key.equals("risen")) return "Any of the Risen";
+            if (key.equals(World.VERNEES)) return "Any Vérnees";
+        }
+        return key;
+    }
+
+    /**
+     * Where {@code f}'s day takes her, found in {@code w} now it is all up:
+     * her home - the house picked for her, or the nearest with a door
+     * within 90 m - and each spot and building it names.
+     */
+    static void placeDay(Folk f, LevelObject o, World w) {
+        if (f.schedule() == null) return;
+        String home = o.str("home", AUTO);
+        Building house = null;
+        if (home.startsWith(Schedule.BUILDING)) house = building(w, home);
+        else if (!home.equals(NONE)) {
+            double best = 90;
+            for (Building b : w.buildings()) {
+                if (b.door() == null || !b.profile().interior() || b.profile().room() != null) continue;
+                double d = b.door().horizontalDistance(f.position());
+                if (d < best) {
+                    best = d;
+                    house = b;
+                }
+            }
+        }
+        if (house != null) door(f, Schedule.HOME, house);
+        for (String name : f.schedule().places()) {
+            if (name.startsWith(Schedule.BUILDING)) {
+                Building b = building(w, name);
+                if (b != null) door(f, name, b);
+                continue;
+            }
+            for (com.larsons.game.world.Terrain.Place pl : w.terrain().places()) {
+                if (pl.name().equalsIgnoreCase(name)) {
+                    f.place(name, pl.x(), pl.z(), Double.NaN, -1);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static Building building(World w, String key) {
+        try {
+            int id = Integer.parseInt(key.substring(Schedule.BUILDING.length()).strip());
+            for (Building b : w.buildings()) if (b.id() == id && b.door() != null) return b;
+        } catch (NumberFormatException ignored) {
+            // not a building's number
+        }
+        return null;
+    }
+
+    /** {@code name} is before {@code b}'s door, facing in. */
+    private static void door(Folk f, String name, Building b) {
+        Vec3 d = b.door();
+        f.place(name, d.x(), d.z(), b.heading() + Math.PI, b.id());
     }
 
     static Folks.Spec spec(LevelObject o, boolean hostile) {
@@ -107,12 +224,15 @@ public final class FolkTypes {
                         Prop.number("look", "Look (0: any)", 0, 0, 9999, 1),
                         Prop.number("size", "Size (0: as her people come)", 0, 0, 1.3, 0.05),
                         Prop.choice("skin", "Skin", ANY, FolkTypes::skins),
-                        Prop.text("weapon", "Holds (an item; blank: nothing)", ""),
+                        Prop.choice("weapon", "Holds", "", FolkTypes::held),
                         Prop.number("roam", "Wanders within (m)", 0, 0, 30, 0.5),
                         Prop.text("greeting", "Says (| starts a new page)", "Well met, traveller."),
-                        Prop.text("topics", "Asked about (Topic=Answer; Topic=Answer)", ""),
-                        Prop.text("stock", "Sells (e.g. health potion x5 @20, sword:rare)", ""),
-                        Prop.toggle("buys", "Buys what she sells (half its worth)", false)),
+                        Prop.rows("topics", "Asked about", "", Rows.topics()),
+                        Prop.rows("stock", "Sells", "", Rows.stock("Sells nothing")),
+                        Prop.toggle("buys", "Buys what she sells (half its worth)", false),
+                        Prop.choice("home", "Lives in", AUTO, ObjectTypes::homes),
+                        Prop.rows("schedule", "Her day", Schedule.DEFAULT, Rows.schedule()),
+                        Prop.toggle("shelter", "Goes in out of storms", true)),
                 0.4, 1.8, 0x7FE8FF, false, (o, b) -> {
             People people = People.byKey(o.str("people", People.HUMAN.key()));
             if (people == null) people = People.HUMAN;
@@ -121,22 +241,25 @@ public final class FolkTypes {
             Folk f = b.world().folks().person(o.id(), people, b.onGround(o), o.yaw(),
                     s.weapon(held.isEmpty() ? NONE : held.toLowerCase(java.util.Locale.ROOT).replace(' ', '_')));
             f.roaming(o.num("roam", 0)).with(o.props());
+            f.keeping(Schedule.parse(o.str("schedule", Schedule.DEFAULT))).sheltering(o.bool("shelter", true));
+            // (where her day takes her: once every building and spot of the level is up)
+            b.later(() -> placeDay(f, o, b.world()));
         }));
 
         ObjectTypes.register(new ObjectType(QUEST, "Quest", Category.QUESTS,
                 List.of(Prop.text("title", "Title", "A task"),
-                        Prop.text("giver", "Given by (a person's name)", "Villager"),
+                        Prop.choice("giver", "Given by", "Villager", o -> ObjectTypes.personNames(o, "giver", false, "Villager")),
                         Prop.choice("kind", "To do", Quest.Kind.KILL.key(), o -> Quest.Kind.keys()),
-                        Prop.text("target", "What or whom (bear, bortzal, a name, an item)", ""),
+                        Prop.choice("target", "What or whom", "", FolkTypes::targets),
                         Prop.number("count", "How many", 1, 1, 99, 1),
                         Prop.number("radius", "Within (m) of this spot (0: anywhere)", 0, 0, 400, 1),
                         Prop.text("offer", "Asking for it", "Would you do something for me?"),
                         Prop.text("remind", "While it is not done", "Not done yet?"),
                         Prop.text("thanks", "When it is done", "Thank you. Take this."),
-                        Prop.text("reward", "Pays (e.g. coins x40, health potion x2)", "coins x25"),
+                        Prop.rows("reward", "Pays", "coins x25", Rows.reward()),
                         Prop.number("xp", "Experience", 50, 0, 5000, 5),
-                        Prop.text("turnin", "Handed in to (blank: who gave it)", ""),
-                        Prop.text("needs", "Only after the quest (its id)", ""),
+                        Prop.choice("turnin", "Handed in to", "", o -> ObjectTypes.personNames(o, "turnin", true, "")),
+                        Prop.choice("needs", "Only after the quest", "", ObjectTypes::questIds),
                         Prop.text(Quest.ID, "Id (blank: one of its own)", "")),
                 0.6, 1.2, 0xFFD27A, false,
                 (o, b) -> b.world().quests().add(Quest.of(b.levelName(), o.id(), b.onGround(o), o.props()))));
@@ -202,7 +325,7 @@ public final class FolkTypes {
         Object[][] keepers = {{"Shopkeeper: potions", "Apothecary", "workshop",
                 "health potion x6, mana potion x6, stamina potion x6, swiftness potion x2, empty bottle x20"},
                 {"Shopkeeper: smith", "Smith", "workshop",
-                        "sword, sword:fine, sword:rare, dagger, mace, battle axe, upgrade ingot x6, iron bar x12"},
+                        "sword, sword:sharper @60, sword:crystal @220, dagger, mace, battle axe, upgrade ingot x6, iron bar x12"},
                 {"Shopkeeper: outfitter", "Outfitter", "town",
                         "satchel x1, backpack x1, explorers pack x1, willow rod x2, reed rod x1, twine x20, "
                                 + "fish hook x20, leather x10, cloth x10"},

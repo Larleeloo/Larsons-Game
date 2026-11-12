@@ -296,7 +296,8 @@ public final class ObjectTypes {
         register(new ObjectType(SHOP, "Shop", Category.SHOPS,
                 List.of(Prop.text("name", "Name", "Market stall"),
                         Prop.choice("stall", "Stall", "market_stall", o -> shopStalls()),
-                        Prop.text("stock", "Sells (e.g. whetstone x20 @3, cards x4)", ""),
+                        Prop.rows("stock", "Sells", "", Rows.stock("Nothing listed: the usual - whetstones, "
+                                + "wedges, studs, crystals, arrows, bolts, ingots, scrolls and cards for her class")),
                         Prop.toggle("buys", "Buys what she sells (half its worth)", true)),
                 1.4, 2.6, 0xF0C030, false,
                 (o, b) -> {
@@ -617,6 +618,127 @@ public final class ObjectTypes {
     static List<String> sceneryNames() {
         List<String> out = new ArrayList<>();
         for (ScenerySprites.Sprite s : scenerySprites.placeable()) out.add(s.name());
+        return out;
+    }
+
+    // --- choices drawn from the level being edited ----------------------------------------
+
+    /** The level being edited: what its people, spots and buildings are, for the choices drawn from them. */
+    private static volatile Level context;
+
+    /** The level being edited is {@code l} (null: none) - for the choices drawn from it. */
+    public static void setContext(Level l) {
+        context = l;
+    }
+
+    public static Level context() { return context; }
+
+    /** The buildings of the level being edited that can be gone into (they have a door and an inside). */
+    static List<LevelObject> houses() {
+        List<LevelObject> out = new ArrayList<>();
+        Level l = context;
+        if (l == null) return out;
+        for (LevelObject o : l.ofType(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            if (p != null && p.interior() && p.door() != null) out.add(o);
+        }
+        return out;
+    }
+
+    /** Where someone's day can take her: her post, her home, each named spot, each building with a door. */
+    public static List<String> dayPlaces() {
+        List<String> out = new ArrayList<>(List.of(com.larsons.game.actor.Schedule.POST,
+                com.larsons.game.actor.Schedule.HOME));
+        Level l = context;
+        if (l != null) {
+            for (LevelObject m : l.ofType(MARKER)) {
+                String n = m.str("name", "").strip();
+                if (!n.isEmpty() && !out.contains(n)) out.add(n);
+            }
+        }
+        for (LevelObject h : houses()) out.add(com.larsons.game.actor.Schedule.BUILDING + h.id());
+        return out;
+    }
+
+    /** What a place of someone's day is called in the editor: "Her post", "Spot: well", "Cottage #12". */
+    public static String dayPlaceLabel(String key) {
+        if (key == null) return "";
+        if (key.equals(com.larsons.game.actor.Schedule.POST)) return "Her post";
+        if (key.equals(com.larsons.game.actor.Schedule.HOME)) return "Her home";
+        if (key.startsWith(com.larsons.game.actor.Schedule.BUILDING)) return houseLabel(key);
+        return "\u201C" + key + "\u201D";
+    }
+
+    /** "Cottage #12" for {@code building:12} (or {@code 12}). */
+    static String houseLabel(String key) {
+        String n = key.startsWith(com.larsons.game.actor.Schedule.BUILDING)
+                ? key.substring(com.larsons.game.actor.Schedule.BUILDING.length()) : key;
+        Level l = context;
+        try {
+            LevelObject o = l == null ? null : l.byId(Integer.parseInt(n.strip()));
+            if (o != null) {
+                BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                return (p == null ? "Building" : p.label()) + " #" + o.id();
+            }
+        } catch (NumberFormatException ignored) {
+            // not a number: as it is
+        }
+        return "Building #" + n;
+    }
+
+    /** Whom a person's home can be: the nearest house, none, or any house of the level. */
+    static List<String> homes(LevelObject o) {
+        List<String> out = new ArrayList<>(List.of(FolkTypes.AUTO, FolkTypes.NONE));
+        for (LevelObject h : houses()) out.add(com.larsons.game.actor.Schedule.BUILDING + h.id());
+        String cur = o == null ? null : o.str("home", null);
+        if (cur != null && !out.contains(cur)) out.add(cur);
+        return out;
+    }
+
+    /** The names of the people of the level being edited (what {@code o} has, or {@code fallback}, among them). */
+    static List<String> personNames(LevelObject o, String key, boolean blank, String fallback) {
+        List<String> out = new ArrayList<>();
+        if (blank) out.add("");
+        Level l = context;
+        if (l != null) {
+            for (LevelObject p : l.ofType(FolkTypes.PERSON)) {
+                String n = p.str("name", "").strip();
+                if (!n.isEmpty() && !out.contains(n)) out.add(n);
+            }
+        }
+        String cur = o == null ? null : o.str(key, fallback);
+        if (cur != null && !out.contains(cur)) out.add(cur);
+        if (out.isEmpty()) out.add("Villager");
+        return out;
+    }
+
+    /** What quest {@code id} of the level being edited is called: its title (and its id), or "None". */
+    public static String questLabel(String id) {
+        if (id == null || id.isBlank()) return "None: from the start";
+        Level l = context;
+        if (l != null) {
+            for (LevelObject q : l.ofType(FolkTypes.QUEST)) {
+                if (com.larsons.game.story.Quest.idOf(l.name(), q.id(), q.props()).equals(id)) {
+                    return "\u201C" + q.str("title", "A task") + "\u201D";
+                }
+            }
+        }
+        return id;
+    }
+
+    /** The other quests of the level being edited, by their ids ("" first: none needed). */
+    static List<String> questIds(LevelObject o) {
+        List<String> out = new ArrayList<>(List.of(""));
+        Level l = context;
+        if (l != null) {
+            for (LevelObject q : l.ofType(FolkTypes.QUEST)) {
+                if (o != null && q.id() == o.id()) continue;
+                String id = com.larsons.game.story.Quest.idOf(l.name(), q.id(), q.props());
+                if (!out.contains(id)) out.add(id);
+            }
+        }
+        String cur = o == null ? null : o.str("needs", null);
+        if (cur != null && !out.contains(cur)) out.add(cur);
         return out;
     }
 

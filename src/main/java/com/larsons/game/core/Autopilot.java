@@ -118,6 +118,12 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // The wheel turned where the pointer is: "scroll -5" (down five notches).
+                case "scroll" -> {
+                    game.window().input().scrolled(Double.parseDouble(arg.trim()));
+                    waiting = 1e-6;
+                    return;
+                }
                 // The pointer moved, nothing pressed: "move 640 600" (what is under it lights up).
                 case "move" -> {
                     String[] xy = arg.split("[ ,]+");

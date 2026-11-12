@@ -367,6 +367,9 @@ public final class World {
 
         /** Whether it is inside a building. */
         public boolean indoors() { return indoors; }
+
+        /** The folk of it. */
+        public com.larsons.game.actor.Folks folks() { return folks; }
     }
 
     /**
@@ -1313,6 +1316,7 @@ public final class World {
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
+        folks.setDay(clock.hour(), weatherNow.stormy());
         for (com.larsons.game.actor.Folks.Event e : folks.tick(dt, quarry(), place())) metFolk(e);
         for (com.larsons.game.actor.Folks.Loosed l : folks.drainLoosed()) {
             combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
@@ -1688,6 +1692,9 @@ public final class World {
     }
 
     /** What the little creatures and the animals need to know of the place: the ground, the water, the biomes, the trees. */
+    /** The place as the folk know it (its ground, its water, what is solid in it), for finding them room. */
+    public Animals.Place folkPlace() { return place(); }
+
     private Animals.Place place() {
         return new Animals.Place() {
             @Override

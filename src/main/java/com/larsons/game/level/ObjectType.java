@@ -107,11 +107,22 @@ public record ObjectType(String key, String label, Category category, List<Prop>
      * @param max      a number's most
      * @param step     how much a number goes up or down a click
      * @param choices  a choice's options, given the object it is for (an item's tiers depend on the item)
+     * @param rows     a list's rows ({@link Kind#ROWS}: kept as text, edited a row at a time), or null
      */
     public record Prop(String key, String label, Kind kind, Object fallback, double min, double max, double step,
-                       Function<LevelObject, List<String>> choices) {
+                       Function<LevelObject, List<String>> choices, Rows rows) {
 
-        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE, COLOUR, COLOURS }
+        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE, COLOUR, COLOURS, ROWS }
+
+        public Prop(String key, String label, Kind kind, Object fallback, double min, double max, double step,
+                    Function<LevelObject, List<String>> choices) {
+            this(key, label, kind, fallback, min, max, step, choices, null);
+        }
+
+        /** A list kept as one line of text ({@code fallback}), edited as {@code rows}. */
+        public static Prop rows(String key, String label, String fallback, Rows rows) {
+            return new Prop(key, label, Kind.ROWS, fallback, 0, 0, 0, null, rows);
+        }
 
         public static Prop number(String key, String label, double fallback, double min, double max, double step) {
             return new Prop(key, label, Kind.NUMBER, fallback, min, max, step, null);

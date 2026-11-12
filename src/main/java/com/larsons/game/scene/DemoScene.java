@@ -762,6 +762,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
         }
         if (!still) world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
+        if (inside != null) world.folks().takeVisitors(false);        // (out of its door: back outdoors)
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
@@ -1167,6 +1168,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** The floor she is on, kept as she leaves it - what she dropped, the chests she opened. */
     private void keepFloor() {
+        world.folks().takeVisitors(true);           // (those seen inside are kept outdoors, not on the floor)
         visited.computeIfAbsent(inside.building.id(), k -> new java.util.HashMap<>())
                 .put(inside.floor, new Left(world.leave(), scenery));
     }
@@ -1219,7 +1221,47 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         p.setPosition(world.terrain().onGround(at));
         p.snapHeading(heading);
         world.setSpawnPoint(world.terrain().onGround(at));
+        if (n == 0) letVisitorsIn(at, heading);
         arrived();
+    }
+
+    /**
+     * Those whose day has them in the building she walks into - home for
+     * the night, in out of the storm - seen in it, about its ground floor
+     * a few steps in from the door ({@code door}, she facing in along
+     * {@code heading}): they talk, sell and hand out work as they do outdoors,
+     * and when their day calls them out, go out of its door.
+     */
+    private void letVisitorsIn(Vec3 door, double heading) {
+        if (inside == null || inside.outdoors.folks() == null) return;
+        int id = inside.building.id();
+        Vec3 in = com.larsons.game.sprite.SpriteView.headingVector(heading);
+        List<Vec3> taken = new ArrayList<>();
+        for (com.larsons.game.actor.Folk f : List.copyOf(inside.outdoors.folks().all())) {
+            if (f.role() != com.larsons.game.actor.Folk.Role.PERSON || !f.indoors() || f.insideOf() != id) continue;
+            Vec3 at = roomFor(door, in, taken);
+            if (at == null) continue;
+            taken.add(at);
+            world.folks().visitor(f, world.terrain().onGround(at), door.x(), door.z());
+        }
+    }
+
+    /** A spot to stand on a few steps in from {@code door} (going {@code in}), clear of things and of {@code taken}. */
+    private Vec3 roomFor(Vec3 door, Vec3 in, List<Vec3> taken) {
+        com.larsons.game.ambient.Animals.Place place = world.folkPlace();
+        Vec3 side = new Vec3(-in.z(), 0, in.x());
+        for (double ahead = 2.6; ahead <= 6.5; ahead += 0.9) {
+            for (int k = 0; k < 9; k++) {
+                double across = (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * 0.9;
+                double x = door.x() + in.x() * ahead + side.x() * across;
+                double z = door.z() + in.z() * ahead + side.z() * across;
+                if (!com.larsons.game.actor.Paths.stands(x, z, 0.4, place)) continue;
+                boolean clear = true;
+                for (Vec3 t : taken) if (Math.hypot(t.x() - x, t.z() - z) < 1.3) clear = false;
+                if (clear) return new Vec3(x, 0, z);
+            }
+        }
+        return null;
     }
 
     /** She has come through a door: the screen fades in from black, the camera behind her, nothing locked on. */
@@ -1787,7 +1829,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         String best = null;
         double nearest = Double.MAX_VALUE;
         for (com.larsons.game.actor.Folk f : world.folks().all()) {
-            if (f.position().horizontalDistance(her) > 45) continue;
+            if (f.position().horizontalDistance(her) > 45 || f.alpha() < 0.3 || !f.standing()) continue;
             String hint = f.role() == com.larsons.game.actor.Folk.Role.PERSON ? "talk"
                     : f.alive() && f.hostile() ? "attack" : null;
             if (hint == null) continue;

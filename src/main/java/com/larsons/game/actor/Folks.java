@@ -411,8 +411,19 @@ public final class Folks {
         if (f.mode != Folk.Mode.STAND && f.mode != Folk.Mode.WANDER) f.enter(Folk.Mode.STAND);
         if (f.talking && her != null) {
             f.faceTo(her.feet());
+            if (f.role() == Folk.Role.PERSON) f.crouched = false;
             f.act(Folk.Act.IDLE, 0);
             return;
+        }
+        if (f.role() == Folk.Role.PERSON && her != null) {
+            if (f.visiting) {
+                visit(f, dt, her, place);
+                return;
+            }
+            if (f.schedule != null) {
+                daily(f, dt, her, place);
+                return;
+            }
         }
         if (f.mode == Folk.Mode.WANDER) {
             // (home from a chase may be round a wall: the way found; a stroll is short and straight)
@@ -447,6 +458,348 @@ public final class Folks {
                 }
             }
         }
+    }
+
+    // --- a person's day -------------------------------------------------------------------
+
+    /** The hour of the day (0 – 24) and whether a storm is on: what their days go by. */
+    private double hour = 12;
+    private boolean storm;
+
+    /** It is {@code hour} o'clock (0 – 24), and a storm is on or not: each person goes about her day by it. */
+    public void setDay(double hour, boolean storm) {
+        this.hour = hour;
+        this.storm = storm;
+    }
+
+    public double hour() { return hour; }
+
+    /** Out of a storm: home, inside. */
+    static final Schedule.Entry SHELTER = new Schedule.Entry(0, Schedule.Doing.INSIDE, Schedule.HOME);
+
+    /** What {@code f}'s day has her doing now: its entry - or, in a storm, home out of it (when she has one). */
+    private Schedule.Entry wanted(Folk f) {
+        Schedule.Entry e = f.schedule.at(hour);
+        if (storm && f.shelters && !e.doing().indoors() && f.places.containsKey(Schedule.HOME)) return SHELTER;
+        return e;
+    }
+
+    /** Where entry {@code e} of her day is (x, z, facing there - NaN: as she comes - and the building, or -1), or null. */
+    private static double[] where(Folk f, Schedule.Entry e) {
+        if (e.where().equals(Schedule.POST)) return new double[]{f.homeX, f.homeZ, f.postHeading, -1};
+        return f.places.get(e.where());
+    }
+
+    /**
+     * A person about her day ({@link Schedule}): when the hour comes for
+     * the next thing, she walks there - round what is in the way - and
+     * does it: stands at her post, works at it, kneels to tend it, keeps
+     * watch, strolls about, walks to and fro, chats with whoever is near,
+     * or goes in at her door and is not seen until she comes out again.
+     */
+    private void daily(Folk f, double dt, Animals.Quarry her, Animals.Place place) {
+        Schedule.Entry want = wanted(f);
+        double[] p = where(f, want);
+        if (p == null) {
+            // a place she does not know (a spot taken away, no house near): her post - and not in
+            want = new Schedule.Entry(want.minute(), want.doing().indoors() ? Schedule.Doing.STAND : want.doing(),
+                    Schedule.POST);
+            p = where(f, want);
+        }
+        if (!want.equals(f.doing)) begin(f, want, p, place);
+        f.dayFor += dt;
+        if (f.indoors) {
+            f.alpha = 0;
+            f.act(Folk.Act.IDLE, 0);
+            return;
+        }
+        if (f.entering) {
+            // in at the door: gone from sight
+            f.alpha = Math.max(0, f.alpha - dt / 0.45);
+            f.act(Folk.Act.IDLE, 0);
+            if (f.alpha <= 0) {
+                f.indoors = true;
+                f.entering = false;
+            }
+            return;
+        }
+        if (f.alpha < 1) f.alpha = Math.min(1, f.alpha + dt / 0.6);
+        Schedule.Doing d = want.doing();
+        Vec3 h = her.feet();
+        double hx = h.x() - f.x, hz = h.z() - f.z;
+        boolean near = hx * hx + hz * hz < 9;
+        if (!f.arrived) {
+            double left = Math.hypot(p[0] - f.x, p[1] - f.z);
+            boolean loose = d == Schedule.Doing.WANDER || d == Schedule.Doing.CHAT;
+            boolean there = left < (loose ? 1.5 : 0.3) || travel(f, p[0], p[1], f.walk, dt, place);
+            if (there && Math.hypot(p[0] - f.x, p[1] - f.z) > (loose ? 3 : 1.2)) there = false;   // (stuck short)
+            if (!there && f.dayFor > 45 && h.horizontalDistance(f.position()) > 28) {
+                // a way that will not get her there: once she is out of her sight, she is there
+                f.x = p[0];
+                f.z = p[1];
+                there = true;
+            }
+            if (!there) return;
+            f.arrived = true;
+            f.path = null;
+            f.timer = 1 + random.nextDouble() * 2;
+            f.lookTo = Double.isNaN(p[2]) ? f.heading : p[2];
+            f.outbound = false;
+            f.enter(Folk.Mode.STAND);
+            if (d.indoors()) {
+                f.entering = true;
+                if (!Double.isNaN(p[2])) f.heading = p[2];
+            }
+            f.act(Folk.Act.IDLE, 0);
+            return;
+        }
+        switch (d) {
+            case WORK -> {
+                // at it, whoever comes by - unless she is right by her
+                if (hx * hx + hz * hz < 2.5) {
+                    turn(f, hx, hz, dt);
+                    f.act(Folk.Act.IDLE, 0);
+                    break;
+                }
+                face(f, f.lookTo, dt);
+                if (f.act() == Folk.Act.ATTACK) {
+                    if (f.stateTime() >= clock.seconds(f, f.state())) f.act(Folk.Act.IDLE, 0);
+                } else {
+                    f.act(Folk.Act.IDLE, 0);
+                    f.timer -= dt;
+                    if (f.timer <= 0) {
+                        f.timer = 1.6 + random.nextDouble() * 2.6;
+                        f.act(Folk.Act.ATTACK, 0);
+                    }
+                }
+            }
+            case TEND -> {
+                f.crouched = true;
+                f.act(Folk.Act.IDLE, 0);
+                face(f, f.lookTo, dt);
+            }
+            case WATCH -> {
+                f.act(Folk.Act.IDLE, 0);
+                if (near) {
+                    turn(f, hx, hz, dt);
+                    break;
+                }
+                f.timer -= dt;
+                if (f.timer <= 0) {
+                    // a look one way, then the other, then back the way she keeps watch
+                    f.timer = 2.5 + random.nextDouble() * 3.5;
+                    double base = Double.isNaN(p[2]) ? f.heading : p[2];
+                    f.lookTo = random.nextInt(3) == 0 ? base : base + (random.nextDouble() * 2 - 1) * 1.2;
+                }
+                face(f, f.lookTo, dt);
+            }
+            case WANDER -> stroll(f, p[0], p[1], Math.max(4, f.roam), near ? hx : Double.NaN, hz, dt, place);
+            case PATROL -> {
+                if (f.mode == Folk.Mode.WANDER) {
+                    double tx = f.outbound ? p[0] : f.homeX, tz = f.outbound ? p[1] : f.homeZ;
+                    if (travel(f, tx, tz, f.walk, dt, place) || f.modeTime > 60) {
+                        f.enter(Folk.Mode.STAND);
+                        f.timer = 2 + random.nextDouble() * 3;
+                        f.act(Folk.Act.IDLE, 0);
+                    }
+                    break;
+                }
+                f.act(Folk.Act.IDLE, 0);
+                if (near) turn(f, hx, hz, dt);
+                f.timer -= dt;
+                if (f.timer <= 0 && !near) {
+                    f.outbound = !f.outbound;
+                    f.path = null;
+                    f.enter(Folk.Mode.WANDER);
+                }
+            }
+            case CHAT -> {
+                Folk other = nearestPerson(f, 6);
+                if (near) turn(f, hx, hz, dt);
+                else if (other != null) turn(f, other.x - f.x, other.z - f.z, dt);
+                if (f.act() == Folk.Act.LAUGH) {
+                    if (f.stateTime() >= clock.seconds(f, f.state())) f.act(Folk.Act.IDLE, 0);
+                    break;
+                }
+                f.act(Folk.Act.IDLE, 0);
+                f.timer -= dt;
+                if (f.timer <= 0) {
+                    f.timer = 5 + random.nextDouble() * 9;
+                    if (other != null && random.nextBoolean()) f.act(Folk.Act.LAUGH, 0);
+                }
+            }
+            default -> {
+                // standing at it, as she was put there - turned to her as she comes up
+                f.act(Folk.Act.IDLE, 0);
+                if (near) turn(f, hx, hz, dt);
+                else face(f, f.lookTo, dt);
+            }
+        }
+    }
+
+    /** The next thing in her day begins: to {@code p}, unless she is already in there. */
+    private void begin(Folk f, Schedule.Entry e, double[] p, Animals.Place place) {
+        Schedule.Entry was = f.doing;
+        double[] from = was == null ? null : where(f, was);
+        f.doing = e;
+        f.dayFor = 0;
+        f.crouched = false;
+        f.path = null;
+        f.stuckFor = 0;
+        f.nearest = Double.MAX_VALUE;
+        f.enter(Folk.Mode.STAND);
+        f.act(Folk.Act.IDLE, 0);
+        if (was == null) {
+            // the level begun: she is where her day has her now, not on her way there
+            f.x = p[0];
+            f.z = p[1];
+            f.y = place.ground(f.x, f.z);
+            if (!Double.isNaN(p[2])) f.heading = p[2];
+            f.lookTo = f.heading;
+            f.arrived = true;
+            f.indoors = e.doing().indoors();
+            f.entering = false;
+            f.alpha = f.indoors ? 0 : 1;
+            f.crouched = e.doing() == Schedule.Doing.TEND;
+            return;
+        }
+        if ((f.indoors || f.entering) && e.doing().indoors() && from != null && from[0] == p[0] && from[1] == p[1]) {
+            f.arrived = true;                       // (in, and staying in)
+            return;
+        }
+        if (f.indoors || f.entering) {
+            // out of the door she went in by
+            f.indoors = false;
+            f.entering = false;
+            f.alpha = Math.min(f.alpha, 0.05);
+        }
+        f.arrived = false;
+    }
+
+    /** About {@code (cx, cz)} within {@code r}: standing a while, a few steps, standing again (turned to her when near). */
+    private void stroll(Folk f, double cx, double cz, double r, double hx, double hz, double dt, Animals.Place place) {
+        if (f.mode == Folk.Mode.WANDER) {
+            if (go(f, f.toX, f.toZ, f.walk * 0.85, dt, place) || f.modeTime > 9) {
+                f.enter(Folk.Mode.STAND);
+                f.timer = 2 + random.nextDouble() * 5;
+                f.act(Folk.Act.IDLE, 0);
+            }
+            return;
+        }
+        f.act(Folk.Act.IDLE, 0);
+        if (!Double.isNaN(hx)) {
+            turn(f, hx, hz, dt);
+            return;
+        }
+        f.timer -= dt;
+        if (f.timer > 0) return;
+        f.timer = 3 + random.nextDouble() * 5;
+        double a = random.nextDouble() * Math.PI * 2, d = Math.sqrt(random.nextDouble()) * r;
+        double tx = cx + Math.cos(a) * d, tz = cz + Math.sin(a) * d;
+        if (free(f, tx, tz, place) && Paths.clear(f.x, f.z, tx, tz, f.radius() * 0.8, place)) {
+            f.toX = tx;
+            f.toZ = tz;
+            f.enter(Folk.Mode.WANDER);
+        }
+    }
+
+    /**
+     * Seen inside the building she is in, as she walks in ({@link #visitor}):
+     * about the room, turned to her as she comes up - and, when her day
+     * calls her out, out of its door ({@link Folk#visitDone}).
+     */
+    private void visit(Folk f, double dt, Animals.Quarry her, Animals.Place place) {
+        f.alpha = f.entering ? Math.max(0, f.alpha - dt / 0.45) : Math.min(1, f.alpha + dt / 0.6);
+        if (f.entering) {
+            f.act(Folk.Act.IDLE, 0);
+            if (f.alpha <= 0) f.visitDone = true;
+            return;
+        }
+        Schedule.Entry want = f.schedule == null ? null : wanted(f);
+        if (want != null && !want.doing().indoors() && where(f, want) != null) {
+            // out: to the door, and through it
+            f.dayFor += dt;
+            if (travel(f, f.exitX, f.exitZ, f.walk, dt, place) || f.dayFor > 30) f.entering = true;
+            return;
+        }
+        f.dayFor = 0;
+        Vec3 h = her.feet();
+        double hx = h.x() - f.x, hz = h.z() - f.z;
+        boolean near = hx * hx + hz * hz < 9;
+        stroll(f, f.visitX, f.visitZ, 1.6, near ? hx : Double.NaN, hz, dt, place);
+    }
+
+    /**
+     * {@code f}, who is in the building she walks into, seen in it: standing
+     * at {@code at}, the way out at {@code (exitX, exitZ)}. Added to this
+     * (the inside's) folk; {@link #takeVisitors} gives her back.
+     */
+    public void visitor(Folk f, Vec3 at, double exitX, double exitZ) {
+        f.visiting = true;
+        f.visitDone = false;
+        f.indoors = false;
+        f.entering = false;
+        f.alpha = 1;
+        f.x = f.visitX = at.x();
+        f.y = at.y();
+        f.z = f.visitZ = at.z();
+        f.exitX = exitX;
+        f.exitZ = exitZ;
+        f.heading = SpriteView.headingOf(exitX - at.x(), exitZ - at.z());
+        f.path = null;
+        f.dayFor = 0;
+        f.crouched = false;
+        f.enter(Folk.Mode.STAND);
+        f.act(Folk.Act.IDLE, 0);
+        f.timer = 2 + random.nextDouble() * 4;
+        if (!all.contains(f)) all.add(f);
+    }
+
+    /**
+     * Those seen inside ({@link #visitor}) taken out of this - all of them
+     * ({@code all}: she is leaving), or those gone out of its door - each
+     * put back in, at her door outdoors, to come out when her day says.
+     */
+    public List<Folk> takeVisitors(boolean every) {
+        List<Folk> out = new ArrayList<>();
+        for (Folk f : all) if (f.visiting && (every || f.visitDone)) out.add(f);
+        all.removeAll(out);
+        for (Folk f : out) {
+            f.visiting = false;
+            f.visitDone = false;
+            f.entering = false;
+            f.path = null;
+            double[] p = f.doing == null ? null : where(f, f.doing);
+            if (p != null) {
+                f.x = p[0];
+                f.z = p[1];
+            }
+            f.indoors = true;
+            f.alpha = 0;
+        }
+        return out;
+    }
+
+    /** The other person standing nearest {@code f}, within {@code r}, or null. */
+    private Folk nearestPerson(Folk f, double r) {
+        Folk best = null;
+        double bestD = r;
+        for (Folk o : all) {
+            if (o == f || o.role() != Folk.Role.PERSON || !o.standing()) continue;
+            double d = Math.hypot(o.x - f.x, o.z - f.z);
+            if (d < bestD) {
+                best = o;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** Turn to face {@code heading}. */
+    private static void face(Folk f, double heading, double dt) {
+        if (Double.isNaN(heading)) return;
+        Vec3 v = SpriteView.headingVector(heading);
+        turn(f, v.x(), v.z(), dt);
     }
 
     /** How wide its eyes take in what is before it, either way of where it faces (radians), and how near it hears her. */

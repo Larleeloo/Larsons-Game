@@ -19,6 +19,7 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.level.FolkTypes;
 import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
 import com.larsons.game.actor.Breed;
@@ -30,6 +31,7 @@ import com.larsons.game.level.LevelWorld;
 import com.larsons.game.level.ObjectType;
 import com.larsons.game.level.ObjectType.Category;
 import com.larsons.game.level.ObjectTypes;
+import com.larsons.game.level.Rows;
 import com.larsons.game.level.Templates;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
@@ -3554,6 +3556,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * turn, its lift, then its kind's props - each changed as one undo step.
      */
     private void properties(Ui ui, LevelObject o, boolean placed, float x, float y, float w) {
+        ObjectTypes.setContext(level);
         double r = Widgets.ROW + 8;
         if (placed) {
             double nx = widgets.stepper(ui, "East (x)", o.x(), GRID, -level.half(), level.half(), "%.2f", x, y, w);
@@ -3582,7 +3585,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         for (ObjectType.Prop p : type.props()) {
             if (!ObjectTypes.applies(o, p)) continue;
             Object v = p.value(o);
+            double used = r;
             switch (p.kind()) {
+                case ROWS -> used = rowsEditor(ui, o, p, x, y, w) + 8;
                 case NUMBER -> {
                     double cur = v instanceof Number n ? n.doubleValue() : 0;
                     double nv = widgets.stepper(ui, p.label(), cur, p.step(), p.min(), p.max(),
@@ -3613,7 +3618,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     }
                     int at = Math.max(0, options.indexOf(String.valueOf(v)));
                     List<String> shown = new ArrayList<>();
-                    for (String opt : options) shown.add(shownChoice(p.key(), opt));
+                    boolean quest = o.type().equals(FolkTypes.QUEST) && p.key().equals("target");
+                    for (String opt : options) shown.add(quest ? FolkTypes.targetLabel(o, opt) : shownChoice(p.key(), opt));
                     int ni = widgets.choice(ui, p.label(), shown, at, x, y, w);
                     if (ni != at || !options.get(at).equals(String.valueOf(v))) {
                         String nv = options.get(ni);
@@ -3666,9 +3672,104 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     if (ui.button("Choose", x + w - 70, y, 70, 26)) pickHerdColours(o);
                 }
             }
-            y += r;
+            y += used;
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+    }
+
+    /**
+     * A list kept as one line of text, edited a row at a time ({@link
+     * Rows}): a shop's stock, a quest's pay, what can be asked, someone's
+     * day. Each row its columns - picked from a list, a number to type or
+     * wheel, words - × to take it off, and a button to add one; the text is
+     * written again only when something in it changes. The height it took.
+     */
+    private float rowsEditor(Ui ui, LevelObject o, ObjectType.Prop p, float x, float y, float w) {
+        Rows spec = p.rows();
+        String text = String.valueOf(p.value(o));
+        List<List<String>> rows = spec.read().apply(text);
+        float top = y;
+        ui.text(ui.small, p.label(), x, y + 2, Theme.ITEM);
+        y += 22;
+        float del = 24, cw = w - del - 4;
+        if (rows.isEmpty()) {
+            y += ui.paragraph(ui.tiny, spec.empty(), x, y, w, Theme.ITEM_DISABLED) + 6;
+        } else {
+            float cx = x;
+            for (Rows.Column c : spec.columns()) {
+                ui.text(ui.tiny, Ui.fit(ui.tiny, c.label(), cw * c.share() - 4), cx + 2, y, Theme.HINT);
+                cx += cw * c.share();
+            }
+            y += 16;
+        }
+        List<List<String>> changed = null;
+        int remove = -1;
+        for (int i = 0; i < rows.size(); i++) {
+            List<String> row = rows.get(i);
+            float cx = x;
+            for (int c = 0; c < spec.columns().size(); c++) {
+                Rows.Column col = spec.columns().get(c);
+                float colW = cw * col.share() - 3;
+                String id = "rows:" + o.id() + ":" + p.key() + ":" + i + ":" + c;
+                String cur = c < row.size() ? row.get(c) : col.fallback();
+                String nv = cur;
+                switch (col.kind()) {
+                    case CHOICE -> {
+                        List<String> options = col.choices().apply(o, row);
+                        if (options.isEmpty() || options.size() == 1 && options.get(0).isEmpty()) {
+                            ui.text(ui.small, "-", cx + colW / 2 - 3, y + (Widgets.ROW - ui.small.lineHeight()) / 2,
+                                    Theme.ITEM_DISABLED);
+                        } else {
+                            List<String> shown = new ArrayList<>();
+                            for (String opt : options) shown.add(col.show(opt));
+                            int at = Math.max(0, options.indexOf(cur));
+                            nv = options.get(widgets.dropdown(ui, id, shown, at, cx, y, colW));
+                        }
+                    }
+                    case NUMBER -> {
+                        double v = Rows.num(cur);
+                        String words = col.show(String.valueOf((long) v));
+                        double n = widgets.numberBox(ui, id, v, col.step(), col.min(), col.max(), "%.0f", words,
+                                cx, y, colW);
+                        if (n != v) nv = String.valueOf((long) Math.round(n));
+                    }
+                    case TEXT -> nv = widgets.text(ui, id, "", cur, cx, y, colW);
+                }
+                if (!nv.equals(cur)) {
+                    if (changed == null) changed = copyRows(rows);
+                    changed.get(i).set(c, nv);
+                    // another item: its tier is that item's own to pick again (its lowest, if it has tiers)
+                    if (c == 0 && spec.columns().size() > 1 && spec.columns().get(1).label().equals("Tier")) {
+                        List<String> tiers = spec.columns().get(1).choices().apply(o, List.of(nv, ""));
+                        changed.get(i).set(1, tiers.isEmpty() ? "" : tiers.get(0));
+                    }
+                }
+                cx += cw * col.share();
+            }
+            if (ui.button("×", x + w - del, y, del, Widgets.ROW)) remove = i;
+            y += Widgets.ROW + 4;
+        }
+        if (ui.button(spec.add(), x, y, w, Widgets.ROW)) {
+            if (changed == null) changed = copyRows(rows);
+            changed.add(spec.fresh());
+        }
+        y += Widgets.ROW;
+        if (!spec.help().isEmpty()) y += 4 + ui.paragraph(ui.tiny, spec.help(), x, y + 4, w, Theme.HINT);
+        if (remove >= 0) {
+            if (changed == null) changed = copyRows(rows);
+            changed.remove(remove);
+        }
+        if (changed != null) {
+            String nt = spec.write().apply(changed);
+            if (!nt.equals(text)) edit(o, p.label(), () -> o.set(p.key(), nt));
+        }
+        return y - top;
+    }
+
+    private static List<List<String>> copyRows(List<List<String>> rows) {
+        List<List<String>> out = new ArrayList<>();
+        for (List<String> r : rows) out.add(new ArrayList<>(r));
+        return out;
     }
 
     /** What {@code o} is called in the editor: its kind's name ("Cows"), its sprite's, or its type's. */
@@ -3909,6 +4010,29 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private static String shownChoice(String key, String option) {
         if (key.equals("passage")) return Building.Passage.label(option);
+        switch (key) {
+            case "home" -> {
+                if (option.equals(FolkTypes.AUTO)) return "Nearest house";
+                if (option.equals(FolkTypes.NONE)) return "None (stays out)";
+                return ObjectTypes.dayPlaceLabel(option);
+            }
+            case "turnin" -> {
+                return option.isBlank() ? "Whoever gave it" : option;
+            }
+            case "weapon" -> {
+                if (option.isBlank()) return "Nothing";
+                if (option.equals(FolkTypes.OWN)) return "Its own";
+                if (option.equals(FolkTypes.NONE)) return "None (bare hands)";
+                return Rows.itemLabel(option.toLowerCase(java.util.Locale.ROOT).replace(' ', '_'));
+            }
+            case "giver", "target" -> {
+                return option.isBlank() ? "(none)" : option;
+            }
+            case "needs" -> {
+                return ObjectTypes.questLabel(option);
+            }
+            default -> { }
+        }
         if (key.equals("item")) {
             if (option.startsWith(Forged.PREFIX)) {
                 Forged f = Forged.byId(option.substring(Forged.PREFIX.length()));
@@ -4042,6 +4166,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     }
                     if (best != null) selection.add(best);
                 }
+                if (!pointer) setTool(Tool.SELECT);
+            }
+            case "selectid" -> {
+                // selectid <id>: the object of that number
+                selection.clear();
+                LevelObject o = a.length > 0 ? level.byId((int) Double.parseDouble(a[0])) : null;
+                if (o == null) return false;
+                selection.add(o);
                 if (!pointer) setTool(Tool.SELECT);
             }
             case "delete" -> deleteSelection();

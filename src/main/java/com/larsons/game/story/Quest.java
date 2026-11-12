@@ -64,14 +64,20 @@ public record Quest(String id, String title, Kind kind, String target, int count
      */
     public static final String ID = "quest";
 
-    /** The quest a level's object {@code objectId} at {@code at} keeps in {@code props}; {@code level}: its level's name. */
-    public static Quest of(String level, int objectId, Vec3 at, Map<String, Object> props) {
+    /** The id of the quest level {@code level}'s object {@code objectId} keeps in {@code props}: its own, or one of its level's. */
+    public static String idOf(String level, int objectId, Map<String, Object> props) {
         String id = str(props, ID, "");
         if (id.isBlank()) id = (level == null || level.isBlank() ? "level" : level) + ":" + objectId;
+        return id.strip().toLowerCase(Locale.ROOT).replace(' ', '_');
+    }
+
+    /** The quest a level's object {@code objectId} at {@code at} keeps in {@code props}; {@code level}: its level's name. */
+    public static Quest of(String level, int objectId, Vec3 at, Map<String, Object> props) {
+        String id = idOf(level, objectId, props);
         Kind kind = Kind.byKey(str(props, "kind", "kill"));
         String giver = str(props, "giver", "");
         String turnIn = str(props, "turnin", "");
-        return new Quest(id.strip().toLowerCase(Locale.ROOT).replace(' ', '_'), str(props, "title", "A task"), kind,
+        return new Quest(id, str(props, "title", "A task"), kind,
                 str(props, "target", "").strip(), (int) Math.max(1, Math.round(num(props, "count", 1))), at,
                 Math.max(0, num(props, "radius", 0)), giver.strip(), turnIn.isBlank() ? giver.strip() : turnIn.strip(),
                 str(props, "offer", ""), str(props, "remind", ""), str(props, "thanks", ""),
