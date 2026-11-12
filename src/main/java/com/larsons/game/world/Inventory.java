@@ -5,7 +5,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -32,6 +34,13 @@ import java.util.Objects;
  * <p>Iterating gives the items carried, in slot order, skipping the empty
  * slots (a stack once). The rest of the inventory can be sorted, by name or by rarity
  * ({@link #sort}); the hotbar stays as it is.
+ *
+ * <p>A weapon's <b>ammunition</b> (whetstones, wedges, studs, crystals,
+ * arrows, bolts: {@link Supplies#isAmmo}) takes no slot: it goes into her
+ * <b>pouch</b> ({@link #pouch}), as many as there are, however full the
+ * slots are - as coins go into her purse. Ammunition put in a slot some
+ * other way (an old save, a chest emptied into her slots) is moved into it
+ * ({@link #pouchAmmo}).
  */
 public final class Inventory implements Iterable<Item> {
 
@@ -62,6 +71,11 @@ public final class Inventory implements Iterable<Item> {
     private Item[] slots;
     private int[] amounts;
     private int selected;
+    /** The ammunition carried, by its id, in the order it came. */
+    private final Map<String, Integer> pouch = new LinkedHashMap<>();
+
+    /** What {@link #add} and {@link #stow} say of something that went into the pouch: no slot of its own. */
+    public static final int POUCH = Integer.MAX_VALUE;
 
     /** An empty inventory of {@code size} slots (at least the hotbar's). */
     public Inventory(int size) {
@@ -95,11 +109,70 @@ public final class Inventory implements Iterable<Item> {
         return i >= 0 && i < slots.length && slots[i] != null ? amounts[i] : 0;
     }
 
-    /** How many of {@code item} are carried, every stack of it together. */
+    /** How many of {@code item} are carried, every stack of it together (and what of it is in the pouch). */
     public int total(Item item) {
-        int n = 0;
+        int n = item != null && pouched(item) ? pouch.getOrDefault(item.def().id(), 0) : 0;
         for (int i = 0; i < slots.length; i++) if (Objects.equals(slots[i], item)) n += amounts[i];
         return n;
+    }
+
+    // --- the pouch -------------------------------------------------------------------
+
+    /** Whether {@code item} goes into the pouch, not a slot: a weapon's ammunition. */
+    public static boolean pouched(Item item) {
+        return item != null && Supplies.isAmmo(item.def());
+    }
+
+    private int toPouch(Item item, int n) {
+        if (n > 0) pouch.merge(item.def().id(), n, Integer::sum);
+        return POUCH;
+    }
+
+    /** The ammunition in the pouch, by its id, in the order it came (none: not there). */
+    public Map<String, Integer> pouch() {
+        return java.util.Collections.unmodifiableMap(pouch);
+    }
+
+    /** How many of the ammunition {@code def} are in the pouch. */
+    public int pouched(ItemDef def) {
+        return def == null ? 0 : pouch.getOrDefault(def.id(), 0);
+    }
+
+    /** {@code n} of ammunition {@code id} in the pouch, as a save had it (0: none). */
+    public void setPouched(String id, int n) {
+        if (n <= 0) pouch.remove(id);
+        else pouch.put(id, n);
+    }
+
+    /** One of ammunition {@code def} taken - from the pouch, else from a slot; whether there was one. */
+    public boolean takeAmmo(ItemDef def) {
+        int n = pouched(def);
+        if (n > 0) {
+            setPouched(def.id(), n - 1);
+            return true;
+        }
+        int slot = indexOf(def);
+        if (slot < 0) return false;
+        takeOne(slot);
+        return true;
+    }
+
+    /** Every stack of ammunition in a slot moved into the pouch, its slot left empty; whether there was any. */
+    public boolean pouchAmmo() {
+        boolean moved = false;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i] != null && pouched(slots[i])) {
+                toPouch(slots[i], amounts[i]);
+                set(i, null);
+                moved = true;
+            }
+        }
+        return moved;
+    }
+
+    /** The pouch emptied (a new game). */
+    public void clearPouch() {
+        pouch.clear();
     }
 
     /**
@@ -162,6 +235,7 @@ public final class Inventory implements Iterable<Item> {
      */
     public int add(Item item) {
         Objects.requireNonNull(item);
+        if (pouched(item)) return toPouch(item, 1);
         int onto = stackWithRoom(item);
         if (onto >= 0) {
             amounts[onto]++;
@@ -184,6 +258,7 @@ public final class Inventory implements Iterable<Item> {
      */
     public int stow(Item item) {
         Objects.requireNonNull(item);
+        if (pouched(item)) return toPouch(item, 1);
         int onto = stackWithRoom(item);
         if (onto >= 0) {
             amounts[onto]++;
@@ -206,6 +281,10 @@ public final class Inventory implements Iterable<Item> {
      */
     public int put(Item item, int amount, boolean stowing) {
         Objects.requireNonNull(item);
+        if (pouched(item)) {
+            toPouch(item, amount);
+            return 0;
+        }
         int left = amount;
         if (item.def().stack() > 1) {
             for (int i = 0; i < slots.length && left > 0; i++) if (slots[i] != null) left = merge(i, item, left);
@@ -221,9 +300,9 @@ public final class Inventory implements Iterable<Item> {
         return left;
     }
 
-    /** Whether one more {@code item} would fit: on a stack of it, or in an empty slot. */
+    /** Whether one more {@code item} would fit: in the pouch, on a stack of it, or in an empty slot. */
     public boolean hasRoomFor(Item item) {
-        return stackWithRoom(item) >= 0 || count() < slots.length;
+        return pouched(item) || stackWithRoom(item) >= 0 || count() < slots.length;
     }
 
     /** The first slot holding a stack of {@code item} with room on it, or -1 (and -1 for anything not stacked). */

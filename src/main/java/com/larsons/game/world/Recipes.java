@@ -162,7 +162,7 @@ public final class Recipes {
 
     /** How many of the item called {@code id} (of any tier or rarity) {@code inv} holds. */
     public static int count(Inventory inv, String id) {
-        int n = 0;
+        int n = inv.pouch().getOrDefault(id, 0);
         for (int i = 0; i < inv.size(); i++) {
             Item it = inv.get(i);
             if (it != null && it.def().id().equals(id)) n += Math.max(1, inv.amount(i));
@@ -173,6 +173,12 @@ public final class Recipes {
     /** Take {@code n} of the item called {@code id} out of {@code inv}; whether there were that many. */
     public static boolean take(Inventory inv, String id, int n) {
         if (count(inv, id) < n) return false;
+        int pouched = inv.pouch().getOrDefault(id, 0);
+        if (pouched > 0) {
+            int t = Math.min(pouched, n);
+            inv.setPouched(id, pouched - t);
+            n -= t;
+        }
         for (int i = inv.size() - 1; i >= 0 && n > 0; i--) {
             Item it = inv.get(i);
             while (n > 0 && it != null && it.def().id().equals(id)) {

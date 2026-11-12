@@ -97,7 +97,7 @@ public final class Ammo {
         return a == null ? 0 : loaded.getOrDefault(a.id(), 0);
     }
 
-    /** How many more of {@code weapon}'s ammunition she carries, and the one in use's uses. */
+    /** How many more of {@code weapon}'s ammunition she carries (in her pouch, and any in a slot). */
     public int carried(Item weapon, Inventory inv) {
         ItemDef a = weapon == null ? null : of(weapon.def());
         return a == null ? 0 : inv.total(Item.of(a));
@@ -115,9 +115,7 @@ public final class Ammo {
             loaded.put(a.id(), left - 1);
             return Use.LOADED;
         }
-        int slot = inv.indexOf(a);
-        if (slot < 0) return shoots(weapon.def()) ? Use.EMPTY : Use.DULL;
-        inv.takeOne(slot);
+        if (!inv.takeAmmo(a)) return shoots(weapon.def()) ? Use.EMPTY : Use.DULL;
         loaded.put(a.id(), every(weapon) - 1);
         return Use.RELOADED;
     }

@@ -1316,6 +1316,7 @@ public final class World {
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
+        player.inventory().pouchAmmo();
         folks.setDay(clock.hour(), weatherNow.stormy());
         for (com.larsons.game.actor.Folks.Event e : folks.tick(dt, quarry(), place())) metFolk(e);
         for (com.larsons.game.actor.Folks.Loosed l : folks.drainLoosed()) {
@@ -2192,6 +2193,30 @@ public final class World {
     }
 
     /** The nearest item within reach of the player that has landed, or {@code null}. */
+    /** Whether {@code g} is taken whatever else she carries, by walking over it: coins, and ammunition. */
+    public static boolean always(GroundItem g) {
+        return g.def == Supplies.COINS || Inventory.pouched(g.item);
+    }
+
+    /**
+     * What lies within {@code range} of her feet that is always taken -
+     * coins into her purse, ammunition into her pouch - taken now, as she
+     * walks over it (Settings, Gameplay: picking up by walking over).
+     * Returns what was taken, each with how many.
+     */
+    public List<Map.Entry<Item, Integer>> autoPickUp(double range) {
+        List<Map.Entry<Item, Integer>> got = new ArrayList<>();
+        if (player.health() <= 0) return got;
+        for (GroundItem g : List.copyOf(items)) {
+            if (!always(g) || g.shown || !g.landed(time)) continue;
+            if (Math.abs(g.position.y() - player.ground().y()) > 1.5) continue;
+            if (g.position.horizontalDistance(player.ground()) > range) continue;
+            int n = Math.max(1, g.amount);
+            if (pickUp(g)) got.add(Map.entry(g.item, n));
+        }
+        return got;
+    }
+
     public GroundItem reachable() {
         GroundItem best = null;
         double bestD = PICKUP_RANGE;
@@ -2221,6 +2246,12 @@ public final class World {
         if (item.def == Supplies.COINS) {
             // coins go into her purse, never a slot (a card may make them more)
             player.addCoins((int) Math.round(item.amount * player.buffs().times(Buffs.Kind.COINS)));
+            items.remove(item);
+            return true;
+        }
+        if (Inventory.pouched(item.item)) {
+            // ammunition into her pouch, all of it, however full her slots are
+            player.inventory().put(item.item, Math.max(1, item.amount), true);
             items.remove(item);
             return true;
         }

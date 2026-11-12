@@ -246,6 +246,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.story = new Story(game, world, inventory, null, "The demo");
         this.table = new CardTable(game, world);
         inventory.onCards(() -> table.show(CardTable.View.TABLE));
+        inventory.onMissions(() -> story.toggleMissions());
         // The sword lies a couple of metres ahead, unless it is already in
         // hand; the stances' weapons lie round about. What she wears is hers
         // (so it comes off when it leaves her inventory).
@@ -347,6 +348,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 campaign != null ? campaign.placeName() : level.name());
         this.table = new CardTable(game, world);
         inventory.onCards(() -> table.show(CardTable.View.TABLE));
+        inventory.onMissions(() -> story.toggleMissions());
         if (back != null) pause.setBack("Back to the editor", back);
         if (campaign != null) {
             pause.setBack("Return to the map", () -> toMap(false));
@@ -762,6 +764,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
         }
         if (!still) world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
+        if (!still && game.settings().autoPickup) walkedOver(world.autoPickUp(game.settings().pickupRange));
         if (inside != null) world.folks().takeVisitors(false);        // (out of its door: back outdoors)
         lockedCamera(dt);
         autoHeight();
@@ -1458,13 +1461,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     }
 
     /**
+     * Coins and ammunition she walked over, taken as she went (Settings,
+     * Gameplay): a chink and a word of what - "+12 coins", "+3 arrows".
+     */
+    private void walkedOver(List<Map.Entry<Item, Integer>> got) {
+        if (got.isEmpty()) return;
+        StringJoiner said = new StringJoiner(", ");
+        int coins = 0;
+        for (Map.Entry<Item, Integer> e : got) {
+            ItemDef d = e.getKey().def();
+            if (d == com.larsons.game.world.Supplies.COINS) {
+                coins += e.getValue();
+                continue;
+            }
+            said.add("+" + e.getValue() + " " + (e.getValue() == 1 ? d.name().toLowerCase(java.util.Locale.ROOT)
+                    : com.larsons.game.world.Ammo.said(d)));
+        }
+        Item first = got.get(0).getKey();
+        Sounds.play(SoundKeys.item(first.def().id(), "pickup"));
+        String text = (coins > 0 ? "+" + coins + (coins == 1 ? " coin" : " coins") + (said.length() > 0 ? ", " : "")
+                : "") + said;
+        game.toast(text + (coins > 0 && said.length() == 0 ? "" : " (in your pouch)"), Theme.ACCENT);
+    }
+
+    /**
      * Reach for the nearest item: the pick-up plays, and it is hers as her
      * hand closes on it - into the first free slot, the hotbar first.
      */
     private void pickUp() {
         World.GroundItem g = world.reachable();
         if (g == null) return;
-        if (world.player().inventory().isFull()) {
+        if (world.player().inventory().isFull() && !World.always(g)) {
             Sounds.play(SoundKeys.ui("error"));
             game.toast("Your inventory is full — drop something first (G, or from the inventory: I)",
                     Theme.WARNING);

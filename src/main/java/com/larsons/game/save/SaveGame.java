@@ -34,7 +34,8 @@ import java.util.Set;
  * <pre>
  * {"version": 1, "name": "Larson", "people": "human", "size": 1.0, "created": "...", "saved": "...",
  *  "seconds": 5400, "wardrobe": {...}, "hero": {"class": "mage", "xp": 40, ...},
- *  "inventory": {"size": 25, "selected": 0, "slots": [{"at": 0, "item": "sword:crystal", "amount": 1}]},
+ *  "inventory": {"size": 25, "selected": 0, "slots": [{"at": 0, "item": "sword:crystal", "amount": 1}],
+ *                "pouch": {"arrow_bundle": 12}},
  *  "coins": 15, "health": 100, "map": "main_lands", "node": "harbour", "cleared": ["harbour"],
  *  "quests": {...}, "flags": {...}}
  * </pre>
@@ -58,6 +59,8 @@ public final class SaveGame {
     private int inventorySize = Inventory.DEFAULT_SLOTS, selected;
     private final List<Stack> items = new ArrayList<>();
     private int coins;
+    /** The ammunition in her pouch, by its id. */
+    private final Map<String, Integer> pouch = new LinkedHashMap<>();
     private double health = Player.MAX_HEALTH;
     private String map = "", node = "";
     private final Set<String> cleared = new LinkedHashSet<>();
@@ -168,6 +171,8 @@ public final class SaveGame {
             if (it != null) items.add(new Stack(i, it.key(), Math.max(1, inv.amount(i))));
         }
         coins = p.coins();
+        pouch.clear();
+        pouch.putAll(inv.pouch());
         health = p.health() <= 0 ? Player.MAX_HEALTH : p.health();
         hero = p.hero().json();
     }
@@ -186,6 +191,9 @@ public final class SaveGame {
             if (s.at() >= 0 && s.at() < inv.size() && inv.get(s.at()) == null) inv.set(s.at(), it, s.amount());
             else inv.put(it, s.amount(), true);
         }
+        inv.clearPouch();
+        for (Map.Entry<String, Integer> e : pouch.entrySet()) inv.setPouched(e.getKey(), e.getValue());
+        inv.pouchAmmo();                    // (a save from before the pouch: its ammunition out of its slots)
         inv.select(Math.max(0, Math.min(Inventory.HOTBAR - 1, selected)));
         p.setCoins(coins);
         p.setHealth(health <= 0 ? Player.MAX_HEALTH : health);
@@ -217,6 +225,9 @@ public final class SaveGame {
             slots.add(m);
         }
         inv.put("slots", slots);
+        Map<String, Object> pouched = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> e : pouch.entrySet()) pouched.put(e.getKey(), (double) e.getValue());
+        inv.put("pouch", pouched);
         j.put("inventory", inv);
         j.put("coins", (double) coins);
         j.put("health", health);
@@ -244,6 +255,13 @@ public final class SaveGame {
             Map<String, Object> inv = (Map<String, Object>) m;
             s.setInventorySize((int) Json.num(inv, "size", Inventory.DEFAULT_SLOTS));
             s.selected = (int) Json.num(inv, "selected", 0);
+            if (inv.get("pouch") instanceof Map<?, ?> pm) {
+                for (Map.Entry<?, ?> e : pm.entrySet()) {
+                    if (e.getValue() instanceof Number n && n.intValue() > 0) {
+                        s.pouch.put(String.valueOf(e.getKey()), n.intValue());
+                    }
+                }
+            }
             if (inv.get("slots") instanceof List<?> slots) {
                 for (Object o : slots) {
                     if (!(o instanceof Map<?, ?> sm)) continue;
