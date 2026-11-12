@@ -3646,8 +3646,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                         ui.rect(sx, y + 2, 26, 22, Theme.rgb((cur >> 16) & 255, (cur >> 8) & 255, cur & 255, 1f));
                     } else {
                         ui.outline(sx, y + 2, 26, 22, 1, Theme.PANEL_EDGE);
-                        ui.text(ui.tiny, "none", sx + 13 - ui.tiny.width("none") / 2,
-                                y + 2 + (22 - ui.tiny.lineHeight()) / 2, Theme.ITEM_DISABLED);
+                        ui.text(ui.small, "-", sx + 13 - ui.small.width("-") / 2,
+                                y + 2 + (22 - ui.small.lineHeight()) / 2, Theme.ITEM_DISABLED);
                     }
                     float bw2 = Math.min(58, (x + w - sx - 34 - 4) / 2);
                     if (ui.button("Pick", sx + 32, y, bw2, 26)) {

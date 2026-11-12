@@ -114,7 +114,7 @@ CONTROLS (the basics)
   1 - 5, mouse wheel   choose what is in your hands (the hotbar)
   I                    inventory
   J                    your class cards
-  U                    quest journal
+  U                    your missions (follow up to four at once)
   E                    pick up, open chests, go through doors, talk,
                        shop, use a workbench or a cauldron, ride a
                        horse ... whatever is nearest
@@ -122,14 +122,23 @@ CONTROLS (the basics)
   Right mouse drag     turn the camera (also the arrow keys)
   + / -                zoom in / out
   Tab                  camera height: side, 45 degrees, top-down
-  F11                  full screen on / off
+  F10                  settings, from any screen
+  F11                  full screen on / off (also Alt+Enter)
   F12                  screenshot (saved in the "screenshots" folder)
-  Esc                  pause menu: settings, colours, sounds, every
-                       control (each can be changed there), and quit
+  Esc                  pause menu: How to play, settings, colours,
+                       sounds, every control (each can be changed
+                       there), and quit
 
   A gamepad (Xbox style) works too: plug it in and press a button. The
   left stick walks, the right stick turns the camera, A jumps, B dodges,
   X uses, RB attacks, Menu pauses. Pause > Controls lists the rest.
+  In menus the d-pad or left stick moves between buttons, A presses,
+  B goes back, LB / RB change tabs.
+
+  Coins and ammunition are picked up by walking over them: coins go in
+  your purse, arrows, bolts and the like in your pouch, so they never
+  fill the inventory. New to the game? Play > How to play explains
+  everything, and tips come up the first time something happens.
 
   In deep water you swim: C dives under, Space comes back up.
   Walk into vines on a cliff to climb them.
