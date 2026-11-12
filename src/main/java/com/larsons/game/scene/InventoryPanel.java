@@ -772,6 +772,16 @@ final class InventoryPanel {
      * in its border's; else its world sprite.
      */
     private void icon(Ui ui, Item item, float x, float y, float r, float alpha, boolean turning) {
+        icon(ui, game, item, x, y, r, alpha, turning ? world.time() : -1);
+    }
+
+    /**
+     * {@code item}'s picture centred on {@code (x, y)}, {@code r} its size: as
+     * the inventory draws it ({@link #icon(Ui, Item, float, float, float, float, boolean)}),
+     * turning with {@code time} (seconds; below 0: at rest).
+     */
+    static void icon(Ui ui, Game game, Item item, float x, float y, float r, float alpha, double time) {
+        boolean turning = time >= 0;
         ItemDef d = item.def();
         ItemSprites items = game.items();
         Wearables.Pickup pickup = Wearables.pickup(item);
@@ -791,7 +801,7 @@ final class InventoryPanel {
         float s = pickup != null ? r * PICKUP_ICON
                 : (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
         int frame = pickup != null ? 0 : ItemSprites.ICON_REST_FRAME;
-        if (turning) frame += (int) Math.floor(world.time() / ICON_TURN * icon.frames());
+        if (turning) frame += (int) Math.floor(time / ICON_TURN * icon.frames());
         float[] uv = icon.uv(frame);
         float x0 = x - s / 2, y0 = y - s / 2;
         Batch b = ui.batch();
@@ -800,7 +810,7 @@ final class InventoryPanel {
         Border border = item.ring();
         if (border != null) {
             float[] bc = border.colour(1f);
-            float k = (float) (0.75 + 0.25 * Math.sin(world.time() * 2 * Math.PI * 0.8));
+            float k = (float) (0.75 + 0.25 * Math.sin((turning ? time : System.nanoTime() / 1e9) * 2 * Math.PI * 0.8));
             b.rect(icon.ring(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], k * alpha);
         }
         b.rect(icon.sprite(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, alpha);

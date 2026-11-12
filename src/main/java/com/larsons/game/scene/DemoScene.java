@@ -187,6 +187,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private final World world;
     private final OrbitCamera camera = new OrbitCamera(0.45, Math.toRadians(45), 6.5);
     private final PauseMenu pause;
+    /** The tutorial's tips, the first time each thing happens. */
+    private final Tips tips;
+    /** How long this has been played, seconds; how many missions she had last frame (-1: not yet counted). */
+    private double played;
+    private int missionsSeen = -1;
     private final InventoryPanel inventory;
     private final CardTable table;
     private final WorldSounds sounds = new WorldSounds();
@@ -242,6 +247,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         world.setGround(game.demoScenery().ground());
         world.setWeather(com.larsons.game.world.Weather.DEMO);        // each biome's weather, now and then
         this.pause = new PauseMenu(game, world);
+        this.tips = new Tips(game.settings());
         this.inventory = new InventoryPanel(game, world);
         this.story = new Story(game, world, inventory, null, "The demo");
         this.table = new CardTable(game, world);
@@ -343,6 +349,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
+        this.tips = new Tips(game.settings());
         this.inventory = new InventoryPanel(game, world);
         this.story = new Story(game, world, inventory, campaign != null ? campaign.save().quests() : null,
                 campaign != null ? campaign.placeName() : level.name());
@@ -765,12 +772,64 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         if (!still) world.tick(dt, (c, s) -> game.worldRenderer().chestDuration(c, s, camera));
         if (!still && game.settings().autoPickup) walkedOver(world.autoPickUp(game.settings().pickupRange));
+        tips(still ? 0 : dt);
         if (inside != null) world.folks().takeVisitors(false);        // (out of its door: back outdoors)
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
         camera.keepAbove(world.terrain(), 0.8);
         sounds.update(world, camera, durations());
+    }
+
+    /**
+     * The tutorial's tips ({@link Tips}): offered the first time each thing
+     * happens - her first steps, a foe near, someone to talk to, a chest,
+     * deep water, nightfall, a storm - and shown one at a time while no panel
+     * is up. None in a scripted run (the screenshots), unless -Dlarsons.tips=true.
+     */
+    private void tips(double dt) {
+        boolean panel = inventory.open() || story.modal();
+        tips.update(panel ? 0 : dt);
+        played += dt;
+        var s = game.settings();
+        boolean scripted = !s.script.isEmpty() && !Boolean.getBoolean("larsons.tips");
+        if (!s.tutorialTips || scripted || dt <= 0) return;
+        Player p = world.player();
+        if (played > 1.5) tips.offer(horde != null ? "horde" : "move");
+        switch (usable()) {
+            case PERSON -> tips.offer("talk");
+            case ITEM -> tips.offer("item");
+            case CHEST -> tips.offer("chest");
+            case SHOP -> tips.offer("shop");
+            case MOUNT, SADDLE -> tips.offer("horse");
+            case DOOR -> tips.offer("door");
+            default -> { }
+        }
+        Vec3 me = p.ground();
+        for (com.larsons.game.actor.Folk f : world.folks().foes()) {
+            if (f.hostile() && f.standing() && f.position().horizontalDistance(me) < 16) {
+                tips.offer("foe");
+                break;
+            }
+        }
+        if (p.health() > 0 && p.health() < Player.MAX_HEALTH * 0.35) tips.offer("hurt");
+        Item held = p.inventory().held();
+        if (held != null && world.ammo().enabled() && com.larsons.game.world.Ammo.of(held.def()) != null
+                && world.ammo().left(held) == 0 && world.ammo().carried(held, p.inventory()) == 0) {
+            tips.offer("ammo");
+        }
+        if (played > 20 && world.stealth().hidden()) tips.offer("hidden");
+        if (p.swimming()) tips.offer("swim");
+        if (p.climbing() != null) tips.offer("climb");
+        double hour = world.clock().hour();
+        if (inside == null && horde == null && world.sky().air().timeRuns() && (hour >= 20.5 || hour < 4.5)) {
+            tips.offer("night");
+        }
+        if (inside == null && world.weatherNow().stormy()) tips.offer("storm");
+        int missions = story.quests().journal().size();
+        if (missionsSeen >= 0 && missions > missionsSeen) tips.offer("quest");
+        missionsSeen = missions;
+        if (played > 45 && horde == null && !p.hero().deck().hand().isEmpty()) tips.offer("cards");
     }
 
     /** A viewer key's switch thrown (the camera height, the HUD, the scenery ...). */
@@ -1586,6 +1645,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             if (!game.importer().visible()) inventory.draw(ui);
             if (!inventory.open()) story.draw(ui, hudShown);
+            if (!inventory.open() && !story.modal()) tips.draw(ui);
             if (horde != null && (hudShown || horde.over()) && (!inventory.open() || horde.over())) horde.draw(ui);
         }
         if (pause.open()) {

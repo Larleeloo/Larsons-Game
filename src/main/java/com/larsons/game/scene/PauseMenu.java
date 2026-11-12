@@ -16,7 +16,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 
 /**
  * The pause menu: resume, the wardrobe (cosmetics), her class, the
- * compendium of every card ({@link Compendium}), the settings (the game's
+ * compendium of every card ({@link Compendium}), how to play
+ * ({@link HowToPlay}), the settings (the game's
  * one {@link SettingsMenu}: display, game, pointer, sounds, controls,
  * colours - the same over every screen), how to import sprite sheets, back
  * to the main menu, quit - and, once the debug code has been typed
@@ -25,10 +26,10 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
  */
 final class PauseMenu {
 
-    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, IMPORT, SETTINGS, COLOURS, SOUNDS, CONTROLS }
+    enum Page { MAIN, WARDROBE, CLASS, COMPENDIUM, HOW, IMPORT, SETTINGS, COLOURS, SOUNDS, CONTROLS }
 
     private static final String[] MAIN_ITEMS = {
-            "Resume", "Wardrobe", "Class", "Compendium", "Settings", "Import sprite sheets",
+            "Resume", "Wardrobe", "Class", "Compendium", "How to play", "Settings", "Import sprite sheets",
             "Main menu", "Quit"};
     /** The debug tools' item, before "Main menu". */
     static final String CLEAR_GROUND = "Clear the ground (debug)";
@@ -38,6 +39,7 @@ final class PauseMenu {
     private final MenuList menu = new MenuList();
     private final WardrobePanel wardrobe;
     private final Compendium compendium;
+    private final HowToPlay how;
     private Page page = Page.MAIN;
     private boolean open;
     private String backLabel;
@@ -49,6 +51,7 @@ final class PauseMenu {
         this.world = world;
         this.wardrobe = new WardrobePanel(game);
         this.compendium = new Compendium(world);
+        this.how = new HowToPlay(game);
     }
 
     /** The main page's items: {@link #MAIN_ITEMS}, with the debug tools' among them while they are on. */
@@ -161,6 +164,10 @@ final class PauseMenu {
                     page = Page.COMPENDIUM;
                     compendium.open();
                 }
+                case "How to play" -> {
+                    page = Page.HOW;
+                    how.open();
+                }
                 case "Settings" -> game.openSettings();
                 case "Import sprite sheets" -> page = Page.IMPORT;
                 case CLEAR_GROUND -> {
@@ -182,7 +189,7 @@ final class PauseMenu {
         }
 
         float w = Math.min(1100, ui.width() - 40), h = Math.min(640, ui.height() - 40);
-        if (page == Page.COMPENDIUM) {
+        if (page == Page.COMPENDIUM || page == Page.HOW) {
             w = Math.min(1500, ui.width() - 40);
             h = Math.min(1000, ui.height() - 30);
         }
@@ -198,6 +205,7 @@ final class PauseMenu {
             case WARDROBE -> "Wardrobe";
             case CLASS -> "Class";
             case COMPENDIUM -> "Compendium";
+            case HOW -> "How to play";
             case IMPORT -> "Import sprite sheets";
             default -> "";
         };
@@ -210,6 +218,7 @@ final class PauseMenu {
         switch (page) {
             case CLASS -> heroClass(ui, cx, cy, cw, ch);
             case COMPENDIUM -> compendium.draw(ui, cx, cy - 12, cw, ch + 12);
+            case HOW -> how.draw(ui, cx, cy - 8, cw, ch + 8);
             case IMPORT -> importHelp(ui, cx, cy, cw);
             default -> { }
         }

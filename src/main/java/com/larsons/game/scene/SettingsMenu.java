@@ -288,8 +288,8 @@ public final class SettingsMenu {
             game.toast("The tips will come up again as you play", Theme.OK);
         }
         y += 42;
-        note(ui, "A tip the first time something happens: the first foe, the first chest, swimming, a "
-                + "workbench. The whole tutorial is on the main menu.", x, y, w);
+        note(ui, "A tip the first time something happens: the first foe, the first chest, swimming, nightfall. "
+                + "How to play, on the main menu and in the pause menu, explains everything.", x, y, w);
         y += 40;
 
         name(ui, "Pick up by walking over", x, y);

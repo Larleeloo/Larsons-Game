@@ -39,7 +39,7 @@ public enum Action {
     DROP("Drop what you hold", Group.THINGS, keys(GLFW_KEY_G), pads()),
     INVENTORY("Inventory", Group.THINGS, keys(GLFW_KEY_I), pads(Pad.VIEW)),
     CARDS("Cards", Group.THINGS, keys(GLFW_KEY_J), pads(Pad.DPAD_UP)),
-    JOURNAL("Quest journal", Group.THINGS, keys(GLFW_KEY_U), pads()),
+    JOURNAL("Missions", Group.THINGS, keys(GLFW_KEY_U), pads()),
     HOTBAR_1("Hotbar slot 1", Group.THINGS, keys(GLFW_KEY_1), pads()),
     HOTBAR_2("Hotbar slot 2", Group.THINGS, keys(GLFW_KEY_2), pads()),
     HOTBAR_3("Hotbar slot 3", Group.THINGS, keys(GLFW_KEY_3), pads()),
