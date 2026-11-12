@@ -34,40 +34,63 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         return null;
     }
 
-    /** Where the editor's palette files a kind. */
+    /**
+     * Where the editor's palette files a kind: in the order a level is made
+     * (the land and its life, then what is built, furnished, lived in and
+     * fought over, then what lies about), each under its group's name.
+     */
     public enum Category {
-        SCENERY("Scenery"),
-        ITEMS("Weapons"),
-        WEARABLES("Wearables"),
-        LOOT("Chests"),
-        BUILDINGS("Buildings"),
-        TOWN("Town"),
-        INSIDE("Inside"),
-        FURNITURE("Furniture"),
-        KITCHEN("Kitchen, bath"),
-        DECOR("Decor"),
-        PLANTS("Plants"),
-        FARM("Farm"),
-        CLUTTER("Clutter"),
-        LIFE("Life"),
-        COMBAT("Training"),
-        STORY("Story"),
-        FOES("Foes"),
-        CRAFT("Crafting"),
-        ZOMBIES("Zombies"),
-        TERRAIN("Terrain"),
-        SOUNDS("Sounds"),
-        LIGHTS("Light"),
-        MARKERS("Markers"),
-        TEMPLATES("Templates");
+        // the land and its life
+        SCENERY("World", "Nature: trees, rocks, grass, vines"),
+        LIFE("World", "Animals and critters"),
+        FORAGE("World", "Forage and hunting"),
+        // what is built
+        BUILDINGS("Build", "Buildings"),
+        TOWN("Build", "Town"),
+        INSIDE("Build", "Rooms: walls, floors, stairs"),
+        // what is put in it
+        FURNITURE("Furnish", "Furniture"),
+        KITCHEN("Furnish", "Kitchen and bath"),
+        DECOR("Furnish", "Decor"),
+        PLANTS("Furnish", "Potted plants"),
+        FARM("Furnish", "Farm"),
+        CLUTTER("Furnish", "Clutter"),
+        LIGHTS("Furnish", "Lights"),
+        // who lives there and what they do
+        STORY("Story", "People"),
+        SHOPS("Story", "Shops and shopkeepers"),
+        QUESTS("Story", "Quests, locked doors, ways out"),
+        CRAFT("Story", "Crafting"),
+        // what is fought
+        FOES("Fight", "Foes and summoning"),
+        COMBAT("Fight", "Training"),
+        // what lies about to be taken
+        LOOT("Items", "Chests"),
+        ITEMS("Items", "Weapons"),
+        SUPPLIES("Items", "Supplies, potions, keys"),
+        WEARABLES("Items", "Wearables"),
+        SHOWN("Items", "Items on display"),
+        // the horde game's
+        ZOMBIES("Zombies", "Zombies"),
+        // the rest
+        SOUNDS("Other", "Sounds"),
+        MARKERS("Other", "Markers"),
+        TEMPLATES("Other", "Templates");
 
-        private final String label;
+        private final String group, label;
 
-        Category(String label) {
+        Category(String group, String label) {
+            this.group = group;
             this.label = label;
         }
 
         public String label() { return label; }
+
+        /** The group it is under: World, Build, Furnish, Story, Fight, Items, Zombies, Other. */
+        public String group() { return group; }
+
+        /** As the palette's list says it: "Furnish · Lights". */
+        public String title() { return group.equals(label) ? label : group + " · " + label; }
     }
 
     /**
@@ -84,11 +107,22 @@ public record ObjectType(String key, String label, Category category, List<Prop>
      * @param max      a number's most
      * @param step     how much a number goes up or down a click
      * @param choices  a choice's options, given the object it is for (an item's tiers depend on the item)
+     * @param rows     a list's rows ({@link Kind#ROWS}: kept as text, edited a row at a time), or null
      */
     public record Prop(String key, String label, Kind kind, Object fallback, double min, double max, double step,
-                       Function<LevelObject, List<String>> choices) {
+                       Function<LevelObject, List<String>> choices, Rows rows) {
 
-        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE, COLOUR, COLOURS }
+        public enum Kind { NUMBER, TEXT, CHOICE, TOGGLE, COLOUR, COLOURS, ROWS }
+
+        public Prop(String key, String label, Kind kind, Object fallback, double min, double max, double step,
+                    Function<LevelObject, List<String>> choices) {
+            this(key, label, kind, fallback, min, max, step, choices, null);
+        }
+
+        /** A list kept as one line of text ({@code fallback}), edited as {@code rows}. */
+        public static Prop rows(String key, String label, String fallback, Rows rows) {
+            return new Prop(key, label, Kind.ROWS, fallback, 0, 0, 0, null, rows);
+        }
 
         public static Prop number(String key, String label, double fallback, double min, double max, double step) {
             return new Prop(key, label, Kind.NUMBER, fallback, min, max, step, null);

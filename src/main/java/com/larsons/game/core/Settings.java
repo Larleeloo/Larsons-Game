@@ -134,6 +134,26 @@ public final class Settings {
      * between runs until it is typed again.
      */
     public boolean devUnlocked;
+    /**
+     * How the window is shown ({@code gfx/Window.Mode}): "windowed",
+     * "borderless" (full screen without a mode switch) or "fullscreen" (the
+     * monitor to itself) - put back at the next start.
+     */
+    public String displayMode = "windowed";
+    /** The full screen F11 goes to: "borderless" or "fullscreen". */
+    public String fullscreenKind = "borderless";
+    /** Coins, ammunition and keys she walks over come to her by themselves. */
+    public boolean autoPickup = true;
+    /** How near (metres) they must be to come to her. */
+    public double pickupRange = 2.5;
+    /** The tutorial's tips come up in the game the first time each thing happens. */
+    public boolean tutorialTips = true;
+    /** The tips already shown, so each comes once ({@code scene/Tips}). */
+    public final java.util.Set<String> tipsSeen = new java.util.LinkedHashSet<>();
+    /** The pointer changes with what it is over (a button, someone to talk to, a foe); off: always the same. */
+    public boolean dynamicPointer = true;
+    /** The missions being followed are listed on the HUD. */
+    public boolean missionTracker = true;
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
@@ -186,6 +206,16 @@ public final class Settings {
                     }
                 }
                 s.devUnlocked = Json.bool(j, "devUnlocked", false);
+                s.displayMode = Json.str(j, "displayMode", "windowed");
+                s.fullscreenKind = Json.str(j, "fullscreenKind", "borderless");
+                s.autoPickup = Json.bool(j, "autoPickup", true);
+                s.pickupRange = Math.max(0.5, Math.min(8, Json.num(j, "pickupRange", 2.5)));
+                s.tutorialTips = Json.bool(j, "tutorialTips", true);
+                if (j.get("tipsSeen") instanceof java.util.List<?> seen) {
+                    for (Object o : seen) s.tipsSeen.add(String.valueOf(o));
+                }
+                s.dynamicPointer = Json.bool(j, "dynamicPointer", true);
+                s.missionTracker = Json.bool(j, "missionTracker", true);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
@@ -217,6 +247,14 @@ public final class Settings {
         j.put("masterVolume", masterVolume);
         j.put("soundVolumes", new LinkedHashMap<>(soundVolumes));
         j.put("devUnlocked", devUnlocked);
+        j.put("displayMode", displayMode);
+        j.put("fullscreenKind", fullscreenKind);
+        j.put("autoPickup", autoPickup);
+        j.put("pickupRange", pickupRange);
+        j.put("tutorialTips", tutorialTips);
+        j.put("tipsSeen", new java.util.ArrayList<>(tipsSeen));
+        j.put("dynamicPointer", dynamicPointer);
+        j.put("missionTracker", missionTracker);
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);

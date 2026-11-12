@@ -106,15 +106,22 @@ final class HordeProps {
 
     /** What the board {@code s} sells, or null when that is nothing there is. */
     static Item sold(Spot s) {
-        String tier = s.str("tier", HordeTypes.LOWEST);
-        return Item.parse(s.str("item", "sword") + (HordeTypes.LOWEST.equals(tier) ? "" : " " + tier));
+        return HordeTypes.soldItem(s.str("item", "sword"), s.str("tier", HordeTypes.LOWEST));
     }
 
-    /** Whether she has the weapon {@code item} (one of that tier or better): the board then feeds it. */
+    /**
+     * Whether she has the weapon {@code item} (one of that tier or better;
+     * a forged one, that very one): the board then feeds it.
+     */
     private boolean owns(Item item) {
-        if (Tier.row(item.id()) == null) return false;       // (a potion: another is another)
         for (Item i : world.player().inventory().items()) {
-            if (i.def() == item.def() && (i.tier() == null || item.tier() == null
+            if (i == null) continue;
+            if (item.forged() != null) {
+                if (i.forged() != null && i.forged().id().equals(item.forged().id())) return true;
+                continue;
+            }
+            if (Tier.row(item.id()) == null) return false;       // (a potion: another is another)
+            if (i.forged() == null && i.def() == item.def() && (i.tier() == null || item.tier() == null
                     || i.tier().ordinal() >= item.tier().ordinal())) return true;
         }
         return false;
@@ -269,29 +276,36 @@ final class HordeProps {
         return out;
     }
 
-    /** A board of {@code s} torn off: with the last, the way is open. */
+    /** A board of {@code s} torn off - the barricade drawn with one fewer: with the last, the way is open. */
     void tear(Spot s) {
         int n = planks(s);
         if (n <= 0) return;
         s.state().put("planks", n - 1);
+        boards(s, n - 1);
         world.combat().sound("horde/board_torn", s.position());
         world.combat().say(n - 1 == 0 ? "Broken through!" : "-1 board", 0xD98A5A, s.position(), 1.9, n - 1 > 0);
-        if (n - 1 == 0) {
-            Building b = world.takeBuilding(s.id());
-            if (b != null) down.put(s.id(), b);
-        }
     }
 
-    /** A board nailed back on {@code s}: whether there was room for one. */
+    /** A board nailed back on {@code s}, where it goes on the frame: whether there was room for one. */
     boolean nail(Spot s) {
         int n = planks(s);
         if (n >= most(s)) return false;
         s.state().put("planks", n + 1);
-        if (n == 0) {
-            Building b = down.remove(s.id());
-            if (b != null) world.addBuilding(b);
-        }
+        boards(s, n + 1);
         return true;
+    }
+
+    /** {@code s}'s barricade as it stands with {@code n} boards: its frame, and those boards on it. */
+    private void boards(Spot s, int n) {
+        Building old = world.takeBuilding(s.id());
+        if (old == null) old = down.remove(s.id());
+        if (old == null) return;
+        var p = HordeTypes.barricade(n);
+        if (p == null) {
+            down.put(s.id(), old);        // (no frame to show: the old one kept aside till a board goes on)
+            return;
+        }
+        world.addBuilding(new Building(s.id(), p, old.position(), old.heading(), old.look(), null));
     }
 
     private void board(Spot s) {

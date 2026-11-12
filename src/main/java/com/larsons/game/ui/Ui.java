@@ -9,7 +9,7 @@ import com.larsons.game.gfx.Window;
 import com.larsons.game.input.Input;
 import com.larsons.game.math.Mat4;
 
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 
 /**
@@ -516,6 +516,7 @@ public final class Ui implements AutoCloseable {
      * here ({@code ui/click}) - a button, a knob, a wardrobe gem.
      */
     public boolean clicked(float x, float y, float w, float h) {
+        target(x, y, w, h, Kind.BUTTON);
         if (clickTaken || !input().mousePressed(GLFW_MOUSE_BUTTON_LEFT) || !hover(x, y, w, h)) {
             return false;
         }
@@ -533,6 +534,19 @@ public final class Ui implements AutoCloseable {
     public double slider(float x, float y, float w, float h, double value) {
         long id = ((long) Float.floatToIntBits(x) << 32) ^ Float.floatToIntBits(y);
         Input in = input();
+        target(x - 6, y - 4, w + 12, h + 8, Kind.SLIDER);
+        if (in.padFocusing() && in.navAdjust() != 0 && hover(x - 6, y - 4, w + 12, h + 8)) {
+            // the gamepad's left and right turn a slider it has the focus on, a twentieth a step
+            value = Math.max(0, Math.min(1, Math.round(value * 20 + in.navAdjust()) / 20.0));
+            in.adjust(0);
+            in.warp(x + w * value, y + h / 2);
+            Sounds.play(SoundKeys.ui("hover"));
+        }
+        if (in.padFocusing() && in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && hover(x - 6, y - 4, w + 12, h + 8)) {
+            // (A on a slider does not jump it to where the focus sits)
+            in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
+            clickTaken = true;
+        }
         if (!clickTaken && in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && hover(x - 6, y - 4, w + 12, h + 8)) {
             clickTaken = true;
             in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
@@ -586,6 +600,370 @@ public final class Ui implements AutoCloseable {
 
     public boolean button(String label, float x, float y, float w, float h) {
         return button(label, x, y, w, h, false, true);
+    }
+
+    // --- the gamepad's focus ------------------------------------------------------------
+
+    /** What a thing the focus can rest on is: pressed, turned left and right, or typed in. */
+    public enum Kind { BUTTON, SLIDER, CHOICE, TEXT }
+
+    /** This frame's things the focus can move between, and the last frame's: {x, y, w, h, clip x, y, w, h, kind}. */
+    private java.util.List<float[]> targets = new java.util.ArrayList<>(), last = new java.util.ArrayList<>();
+    /** A step the focus could not take yet: it scrolls toward what is out of sight, for a few frames. */
+    private int pendingNav, pendingFrames;
+    /** When the focus last moved, for its ring's flash. */
+    private long movedAt;
+    private final Keyboard keyboard = new Keyboard();
+
+    /**
+     * Something the gamepad's focus can rest on, drawn at {@code (x, y, w,
+     * h)} this frame: a button ({@link #clicked} says so itself), a slider, a
+     * choice, a text field. Things drawn turned, and a click-anywhere catch
+     * as big as the screen, are not.
+     */
+    public void target(float x, float y, float w, float h, Kind kind) {
+        if (turned || w <= 2 || h <= 2 || input().muted()) return;
+        if (w > window.width() * 0.6f && h > window.height() * 0.6f) return;
+        float[] t = targets.isEmpty() ? null : targets.get(targets.size() - 1);
+        if (t != null && t[0] == x && t[1] == y && t[2] == w && t[3] == h) {
+            if (kind != Kind.BUTTON) t[8] = kind.ordinal();
+            return;
+        }
+        targets.add(new float[]{x, y, w, h, clipW < 0 ? 0 : clipX, clipW < 0 ? 0 : clipY,
+                clipW < 0 ? window.width() : clipW, clipW < 0 ? window.height() : clipH, kind.ordinal()});
+    }
+
+    /** The screen wants a free pointer for the gamepad's stick this frame (the editor's view, a map). */
+    public void wantPointer() {
+        input().setWantsPointer(true);
+    }
+
+    /**
+     * Once a frame, before the scene: the last frame's things to focus on
+     * become what the gamepad moves between - its step taken to the nearest
+     * thing that way (scrolling a panel to bring one into sight), its left and
+     * right turning a focused slider, the pointer put on what has the focus.
+     */
+    public void newFrame() {
+        java.util.List<float[]> t = last;
+        last = targets;
+        targets = t;
+        targets.clear();
+        Input in = input();
+        boolean pointer = in.padPointer();
+        in.setWantsPointer(false);
+        in.setNavigable(!last.isEmpty());
+        if (keyboard.open()) {
+            keyboard.update(this, in);
+            return;
+        }
+        int nav = in.takeNav();
+        if (!in.padFocusing()) {
+            pendingNav = 0;
+            return;
+        }
+        float[] cur = under(last, in.mouseX(), in.mouseY());
+        if (cur != null && (nav == Input.NAV_LEFT || nav == Input.NAV_RIGHT)
+                && (cur[8] == Kind.SLIDER.ordinal() || cur[8] == Kind.CHOICE.ordinal())) {
+            in.adjust(nav == Input.NAV_LEFT ? -1 : 1);
+            return;
+        }
+        if (nav == 0 && pendingNav != 0 && --pendingFrames > 0) nav = pendingNav;
+        else if (nav != 0) pendingFrames = 40;
+        if (nav == 0) {
+            pendingNav = 0;
+            if (cur == null && !pointer) {
+                // nothing has the focus (a page changed under it): the nearest thing takes it
+                float[] near = nearest(in.mouseX(), in.mouseY());
+                if (near != null) focus(in, near);
+            }
+            return;
+        }
+        float px = cur == null ? (float) in.mouseX() : cur[0] + cur[2] / 2;
+        float py = cur == null ? (float) in.mouseY() : cur[1] + cur[3] / 2;
+        float[] from = cur != null ? cur : new float[]{px, py, 0, 0};
+        float[] best = pick(from, nav, true);
+        if (best != null) {
+            pendingNav = 0;
+            focus(in, best);
+            Sounds.play(SoundKeys.ui("hover"));
+            return;
+        }
+        // what lies that way is scrolled out of sight in this panel: scroll toward it
+        float[] hidden = pick(from, nav, false);
+        if (hidden != null && cur != null && sameClip(hidden, cur)) {
+            in.addScroll(nav == Input.NAV_DOWN || nav == Input.NAV_RIGHT ? -1 : 1);
+            pendingNav = nav;
+        } else {
+            pendingNav = 0;
+        }
+    }
+
+    private void focus(Input in, float[] t) {
+        // the focus's point: the middle of what it rests on, kept inside the panel it is seen through
+        float cx = Math.max(t[4] + 1, Math.min(t[4] + t[6] - 2, t[0] + t[2] / 2));
+        float cy = Math.max(t[5] + 1, Math.min(t[5] + t[7] - 2, t[1] + t[3] / 2));
+        in.warp(cx, cy);
+        movedAt = System.nanoTime();
+    }
+
+    private static boolean sameClip(float[] a, float[] b) {
+        return a[4] == b[4] && a[5] == b[5] && a[6] == b[6] && a[7] == b[7];
+    }
+
+    /** Whether most of {@code t} can be seen (inside its panel and the window). */
+    private boolean visible(float[] t) {
+        float x0 = Math.max(t[0], Math.max(t[4], 0)), y0 = Math.max(t[1], Math.max(t[5], 0));
+        float x1 = Math.min(t[0] + t[2], Math.min(t[4] + t[6], window.width()));
+        float y1 = Math.min(t[1] + t[3], Math.min(t[5] + t[7], window.height()));
+        return x1 - x0 >= Math.min(t[2], 12) * 0.6f && y1 - y0 >= Math.min(t[3], 12) * 0.6f
+                && (x1 - x0) * (y1 - y0) >= t[2] * t[3] * 0.4f;
+    }
+
+    /** The topmost (last drawn) thing under the point, seen. */
+    private float[] under(java.util.List<float[]> list, double x, double y) {
+        for (int i = list.size() - 1; i >= 0; i--) {
+            float[] t = list.get(i);
+            if (x >= t[0] && x < t[0] + t[2] && y >= t[1] && y < t[1] + t[3]
+                    && x >= t[4] && x < t[4] + t[6] && y >= t[5] && y < t[5] + t[7]) return t;
+        }
+        return null;
+    }
+
+    private float[] nearest(double x, double y) {
+        float[] best = null;
+        double bd = Double.MAX_VALUE;
+        for (float[] t : last) {
+            if (!visible(t)) continue;
+            double dx = Math.max(0, Math.max(t[0] - x, x - (t[0] + t[2])));
+            double dy = Math.max(0, Math.max(t[1] - y, y - (t[1] + t[3])));
+            double d = dx * dx + dy * dy;
+            if (d < bd) {
+                bd = d;
+                best = t;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * The thing to go to from {@code from} the way {@code nav} points: the
+     * nearest that lies that way, those across from it counting double - as
+     * a console's menus move. Seen ones, or (for scrolling) unseen ones.
+     */
+    private float[] pick(float[] from, int nav, boolean seen) {
+        float fx0 = from[0], fy0 = from[1], fx1 = from[0] + from[2], fy1 = from[1] + from[3];
+        float fcx = (fx0 + fx1) / 2, fcy = (fy0 + fy1) / 2;
+        float[] best = null;
+        double bs = Double.MAX_VALUE;
+        for (float[] t : last) {
+            if (t == from || visible(t) != seen) continue;
+            float tx0 = t[0], ty0 = t[1], tx1 = t[0] + t[2], ty1 = t[1] + t[3];
+            float tcx = (tx0 + tx1) / 2, tcy = (ty0 + ty1) / 2;
+            double along, across;
+            switch (nav) {
+                case Input.NAV_UP -> {
+                    if (tcy >= fcy - 1 || ty0 >= fy0 && ty1 >= fy1 && tcy > fy0) continue;
+                    along = Math.max(0, fy0 - ty1);
+                    across = Math.max(0, Math.max(tx0 - fx1, fx0 - tx1)) + Math.abs(tcx - fcx) * 0.15;
+                }
+                case Input.NAV_DOWN -> {
+                    if (tcy <= fcy + 1 || ty1 <= fy1 && ty0 <= fy0 && tcy < fy1) continue;
+                    along = Math.max(0, ty0 - fy1);
+                    across = Math.max(0, Math.max(tx0 - fx1, fx0 - tx1)) + Math.abs(tcx - fcx) * 0.15;
+                }
+                case Input.NAV_LEFT -> {
+                    if (tcx >= fcx - 1 || tx0 >= fx0 && tcx > fx0) continue;
+                    along = Math.max(0, fx0 - tx1);
+                    across = Math.max(0, Math.max(ty0 - fy1, fy0 - ty1)) + Math.abs(tcy - fcy) * 0.15;
+                }
+                default -> {
+                    if (tcx <= fcx + 1 || tx1 <= fx1 && tcx < fx1) continue;
+                    along = Math.max(0, tx0 - fx1);
+                    across = Math.max(0, Math.max(ty0 - fy1, fy0 - ty1)) + Math.abs(tcy - fcy) * 0.15;
+                }
+            }
+            double score = along + across * 2.5;
+            if (score < bs) {
+                bs = score;
+                best = t;
+            }
+        }
+        return best;
+    }
+
+    /** What the interface says the pointer is over this frame, beyond what it can tell itself ({@link #hint}). */
+    private String hint = "";
+
+    /**
+     * Say what the pointer is over in the interface this frame, for the
+     * pointer to show it: "take" (an item in a slot), "buy", "build",
+     * "locked", "no", "talk" ...
+     */
+    public void hint(String h) {
+        hint = h == null ? "" : h;
+    }
+
+    /**
+     * What the pointer is over this frame, for {@link Pointers}: what a
+     * screen said ({@link #hint}), else what is under it - a button or a
+     * choice ("click"), a slider ("slide"), a text field ("text") - or ""
+     * (nothing of the interface's: the scene's own hint stands).
+     */
+    public String pointerHint() {
+        String h = hint;
+        hint = "";
+        if (!h.isEmpty()) return h;
+        Input in = input();
+        float[] t = under(targets, in.mouseX(), in.mouseY());
+        if (t == null) return "";
+        return switch (Kind.values()[(int) t[8]]) {
+            case SLIDER -> "slide";
+            case TEXT -> "text";
+            default -> "click";
+        };
+    }
+
+    /** A text field was pressed with the gamepad: the on-screen keyboard comes up to type in it. */
+    public void textPressed() {
+        if (input().padFocusing()) keyboard.show();
+    }
+
+    /** Whether the on-screen keyboard is up (it takes the gamepad). */
+    public boolean keyboardOpen() { return keyboard.open(); }
+
+    /**
+     * Last, over everything: the ring round what the gamepad's focus is on,
+     * and the on-screen keyboard while it is up.
+     */
+    public void drawFocus() {
+        Input in = input();
+        begin();
+        if (keyboard.open()) {
+            keyboard.draw(this);
+        } else if (in.padFocusing()) {
+            float[] t = under(targets, in.mouseX(), in.mouseY());
+            if (t != null) {
+                double since = (System.nanoTime() - movedAt) / 1e9;
+                float grow = (float) Math.max(0, 4 * (1 - since / 0.15));
+                float pulse = (float) (0.75 + 0.25 * Math.sin(System.nanoTime() / 1e9 * 5));
+                float x = t[0] - 3 - grow, y = t[1] - 3 - grow, w = t[2] + 6 + grow * 2, h = t[3] + 6 + grow * 2;
+                outline(x - 1, y - 1, w + 2, h + 2, 1, Theme.withAlpha(Theme.SOOT, 0.8f));
+                outline(x, y, w, h, 2, Theme.withAlpha(Theme.ACCENT, pulse));
+                float c = Math.min(10, Math.min(w, h) / 3);
+                rect(x - 1, y - 1, c, 4, Theme.BRASS_LIGHT);
+                rect(x - 1, y - 1, 4, c, Theme.BRASS_LIGHT);
+                rect(x + w - c + 1, y + h - 3, c, 4, Theme.BRASS_LIGHT);
+                rect(x + w - 3, y + h - c + 1, 4, c, Theme.BRASS_LIGHT);
+                if (t[8] == Kind.SLIDER.ordinal() || t[8] == Kind.CHOICE.ordinal()) {
+                    text(small, "◀", x - 16, t[1] + (t[3] - small.lineHeight()) / 2, Theme.ACCENT);
+                    text(small, "▶", x + w + 4, t[1] + (t[3] - small.lineHeight()) / 2, Theme.ACCENT);
+                }
+            }
+        }
+        end();
+    }
+
+    /**
+     * The on-screen keyboard for the gamepad: the letters, numbers and a few
+     * marks on brass keys - the d-pad or stick moves along them, A types the
+     * one lit, X rubs out, Y is Shift, B or Start is done.
+     */
+    private final class Keyboard {
+        private static final String[] ROWS = {"1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.-"};
+        private static final String[] LAST = {"Shift", "Space", "Delete", "Done"};
+        private boolean open, shift;
+        private int row, col;
+        private int releaseKey = -1;
+
+        boolean open() { return open; }
+
+        void show() {
+            open = true;
+            row = 1;
+            col = 0;
+            input().setKeyboard(true);
+        }
+
+        private void close(Input in) {
+            open = false;
+            in.setKeyboard(false);
+            press(in, GLFW_KEY_ENTER);
+        }
+
+        private void press(Input in, int key) {
+            in.keyEvent(key, true);
+            releaseKey = key;
+        }
+
+        void update(Ui ui, Input in) {
+            if (releaseKey >= 0) {
+                in.keyEvent(releaseKey, false);
+                releaseKey = -1;
+            }
+            int nav = in.takeNav();
+            int cols = row < ROWS.length ? ROWS[row].length() : LAST.length;
+            switch (nav) {
+                case Input.NAV_UP -> row = (row + ROWS.length) % (ROWS.length + 1);
+                case Input.NAV_DOWN -> row = (row + 1) % (ROWS.length + 1);
+                case Input.NAV_LEFT -> col = (col + cols - 1) % cols;
+                case Input.NAV_RIGHT -> col = (col + 1) % cols;
+                default -> { }
+            }
+            if (nav == Input.NAV_UP || nav == Input.NAV_DOWN) {
+                int was = cols;
+                cols = row < ROWS.length ? ROWS[row].length() : LAST.length;
+                col = Math.min(cols - 1, Math.round(col * (cols - 1f) / Math.max(1, was - 1)));
+            }
+            if (nav != 0) Sounds.play(SoundKeys.ui("hover"));
+            if (in.padPressed(com.larsons.game.input.Pad.A)) {
+                Sounds.play(SoundKeys.ui("click"));
+                if (row < ROWS.length) {
+                    char c = ROWS[row].charAt(col);
+                    in.typed(shift ? Character.toUpperCase(c) : c);
+                    shift = false;
+                } else {
+                    switch (col) {
+                        case 0 -> shift = !shift;
+                        case 1 -> in.typed(' ');
+                        case 2 -> press(in, GLFW_KEY_BACKSPACE);
+                        default -> close(in);
+                    }
+                }
+            }
+            if (in.padPressed(com.larsons.game.input.Pad.X)) press(in, GLFW_KEY_BACKSPACE);
+            if (in.padPressed(com.larsons.game.input.Pad.Y)) shift = !shift;
+            if (in.padPressed(com.larsons.game.input.Pad.B) || in.padPressed(com.larsons.game.input.Pad.MENU)) close(in);
+            // a key typed on the keyboard itself puts this one away
+            if (!in.usingPad()) {
+                open = false;
+                in.setKeyboard(false);
+            }
+        }
+
+        void draw(Ui ui) {
+            float key = 46, gap = 6, w = 10 * (key + gap) + gap + 24, h = 5 * (key + gap) + gap + 60;
+            float x = (ui.width() - w) / 2, y = ui.height() - h - 30;
+            ui.panel(x, y, w, h);
+            ui.text(ui.small, "A type  ·  X delete  ·  Y shift  ·  B done", x + 14, y + 10, Theme.ITEM_DISABLED);
+            float ky = y + 36;
+            for (int r = 0; r <= ROWS.length; r++) {
+                if (r < ROWS.length) {
+                    String keys = ROWS[r];
+                    for (int c = 0; c < keys.length(); c++) {
+                        String k = String.valueOf(shift ? Character.toUpperCase(keys.charAt(c)) : keys.charAt(c));
+                        ui.button(k, x + 12 + gap + c * (key + gap), ky, key, key, r == row && c == col, true);
+                    }
+                } else {
+                    float bw = (10 * (key + gap) - gap - 3 * gap) / 4;
+                    for (int c = 0; c < LAST.length; c++) {
+                        String label = c == 0 && shift ? "SHIFT" : LAST[c];
+                        ui.button(label, x + 12 + gap + c * (bw + gap), ky, bw, key, r == row && c == col, true);
+                    }
+                }
+                ky += key + gap;
+            }
+        }
     }
 
     @Override

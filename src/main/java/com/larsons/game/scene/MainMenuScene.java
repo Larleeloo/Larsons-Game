@@ -83,6 +83,7 @@ public final class MainMenuScene implements Scene {
     private final MenuList menu = new MenuList();
     private final CutsceneStage stage;
     private final DebugCode devCode = new DebugCode();
+    private final HowToPlay how;
     private Cutscene cutscene;
     private double turn, time;
     /** The tab last shown: the menu opens on it again (coming back from the editor, on the Dev tab). */
@@ -103,6 +104,8 @@ public final class MainMenuScene implements Scene {
         world.player().preview(AnimState.IDLE);
         if (lastTab != Tab.DEV || game.settings().devUnlocked) tab = lastTab;
         this.stage = new CutsceneStage(game.sprites(), game.closeups());
+        this.how = new HowToPlay(game);
+        how.offer("Practise in the training yard");
         if (!game.closeups().isEmpty()) {
             try {
                 cutscene = Cutscene.load(game.menuCutscene(), game::wardrobe);
@@ -230,8 +233,12 @@ public final class MainMenuScene implements Scene {
             }
             List<Tab> tabs = tabs();
             int at = Math.max(0, tabs.indexOf(tab));
-            if (in.pressed(GLFW_KEY_RIGHT) || in.pressed(GLFW_KEY_E)) show(tabs.get((at + 1) % tabs.size()));
-            if (in.pressed(GLFW_KEY_LEFT) || in.pressed(GLFW_KEY_Q)) {
+            boolean reading = tab == Tab.PLAY && playPage == PlayPage.HOW;
+            int step = reading ? 0 : in.takeTab();
+            if (!reading && (in.pressed(GLFW_KEY_RIGHT) || in.pressed(GLFW_KEY_E)) || step > 0) {
+                show(tabs.get((at + 1) % tabs.size()));
+            }
+            if (!reading && (in.pressed(GLFW_KEY_LEFT) || in.pressed(GLFW_KEY_Q)) || step < 0) {
                 show(tabs.get((at + tabs.size() - 1) % tabs.size()));
             }
             if (tab == Tab.DEV && in.scroll() != 0) {
@@ -298,6 +305,11 @@ public final class MainMenuScene implements Scene {
             game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
             ui.begin();
         }
+        if (tab == Tab.PLAY && playPage == PlayPage.HOW && !game.importer().visible()) {
+            howToPlay(ui);
+            ui.end();
+            return;
+        }
         // A soft band behind the menu for legibility over the void.
         float band = tab == Tab.DEV || tab == Tab.HORDE ? 620 : 520;
         ui.rect(0, 0, band, ui.height(), Theme.withAlpha(Theme.BACKGROUND, 0.78f));
@@ -305,6 +317,9 @@ public final class MainMenuScene implements Scene {
         ui.textShadowed(ui.title, "Larson's Game", x, y, Theme.TITLE);
         ui.text(ui.body, "A moon of oak, brass and old magic", x + 4, y + 72, Theme.ACCENT);
 
+        // (while it asks whether to quit, what is under the question hears nothing)
+        boolean asking = quitting, deaf = ui.input().muted();
+        if (asking && !deaf) ui.input().setMuted(true);
         // The importer, when open, is modal: it draws over this and takes the keys.
         if (!game.importer().visible()) {
             float ty = y + 116;
@@ -317,8 +332,21 @@ public final class MainMenuScene implements Scene {
                 case DEV -> devTab(ui, x, cy, band - x - 24);
             }
             if (ui.input().pressed(GLFW_KEY_ESCAPE)) {
-                if (tab == Tab.PLAY && playPage != PlayPage.MAIN) playPage = PlayPage.MAIN;
-                else game.quit();
+                ui.input().consumeKey(GLFW_KEY_ESCAPE);
+                if (quitting) quitting = false;
+                else if (tab == Tab.PLAY && playPage != PlayPage.MAIN) playPage = PlayPage.MAIN;
+                else quitting = true;
+            }
+        }
+        // the settings, from every tab (and F10)
+        if (ui.button("Settings", ui.width() - 170, 20, 150, 40)) game.openSettings();
+        if (asking) {
+            if (!deaf) ui.input().setMuted(false);
+            if (ui.input().pressed(GLFW_KEY_ESCAPE)) {
+                ui.input().consumeKey(GLFW_KEY_ESCAPE);
+                quitting = false;
+            } else {
+                askQuit(ui);
             }
         }
 
@@ -328,6 +356,40 @@ public final class MainMenuScene implements Scene {
         ui.text(ui.small, "GPU: " + game.window().gpu().describe(), x, fy + 44,
                 game.window().gpu().software() ? Theme.WARNING : Theme.ITEM_DISABLED);
         ui.end();
+    }
+
+    /** How to play, over the menu's world: every chapter, Back (or Esc) to the menu. */
+    private void howToPlay(Ui ui) {
+        ui.rect(0, 0, ui.width(), ui.height(), Theme.withAlpha(Theme.BACKGROUND, 0.55f));
+        float w = Math.min(1500, ui.width() - 48), h = Math.min(980, ui.height() - 40);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        ui.text(ui.large, "How to play", x + 26, y + 18, Theme.TITLE);
+        ui.text(ui.small, ui.input().usingPad() ? "LB and RB turn the chapters" : "Up and down turn the chapters",
+                x + 30 + ui.large.width("How to play") + 16, y + 30, Theme.ITEM_DISABLED);
+        boolean escape = ui.input().pressed(GLFW_KEY_ESCAPE);
+        if (escape) ui.input().consumeKey(GLFW_KEY_ESCAPE);
+        if (ui.button("Back", x + w - 126, y + 14, 100, 36) || escape || ui.input().pressed(GLFW_KEY_BACKSPACE)) {
+            playPage = PlayPage.MAIN;
+            Sounds.play(SoundKeys.ui("back"));
+            return;
+        }
+        if (how.draw(ui, x + 26, y + 66, w - 52, h - 86)) game.switchTo("demo");
+    }
+
+    /** Esc on the menu asks before it closes the game. */
+    private boolean quitting;
+
+    private void askQuit(Ui ui) {
+        ui.scrim();
+        float w = 420, h = 170, x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        ui.textCentered(ui.large, "Quit Larson's Game?", x + w / 2, y + 26, Theme.TITLE);
+        if (ui.button("Quit", x + 40, y + 96, 160, 44)) game.quit();
+        if (ui.button("Stay", x + w - 200, y + 96, 160, 44, true, true)
+                || ui.input().pressed(GLFW_KEY_ENTER) && !ui.input().usingPad()) {
+            quitting = false;
+        }
     }
 
     private void drawTabs(Ui ui, float x, float y) {
@@ -342,8 +404,8 @@ public final class MainMenuScene implements Scene {
         ui.rect(x, y + 44, Math.max(300, tx - x - 8), 1, Theme.PANEL_EDGE);
     }
 
-    /** The Play tab's pages: its list, the slots to begin a new game in, the slots to load. */
-    private enum PlayPage { MAIN, NEW, LOAD }
+    /** The Play tab's pages: its list, the slots to begin a new game in, the slots to load, how to play. */
+    private enum PlayPage { MAIN, NEW, LOAD, HOW }
 
     private PlayPage playPage = PlayPage.MAIN;
     private final SaveGame[] slots = new SaveGame[Saves.SLOTS];
@@ -367,9 +429,11 @@ public final class MainMenuScene implements Scene {
         if (latest >= 0) items.add("Continue");
         items.add("New Game");
         if (latest >= 0) items.add("Load Game");
+        items.add("How to play");
         items.add("Demo");
+        items.add("Settings");
         items.add("Quit");
-        int chosen = menu.show(ui, items.toArray(String[]::new), x, y, 300, 54, 14);
+        int chosen = quitting ? -1 : menu.show(ui, items.toArray(String[]::new), x, y, 300, 50, 10);
         if (latest >= 0) {
             SaveGame s = slots[latest];
             ui.text(ui.small, s.name() + " · " + describe(s), x + 314, y + 18, Theme.HINT);
@@ -384,8 +448,13 @@ public final class MainMenuScene implements Scene {
                 playPage = PlayPage.LOAD;
                 sureSlot = -1;
             }
+            case "How to play" -> {
+                playPage = PlayPage.HOW;
+                how.open();
+            }
             case "Demo" -> game.switchTo("demo");
-            case "Quit" -> game.quit();
+            case "Settings" -> game.openSettings();
+            case "Quit" -> quitting = true;
             default -> { }
         }
     }

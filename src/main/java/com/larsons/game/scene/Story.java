@@ -144,7 +144,7 @@ final class Story {
         // the marked places: where a quest under way is to be done
         world.marks().clear();
         for (Quest q : quests.all()) {
-            if (quests.state(q) == Quests.State.ACTIVE && q.radius() > 0) {
+            if (quests.state(q) == Quests.State.ACTIVE && q.radius() > 0 && quests.tracked(q.id())) {
                 world.marks().add(new World.Mark(q.at(), "quest", q.radius()));
             }
         }
@@ -668,7 +668,7 @@ final class Story {
     // --- drawing -------------------------------------------------------------------------
 
     void draw(Ui ui, boolean hud) {
-        if (hud && !modal()) tracker(ui);
+        if (hud && !modal() && game.settings().missionTracker) tracker(ui);
         if (!modal()) fishing.draw(ui);
         if (with != null) drawTalk(ui);
         else if (station != null) drawStation(ui);
@@ -845,33 +845,113 @@ final class Story {
         }
     }
 
+    /** Open the missions (or close them): from the inventory's button, as J does. */
+    void toggleMissions() {
+        journal = !journal;
+        Sounds.play(SoundKeys.ui(journal ? "open" : "close"));
+    }
+
+    /** Which of her missions are shown: those under way, or those done. */
+    private boolean showDone;
+    private float journalScroll;
+    /** Seconds the note that no more can be followed stays up. */
+    private double fullNote;
+
+    /**
+     * Her missions (J, or the inventory's Missions): those under way and
+     * those done, each what it asks, for whom, where and what it pays - and
+     * those under way to follow or not: up to {@link Quests#MOST_TRACKED}
+     * followed at once, shown at the top right with their places ringed on
+     * the ground.
+     */
     private void drawJournal(Ui ui) {
-        float w = Math.min(720, ui.width() - 40), h = Math.min(560, ui.height() - 60);
+        float w = Math.min(780, ui.width() - 40), h = Math.min(600, ui.height() - 60);
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         ui.scrim();
         ui.panel(x, y, w, h);
-        ui.textCentered(ui.large, "Journal", x + w / 2, y + 14, Theme.TITLE);
-        ui.parchment(x + 18, y + 54, w - 36, h - 72);
-        List<Quests.Entry> list = quests.journal();
-        float ty = y + 70;
+        ui.textCentered(ui.large, "Missions", x + w / 2, y + 14, Theme.TITLE);
+        List<Quests.Entry> all = quests.journal();
+        int going = 0, done = 0;
+        for (Quests.Entry e : all) {
+            if (e.state() == Quests.State.DONE) done++;
+            else going++;
+        }
+        float tw = Math.min(190, (w - 60) / 2);
+        if (ui.button("Under way (" + going + ")", x + w / 2 - tw - 4, y + 52, tw, 30, !showDone, true)) {
+            showDone = false;
+            journalScroll = 0;
+        }
+        if (ui.button("Done (" + done + ")", x + w / 2 + 4, y + 52, tw, 30, showDone, true)) {
+            showDone = true;
+            journalScroll = 0;
+        }
+        float top = y + 92, bottom = y + h - 48, lx = x + 18, lw = w - 36;
+        ui.parchment(lx, top, lw, bottom - top);
+        List<Quests.Entry> list = new ArrayList<>();
+        for (Quests.Entry e : all) if ((e.state() == Quests.State.DONE) == showDone) list.add(e);
+        String foot = showDone ? "The missions you have seen through." : "Followed missions show at the top right"
+                + (game.settings().missionTracker ? "" : " (turned off in Settings)") + ", their places ringed on "
+                + "the ground - up to " + Quests.MOST_TRACKED + " at a time.";
+        fullNote = Math.max(0, fullNote - 1 / 60.0);
+        if (fullNote > 0) foot = "You follow " + Quests.MOST_TRACKED + " already - stop following one first.";
+        ui.textCentered(ui.small, foot, x + w / 2, bottom + 14, fullNote > 0 ? Theme.WARNING : Theme.HINT);
         if (list.isEmpty()) {
-            ui.textCentered(ui.body, "Nothing has been asked of you yet.", x + w / 2, ty + 20, Theme.INK_FADED);
-            ui.textCentered(ui.small, "Talk to the people you meet: those with a task have a mark over their heads.",
-                    x + w / 2, ty + 50, Theme.INK_FADED);
+            ui.textCentered(ui.body, showDone ? "Nothing seen through yet." : "Nothing has been asked of you yet.",
+                    x + w / 2, top + 30, Theme.INK_FADED);
+            if (!showDone) {
+                ui.textCentered(ui.small, "Talk to the people you meet: those with a task have a mark over their "
+                        + "heads.", x + w / 2, top + 60, Theme.INK_FADED);
+            }
             return;
         }
-        ui.clip(x + 18, y + 54, w - 36, h - 72);
+        ui.clip(lx, top + 2, lw, bottom - top - 4);
+        ui.measure();
+        float ty = top + 14 - journalScroll;
+        float bw = 118;
         for (Quests.Entry e : list) {
-            boolean done = e.state() == Quests.State.DONE, ready = e.state() == Quests.State.READY;
-            float[] c = done ? Theme.INK_FADED : Theme.INK;
-            ui.text(ui.body, (done ? "✓ " : ready ? "● " : "○ ") + e.title(), x + 36, ty, c);
+            boolean ready = e.state() == Quests.State.READY, isDone = e.state() == Quests.State.DONE;
+            float[] c = isDone ? Theme.INK_FADED : Theme.INK;
+            // its mark: a diamond, hollow while under way, filled gold when it is to be handed in, faded when done
+            float dx = lx + 26, dy = ty + ui.body.lineHeight() / 2f;
+            if (ready) ui.diamond(dx, dy, 6, DONE);
+            else if (isDone) ui.diamond(dx, dy, 6, Theme.INK_FADED);
+            else ui.diamondOutline(dx, dy, 6, 1.5f, Theme.INK);
+            ui.text(ui.body, Ui.fit(ui.body, e.title(), lw - bw - 160), lx + 40, ty, c);
             String where = e.place().isBlank() ? "" : e.place();
-            ui.text(ui.small, where, x + w - 36 - ui.small.width(where), ty + 3, Theme.INK_FADED);
-            ty += ui.body.lineHeight() + 2;
-            String line = done ? "Done." : ready ? "Done - go back to " + (e.giver().isBlank() ? "whoever asked"
+            if (!isDone) {
+                boolean on = e.tracked();
+                if (ui.button(on ? "Following" : "Follow", lx + lw - bw - 16, ty - 3, bw, 28, on, true)) {
+                    if (!quests.setTracked(e.id(), !on) && !on) {
+                        fullNote = 3;
+                        Sounds.play(SoundKeys.ui("error"));
+                    } else {
+                        Sounds.play(SoundKeys.ui("click"));
+                    }
+                }
+                ui.text(ui.small, where, lx + lw - bw - 28 - ui.small.width(where), ty + 3, Theme.INK_FADED);
+            } else {
+                ui.text(ui.small, where, lx + lw - 18 - ui.small.width(where), ty + 3, Theme.INK_FADED);
+            }
+            ty += ui.body.lineHeight() + 4;
+            String line = isDone ? "Done." : ready ? "Done - go back to " + (e.giver().isBlank() ? "whoever asked"
                     : e.giver()) + "." : e.goal() + (e.giver().isBlank() ? "" : "  (for " + e.giver() + ")");
-            ty += ui.paragraph(ui.small, line, x + 58, ty, w - 110, Theme.INK_FADED) + 12;
+            ty += ui.paragraph(ui.small, line, lx + 52, ty, lw - 72 - bw, Theme.INK_FADED) + 2;
+            Quest q = quests.byId(e.id());
+            if (q != null && !isDone && !q.reward().isBlank()) {
+                String pays = "Pays " + Quests.rewardText(q.reward()) + (q.xp() > 0 ? " and " + q.xp() + " experience"
+                        : "");
+                ty += ui.paragraph(ui.tiny, pays, lx + 52, ty, lw - 72 - bw, Theme.INK_FADED);
+            }
+            ty += 14;
         }
+        float most = Math.max(0, ui.lowest() + journalScroll - (bottom - 10));
         ui.unclip();
+        var in = ui.input();
+        if (most > 0 && in.scroll() != 0 && ui.hover(lx, top, lw, bottom - top)) {
+            journalScroll -= (float) Math.signum(in.scroll()) * 48;
+            in.consumeScroll();
+        }
+        journalScroll = Math.max(0, Math.min(most, journalScroll));
     }
+
 }

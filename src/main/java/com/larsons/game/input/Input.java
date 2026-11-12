@@ -182,64 +182,222 @@ public final class Input {
     /** The keys and the mouse button the gamepad holds down in a menu. */
     private boolean synthLeft, synthRight, synthEscape, synthEnter;
 
+    // --- moving through a menu with the gamepad (read by ui/Ui once a frame) ---
+
+    /** Which way the focus moves this frame: {@link #NAV_UP} ... or 0. */
+    private int navStep;
+    /** A slider or a choice that has the focus is turned this way (-1, +1), not left. */
+    private int navAdjust;
+    /** LB / RB this frame: the tab before (-1) or after (+1). */
+    private int tabStep;
+    /** Whether the interface on screen has things the focus can move between (it says so a frame late). */
+    private boolean navigable;
+    /** The left stick moves a free pointer (L3 turns it on and off, or the screen asks: a map, the editor's view). */
+    private boolean freePointer, screenWantsPointer;
+    /** The way the left stick was last flicked, and when it repeats. */
+    private int stickWay;
+    private double stickTimer;
+    private double triggerTimer;
+
+    public static final int NAV_UP = 1, NAV_DOWN = 2, NAV_LEFT = 3, NAV_RIGHT = 4;
+
     /**
-     * In a menu the gamepad is a mouse and a few keys: the left stick moves
-     * the pointer, A clicks (or, after the d-pad, chooses what is focused),
-     * X right-clicks, B and Menu are Esc, the d-pad the arrow keys, and the
-     * right stick the wheel.
+     * In a menu the gamepad moves a focus from one thing to the next as a
+     * console's menus do: the d-pad and the left stick go to the nearest
+     * button, slider or field that way ({@link #takeNav}), A presses it, B
+     * and Menu go back (Esc), X is the right button, LB and RB change tabs
+     * ({@link #takeTab}), the triggers and the right stick scroll. Where
+     * there is nothing to move between - or with L3 clicked, or on a screen
+     * that wants a pointer (a map, the editor's view) - the left stick moves
+     * a pointer instead and the d-pad is the arrow keys.
      */
     private void menuWithPad(double dt) {
         synthetic = true;
         try {
+            if (padPressed[Pad.LS]) freePointer = !freePointer;
+            boolean pointer = !keyboard && (freePointer || screenWantsPointer || !navigable);
             double lx = Pad.value(Pad.LS_RIGHT, padButtons, padAxes) - Pad.value(Pad.LS_LEFT, padButtons, padAxes);
             double ly = Pad.value(Pad.LS_DOWN, padButtons, padAxes) - Pad.value(Pad.LS_UP, padButtons, padAxes);
-            if (lx != 0 || ly != 0) {
-                // slow near the middle, for the small things; fast at the rim
-                double len = Math.hypot(lx, ly), gain = POINTER_SPEED * (0.25 + 0.75 * len * len) * dt;
-                double nx = Math.max(0, Math.min(viewW - 1, mouseX + lx * gain));
-                double ny = Math.max(0, Math.min(viewH - 1, mouseY + ly * gain));
-                mouseMoved(nx, ny);
-                warpX = nx;
-                warpY = ny;
-                warpPending = true;
-                dpadNavigating = false;
+            if (pointer) {
+                stickWay = 0;
+                if (lx != 0 || ly != 0) {
+                    // slow near the middle, for the small things; fast at the rim
+                    double len = Math.hypot(lx, ly), gain = POINTER_SPEED * (0.25 + 0.75 * len * len) * dt;
+                    double nx = Math.max(0, Math.min(viewW - 1, mouseX + lx * gain));
+                    double ny = Math.max(0, Math.min(viewH - 1, mouseY + ly * gain));
+                    mouseMoved(nx, ny);
+                    warpX = nx;
+                    warpY = ny;
+                    warpPending = true;
+                    dpadNavigating = false;
+                }
+            } else {
+                // flicked: one step; held: steps repeating, as the d-pad's
+                int way = Math.hypot(lx, ly) < 0.5 ? 0 : Math.abs(lx) > Math.abs(ly) ? (lx > 0 ? NAV_RIGHT : NAV_LEFT)
+                        : (ly > 0 ? NAV_DOWN : NAV_UP);
+                if (way != stickWay) {
+                    stickWay = way;
+                    stickTimer = 0.38;
+                    if (way != 0) step(way);
+                } else if (way != 0) {
+                    stickTimer -= dt;
+                    if (stickTimer <= 0) {
+                        stickTimer = 0.11;
+                        step(way);
+                    }
+                }
             }
             double ry = Pad.value(Pad.RS_UP, padButtons, padAxes) - Pad.value(Pad.RS_DOWN, padButtons, padAxes);
             if (ry != 0) scroll += ry * dt * 14;
-
-            boolean a = padDown[Pad.A];
-            if (dpadNavigating) {
-                if (a != synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = a);
-                if (synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = false);
-            } else {
-                if (a != synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = a);
-                if (synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = false);
+            // the triggers: a page at a time, repeating while held
+            int page = padDown[Pad.LT] ? 1 : padDown[Pad.RT] ? -1 : 0;
+            if (padPressed[Pad.LT] || padPressed[Pad.RT]) {
+                scroll += page * 5;
+                triggerTimer = 0.4;
+            } else if (page != 0) {
+                triggerTimer -= dt;
+                if (triggerTimer <= 0) {
+                    triggerTimer = 0.12;
+                    scroll += page * 5;
+                }
             }
-            if (padDown[Pad.X] != synthRight) mouseButtonEvent(GLFW_MOUSE_BUTTON_RIGHT, synthRight = padDown[Pad.X]);
-            boolean esc = padDown[Pad.B] || padDown[Pad.MENU];
-            if (esc != synthEscape) keyEvent(GLFW_KEY_ESCAPE, synthEscape = esc);
+            if (padPressed[Pad.LB]) tabStep = -1;
+            if (padPressed[Pad.RB]) tabStep = 1;
 
-            // the d-pad: the arrow keys, repeating while held
+            if (!keyboard) {
+                boolean a = padDown[Pad.A];
+                if (dpadNavigating && !navigable) {
+                    if (a != synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = a);
+                    if (synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = false);
+                } else {
+                    if (a != synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = a);
+                    if (synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = false);
+                }
+                if (padDown[Pad.X] != synthRight) mouseButtonEvent(GLFW_MOUSE_BUTTON_RIGHT, synthRight = padDown[Pad.X]);
+                boolean esc = padDown[Pad.B] || padDown[Pad.MENU];
+                if (esc != synthEscape) keyEvent(GLFW_KEY_ESCAPE, synthEscape = esc);
+            }
+
+            // the d-pad: the focus's steps where there is a focus, else the arrow keys; repeating while held
             int held = padDown[Pad.DPAD_UP] ? GLFW_KEY_UP : padDown[Pad.DPAD_DOWN] ? GLFW_KEY_DOWN
                     : padDown[Pad.DPAD_LEFT] ? GLFW_KEY_LEFT : padDown[Pad.DPAD_RIGHT] ? GLFW_KEY_RIGHT : -1;
+            boolean steps = keyboard || navigable && !freePointer;
             if (held != repeatKey) {
-                if (repeatKey >= 0) keyEvent(repeatKey, false);
+                if (repeatKey >= 0 && down[repeatKey]) keyEvent(repeatKey, false);
                 repeatKey = held;
                 repeatTimer = 0.38;
                 if (held >= 0) {
-                    keyEvent(held, true);
+                    if (steps) step(way(held));
+                    else keyEvent(held, true);
                     dpadNavigating = true;
                 }
             } else if (held >= 0) {
                 repeatTimer -= dt;
                 if (repeatTimer <= 0) {
                     repeatTimer = 0.09;
-                    repeated[held] = true;
+                    if (steps) step(way(held));
+                    else repeated[held] = true;
                 }
             }
         } finally {
             synthetic = false;
         }
+    }
+
+    private static int way(int arrow) {
+        return arrow == GLFW_KEY_UP ? NAV_UP : arrow == GLFW_KEY_DOWN ? NAV_DOWN
+                : arrow == GLFW_KEY_LEFT ? NAV_LEFT : NAV_RIGHT;
+    }
+
+    private void step(int way) {
+        navStep = way;
+    }
+
+    /**
+     * While muted - a menu over the whole screen, the settings - the screen
+     * under it reads nothing: no keys, no buttons, the pointer nowhere.
+     */
+    private boolean muted;
+
+    public void setMuted(boolean on) {
+        muted = on;
+    }
+
+    public boolean muted() { return muted; }
+
+    /** The way the gamepad moved the focus this frame ({@link #NAV_UP} ...), once; 0: it did not. */
+    public int takeNav() {
+        int n = navStep;
+        navStep = 0;
+        return n;
+    }
+
+    /** Turn a focused slider or choice by -1 or +1 (the d-pad's left or right, taken from the focus's steps). */
+    public void adjust(int by) {
+        navAdjust = by;
+    }
+
+    /** How a focused slider or choice is turned this frame: -1, +1, or 0. */
+    public int navAdjust() { return navAdjust; }
+
+    /** LB (-1) or RB (+1) pressed in a menu this frame, once - and Ctrl+Tab, Ctrl+Shift+Tab; 0: neither. */
+    public int takeTab() {
+        if (muted) return 0;
+        int t = tabStep;
+        tabStep = 0;
+        if (t == 0 && pressed(GLFW_KEY_TAB) && (down(GLFW_KEY_LEFT_CONTROL) || down(GLFW_KEY_RIGHT_CONTROL))) {
+            t = down(GLFW_KEY_LEFT_SHIFT) || down(GLFW_KEY_RIGHT_SHIFT) ? -1 : 1;
+            consumeKey(GLFW_KEY_TAB);
+        }
+        return t;
+    }
+
+    /** The on-screen keyboard is up: the gamepad's A, B and X are its, not a click or Esc. */
+    private boolean keyboard;
+
+    public void setKeyboard(boolean on) {
+        keyboard = on;
+        if (on) releaseSynthetic();
+    }
+
+    /** Whether the screen has things to move the focus between (the interface says so each frame). */
+    public void setNavigable(boolean on) {
+        navigable = on;
+    }
+
+    public boolean navigable() { return navigable; }
+
+    /** The screen wants a free pointer for the gamepad's left stick this frame (a map, the editor's view). */
+    public void setWantsPointer(boolean on) {
+        screenWantsPointer = on;
+    }
+
+    /** Whether the gamepad is moving a focus about a menu (not a pointer, not playing). */
+    public boolean padFocusing() {
+        return device == Device.GAMEPAD && uiMode && navigable && !capturing;
+    }
+
+    /** Whether the gamepad's left stick moves a free pointer (L3, or the screen wants one). */
+    public boolean padPointer() {
+        return freePointer || screenWantsPointer;
+    }
+
+    /** Put the pointer at {@code (x, y)}, as the gamepad's focus does, and the real one with it. */
+    public void warp(double x, double y) {
+        synthetic = true;
+        try {
+            mouseMoved(x, y);
+        } finally {
+            synthetic = false;
+        }
+        warpX = x;
+        warpY = y;
+        warpPending = true;
+    }
+
+    /** Scroll as the wheel does, {@code notches} up (positive) or down. */
+    public void addScroll(double notches) {
+        scroll += notches;
     }
 
     /** Let go of what the gamepad was holding down for a menu (the menu shut, the pad was unplugged). */
@@ -301,19 +459,19 @@ public final class Input {
         bindings = b == null ? new Bindings() : b;
     }
 
-    public boolean padDown(int input) { return input >= 0 && input < Pad.COUNT && padDown[input]; }
+    public boolean padDown(int input) { return !muted && input >= 0 && input < Pad.COUNT && padDown[input]; }
 
-    public boolean padPressed(int input) { return input >= 0 && input < Pad.COUNT && padPressed[input]; }
+    public boolean padPressed(int input) { return !muted && input >= 0 && input < Pad.COUNT && padPressed[input]; }
 
     /** How far a gamepad input is pressed, 0 to 1 (a stick's push, a trigger's squeeze). */
-    public double padValue(int input) { return padPresent ? Pad.value(input, padButtons, padAxes) : 0; }
+    public double padValue(int input) { return padPresent && !muted ? Pad.value(input, padButtons, padAxes) : 0; }
 
     // --- actions -----------------------------------------------------------------------
 
     private boolean bindDown(Bind b) {
         return switch (b.kind()) {
             case KEY -> down(b.code());
-            case MOUSE -> b.code() >= 0 && b.code() < mouseDown.length && mouseDown[b.code()];
+            case MOUSE -> !muted && b.code() >= 0 && b.code() < mouseDown.length && mouseDown[b.code()];
             case PAD -> !uiMode && padDown(b.code());
         };
     }
@@ -321,7 +479,7 @@ public final class Input {
     private boolean bindPressed(Bind b) {
         return switch (b.kind()) {
             case KEY -> pressed(b.code());
-            case MOUSE -> b.code() >= 0 && b.code() < mousePressed.length && mousePressed[b.code()];
+            case MOUSE -> !muted && b.code() >= 0 && b.code() < mousePressed.length && mousePressed[b.code()];
             case PAD -> !uiMode && padPressed(b.code());
         };
     }
@@ -401,7 +559,7 @@ public final class Input {
 
     // --- read by scenes --------------------------------------------------------------
 
-    public boolean down(int key) { return key >= 0 && key < down.length && down[key]; }
+    public boolean down(int key) { return !muted && key >= 0 && key < down.length && down[key]; }
 
     /** Whether any key or mouse button went down this frame. */
     public boolean anyPressed() {
@@ -412,34 +570,34 @@ public final class Input {
     }
 
     /** First frame the key went down. */
-    public boolean pressed(int key) { return key >= 0 && key < pressed.length && pressed[key]; }
+    public boolean pressed(int key) { return !muted && key >= 0 && key < pressed.length && pressed[key]; }
 
     /** Went down or auto-repeated this frame — for menus and text fields. */
-    public boolean repeated(int key) { return key >= 0 && key < repeated.length && repeated[key]; }
+    public boolean repeated(int key) { return !muted && key >= 0 && key < repeated.length && repeated[key]; }
 
-    public boolean released(int key) { return key >= 0 && key < released.length && released[key]; }
+    public boolean released(int key) { return !muted && key >= 0 && key < released.length && released[key]; }
 
-    public boolean mouseDown(int button) { return mouseDown[button]; }
+    public boolean mouseDown(int button) { return !muted && mouseDown[button]; }
 
-    public boolean mousePressed(int button) { return mousePressed[button]; }
+    public boolean mousePressed(int button) { return !muted && mousePressed[button]; }
 
-    public boolean mouseReleased(int button) { return mouseReleased[button]; }
+    public boolean mouseReleased(int button) { return !muted && mouseReleased[button]; }
 
     /** Pointer position in logical window pixels, (0, 0) top left. */
-    public double mouseX() { return mouseX; }
+    public double mouseX() { return muted ? -10000 : mouseX; }
 
-    public double mouseY() { return mouseY; }
+    public double mouseY() { return muted ? -10000 : mouseY; }
 
     /** Pointer movement since the last frame, in logical pixels. */
-    public double mouseDX() { return mouseX - lastMouseX; }
+    public double mouseDX() { return muted ? 0 : mouseX - lastMouseX; }
 
-    public double mouseDY() { return mouseY - lastMouseY; }
+    public double mouseDY() { return muted ? 0 : mouseY - lastMouseY; }
 
     /** Wheel notches this frame, positive away from the player. */
-    public double scroll() { return scroll; }
+    public double scroll() { return muted ? 0 : scroll; }
 
     /** Characters typed this frame. */
-    public String typedText() { return typed.toString(); }
+    public String typedText() { return muted ? "" : typed.toString(); }
 
     /** Take the pending drag-and-drop batches (each a list of paths). */
     public List<List<String>> takeDrops() {
@@ -467,6 +625,7 @@ public final class Input {
 
     /** Clear the per-frame edges. Called once per frame after the scene updated. */
     public void endFrame() {
+        navAdjust = 0;
         java.util.Arrays.fill(pressed, false);
         java.util.Arrays.fill(repeated, false);
         java.util.Arrays.fill(released, false);

@@ -20,13 +20,14 @@ import java.util.Random;
  * the herds placed in Creative Mode ({@link Herd}), which keep round their
  * spot.
  *
- * <p><b>Who lives here</b> is worked out as for the critters: every second
- * it looks round her, out to {@value #REACH} m, at the biomes and the water
- * there, and brings in or lets go of each kind to match its {@link
- * AnimalKind#cap} times the level's density times how much of what is round
- * her is home to it. A new one comes out of her sight's way (past {@value
- * #COME} m), often near another of its kind - they keep in herds - and those
- * left far behind are gone.
+ * <p><b>Who lives here</b> is the level's to say: none come by on their
+ * own unless its Life page turns a kind up ({@link Life}) - the biome does
+ * not bring them. Turned up, every second it looks round her, out to
+ * {@value #REACH} m, at the water there (a duck wants a pond near), and
+ * brings in or lets go of each kind to match its {@link AnimalKind#cap}
+ * times the level's number for it. A new one comes out of her sight's way
+ * (past {@value #COME} m), often near another of its kind - they keep in
+ * herds - and those left far behind are gone.
  *
  * <p><b>What they do</b> is their {@link Temperament}'s: they stand about,
  * graze and wander round home; a skittish one runs when she comes near (a
@@ -75,6 +76,9 @@ public final class Animals {
 
         /** The level's edges they keep within - x from, x to, z from, z to - or null (none). */
         default double[] bounds() { return null; }
+
+        /** Whether a building (a wall, a house) stands at {@code (x, z)} taller than {@code y}: nobody sees through it. */
+        default boolean sightBlocked(double x, double z, double y) { return false; }
     }
 
     /** How far inside a level's edges they keep, metres. */
@@ -329,11 +333,11 @@ public final class Animals {
             for (int i = 0; i < 8; i++) {
                 double a = Math.PI * 2 * i / 8 + r * 0.37;
                 double x = focus.x() + Math.cos(a) * r, z = focus.z() + Math.sin(a) * r;
-                Biome b = place.biome(x, z);
                 n++;
                 for (AnimalKind k : AnimalKind.values()) {
-                    double w = k.weight(b);
-                    if (w > 0 && k.nearWater() > 0 && !Critters.nearWater(x, z, k.nearWater(), place)) w = 0;
+                    // (anywhere it can live: the biome brings none, the level's number does)
+                    double w = 1;
+                    if (k.nearWater() > 0 && !Critters.nearWater(x, z, k.nearWater(), place)) w = 0;
                     sum.put(k, sum.get(k) + w);
                 }
             }
@@ -355,23 +359,24 @@ public final class Animals {
         for (AnimalKind k : AnimalKind.values()) {
             long want = Math.round(wanted(k, day));
             if (life.density(k) <= 0) {
-                // turned off: none come by, and those about go - at once where nobody plays
+                // turned off: none come by, and those that came by go - at once where nobody plays (one put
+                // there by a card, a script, a herd, stays)
                 for (Animal a : live) {
-                    if (a.kind != k || a.herd != null || a.saddled || a.ridden) continue;
+                    if (a.kind != k || !a.wild || a.herd != null || a.saddled || a.ridden) continue;
                     if (still) a.gone = true;
                     else a.leaving = true;
                 }
                 continue;
             }
             int have = 0;
-            for (Animal a : live) if (a.kind == k && a.herd == null && !a.leaving && !a.saddled) have++;
+            for (Animal a : live) if (a.kind == k && a.wild && a.herd == null && !a.leaving && !a.saddled) have++;
             if (have < want && spawnFree(k, focus, place)) have++;
             if (have > want && thin <= 0) {
                 thin = 0.5;
                 Animal far = null;
                 double fd = -1;
                 for (Animal a : live) {
-                    if (a.kind != k || a.herd != null || a.leaving || a.hostile() || a.saddled) continue;
+                    if (a.kind != k || !a.wild || a.herd != null || a.leaving || a.hostile() || a.saddled) continue;
                     double d = Math.hypot(a.x - focus.x(), a.z - focus.z());
                     if (d > fd) {
                         fd = d;
@@ -460,14 +465,14 @@ public final class Animals {
                 double r = Math.sqrt(in * in + random.nextDouble() * (REACH * REACH - in * in));
                 x = focus.x() + Math.cos(a) * r;
                 z = focus.z() + Math.sin(a) * r;
-                double w = k.weight(place.biome(x, z));
-                if (w <= 0 || random.nextDouble() * 1.5 > w) continue;
+                if (k.nearWater() > 0 && !Critters.nearWater(x, z, k.nearWater(), place)) continue;
             }
             if (!livable(k, x, z, place)) continue;
             // a swan comes on the water, mostly; a duck often
             boolean wet = place.water(x, z, place.ground(x, z)) > 0.15;
             if (k.swims() && !wet && t < 8 && random.nextDouble() < (k == AnimalKind.SWAN ? 0.8 : 0.4)) continue;
             Animal a = make(k, null, k.temperament(), x, z, place);
+            a.wild = true;
             a.roam = 10;
             if (kin != null) {
                 a.homeX = kin.homeX;

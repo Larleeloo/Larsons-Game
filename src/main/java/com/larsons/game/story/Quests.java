@@ -30,7 +30,11 @@ public final class Quests {
     public enum State { NONE, ACTIVE, READY, DONE }
 
     /** A line of the journal. */
-    public record Entry(String id, String title, String goal, String giver, String place, State state) {}
+    public record Entry(String id, String title, String goal, String giver, String place, State state,
+                        boolean tracked) {}
+
+    /** The most missions followed at once (on the screen, their places ringed). */
+    public static final int MOST_TRACKED = 4;
 
     /** Something that happened to a quest, for the scene to say. */
     public record News(Quest quest, State state, String text) {}
@@ -105,9 +109,40 @@ public final class Quests {
         return state(q) == State.NONE && (q.needs().isBlank() || state(q.needs()) == State.DONE);
     }
 
+    /**
+     * Whether the mission {@code id} is followed: shown at the top right,
+     * its place ringed on the ground. One taken is, unless {@link
+     * #MOST_TRACKED} already are; she picks which from her missions.
+     */
+    public boolean tracked(String id) {
+        Map<String, Object> e = entry(id, false);
+        return e != null && !(e.get("tracked") instanceof Boolean b && !b);
+    }
+
+    /** Follow mission {@code id}, or stop; whether it is followed now (not when {@link #MOST_TRACKED} already are). */
+    public boolean setTracked(String id, boolean on) {
+        Map<String, Object> e = entry(id, false);
+        if (e == null) return false;
+        if (on && !tracked(id) && trackedCount() >= MOST_TRACKED) return false;
+        e.put("tracked", on);
+        return on;
+    }
+
+    /** How many missions under way - this level's and others' - are followed. */
+    public int trackedCount() {
+        int n = 0;
+        for (String id : store.keySet()) {
+            State s = state(id);
+            if ((s == State.ACTIVE || s == State.READY) && tracked(id)) n++;
+        }
+        return n;
+    }
+
     /** Take {@code q}. */
     public void accept(Quest q) {
+        boolean room = trackedCount() < MOST_TRACKED;
         set(q, State.ACTIVE, 0);
+        entry(q.id(), true).put("tracked", room);
         news.add(new News(q, State.ACTIVE, "New quest: " + q.title()));
     }
 
@@ -141,12 +176,12 @@ public final class Quests {
         return i != null ? i : Item.parse(s);
     }
 
-    /** The quests that are under way or waiting to be handed in, for the tracker. */
+    /** The quests that are under way or waiting to be handed in and are followed ({@link #tracked}), for the tracker. */
     public List<Quest> tracked() {
         List<Quest> out = new ArrayList<>();
         for (Quest q : quests) {
             State s = state(q);
-            if (s == State.ACTIVE || s == State.READY) out.add(q);
+            if ((s == State.ACTIVE || s == State.READY) && tracked(q.id())) out.add(q);
         }
         return out;
     }
@@ -160,7 +195,7 @@ public final class Quests {
             if (s == State.NONE) continue;
             Quest q = byId(e.getKey());
             out.add(new Entry(e.getKey(), text(m, "title"), q != null ? goal(q) : text(m, "goal"),
-                    text(m, "giver"), text(m, "place"), s));
+                    text(m, "giver"), text(m, "place"), s, tracked(e.getKey())));
         }
         out.sort((a, b) -> a.state().compareTo(b.state()));
         return out;

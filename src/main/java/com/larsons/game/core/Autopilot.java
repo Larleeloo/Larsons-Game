@@ -91,6 +91,13 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // Text typed, as if at the keyboard: "type candle" (into whatever field has the keys).
+                case "type" -> {
+                    var in = game.window().input();
+                    arg.codePoints().forEach(in::typed);
+                    waiting = 1e-6;
+                    return;
+                }
                 // A key held down until it is let go: "hold w", "letgo w" (to walk her somewhere).
                 case "hold" -> {
                     game.window().input().keyEvent(glfwKey(arg), true);
@@ -108,6 +115,12 @@ public final class Autopilot {
                     in.mouseMoved(Double.parseDouble(xy[0]), Double.parseDouble(xy[1]));
                     in.mouseButtonEvent(0, true);
                     releases.add(() -> in.mouseButtonEvent(0, false));
+                    waiting = 1e-6;
+                    return;
+                }
+                // The wheel turned where the pointer is: "scroll -5" (down five notches).
+                case "scroll" -> {
+                    game.window().input().scrolled(Double.parseDouble(arg.trim()));
                     waiting = 1e-6;
                     return;
                 }

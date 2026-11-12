@@ -175,6 +175,21 @@ class BuildingTest {
         assertEquals("roof", BuildingLook.role("awning2"));
     }
 
+    @Test
+    void everyBuildingCanBeMadeWiderNarrowerAndTallerWithoutFailing() {
+        // (a model-only one - a locked door, an iron gate - has no sprite frames, and widening it threw)
+        BuildingCatalog c = BuildingCatalog.load(Path.of("assets", "buildings"));
+        for (String k : c.keys()) {
+            BuildingProfile p = c.profile(k);
+            for (double[] by : new double[][]{{2, 1, 1}, {0.5, 1, 1}, {1.6, 1.2, 1.3}}) {
+                BuildingProfile q = assertDoesNotThrow(() -> p.scaled(by[0], by[1], by[2]), k);
+                assertEquals(p.modelOnly(), q.modelOnly(), k);
+                assertEquals(p.footprint().size(), q.footprint().size(), k);
+            }
+        }
+        assertTrue(c.profile("locked_door").modelOnly());
+    }
+
     /**
      * What she walks over or what hangs on a wall, or is small enough to sit
      * on a table: nothing in her way.

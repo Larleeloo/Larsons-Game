@@ -154,7 +154,7 @@ public final class ObjectTypes {
                 }));
         // an item set out for show - a joint of meat on a counter, berries in a dish, a gem on a shelf: it stands
         // still, turned the way it is turned, without its glow, and is never picked up
-        register(new ObjectType(SHOWN, "Item for show", Category.CLUTTER,
+        register(new ObjectType(SHOWN, "Item for show", Category.SHOWN,
                 List.of(Prop.choice("item", "Item", "bear_meat", o -> itemIds()),
                         Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf)), 0.25, 0.4, 0xD8B080, false,
                 (o, b) -> {
@@ -178,7 +178,8 @@ public final class ObjectTypes {
                         b.world().addStore(s);
                         return;
                     }
-                    Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw()));
+                    Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw())
+                            .object(o.id()));
                     if (o.bool("loot", true)) return;
                     Store s = new Store(o.id(), Store.Kind.CHEST, c.position(), o.yaw());
                     s.fill(o.str("contents", ""));
@@ -195,7 +196,7 @@ public final class ObjectTypes {
                         o.num("health", 60), b.tuning().dummyDownSeconds, b.terrain()))));
         // vines on a rock face she climbs: placed on a cliff, they fit themselves to it - facing out of it, at
         // its foot, as long as it runs - unless set not to (then they hang where they are put, as turned)
-        register(new ObjectType(VINES, "Climbing vines", Category.TERRAIN,
+        register(new ObjectType(VINES, "Climbing vines", Category.SCENERY,
                 List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5),
                         Prop.toggle("fit", "Fit to the rock face", true)), 0.6, 3, 0x5F9E3A, false, null));
         register(new ObjectType(SOUND, "Sound", Category.SOUNDS,
@@ -292,10 +293,11 @@ public final class ObjectTypes {
                 }));
         // a shop: a market stall or a shop's counter (or just a spot, at a counter already built), what it sells
         // ("whetstone x20 @3, cards x4": Shop), and whether it buys
-        register(new ObjectType(SHOP, "Shop", Category.TOWN,
+        register(new ObjectType(SHOP, "Shop", Category.SHOPS,
                 List.of(Prop.text("name", "Name", "Market stall"),
                         Prop.choice("stall", "Stall", "market_stall", o -> shopStalls()),
-                        Prop.text("stock", "Sells (e.g. whetstone x20 @3, cards x4)", ""),
+                        Prop.rows("stock", "Sells", "", Rows.stock("Nothing listed: the usual - whetstones, "
+                                + "wedges, studs, crystals, arrows, bolts, ingots, scrolls and cards for her class")),
                         Prop.toggle("buys", "Buys what she sells (half its worth)", true)),
                 1.4, 2.6, 0xF0C030, false,
                 (o, b) -> {
@@ -337,14 +339,44 @@ public final class ObjectTypes {
      * itself.
      */
     static void spawnLight(LevelObject o, LevelWorld.Build b) {
-        Vec3 at = b.onGround(o).add(0, o.num("height", 1.2), 0);
+        // a candle, a candelabra, a lantern set down: on the table (the counter, the shelf) under it, or the
+        // ground - never in the air. Set once everything else stands, whatever order the level lists them in.
+        if (SITS.contains(o.str("fixture", "candlestick"))) {
+            b.later(() -> lightOn(o, b, restsOn(b.world(), b.onGround(o), o.id())));
+            return;
+        }
+        lightOn(o, b, b.onGround(o).add(0, o.num("height", 1.2), 0));
+    }
+
+    /** The fittings that are set down on something: a candle, a candlestick, a candelabra, a lantern. */
+    static final java.util.Set<String> SITS = java.util.Set.of("candlestick", "candle", "candelabra", "lantern");
+
+    /**
+     * Where something set down at {@code at} rests: on the top of the
+     * furniture under it (the highest, of the furniture in the world but
+     * object {@code self}), or where it is.
+     */
+    static Vec3 restsOn(World world, Vec3 at, int self) {
+        double y = at.y();
+        for (Building bd : world.buildings()) {
+            BuildingProfile p = bd.profile();
+            if (bd.id() == self || !p.furniture() || p.fixture() || p.room() != null || p.height() > 2.6) continue;
+            if (!bd.blocks(at.x(), at.z(), 0.02)) continue;
+            y = Math.max(y, bd.position().y() + p.height());
+        }
+        return new Vec3(at.x(), y, at.z());
+    }
+
+    /** Light {@code o} with its fitting set down at {@code base} (a sitting one) or its flame at {@code at}. */
+    private static void lightOn(LevelObject o, LevelWorld.Build b, Vec3 at) {
+        boolean sits = SITS.contains(o.str("fixture", "candlestick"));
         BuildingProfile fit = BuildingCatalog.get().profile(o.str("fixture", "candlestick"));
         boolean flame = fit != null && fit.flame() != null;
         if (flame) {
             double[] f = fit.flame();
             Building probe = new Building(o.id(), fit, Vec3.ZERO, o.yaw(), null, null);
             Vec3 off = probe.toWorld(f[0], f[1]);            // where its flame is from where it stands
-            Vec3 stand = fit.stands() ? b.onGround(o) : at.sub(new Vec3(off.x(), f[2], off.z()));
+            Vec3 stand = sits ? at : fit.stands() ? b.onGround(o) : at.sub(new Vec3(off.x(), f[2], off.z()));
             b.world().addBuilding(new Building(o.id(), fit, stand, o.yaw(), BuildingLook.of(o.props().get("look")),
                     null));
             at = stand.add(off.x(), f[2], off.z());
@@ -389,6 +421,8 @@ public final class ObjectTypes {
             case "saddled" -> o.type().equals(ANIMALS) && AnimalKind.HORSE.key().equals(o.str("kind", ""));
             case "to" -> o.type().equals(BUILDING) && o.str("passage", "none").equals("spot");
             case "hidden" -> o.type().equals(BUILDING) && !o.str("passage", "none").equals("none");
+            // (a candle stands on what is under it, so its height is that: Lift raises it onto a ledge)
+            case "height" -> !o.type().equals(LIGHT) || !SITS.contains(o.str("fixture", "candlestick"));
             default -> true;
         };
     }
@@ -453,6 +487,14 @@ public final class ObjectTypes {
                 BuildingLook.of(o.props().get("look")), o.str("interior", null))
                 .withPassage(new Building.Passage(o.str("passage", "none"), o.str("to", ""), o.bool("hidden", false)));
     }
+
+    /**
+     * The buildings a working spot stands up - a workbench, a locked door, a
+     * weapon board, a barricade - left off the palette's buildings, so the
+     * one that works is the one placed.
+     */
+    static final java.util.Set<String> WORKING = java.util.Set.of("workbench", "locked_door", "iron_gate",
+            "summon_station", "wall_buy", "mystery_box", "barricade");
 
     /** Where the palette files a building: furniture by the shelf it is kept on (kitchen, decor, plants…). */
     static Category shelf(BuildingProfile p) {
@@ -579,6 +621,127 @@ public final class ObjectTypes {
         return out;
     }
 
+    // --- choices drawn from the level being edited ----------------------------------------
+
+    /** The level being edited: what its people, spots and buildings are, for the choices drawn from them. */
+    private static volatile Level context;
+
+    /** The level being edited is {@code l} (null: none) - for the choices drawn from it. */
+    public static void setContext(Level l) {
+        context = l;
+    }
+
+    public static Level context() { return context; }
+
+    /** The buildings of the level being edited that can be gone into (they have a door and an inside). */
+    static List<LevelObject> houses() {
+        List<LevelObject> out = new ArrayList<>();
+        Level l = context;
+        if (l == null) return out;
+        for (LevelObject o : l.ofType(BUILDING)) {
+            BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+            if (p != null && p.interior() && p.door() != null) out.add(o);
+        }
+        return out;
+    }
+
+    /** Where someone's day can take her: her post, her home, each named spot, each building with a door. */
+    public static List<String> dayPlaces() {
+        List<String> out = new ArrayList<>(List.of(com.larsons.game.actor.Schedule.POST,
+                com.larsons.game.actor.Schedule.HOME));
+        Level l = context;
+        if (l != null) {
+            for (LevelObject m : l.ofType(MARKER)) {
+                String n = m.str("name", "").strip();
+                if (!n.isEmpty() && !out.contains(n)) out.add(n);
+            }
+        }
+        for (LevelObject h : houses()) out.add(com.larsons.game.actor.Schedule.BUILDING + h.id());
+        return out;
+    }
+
+    /** What a place of someone's day is called in the editor: "Her post", "Spot: well", "Cottage #12". */
+    public static String dayPlaceLabel(String key) {
+        if (key == null) return "";
+        if (key.equals(com.larsons.game.actor.Schedule.POST)) return "Her post";
+        if (key.equals(com.larsons.game.actor.Schedule.HOME)) return "Her home";
+        if (key.startsWith(com.larsons.game.actor.Schedule.BUILDING)) return houseLabel(key);
+        return "\u201C" + key + "\u201D";
+    }
+
+    /** "Cottage #12" for {@code building:12} (or {@code 12}). */
+    static String houseLabel(String key) {
+        String n = key.startsWith(com.larsons.game.actor.Schedule.BUILDING)
+                ? key.substring(com.larsons.game.actor.Schedule.BUILDING.length()) : key;
+        Level l = context;
+        try {
+            LevelObject o = l == null ? null : l.byId(Integer.parseInt(n.strip()));
+            if (o != null) {
+                BuildingProfile p = BuildingCatalog.get().profile(o.str("kind", ""));
+                return (p == null ? "Building" : p.label()) + " #" + o.id();
+            }
+        } catch (NumberFormatException ignored) {
+            // not a number: as it is
+        }
+        return "Building #" + n;
+    }
+
+    /** Whom a person's home can be: the nearest house, none, or any house of the level. */
+    static List<String> homes(LevelObject o) {
+        List<String> out = new ArrayList<>(List.of(FolkTypes.AUTO, FolkTypes.NONE));
+        for (LevelObject h : houses()) out.add(com.larsons.game.actor.Schedule.BUILDING + h.id());
+        String cur = o == null ? null : o.str("home", null);
+        if (cur != null && !out.contains(cur)) out.add(cur);
+        return out;
+    }
+
+    /** The names of the people of the level being edited (what {@code o} has, or {@code fallback}, among them). */
+    static List<String> personNames(LevelObject o, String key, boolean blank, String fallback) {
+        List<String> out = new ArrayList<>();
+        if (blank) out.add("");
+        Level l = context;
+        if (l != null) {
+            for (LevelObject p : l.ofType(FolkTypes.PERSON)) {
+                String n = p.str("name", "").strip();
+                if (!n.isEmpty() && !out.contains(n)) out.add(n);
+            }
+        }
+        String cur = o == null ? null : o.str(key, fallback);
+        if (cur != null && !out.contains(cur)) out.add(cur);
+        if (out.isEmpty()) out.add("Villager");
+        return out;
+    }
+
+    /** What quest {@code id} of the level being edited is called: its title (and its id), or "None". */
+    public static String questLabel(String id) {
+        if (id == null || id.isBlank()) return "None: from the start";
+        Level l = context;
+        if (l != null) {
+            for (LevelObject q : l.ofType(FolkTypes.QUEST)) {
+                if (com.larsons.game.story.Quest.idOf(l.name(), q.id(), q.props()).equals(id)) {
+                    return "\u201C" + q.str("title", "A task") + "\u201D";
+                }
+            }
+        }
+        return id;
+    }
+
+    /** The other quests of the level being edited, by their ids ("" first: none needed). */
+    static List<String> questIds(LevelObject o) {
+        List<String> out = new ArrayList<>(List.of(""));
+        Level l = context;
+        if (l != null) {
+            for (LevelObject q : l.ofType(FolkTypes.QUEST)) {
+                if (o != null && q.id() == o.id()) continue;
+                String id = com.larsons.game.story.Quest.idOf(l.name(), q.id(), q.props());
+                if (!out.contains(id)) out.add(id);
+            }
+        }
+        String cur = o == null ? null : o.str("needs", null);
+        if (cur != null && !out.contains(cur)) out.add(cur);
+        return out;
+    }
+
     static List<String> itemIds() {
         List<String> out = new ArrayList<>();
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
@@ -587,6 +750,7 @@ public final class ObjectTypes {
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) out.add(d.id());
         for (ItemDef d : com.larsons.game.world.Supplies.ALL) out.add(d.id());
         for (ItemDef d : Tack.ALL) out.add(d.id());
+        for (com.larsons.game.world.Goods.Good g : com.larsons.game.world.Goods.all()) out.add(g.id());
         for (Forged f : Forged.all()) out.add(f.key());
         return out;
     }
@@ -647,7 +811,7 @@ public final class ObjectTypes {
         }
         // the life: the foraging bushes, what they give, the little creatures
         for (ScenerySprites.Sprite s : scenerySprites.forage()) {
-            out.add(new Entry(readable(s.name()), Category.LIFE, SCENERY, Map.of("sprite", s.name())));
+            out.add(new Entry(readable(s.name()), Category.FORAGE, SCENERY, Map.of("sprite", s.name())));
         }
         for (ItemDef d : ItemDef.ALL) {
             Tier.Row row = Tier.row(d.id());
@@ -660,23 +824,27 @@ public final class ObjectTypes {
             out.add(new Entry(d.name(), Category.WEARABLES, ITEM, Map.of("item", d.id())));
         }
         for (ItemDef d : Pickings.ALL) {
-            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+            out.add(new Entry(d.name(), Category.FORAGE, ITEM, Map.of("item", d.id())));
         }
         for (ItemDef d : com.larsons.game.world.Hunted.ALL) {
-            out.add(new Entry(d.name(), Category.LIFE, ITEM, Map.of("item", d.id())));
+            out.add(new Entry(d.name(), Category.FORAGE, ITEM, Map.of("item", d.id())));
         }
         // the clutter of the game's own things, set out for show: what is picked, hunted, mined
         List<ItemDef> forShow = new ArrayList<>(Pickings.ALL);
         forShow.addAll(com.larsons.game.world.Hunted.ALL);
         forShow.add(com.larsons.game.world.Supplies.SMALL_CRYSTAL);
         forShow.add(com.larsons.game.world.Supplies.LARGE_CRYSTAL);
-        for (ItemDef d : forShow) out.add(new Entry(d.name() + " (for show)", Category.CLUTTER, SHOWN,
+        for (ItemDef d : forShow) out.add(new Entry(d.name() + " (for show)", Category.SHOWN, SHOWN,
                 Map.of("item", d.id())));
-        out.add(new Entry("Any item, for show", Category.CLUTTER, SHOWN, Map.of("item", "sword")));
+        out.add(new Entry("Any item, for show", Category.SHOWN, SHOWN, Map.of("item", "sword")));
         // ammunition, upgrade ingots, reshuffle scrolls, coins
         for (ItemDef d : com.larsons.game.world.Supplies.ALL) {
-            out.add(new Entry(d.name(), Category.ITEMS, ITEM, d == com.larsons.game.world.Supplies.COINS
+            out.add(new Entry(d.name(), Category.SUPPLIES, ITEM, d == com.larsons.game.world.Supplies.COINS
                     ? Map.of("item", d.id(), "count", 10.0) : Map.of("item", d.id(), "count", 5.0)));
+        }
+        // the potions, scrolls, keys, rods, fish, packs, eggs and trinkets made, bought and found
+        for (com.larsons.game.world.Goods.Good g : com.larsons.game.world.Goods.all()) {
+            out.add(new Entry(g.def().name(), Category.SUPPLIES, ITEM, Map.of("item", g.id())));
         }
         for (CritterKind k : CritterKind.values()) {
             out.add(new Entry(k.label(), Category.LIFE, CRITTERS, Map.of("kind", k.key(), "count",
@@ -704,7 +872,9 @@ public final class ObjectTypes {
         for (String key : buildings.keys()) {
             BuildingProfile p = buildings.profile(key);
             if (p.fixture()) continue;                  // (a light's fitting: placed as a light)
+            if ("hidden".equals(p.shelf())) continue;   // (a barricade's stages: the game's own, board by board)
             if (key.equals(STORAGE_CHEST)) continue;    // (placed as a chest for keeping things in, below)
+            if (WORKING.contains(key)) continue;        // (stood up by the spot that makes it work: Story, Zombies)
             out.add(new Entry(p.label(), shelf(p), BUILDING, Map.of("kind", key)));
         }
         for (Prefab p : Prefab.ALL) {
@@ -732,7 +902,7 @@ public final class ObjectTypes {
             props.put("fixture", l[1]);
             out.add(new Entry((String) l[0], Category.LIGHTS, LIGHT, props));
         }
-        out.add(new Entry("Storage chest", Category.INSIDE, CHEST,
+        out.add(new Entry("Storage chest", Category.LOOT, CHEST,
                 Map.of("sprite", CHEST_SPRITE, "loot", false, "contents", "")));
         // shops: a stall of supplies, a card seller's, a smith's counter, a spot at a counter built already
         Object[][] shops = {
@@ -745,7 +915,7 @@ public final class ObjectTypes {
                 {"Shopkeeper's spot (at a counter)", "Shop", "none", ""}};
         for (Object[] sh : shops) {
             if (!sh[2].equals("none") && buildings.profile((String) sh[2]) == null) continue;
-            out.add(new Entry((String) sh[0], Category.TOWN, SHOP, Map.of("name", sh[1], "stall", sh[2],
+            out.add(new Entry((String) sh[0], Category.SHOPS, SHOP, Map.of("name", sh[1], "stall", sh[2],
                     "stock", sh[3], "buys", true)));
         }
         out.addAll(templateEntries());

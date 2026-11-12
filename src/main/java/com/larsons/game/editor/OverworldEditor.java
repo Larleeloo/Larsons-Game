@@ -312,6 +312,8 @@ public final class OverworldEditor implements Scene, Autopilot.Scriptable {
         if (ui.button("Try it  F5", bx, 8, 110, 36)) tryIt();
         bx -= 116;
         if (ui.button("Save", bx, 8, 110, 36, dirty, true)) save();
+        bx -= 116;
+        if (ui.button("Settings", bx, 8, 110, 36)) game.openSettings();
     }
 
     private void leave() {

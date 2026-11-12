@@ -225,12 +225,41 @@ final class HordeGame {
             return true;
         });
         barricades(dt);
+        keepIn();
         gifts(now);
         if (phase == Phase.ROUND && toCome == 0 && up.isEmpty()) {
             phase = Phase.REST;
             clock = rules.rest();
             game.toast("Round " + round + " survived", Theme.OK);
             Sounds.play(SoundKeys.ui("round_end"));
+        }
+    }
+
+    /** How far from where she starts she may go: short of where the Risen rise (an open map's edge); 0 not worked out. */
+    private double arena;
+    private boolean warned;
+
+    /**
+     * She stays in the map: the barricades' gaps are walls to her
+     * ({@link World#addPlayerWall}), and on a map open on every side she
+     * goes no farther out than a little short of the nearest place the
+     * Risen rise - never out where they come from.
+     */
+    private void keepIn() {
+        Vec3 c = world.spawnPoint();
+        if (c == null || world.hordeSpawns().isEmpty()) return;
+        if (arena <= 0) {
+            double nearest = Double.MAX_VALUE;
+            for (World.HordeSpawn s : world.hordeSpawns()) nearest = Math.min(nearest, s.at().horizontalDistance(c));
+            arena = Math.max(8, nearest - 2.5);
+        }
+        Vec3 her = world.player().ground();
+        double dx = her.x() - c.x(), dz = her.z() - c.z(), d = Math.hypot(dx, dz);
+        if (d <= arena) return;
+        world.player().shoveTo(c.x() + dx / d * arena, c.z() + dz / d * arena);
+        if (!warned) {
+            warned = true;
+            game.toast("No way out: the dead hold the ground beyond", Theme.WARNING);
         }
     }
 

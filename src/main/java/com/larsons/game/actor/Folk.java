@@ -43,7 +43,7 @@ public final class Folk implements Target {
     public enum Mode { STAND, WANDER, CHASE, STRIKE, LOOSE, RECOVER, GUARD, STAGGER, DOWN }
 
     /** What it is seen doing. */
-    public enum Act { IDLE, WALK, RUN, ATTACK, LOOSE, GUARD, SPIT, HURT }
+    public enum Act { IDLE, WALK, RUN, ATTACK, LOOSE, GUARD, SPIT, HURT, LAUGH }
 
     /** How long a hit's white flash lasts; how long one felled lies before it fades, and the fade, seconds. */
     public static final double FLASH = 0.14, LIES_FOR = 5, FADE = 1.2;
@@ -53,6 +53,8 @@ public final class Folk implements Target {
     public static final double CREATURE_WALK = 0.875, CREATURE_RUN = 2.78;
     /** The Bortzal's skins: goblin yellow and ashy purple. */
     public static final int GOBLIN_YELLOW = 0xC8B428, ASHY_PURPLE = 0x8E7AA8, GRAVE_GREEN = 0x7A9A6A;
+    /** The Risen's skins: grave green, ashen grey, bruised blue, a sallow yellow. */
+    public static final int[] RISEN_SKINS = {GRAVE_GREEN, 0x8C8A84, 0x6E7A96, 0x9A9A6A, GRAVE_GREEN};
 
     private final int id;
     private final Breed breed;
@@ -80,6 +82,19 @@ public final class Folk implements Target {
     double sinceHurt = Double.MAX_VALUE, alpha = 1;
     boolean struck, gone, talking;
     double toX, toZ;
+    // the way it is going round what is in the way (Paths): its points, the next, where it was going, when to
+    // look again; how long it has hardly moved; whether it saw her when it last looked, and where she was
+    double[] path;
+    int pathAt;
+    double pathTx, pathTz, replan, stuckFor, lookIn, nearest = Double.MAX_VALUE;
+    boolean seesHer, seenHer, hopeless;
+    double seenX, seenZ;
+    // her day ({@link Schedule}): where each of its places is (x, z, the way she faces there, the building's id or -1)
+    Schedule schedule;
+    final Map<String, double[]> places = new java.util.HashMap<>();
+    Schedule.Entry doing;
+    boolean shelters = true, indoors, arrived, entering, outbound, visiting, visitDone;
+    double postHeading, dayFor, lookTo, visitX, visitZ, exitX, exitZ;
 
     private Act act = Act.IDLE;
     private AnimState state = AnimState.IDLE;
@@ -104,7 +119,7 @@ public final class Folk implements Target {
         this.z = at.z();
         this.homeX = toX = x;
         this.homeZ = toZ = z;
-        this.heading = heading;
+        this.heading = postHeading = heading;
         this.health = this.maxHealth = breed == null ? 50 : breed.health();
         if (wardrobe != null) {
             stance = Stance.ofWardrobe(wardrobe);
@@ -327,7 +342,57 @@ public final class Folk implements Target {
     public boolean alive() { return health > 0 && mode != Mode.DOWN && role != Role.PERSON; }
 
     /** Whether it is still about (a person always; a foe until it is felled). */
-    public boolean standing() { return mode != Mode.DOWN; }
+    public boolean standing() { return mode != Mode.DOWN && !indoors; }
+
+    // --- her day -----------------------------------------------------------------------
+
+    /** Keep the day {@code s} (null: none - she stands about where she was put). */
+    public Folk keeping(Schedule s) {
+        schedule = s == null || s.isEmpty() ? null : s;
+        doing = null;
+        return this;
+    }
+
+    public Schedule schedule() { return schedule; }
+
+    /** The entry of her day she is about now, or null (none, or not yet begun). */
+    public Schedule.Entry doing() { return doing; }
+
+    /**
+     * Where {@code name}, a place her day names ({@link Schedule#HOME}, a
+     * spot, a building), is: {@code (x, z)}, facing {@code heading} there
+     * - for a building, before its door facing in - in {@code building}
+     * ({@code -1}: none).
+     */
+    public Folk place(String name, double x, double z, double heading, int building) {
+        places.put(name, new double[]{x, z, heading, building});
+        return this;
+    }
+
+    /** Whether she knows where {@code name} is. */
+    public boolean knows(String name) { return places.containsKey(name) || Schedule.POST.equals(name); }
+
+    /** Whether she goes in out of a storm. */
+    public Folk sheltering(boolean on) {
+        shelters = on;
+        return this;
+    }
+
+    /** Whether she is indoors now, out of sight. */
+    public boolean indoors() { return indoors; }
+
+    /** The building she is in ({@code -1}: none, or not in one). */
+    public int insideOf() {
+        if (!indoors || doing == null) return -1;
+        double[] p = places.get(doing.where());
+        return p == null ? -1 : (int) p[3];
+    }
+
+    /** Whether she is in the building she is in as she walks in: seen inside it. */
+    public boolean visiting() { return visiting; }
+
+    /** Whether she, seen inside, has gone out of its door (to be put back outdoors). */
+    public boolean visitDone() { return visitDone; }
 
     @Override
     public double health() { return health; }
@@ -509,6 +574,7 @@ public final class Folk implements Target {
             case LOOSE -> orElse(stance.release(false), orElse(stance.attack(false), AnimState.ATTACK));
             case GUARD -> orElse(stance.block(), orElse(stance.parry(), stance.idle(crouched)));
             case SPIT -> AnimState.EMOTE_ANGRY;
+            case LAUGH -> AnimState.EMOTE_LAUGH;
             default -> stance.idle(crouched);
         };
         if (s != state || changed) stateTime = 0;

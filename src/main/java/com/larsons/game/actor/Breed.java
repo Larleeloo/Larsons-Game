@@ -18,11 +18,16 @@ import java.util.Locale;
  *   Bandit           the roads' own: swords, daggers, bows
  *   Risen walker     the horde: slow, many
  *   Risen runner     the horde: fast, frail
- *   Risen brute      the horde: huge, armoured, never staggered
- *   Risen crawler    the horde: low, quick, hard to see in the grass
- *   Risen spitter    the horde: keeps back and spits
- *   Risen Bortzal    the horde: a dead brute, its club still in its hand
+ *   Risen brute      the horde: huge, in a scrap of plate, never staggered
+ *   Risen crawler    the horde: dragging itself on its hands, hard to see in the grass
+ *   Risen ghoul      the horde: a shrouded one that lunges, quick to claw again
+ *   Risen Bortzal    the horde: a dead brute, its club gone, beating with its fists
  * </pre>
+ *
+ * <p>The Risen are creatures of their own (3D-Modeling creatures/risen.py:
+ * {@code risen_m1} .. {@code risen_f3}, {@code risen_brute}, the crawlers,
+ * the dead Bortzal), never in the character's sheets, and nothing in their
+ * hands but their hands: no bows, no spit, no weapons.
  *
  * @param health   what it takes
  * @param walk     how fast it goes about, metres a second
@@ -53,8 +58,8 @@ public enum Breed {
             40, 2.2, 0, List.of(), 40, 1.25, 1.4),
     RISEN_CRAWLER("risen_crawler", "Risen crawler", People.RISEN, Folk.Role.RISEN, Looks.Dress.RAGGED, 18, 0.9, 1.9, 6,
             40, 1.1, 0, List.of(), 10, 0.8, 1.0),
-    RISEN_SPITTER("risen_spitter", "Risen spitter", People.RISEN, Folk.Role.RISEN, Looks.Dress.RAGGED, 26, 0.9, 1.7,
-            7, 40, 2.6, 0, List.of(), 16, 0.9, 1.05),
+    RISEN_SPITTER("risen_spitter", "Risen ghoul", People.RISEN, Folk.Role.RISEN, Looks.Dress.RAGGED, 26, 1.0, 3.2,
+            8, 40, 1.2, 0, List.of(), 16, 0.9, 1.05),
     RISEN_BORTZAL("risen_bortzal", "Risen Bortzal", People.BORTZAL, Folk.Role.RISEN, Looks.Dress.RAGGED, 70, 0.9, 2.4,
             13, 40, 1.9, 0, List.of(), 24, 0.9, 1.5);
 
@@ -120,8 +125,24 @@ public enum Breed {
 
     public double tallest() { return tallest; }
 
-    /** Whether it is drawn as a creature of its own (the Bortzal) rather than in the character's sheets. */
-    public boolean creature() { return people == People.BORTZAL; }
+    /** Whether it is drawn as a creature of its own (the Bortzal, the Risen) rather than in the character's sheets. */
+    public boolean creature() { return people == People.BORTZAL || role == Folk.Role.RISEN; }
+
+    /**
+     * The creature sheets a Risen of this breed is drawn with ({@code
+     * assets/sprites/objects/<name>}), one picked for each; empty for the rest.
+     */
+    public List<String> risenSprites(boolean masculine) {
+        return switch (this) {
+            case RISEN_WALKER, RISEN_RUNNER -> masculine ? List.of("risen_m1", "risen_m3", "risen_m2")
+                    : List.of("risen_f1", "risen_f3", "risen_f2");
+            case RISEN_SPITTER -> List.of(masculine ? "risen_m2" : "risen_f2");
+            case RISEN_BRUTE -> List.of("risen_brute");
+            case RISEN_CRAWLER -> List.of(masculine ? "risen_crawler_m" : "risen_crawler_f");
+            case RISEN_BORTZAL -> List.of(masculine ? "risen_bortzal_m" : "risen_bortzal_f");
+            default -> List.of();
+        };
+    }
 
     /** Whether it is one of the horde. */
     public boolean risen() { return role == Folk.Role.RISEN; }
@@ -132,8 +153,8 @@ public enum Breed {
     /** Whether it goes on all fours. */
     public boolean crawls() { return this == RISEN_CRAWLER; }
 
-    /** Whether it spits from a distance, with nothing in its hands. */
-    public boolean spits() { return this == RISEN_SPITTER; }
+    /** Whether it spits from a distance: none does any more (the Risen fight with their hands alone). */
+    public boolean spits() { return false; }
 
     public static Breed byKey(String key) {
         if (key != null) {

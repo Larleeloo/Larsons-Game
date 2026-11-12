@@ -132,6 +132,9 @@ public final class WorldRenderer implements AutoCloseable {
     private LayerStack.Result playerStack;
     /** A frame of the player left behind by a dodge, fading. */
     private record Ghost(LayerStack.Result stack, Vec3 feet, Vec3 ground, double born) { }
+
+    /** How much nearer the camera each layer of her, seen under the water, is drawn than the one under it, metres. */
+    static final double LAYER_STEP = 0.01;
     private final java.util.ArrayDeque<Ghost> ghosts = new java.util.ArrayDeque<>();
     private double lastGhost = Double.NEGATIVE_INFINITY;
     /** Each layer palette's silhouette ({@link #silhouette}), made once. */
@@ -816,13 +819,27 @@ public final class WorldRenderer implements AutoCloseable {
             double surface = world.water().surface(feet.x(), feet.z(), ground.height(feet.x(), feet.z()));
             if (!Double.isNaN(surface)) {
                 float deep = (float) Math.min(1, p.diveDepth() / 6);
+                // Each pixel of her once, in its topmost layer's colour. The layers are drawn front to
+                // back, each on a plane a centimetre nearer the camera than the one under it, writing the
+                // depth: where one in front has been drawn, those under it are not. (Drawn see-through one
+                // over another on the one plane, her body showed through her clothes, and the layers -
+                // a hair apart in depth from one pixel to the next - fought over it and flickered.)
+                List<LayerStack.Layer> layers = stack.layers();
+                Vec3 anchor = new Vec3(feet.x(), surface + 0.25, feet.z());   // (just over the water: drawn over it)
+                float alpha = 0.85f - 0.35f * deep;
+                glDepthMask(true);
+                glDepthFunc(GL_LESS);
                 batch.begin(viewProj, fog, 0, fogFar);
                 batch.setDepthPlane(eye, upright);
                 batch.tint(((int) (40 + 100 * deep) << 24) | 0x1E5A78);
-                batch.depthAnchor(new Vec3(feet.x(), surface + 0.25, feet.z()));   // (just over the water: drawn over it)
-                LayerStack.drawBillboard(batch, stack, feet, right, up, 0.85f - 0.35f * deep);
+                for (int k = layers.size() - 1; k >= 0; k--) {
+                    batch.depthAnchor(anchor.sub(upright.scale(LAYER_STEP * (k + 1))));
+                    LayerStack.drawBillboard(batch, List.of(layers.get(k)), stack.framing(), stack.view().elevation(),
+                            feet, right, up, alpha);
+                }
                 batch.tint(0);
                 batch.end();
+                glDepthFunc(GL_LEQUAL);
             }
         }
 

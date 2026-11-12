@@ -91,16 +91,39 @@ class AnimalsTest {
         return a;
     }
 
+    /** A level's Life with {@code kinds} turned up to 1 (the rest none, as a level comes). */
+    private static Life turnedUp(AnimalKind... kinds) {
+        Life l = new Life();
+        for (AnimalKind k : kinds) l.setDensity(k, 1);
+        return l;
+    }
+
     @Test
-    void theyComeWhereTheyLiveAndKeepTheirWater() {
+    void noneComeByUnlessTheLevelTurnsThemUpWhateverTheBiome() {
         Animals plains = fresh(3);
+        run(plains, place(Biome.PLAINS, 0), null, 40, new ArrayList<>());
+        assertTrue(plains.live().isEmpty(), "a meadow brings none of itself: " + plains.live().size());
+        Animals waste = fresh(5);
+        waste.setLife(turnedUp(AnimalKind.RABBIT, AnimalKind.HORSE));
+        run(waste, place(Biome.WASTE, 0), null, 40, new ArrayList<>());
+        assertTrue(waste.count(AnimalKind.RABBIT) >= 2, "turned up, rabbits come even to the waste: "
+                + waste.count(AnimalKind.RABBIT));
+        assertTrue(waste.count(AnimalKind.HORSE) >= 1);
+        assertEquals(waste.live().size(), waste.count(AnimalKind.RABBIT) + waste.count(AnimalKind.HORSE),
+                "and only those");
+    }
+
+    @Test
+    void theyComeWhereTheyCanLiveAndKeepTheirWater() {
+        Animals plains = fresh(3);
+        plains.setLife(turnedUp(AnimalKind.RABBIT, AnimalKind.HORSE, AnimalKind.DUCK));
         run(plains, place(Biome.PLAINS, 0), null, 40, new ArrayList<>());
         assertTrue(plains.count(AnimalKind.RABBIT) >= 2, "rabbits in the meadow: " + plains.count(AnimalKind.RABBIT));
         assertTrue(plains.count(AnimalKind.HORSE) >= 1, "horses on the plains");
         assertEquals(0, plains.count(AnimalKind.DUCK), "no ducks far from water");
-        assertEquals(0, plains.count(AnimalKind.IGUANA), "no iguanas in the meadow");
 
         Animals marsh = fresh(4);
+        marsh.setLife(turnedUp(AnimalKind.values()));
         Animals.Place pond = place(Biome.MARSH, 12);
         run(marsh, pond, null, 60, new ArrayList<>());
         assertTrue(marsh.count(AnimalKind.DUCK) >= 2, "ducks on the marsh's water: " + marsh.count(AnimalKind.DUCK));
@@ -111,16 +134,12 @@ class AnimalsTest {
             }
             if (a.swimming()) assertEquals(0.6 - Animals.sink(a.kind()), a.position().y(), 1e-9, "at its waterline");
         }
-
-        Animals waste = fresh(5);
-        run(waste, place(Biome.WASTE, 0), null, 30, new ArrayList<>());
-        assertEquals(0, waste.count(AnimalKind.HORSE));
-        assertEquals(0, waste.count(AnimalKind.RABBIT));
     }
 
     @Test
     void turnedOffInTheEditorTheyAreGoneAtOnce() {
         Animals a = fresh(11);
+        a.setLife(turnedUp(AnimalKind.values()));
         a.setStill(true);
         Animals.Place p = place(Biome.PLAINS, 0);
         run(a, p, null, 30, new ArrayList<>());
@@ -135,11 +154,13 @@ class AnimalsTest {
 
         // in play, they go too - wherever they are, not only once far off
         Animals play = fresh(11);
+        play.setLife(turnedUp(AnimalKind.values()));
         run(play, p, null, 30, new ArrayList<>());
         assertFalse(play.live().isEmpty());
+        Animal dog = play.add(AnimalKind.DOG, new Vec3(3, 0, 0), null, p);
         play.setLife(off);
         run(play, p, null, 4, new ArrayList<>());
-        assertTrue(play.live().isEmpty(), "faded away: " + play.live().size());
+        assertEquals(List.of(dog), play.live(), "faded away, but the one put there by hand: " + play.live().size());
     }
 
     @Test
@@ -421,8 +442,13 @@ class AnimalsTest {
         Life back = Life.fromJson(json);
         assertEquals(0, back.density(AnimalKind.BEAR));
         assertEquals(2.5, back.density(AnimalKind.RABBIT));
-        assertEquals(1, back.density(AnimalKind.COW));
-        assertEquals(1, Life.fromJson(Map.of("critters", Map.of())).density(AnimalKind.COW), "an older level: all 1");
+        assertEquals(0, back.density(AnimalKind.COW), "none, as a level comes");
+        assertEquals(0, Life.fromJson(Map.of("critters", Map.of())).density(AnimalKind.COW), "an older level: none");
+        // an older file's numbers: 1 was "as they came by biome" (none now); one turned up or down is kept
+        Life old = Life.fromJson(Map.of("animals", Map.of("cow", 1.0, "rabbit", 2.0, "bear", 0.5)));
+        assertEquals(0, old.density(AnimalKind.COW));
+        assertEquals(2.0, old.density(AnimalKind.RABBIT));
+        assertEquals(0.5, old.density(AnimalKind.BEAR));
         assertEquals(2.5, l.copy().density(AnimalKind.RABBIT));
     }
 }

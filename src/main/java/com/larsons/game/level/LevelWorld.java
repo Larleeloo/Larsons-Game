@@ -55,6 +55,14 @@ public final class LevelWorld {
 
         public CombatTuning tuning() { return tuning; }
 
+        /** What is done once every object stands (a candle set on the table that is listed after it). */
+        private final List<Runnable> later = new ArrayList<>();
+
+        /** Do {@code r} once every object of the level stands. */
+        public void later(Runnable r) {
+            later.add(r);
+        }
+
         /** Where {@code o} stands: on the ground under it, lifted as it is. */
         public Vec3 onGround(LevelObject o) {
             return new Vec3(o.x(), terrain.height(o.x(), o.z()) + o.lift(), o.z());
@@ -162,6 +170,7 @@ public final class LevelWorld {
             ObjectType t = ObjectTypes.get(o.type());
             if (t != null && t.spawner() != null) t.spawner().spawn(o, b);
         }
+        for (Runnable r : b.later) r.run();
         world.showRacks();                         // (what the weapon racks hold, up on their pegs)
         world.setScenery(new Scenery(b.scenery, level.ground()));
     }

@@ -140,6 +140,18 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
         /** How heavy {@code k} is now (0 when it is some other weather). */
         public double of(Kind k) { return kind == k ? level : 0; }
 
+        /**
+         * Whether it is a storm now - thunder, a sandstorm, a downpour, a
+         * blizzard - the weather folk go in out of.
+         */
+        public boolean stormy() {
+            return switch (kind()) {
+                case THUNDERSTORM, SANDSTORM -> level > 0.25;
+                case RAIN, SNOW -> level > 0.75;
+                default -> false;
+            };
+        }
+
         /** The lightning's light now, 0 – 1. */
         public double flash() { return flash; }
 

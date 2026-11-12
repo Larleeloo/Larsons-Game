@@ -440,15 +440,20 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
 
     private void menu(Ui ui) {
         ui.scrim();
-        float w = 380, h = 300, x = ui.width() / 2f - w / 2, y = ui.height() / 2f - h / 2;
+        float w = 380, h = 360, x = ui.width() / 2f - w / 2, y = ui.height() / 2f - h / 2;
         ui.panel(x, y, w, h);
         ui.textCentered(ui.large, back != null ? "Trying the map" : save.name(), ui.width() / 2f, y + 16, Theme.TITLE);
         ui.textCentered(ui.small, back != null ? "Nothing is saved" : "Played " + save.playedFor()
                 + "  ·  saved as you go", ui.width() / 2f, y + 54, Theme.HINT);
-        String[] items = back != null ? new String[]{"Back to the map", "Back to the editor"}
-                : new String[]{"Back to the map", "Save and quit to the main menu", "Save and quit the game"};
-        int pick = menu.show(ui, items, x + 30, y + 92, w - 60, 48, 12);
+        String[] items = back != null ? new String[]{"Back to the map", "Back to the editor", "Settings"}
+                : new String[]{"Back to the map", "Save and quit to the main menu", "Save and quit the game",
+                "Settings"};
+        int pick = menu.show(ui, items, x + 30, y + 92, w - 60, 46, 10);
         if (pick == 0) menuOpen = false;
+        if (pick == items.length - 1) {
+            game.openSettings();
+            return;
+        }
         if (pick == 1) {
             if (back != null) {
                 back.run();
@@ -458,7 +463,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
                 game.switchTo("menu");
             }
         }
-        if (pick == 2) {
+        if (pick == 2 && back == null) {
             Saves.write();
             game.quit();
         }

@@ -139,10 +139,21 @@ class LootTest {
         for (int i = 0; i < 100; i++) w.tick(0.01);
         c.toggle(null);
         w.tick(0.01);
-        assertEquals(lot.size(), w.items().size(), "it gives again only once all of it is picked up");
-        // pick everything up, and it gives a new lot
+        assertEquals(lot.size(), w.items().size(), "it gives once");
+        // pick everything up: it stays empty (it never fills again)
         w.player().inventory().resize(40);
         for (World.GroundItem g : lot) assertTrue(w.pickUp(g));
+        assertTrue(c.looted());
+        for (int n = 0; n < 3; n++) {
+            c.toggle(null);
+            for (int i = 0; i < 100; i++) w.tick(0.01);
+            c.toggle(null);
+            w.tick(0.01);
+        }
+        assertTrue(w.items().isEmpty(), "empty: " + w.items().size());
+        // the debug tools' Clear the ground fills them again
+        w.clearGround();
+        assertFalse(c.looted());
         c.toggle(null);
         for (int i = 0; i < 100; i++) w.tick(0.01);
         c.toggle(null);

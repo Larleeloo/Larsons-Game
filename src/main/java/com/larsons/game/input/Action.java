@@ -39,7 +39,7 @@ public enum Action {
     DROP("Drop what you hold", Group.THINGS, keys(GLFW_KEY_G), pads()),
     INVENTORY("Inventory", Group.THINGS, keys(GLFW_KEY_I), pads(Pad.VIEW)),
     CARDS("Cards", Group.THINGS, keys(GLFW_KEY_J), pads(Pad.DPAD_UP)),
-    JOURNAL("Quest journal", Group.THINGS, keys(GLFW_KEY_U), pads()),
+    JOURNAL("Missions", Group.THINGS, keys(GLFW_KEY_U), pads()),
     HOTBAR_1("Hotbar slot 1", Group.THINGS, keys(GLFW_KEY_1), pads()),
     HOTBAR_2("Hotbar slot 2", Group.THINGS, keys(GLFW_KEY_2), pads()),
     HOTBAR_3("Hotbar slot 3", Group.THINGS, keys(GLFW_KEY_3), pads()),
@@ -66,6 +66,8 @@ public enum Action {
     HIDE_HUD("Hide the HUD", Group.OTHER, keys(GLFW_KEY_H), pads()),
     DEBUG("Developer's readout", Group.OTHER, keys(GLFW_KEY_F7), pads()),
     PERF("Performance overlay", Group.OTHER, keys(GLFW_KEY_F8), pads()),
+    SETTINGS("Settings (anywhere)", Group.OTHER, keys(GLFW_KEY_F10), pads()),
+    FULLSCREEN("Full screen / windowed", Group.OTHER, keys(GLFW_KEY_F11), pads()),
     PAUSE("Pause menu", Group.OTHER, keys(GLFW_KEY_ESCAPE), pads(Pad.MENU));
 
     /** The Controls page's sections. */

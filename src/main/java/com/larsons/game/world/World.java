@@ -8,6 +8,7 @@ import com.larsons.game.ambient.Life;
 import com.larsons.game.ambient.Temperament;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.building.Building;
+import com.larsons.game.building.BuildingProfile;
 import com.larsons.game.combat.Combat;
 import com.larsons.game.combat.CombatTuning;
 import com.larsons.game.combat.Dummy;
@@ -43,8 +44,8 @@ import java.util.Random;
  * (when she has no other) it comes off ({@link Wearables#takeOff}) - as
  * anything taken out of the hotbar and the inventory is no longer equipped.
  *
- * <p>The chests are loot chests: the first time one is opened - and again
- * once everything it gave has been picked up - {@link Loot} draws 3 to 7
+ * <p>The chests are loot chests: the first time one is opened - and only
+ * then: it is empty after, and a playthrough remembers it - {@link Loot} draws 3 to 7
  * items - weapons, and the wearables and the armour ({@link
  * Wearables#addTo}) - which pop out of it one after another, fly in an arc and land round
  * its front, each in the beam of light of its rarity ({@link
@@ -198,7 +199,53 @@ public final class World {
     private final Player player;
     private final List<GroundItem> items = new ArrayList<>();
     private final List<Chest> chests = new ArrayList<>();
-    private final List<Building> buildings = new ArrayList<>();
+    private final Buildings buildings = new Buildings();
+
+    /** The buildings: a list that counts its changes, so the index of where they stand knows when to be made again. */
+    private static final class Buildings extends ArrayList<Building> {
+        int version() { return modCount; }
+    }
+
+    /** The buildings by the 8 m cells their footprints reach into (made again when the list changes). */
+    private final Map<Long, List<Building>> buildingCells = new java.util.HashMap<>();
+    private int buildingsIndexed = -1;
+    private static final double BUILDING_CELL = 8;
+
+    /** The buildings that may reach within {@code radius} of {@code (x, z)} (a few, of a town's hundreds). */
+    private List<Building> buildingsNear(double x, double z, double radius) {
+        if (buildingsIndexed != buildings.version()) {
+            buildingCells.clear();
+            for (Building b : buildings) {
+                double r = b.reach() + 0.5;
+                long i0 = (long) Math.floor((b.position().x() - r) / BUILDING_CELL);
+                long i1 = (long) Math.floor((b.position().x() + r) / BUILDING_CELL);
+                long j0 = (long) Math.floor((b.position().z() - r) / BUILDING_CELL);
+                long j1 = (long) Math.floor((b.position().z() + r) / BUILDING_CELL);
+                for (long i = i0; i <= i1; i++) {
+                    for (long j = j0; j <= j1; j++) {
+                        buildingCells.computeIfAbsent((i << 32) ^ Math.floorMod(j, 1L << 32), k -> new ArrayList<>())
+                                .add(b);
+                    }
+                }
+            }
+            buildingsIndexed = buildings.version();
+        }
+        long i0 = (long) Math.floor((x - radius) / BUILDING_CELL), i1 = (long) Math.floor((x + radius) / BUILDING_CELL);
+        long j0 = (long) Math.floor((z - radius) / BUILDING_CELL), j1 = (long) Math.floor((z + radius) / BUILDING_CELL);
+        if (i0 == i1 && j0 == j1) {
+            List<Building> in = buildingCells.get((i0 << 32) ^ Math.floorMod(j0, 1L << 32));
+            return in == null ? List.of() : in;
+        }
+        List<Building> out = new ArrayList<>();
+        for (long i = i0; i <= i1; i++) {
+            for (long j = j0; j <= j1; j++) {
+                List<Building> in = buildingCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Building b : in) if (!out.contains(b)) out.add(b);
+            }
+        }
+        return out;
+    }
     /** The barrels, crates and storage chests: what each holds, and how near breaking a barrel or a crate is. */
     private final List<Store> stores = new ArrayList<>();
     /** The market stalls and shop counters: what each sells, and what is left of it. */
@@ -266,7 +313,7 @@ public final class World {
     public static final class Place {
         private final List<GroundItem> items;
         private final List<Chest> chests;
-        private final List<Building> buildings;
+        private final List<Building> buildings, playerWalls;
         private final List<Store> stores;
         private final List<Shop> shops;
         private final List<Spot> spots;
@@ -292,6 +339,7 @@ public final class World {
             items = List.copyOf(w.items);
             chests = List.copyOf(w.chests);
             buildings = List.copyOf(w.buildings);
+            playerWalls = List.copyOf(w.playerWalls);
             stores = List.copyOf(w.stores);
             shops = List.copyOf(w.shops);
             spots = List.copyOf(w.spots);
@@ -319,6 +367,9 @@ public final class World {
 
         /** Whether it is inside a building. */
         public boolean indoors() { return indoors; }
+
+        /** The folk of it. */
+        public com.larsons.game.actor.Folks folks() { return folks; }
     }
 
     /**
@@ -331,6 +382,7 @@ public final class World {
         items.clear();
         chests.clear();
         buildings.clear();
+        playerWalls.clear();
         stores.clear();
         shops.clear();
         spots.clear();
@@ -362,7 +414,9 @@ public final class World {
         chests.clear();
         chests.addAll(p.chests);
         buildings.clear();
+        playerWalls.clear();
         buildings.addAll(p.buildings);
+        playerWalls.addAll(p.playerWalls);
         stores.clear();
         stores.addAll(p.stores);
         shops.clear();
@@ -462,6 +516,20 @@ public final class World {
         spots.add(s);
         return s;
     }
+
+    /**
+     * What stands in her way and no one else's: a barricade's gap, which the
+     * Risen come through once its boards are down and she never goes out by.
+     * Not drawn.
+     */
+    private final List<Building> playerWalls = new ArrayList<>();
+
+    public Building addPlayerWall(Building b) {
+        playerWalls.add(b);
+        return b;
+    }
+
+    public List<Building> playerWalls() { return playerWalls; }
 
     /** The building with the level's object id {@code id}, taken out of the world (a barricade torn down), or null. */
     public Building takeBuilding(int id) {
@@ -1025,8 +1093,23 @@ public final class World {
     }
 
     /** Whether a tree's or a rock's trunk stands within {@code radius} of {@code (x, z)}. */
+    /**
+     * Whether a building stands at {@code (x, z)} taller than {@code y} - a
+     * wall, a house, a tower: nobody sees through it (a floor, a rug, a low
+     * fence and a candle do not hide anyone).
+     */
+    public boolean sightBlocked(double x, double z, double y) {
+        for (Building b : buildingsNear(x, z, 0)) {
+            BuildingProfile p = b.profile();
+            if (p.fixture() || p.height() < 1.2) continue;
+            if (p.room() != null && p.room().piece() == com.larsons.game.building.Room.Piece.FLOOR) continue;
+            if (y < b.position().y() + p.height() && b.blocks(x, z, 0)) return true;
+        }
+        return false;
+    }
+
     public boolean solidNear(double x, double z, double radius) {
-        for (Building b : buildings) if (b.blocks(x, z, radius)) return true;
+        for (Building b : buildingsNear(x, z, radius)) if (b.blocks(x, z, radius)) return true;
         long cx = (long) Math.floor(x / CELL), cz = (long) Math.floor(z / CELL);
         for (long i = cx - 1; i <= cx + 1; i++) {
             for (long j = cz - 1; j <= cz + 1; j++) {
@@ -1233,6 +1316,8 @@ public final class World {
         happened();
         rideAlong();
         live(dt, player.ground(), player.ground());
+        player.inventory().pouchAmmo();
+        folks.setDay(clock.hour(), weatherNow.stormy());
         for (com.larsons.game.actor.Folks.Event e : folks.tick(dt, quarry(), place())) metFolk(e);
         for (com.larsons.game.actor.Folks.Loosed l : folks.drainLoosed()) {
             combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
@@ -1443,6 +1528,14 @@ public final class World {
     private void keepOutOfBuildings() {
         Vec3 at = player.ground();
         double feet = at.y() + player.height();
+        for (Building b : playerWalls) {
+            if (feet > b.position().y() + b.profile().height() + 1.5 || feet < b.position().y() - 2) continue;
+            Vec3 to = b.pushOut(at.x(), at.z(), feet() + 0.05);
+            if (to != null) {
+                player.shoveTo(to.x(), to.z());
+                at = player.ground();
+            }
+        }
         for (Building b : buildings) {
             if (feet > b.position().y() + b.profile().height() - 0.3 || feet < b.position().y() - 2) continue;
             Vec3 to = b.pushOut(at.x(), at.z(), feet() + 0.05);
@@ -1600,6 +1693,9 @@ public final class World {
     }
 
     /** What the little creatures and the animals need to know of the place: the ground, the water, the biomes, the trees. */
+    /** The place as the folk know it (its ground, its water, what is solid in it), for finding them room. */
+    public Animals.Place folkPlace() { return place(); }
+
     private Animals.Place place() {
         return new Animals.Place() {
             @Override
@@ -1610,6 +1706,11 @@ public final class World {
             @Override
             public double[] bounds() {
                 return bounds;
+            }
+
+            @Override
+            public boolean sightBlocked(double x, double z, double y) {
+                return World.this.sightBlocked(x, z, y);
             }
 
             @Override
@@ -1714,7 +1815,13 @@ public final class World {
      * a spot in a fan round its front.
      */
     private void opened(Chest c) {
-        for (GroundItem g : items) if (g.source == c) return;
+        if (c.looted()) {
+            // (given once: what it held is hers, or lies about still)
+            combat.say("Empty", 0xC8BCA8, c.position(), 1.2, true);
+            return;
+        }
+        c.setLooted(true);
+        if (onLooted != null) onLooted.accept(c);
         earn(com.larsons.game.cards.Hero.XP_CHEST);
         List<Item> lot = new ArrayList<>(loot.roll(random));
         List<Integer> amounts = new ArrayList<>();
@@ -2086,6 +2193,30 @@ public final class World {
     }
 
     /** The nearest item within reach of the player that has landed, or {@code null}. */
+    /** Whether {@code g} is taken whatever else she carries, by walking over it: coins, and ammunition. */
+    public static boolean always(GroundItem g) {
+        return g.def == Supplies.COINS || Inventory.pouched(g.item);
+    }
+
+    /**
+     * What lies within {@code range} of her feet that is always taken -
+     * coins into her purse, ammunition into her pouch - taken now, as she
+     * walks over it (Settings, Gameplay: picking up by walking over).
+     * Returns what was taken, each with how many.
+     */
+    public List<Map.Entry<Item, Integer>> autoPickUp(double range) {
+        List<Map.Entry<Item, Integer>> got = new ArrayList<>();
+        if (player.health() <= 0) return got;
+        for (GroundItem g : List.copyOf(items)) {
+            if (!always(g) || g.shown || !g.landed(time)) continue;
+            if (Math.abs(g.position.y() - player.ground().y()) > 1.5) continue;
+            if (g.position.horizontalDistance(player.ground()) > range) continue;
+            int n = Math.max(1, g.amount);
+            if (pickUp(g)) got.add(Map.entry(g.item, n));
+        }
+        return got;
+    }
+
     public GroundItem reachable() {
         GroundItem best = null;
         double bestD = PICKUP_RANGE;
@@ -2115,6 +2246,12 @@ public final class World {
         if (item.def == Supplies.COINS) {
             // coins go into her purse, never a slot (a card may make them more)
             player.addCoins((int) Math.round(item.amount * player.buffs().times(Buffs.Kind.COINS)));
+            items.remove(item);
+            return true;
+        }
+        if (Inventory.pouched(item.item)) {
+            // ammunition into her pouch, all of it, however full her slots are
+            player.inventory().put(item.item, Math.max(1, item.amount), true);
             items.remove(item);
             return true;
         }
@@ -2252,13 +2389,22 @@ public final class World {
 
     /**
      * Take every item off the ground - what lay about from the start (the
-     * weapons) and what the chests gave - so a chest opened again gives a new
-     * lot. Returns how many there were.
+     * weapons) and what the chests gave - and fill the chests again, so a
+     * chest opened again gives a new lot (the debug tools'). Returns how many
+     * there were.
      */
     public int clearGround() {
         int n = items.size();
         items.clear();
+        for (Chest c : chests) c.setLooted(false);      // (the debug tool's: every chest full again)
         return n;
+    }
+
+    /** Told of each chest as it gives its loot (a playthrough writes it down), or null. */
+    private java.util.function.Consumer<Chest> onLooted;
+
+    public void onLooted(java.util.function.Consumer<Chest> c) {
+        onLooted = c;
     }
 
     private void spawnAhead(Item item, int amount) {

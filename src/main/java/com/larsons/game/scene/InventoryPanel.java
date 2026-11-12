@@ -143,6 +143,13 @@ final class InventoryPanel {
         cardTable = open;
     }
 
+    /** What the Missions button does: her missions, to pick those she follows ({@link Story}). */
+    private Runnable missions;
+
+    void onMissions(Runnable open) {
+        missions = open;
+    }
+
     /** Open the screen with the tiers of the weapon in {@code slot} beside it. */
     void showTiers(int slot) {
         if (open && (store != null || shop != null)) close();
@@ -429,6 +436,18 @@ final class InventoryPanel {
                 return;
             }
             inside |= ui.hover(bx, by, bw, bh);
+            boolean column = px >= bw + 16;
+            float mx = column ? bx : bx + bw + 8, my = column ? by + bh + 8 : by;
+            if (ui.button("Missions", mx, my, bw, bh) && missions != null) {
+                close();
+                missions.run();
+                return;
+            }
+            inside |= ui.hover(mx, my, bw, bh);
+            if (column) {
+                float pw2 = Math.min(170, px - 16);
+                inside |= purseAndPouch(ui, inv, px - 8 - pw2, my + bh + 14, pw2);
+            }
         }
 
         // --- the pointer: pick up, put down, move, drop ------------------------------
@@ -753,6 +772,16 @@ final class InventoryPanel {
      * in its border's; else its world sprite.
      */
     private void icon(Ui ui, Item item, float x, float y, float r, float alpha, boolean turning) {
+        icon(ui, game, item, x, y, r, alpha, turning ? world.time() : -1);
+    }
+
+    /**
+     * {@code item}'s picture centred on {@code (x, y)}, {@code r} its size: as
+     * the inventory draws it ({@link #icon(Ui, Item, float, float, float, float, boolean)}),
+     * turning with {@code time} (seconds; below 0: at rest).
+     */
+    static void icon(Ui ui, Game game, Item item, float x, float y, float r, float alpha, double time) {
+        boolean turning = time >= 0;
         ItemDef d = item.def();
         ItemSprites items = game.items();
         Wearables.Pickup pickup = Wearables.pickup(item);
@@ -772,7 +801,7 @@ final class InventoryPanel {
         float s = pickup != null ? r * PICKUP_ICON
                 : (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
         int frame = pickup != null ? 0 : ItemSprites.ICON_REST_FRAME;
-        if (turning) frame += (int) Math.floor(world.time() / ICON_TURN * icon.frames());
+        if (turning) frame += (int) Math.floor(time / ICON_TURN * icon.frames());
         float[] uv = icon.uv(frame);
         float x0 = x - s / 2, y0 = y - s / 2;
         Batch b = ui.batch();
@@ -781,7 +810,7 @@ final class InventoryPanel {
         Border border = item.ring();
         if (border != null) {
             float[] bc = border.colour(1f);
-            float k = (float) (0.75 + 0.25 * Math.sin(world.time() * 2 * Math.PI * 0.8));
+            float k = (float) (0.75 + 0.25 * Math.sin((turning ? time : System.nanoTime() / 1e9) * 2 * Math.PI * 0.8));
             b.rect(icon.ring(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], k * alpha);
         }
         b.rect(icon.sprite(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, alpha);
@@ -809,6 +838,40 @@ final class InventoryPanel {
     }
 
     // --- a shop -----------------------------------------------------------------------
+
+    /**
+     * Her purse and her pouch, beside the inventory: her coins, and each
+     * weapon's ammunition she carries - none of it taking a slot. Whether
+     * the pointer is over it.
+     */
+    private boolean purseAndPouch(Ui ui, Inventory inv, float x, float y, float w) {
+        java.util.Map<String, Integer> pouch = inv.pouch();
+        float h = 52 + 30 + Math.max(1, pouch.size()) * 30 + 8;
+        ui.rect(x, y, w, h, Theme.withAlpha(Theme.PANEL, 0.92f));
+        ui.outline(x, y, w, h, 1, Theme.PANEL_EDGE);
+        ui.text(ui.small, "Purse", x + 10, y + 6, Theme.HINT);
+        ui.text(ui.body, Ui.fit(ui.body, coins(world.player().coins()), w - 20), x + 10, y + 24, COIN);
+        float ty = y + 56;
+        ui.text(ui.small, "Pouch", x + 10, ty, Theme.HINT);
+        ty += 22;
+        if (pouch.isEmpty()) {
+            ui.text(ui.tiny, "No ammunition", x + 10, ty + 4, Theme.ITEM_DISABLED);
+        }
+        for (java.util.Map.Entry<String, Integer> e : pouch.entrySet()) {
+            ItemDef d = com.larsons.game.world.Supplies.byId(e.getKey());
+            if (d == null) continue;
+            icon(ui, Item.of(d), x + 22, ty + 12, 12, 1f, false);
+            String said = e.getValue() + " " + (e.getValue() == 1 ? d.name().toLowerCase(java.util.Locale.ROOT)
+                    : com.larsons.game.world.Ammo.said(d));
+            ui.text(ui.small, Ui.fit(ui.small, said, w - 46), x + 40, ty + 4, Theme.ITEM);
+            if (ui.hover(x, ty, w, 28)) {
+                tooltip(ui, Item.of(d), e.getValue(), "In your pouch: used up by the weapon it is for",
+                        (float) ui.input().mouseX() + 16, (float) ui.input().mouseY() + 12);
+            }
+            ty += 30;
+        }
+        return ui.hover(x, y, w, h);
+    }
 
     static String coins(int n) {
         return n + (n == 1 ? " coin" : " coins");

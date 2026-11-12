@@ -128,6 +128,22 @@ public final class Chest {
     /** How many times its lid has started up. */
     public int opens() { return opens; }
 
+    /** The level object it is (0: none of a level's): what a playthrough remembers it by. */
+    private int object;
+    /** Whether it has given its loot: a chest gives once, and is empty after (it does not fill again). */
+    private boolean looted;
+
+    public Chest object(int id) {
+        object = id;
+        return this;
+    }
+
+    public int object() { return object; }
+
+    public boolean looted() { return looted; }
+
+    public void setLooted(boolean on) { looted = on; }
+
     /** Whether it is open or opening. */
     public boolean isOpen() {
         return state == State.OPEN || state == State.OPENING;
