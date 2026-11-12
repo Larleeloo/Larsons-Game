@@ -364,6 +364,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             campaign.save().give(world.player());
             world.player().setSize(campaign.save().size());
             world.ammo().setEnabled(true);
+            // the chests she has emptied here before stay empty; each she empties now is written down
+            var flags = campaign.save().flags();
+            for (com.larsons.game.world.Chest c : world.chests()) {
+                if (c.object() != 0 && flags.containsKey(chestFlag(campaign.place(), c))) c.setLooted(true);
+            }
+            world.onLooted(c -> {
+                if (c.object() != 0) flags.put(chestFlag(campaign.place(), c), "looted");
+            });
         }
         world.ownWhatIsWorn();
         Player p = world.player();
@@ -412,6 +420,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** The horde game played here, or null (for a scripted check). */
     HordeGame hordeGame() { return horde; }
+
+    /** What a playthrough's save calls chest {@code c} of {@code place}, emptied. */
+    static String chestFlag(String place, com.larsons.game.world.Chest c) {
+        return "chest:" + place + ":" + c.object();
+    }
 
     /** Write her, as she is now, into the playthrough's save - and the place cleared, if it has been. */
     private void keep() {
@@ -648,7 +661,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(Action.HOTBAR_NEXT)) select(Math.floorMod(world.player().inventory().selected() + 1, Inventory.HOTBAR));
         boolean orbiting = !inventory.open()
                 && (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE));
-        if (in.scroll() != 0 && !orbiting) {
+        // (a panel up - the workbench, the cauldron, someone talking, the inventory - scrolls with the wheel itself)
+        boolean panelUp = story.modal() || inventory.open();
+        if (in.scroll() != 0 && !orbiting && !panelUp) {
             // a wheel notch away from you moves the selection left, as in most games
             int steps = (int) -Math.signum(in.scroll());
             select(Math.floorMod(p.inventory().selected() + steps, Inventory.HOTBAR));
@@ -661,7 +676,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         double orbit = inventory.open() ? 0 : in.value(Action.CAMERA_LEFT) - in.value(Action.CAMERA_RIGHT);
         double tilt = inventory.open() ? 0 : in.value(Action.CAMERA_UP) - in.value(Action.CAMERA_DOWN);
         if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
-        camera.zoom(in.scroll());                      // the wheel zooms while orbiting
+        if (!panelUp) camera.zoom(in.scroll());        // the wheel zooms while orbiting
         if (in.repeated(Action.ZOOM_IN)) camera.zoom(1);
         if (in.repeated(Action.ZOOM_OUT)) camera.zoom(-1);
         if (in.pressed(Action.CAMERA_HEIGHT)) {
@@ -1471,6 +1486,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();
+        pointAtWorld(ui);
         ui.begin();
         if (world.player().underWater()) {
             // under the water: the world seen through it, darker the deeper she is
@@ -1753,6 +1769,93 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (d.inHand()) p.wardrobe().set(p.wardrobe().hand() == Wardrobe.Hand.LEFT ? d.carrySlot().twin()
                 : d.carrySlot(), d.id());
         return true;
+    }
+
+    /**
+     * What the pointer is over in the world, for it to show: swords over a
+     * foe, a speech bubble over someone to talk to, a sack over something
+     * lying there, a door over a closed chest or a way on, a padlock over a
+     * lock, a coin over a stall, a board or a box, a hammer over a
+     * workbench, a cauldron or a barricade. The nearest to the camera wins.
+     */
+    private void pointAtWorld(Ui ui) {
+        Input in = ui.input();
+        if (in.uiMode() || in.muted() || !game.settings().dynamicPointer) return;
+        double mx = in.mouseX(), my = in.mouseY();
+        com.larsons.game.math.Mat4 vp = camera.viewProjection(ui.width() / (double) Math.max(1, ui.height()));
+        Vec3 her = world.player().ground();
+        String best = null;
+        double nearest = Double.MAX_VALUE;
+        for (com.larsons.game.actor.Folk f : world.folks().all()) {
+            if (f.position().horizontalDistance(her) > 45) continue;
+            String hint = f.role() == com.larsons.game.actor.Folk.Role.PERSON ? "talk"
+                    : f.alive() && f.hostile() ? "attack" : null;
+            if (hint == null) continue;
+            double d = over(vp, ui, f.position(), f.height(), 0.42 * f.size(), mx, my);
+            if (d >= 0 && d < nearest) {
+                nearest = d;
+                best = hint;
+            }
+        }
+        for (Chest c : world.chests()) {
+            if (c.state() != Chest.State.IDLE || c.position().horizontalDistance(her) > 30) continue;
+            double d = over(vp, ui, c.position(), 0.9, 0.55, mx, my);
+            if (d >= 0 && d < nearest) {
+                nearest = d;
+                best = "open";
+            }
+        }
+        for (World.GroundItem g : world.items()) {
+            if (g.shown() || g.position.horizontalDistance(her) > 25) continue;
+            double d = over(vp, ui, g.position, 0.5, 0.3, mx, my);
+            if (d >= 0 && d < nearest) {
+                nearest = d;
+                best = "take";
+            }
+        }
+        for (com.larsons.game.world.Spot sp : world.spots()) {
+            if (sp.position().horizontalDistance(her) > 30) continue;
+            String hint = switch (sp.kind()) {
+                case com.larsons.game.level.StoryTypes.LOCK -> "locked";
+                case com.larsons.game.level.StoryTypes.WAY_OUT -> "open";
+                case com.larsons.game.level.StoryTypes.WORKBENCH, com.larsons.game.level.StoryTypes.CAULDRON,
+                     com.larsons.game.level.HordeTypes.BARRICADE -> "build";
+                case com.larsons.game.level.HordeTypes.WALL_BUY, com.larsons.game.level.HordeTypes.BOX -> "buy";
+                default -> null;
+            };
+            if (hint == null) continue;
+            double d = over(vp, ui, sp.position(), 1.8, 0.7, mx, my);
+            if (d >= 0 && d < nearest) {
+                nearest = d;
+                best = hint;
+            }
+        }
+        for (com.larsons.game.world.Shop sh : world.shops()) {
+            if (sh.position().horizontalDistance(her) > 30) continue;
+            double d = over(vp, ui, sh.position(), 2.0, 1.0, mx, my);
+            if (d >= 0 && d < nearest) {
+                nearest = d;
+                best = "buy";
+            }
+        }
+        if (best != null) game.pointers().hint(best);
+    }
+
+    /**
+     * Whether the pointer at {@code (mx, my)} is over something standing at
+     * {@code foot}, {@code tall} metres high and {@code half} metres either
+     * side, as the camera sees it: how far it is from the camera, or -1.
+     */
+    private double over(com.larsons.game.math.Mat4 vp, Ui ui, Vec3 foot, double tall, double half, double mx,
+                        double my) {
+        Vec3 a = com.larsons.game.editor.Picking.screen(vp, foot, ui.width(), ui.height());
+        Vec3 b = com.larsons.game.editor.Picking.screen(vp, foot.add(0, tall, 0), ui.width(), ui.height());
+        if (a.z() <= 0 || b.z() <= 0) return -1;
+        double px = Math.abs(a.y() - b.y()) / Math.max(0.1, tall);       // pixels a metre, there
+        double w = Math.max(10, half * px), top = Math.min(a.y(), b.y()) - 4, bottom = Math.max(a.y(), b.y()) + 4;
+        double cx = (a.x() + b.x()) / 2;
+        if (mx < cx - w || mx > cx + w || my < top || my > bottom) return -1;
+        return foot.distance(camera.eye());
     }
 
     @Override

@@ -75,6 +75,10 @@ public final class Folks {
         public Spec size(double s) {
             return new Spec(body, weapon, s, seed, name, skin, hostile, dress);
         }
+
+        public Spec seed(long s) {
+            return new Spec(body, weapon, size, s, name, skin, hostile, dress);
+        }
     }
 
     private static final double[] ROUND = {0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9};
@@ -222,19 +226,33 @@ public final class Folks {
 
     /** One of {@code breed} at {@code at} (a number of its own for its id). */
     public Folk spawn(Breed breed, Vec3 at, double heading, Spec spec) {
+        if (spec == null) spec = Spec.ANY;
+        // (summoned, risen: each a look of its own, by chance)
+        if (spec.seed() == 0) spec = spec.seed(random.nextLong() | 1);
         return spawn(nextId++, breed, at, heading, spec);
     }
 
     /** One of {@code breed}, the level's object {@code id}, at {@code at}. */
     public Folk spawn(int id, Breed breed, Vec3 at, double heading, Spec spec) {
         if (spec == null) spec = Spec.ANY;
-        long seed = spec.seed() != 0 ? spec.seed() : random.nextLong() | 1;
+        // a level's own foe: the same look every time it is stood up (the editor redraws the level as the
+        // pointer moves - it must not change face with every move), and in the game as it was in the editor
+        long seed = spec.seed() != 0 ? spec.seed() : id * 7919L + breed.ordinal() * 104729L + 17;
         Random r = new Random(seed);
         boolean masc = "masculine".equals(spec.body()) || (!"feminine".equals(spec.body()) && r.nextBoolean());
         double size = spec.size() > 0 ? spec.size()
                 : breed.smallest() + r.nextDouble() * (breed.tallest() - breed.smallest());
         Folk f;
-        if (breed.creature()) {
+        if (breed.risen()) {
+            // the horde: a creature of its own, bare-handed, its skin the grave's - green, ashen or bruised
+            List<String> sheets = breed.risenSprites(masc);
+            f = new Folk(id, breed, breed.people(), breed.role(), masc, null, sheets.get(r.nextInt(sheets.size())),
+                    at, heading);
+            f.tinted(Folk.RISEN_SKINS[r.nextInt(Folk.RISEN_SKINS.length)]);
+            // (the brute and the Bortzal are drawn their own size; the rest a little either way)
+            f.sized(breed == Breed.RISEN_BRUTE || breed == Breed.RISEN_BORTZAL ? 1 + (size - 1) * 0.3 : size);
+            f.crouched = breed.crawls();
+        } else if (breed.creature()) {
             int outfit = 1 + r.nextInt(5);
             String w = spec.weapon() == null ? "own" : spec.weapon();
             if (w.contains("club") || w.equals("none")) outfit = new int[]{1, 3, 5}[r.nextInt(3)];

@@ -41,6 +41,8 @@ public final class StoryTypes {
             BuildingProfile p = m.equals("none") ? null : BuildingCatalog.get().profile(m);
             // (its own model not made yet: what stands in for it)
             if (p == null && !m.equals("none")) p = BuildingCatalog.get().profile(STAND_INS.getOrDefault(m, "none"));
+            // (made as wide and as tall as it is set to: a double door, a low gate)
+            p = ObjectTypes.sized(o, p);
             if (p != null) {
                 b.world().addBuilding(new Building(o.id(), p, at, o.yaw(), BuildingLook.of(o.props().get("look")),
                         null));
@@ -51,7 +53,7 @@ public final class StoryTypes {
     }
 
     static void registerAll() {
-        spot(WAY_OUT, "Way back to the map", Category.STORY,
+        spot(WAY_OUT, "Way back to the map", Category.QUESTS,
                 List.of(Prop.text("name", "Name", "The road on"),
                         Prop.toggle("clears", "Reaching it clears the destination", true)),
                 "signpost", "wayout", 0.6, 2.4, 0x7FE8FF);
@@ -67,14 +69,16 @@ public final class StoryTypes {
                                 o -> List.of("cauldron", "large_pot", "alchemy_table", "distiller", "none"))),
                 "cauldron", "cauldron", 0.6, 1.0, 0x60BE78);
         // a locked door or gate, in the way until she has its key (the skeleton key opens any)
-        spot(LOCK, "Locked door", Category.STORY,
+        spot(LOCK, "Locked door", Category.QUESTS,
                 List.of(Prop.text("name", "Name", "The door"),
                         Prop.choice("key", "Opened by", "iron_key", o -> com.larsons.game.world.Goods.KEYS.stream()
                                 .map(com.larsons.game.world.Goods.Good::id).toList()),
                         Prop.toggle("consumes", "Uses the key up", true),
                         Prop.number("cost", "Or opens for (coins or points; 0: the key only)", 0, 0, 100000, 50),
                         Prop.choice("model", "Looks like", "locked_door",
-                                o -> List.of("locked_door", "iron_gate", "none"))),
+                                o -> List.of("locked_door", "iron_gate", "none")),
+                        Prop.number("width", "Width ×", 1, 0.5, 3, 0.05),
+                        Prop.number("height", "Height ×", 1, 0.5, 2, 0.05)),
                 "locked_door", "lock", 1.1, 2.4, 0xD8DCE4);
         FolkTypes.registerAll();
         HordeTypes.registerAll();

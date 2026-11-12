@@ -91,6 +91,13 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // Text typed, as if at the keyboard: "type candle" (into whatever field has the keys).
+                case "type" -> {
+                    var in = game.window().input();
+                    arg.codePoints().forEach(in::typed);
+                    waiting = 1e-6;
+                    return;
+                }
                 // A key held down until it is let go: "hold w", "letgo w" (to walk her somewhere).
                 case "hold" -> {
                     game.window().input().keyEvent(glfwKey(arg), true);

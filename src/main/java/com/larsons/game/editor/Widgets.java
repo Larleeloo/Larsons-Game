@@ -25,8 +25,14 @@ public final class Widgets {
     private String buffer = "", original = "";
     private boolean committed;
 
-    /** Whether a text field has the keys: the editor's own keys wait while it does. */
-    public boolean typing() { return typing != null; }
+    /** When the field being typed in was last drawn: one no longer drawn (its panel shut, scrolled off) lets go. */
+    private long typingSeen;
+
+    /** Whether a text field (or a long list dropped down, narrowed by typing) has the keys: the editor's own wait. */
+    public boolean typing() {
+        if (typing != null && System.nanoTime() - typingSeen > 300_000_000L) stopTyping();
+        return typing != null || dropId != null && searchable();
+    }
 
     /** Let go of the keys (the field keeps what was typed). */
     public void stopTyping() {
@@ -36,6 +42,16 @@ public final class Widgets {
 
     /** Whether a slider is being dragged. */
     public boolean dragging() { return dragging != null; }
+
+    /** Whether the text field {@code id} has the keys. */
+    public boolean typingIn(String id) { return id.equals(typing); }
+
+    /** Give the text field {@code id} (holding {@code value}) the keys, as if it were clicked (a shortcut: Ctrl+F). */
+    public void focusText(String id, String value) {
+        typing = id;
+        typingSeen = System.nanoTime();
+        buffer = original = value == null ? "" : value;
+    }
 
     /** A label on the left of a row, {@code w} wide at most: on one line, or two smaller, or cut short (said in full when pointed at). */
     private void label(Ui ui, String label, float x, float y, float w) {
@@ -81,7 +97,11 @@ public final class Widgets {
 
     /** The choice whose list is dropped down: its id, its options, where it hangs from - or none. */
     private String dropId;
-    private List<String> dropShown = List.of();
+    private List<String> dropShown = List.of(), dropAll = List.of();
+    /** Which of all the options each row shown is (the list narrowed by what is typed). */
+    private List<Integer> dropRows = List.of();
+    /** What has been typed over the list: only the options with it in them are shown. */
+    private String dropFilter = "";
     private int dropIndex, dropScroll;
     private float dropX, dropY, dropW;
     /** A pick made from the list, for its choice to take on the next frame. */
@@ -111,8 +131,32 @@ public final class Widgets {
     }
 
     private float[] dropRect() {
-        int rows = Math.min(DROP_ROWS, dropShown.size());
-        return new float[]{dropX, dropY, dropW, rows * DROP_ROW + 4};
+        int rows = Math.max(1, Math.min(DROP_ROWS, dropShown.size()));
+        return new float[]{dropX, dropY, dropW, rows * DROP_ROW + 4 + (searchable() ? DROP_ROW : 0)};
+    }
+
+    /** A long list can be narrowed by typing (a search line along its top). */
+    private boolean searchable() {
+        return dropAll.size() > DROP_ROWS;
+    }
+
+    /** The list narrowed to the options with every word typed in them. */
+    private void filterDrop() {
+        List<String> shown = new java.util.ArrayList<>();
+        List<Integer> rows = new java.util.ArrayList<>();
+        String[] words = dropFilter.toLowerCase(java.util.Locale.ROOT).trim().split("\\s+");
+        for (int i = 0; i < dropAll.size(); i++) {
+            String o = dropAll.get(i).toLowerCase(java.util.Locale.ROOT);
+            boolean all = true;
+            for (String w : words) if (!w.isEmpty() && !o.contains(w)) all = false;
+            if (all) {
+                shown.add(dropAll.get(i));
+                rows.add(i);
+            }
+        }
+        dropShown = shown;
+        dropRows = rows;
+        dropScroll = 0;
     }
 
     /**
@@ -124,10 +168,34 @@ public final class Widgets {
         tip = null;
         if (dropId == null) return;
         Input in = ui.input();
+        if (searchable()) {
+            // typing over a long list narrows it; Enter picks the first left
+            String typed = in.typedText();
+            boolean changed = false;
+            for (char c : typed.toCharArray()) {
+                if (c >= ' ' && dropFilter.length() < 30) {
+                    dropFilter += c;
+                    changed = true;
+                }
+            }
+            if (in.repeated(GLFW_KEY_BACKSPACE) && !dropFilter.isEmpty()) {
+                dropFilter = dropFilter.substring(0, dropFilter.length() - 1);
+                changed = true;
+            }
+            if (changed) filterDrop();
+            if ((in.pressed(GLFW_KEY_ENTER) || in.pressed(GLFW_KEY_KP_ENTER)) && !dropShown.isEmpty()) {
+                in.consumeKey(GLFW_KEY_ENTER);
+                pickedId = dropId;
+                pickedIndex = dropRows.get(0);
+                dropId = null;
+                return;
+            }
+        }
         float[] r = dropRect(ui);
         double mx = in.mouseX(), my = in.mouseY();
         boolean over = mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3];
         int rows = Math.min(DROP_ROWS, dropShown.size());
+        float top = r[1] + 2 + (searchable() ? DROP_ROW : 0);
         if (over && in.scroll() != 0) {
             dropScroll -= (int) Math.signum(in.scroll()) * 3;
             in.consumeScroll();
@@ -139,11 +207,11 @@ public final class Widgets {
             return;
         }
         if (in.mousePressed(GLFW_MOUSE_BUTTON_LEFT)) {
-            if (over) {
-                int i = dropScroll + (int) ((my - r[1] - 2) / DROP_ROW);
+            if (over && my >= top) {
+                int i = dropScroll + (int) ((my - top) / DROP_ROW);
                 if (i >= 0 && i < dropShown.size()) {
                     pickedId = dropId;
-                    pickedIndex = i;
+                    pickedIndex = dropRows.get(i);
                     com.larsons.game.audio.Sounds.play(com.larsons.game.audio.SoundKeys.ui("click"));
                 }
             }
@@ -160,21 +228,39 @@ public final class Widgets {
             ui.rect(r[0] + 3, r[1] + 3, r[2], r[3], Theme.withAlpha(Theme.SCRIM, 0.5f));
             ui.rect(r[0], r[1], r[2], r[3], Theme.withAlpha(Theme.PANEL, 1f));
             ui.outline(r[0], r[1], r[2], r[3], 1, Theme.ACCENT);
+            float top = r[1] + 2;
+            if (searchable()) {
+                // the search line: what is typed, or how to
+                boolean blink = (System.nanoTime() / 500_000_000L) % 2 == 0;
+                String line = dropFilter.isEmpty() ? "Type to search " + dropAll.size() + "..."
+                        : dropFilter + (blink ? "|" : "") + "   (" + dropShown.size() + ")";
+                ui.rect(r[0] + 1, top, r[2] - 2, DROP_ROW - 2, Theme.withAlpha(Theme.BUTTON, 0.9f));
+                ui.text(ui.small, Ui.fit(ui.small, line, r[2] - 16), r[0] + 8,
+                        top + (DROP_ROW - 2 - ui.small.lineHeight()) / 2,
+                        dropFilter.isEmpty() ? Theme.ITEM_DISABLED : Theme.ACCENT);
+                top += DROP_ROW;
+            }
+            if (dropShown.isEmpty()) {
+                ui.text(ui.small, "Nothing has that in it", r[0] + 8, top + 4, Theme.ITEM_DISABLED);
+            }
             for (int k = 0; k < rows; k++) {
                 int i = dropScroll + k;
-                float ry = r[1] + 2 + k * DROP_ROW;
+                float ry = top + k * DROP_ROW;
                 boolean hot = ui.hover(r[0], ry, r[2], DROP_ROW);
-                if (i == dropIndex) ui.rect(r[0] + 1, ry, r[2] - 2, DROP_ROW, Theme.withAlpha(Theme.ACCENT, 0.35f));
+                ui.target(r[0], ry, r[2], DROP_ROW, Ui.Kind.BUTTON);
+                if (dropRows.get(i) == dropIndex) {
+                    ui.rect(r[0] + 1, ry, r[2] - 2, DROP_ROW, Theme.withAlpha(Theme.ACCENT, 0.35f));
+                }
                 else if (hot) ui.rect(r[0] + 1, ry, r[2] - 2, DROP_ROW, Theme.BUTTON_HOVER);
                 String t = Ui.fit(ui.small, dropShown.get(i), r[2] - 24);
                 ui.text(ui.small, t, r[0] + 8, ry + (DROP_ROW - ui.small.lineHeight()) / 2,
-                        i == dropIndex || hot ? Theme.TITLE : Theme.ITEM);
+                        dropRows.get(i) == dropIndex || hot ? Theme.TITLE : Theme.ITEM);
             }
             if (dropShown.size() > rows) {
                 // where in the list it is
-                float th = r[3] - 4, bar = Math.max(16, th * rows / dropShown.size());
-                float by = r[1] + 2 + (th - bar) * dropScroll / Math.max(1, dropShown.size() - rows);
-                ui.rect(r[0] + r[2] - 7, r[1] + 2, 4, th, Theme.BUTTON);
+                float th = r[3] - 4 - (top - r[1] - 2), bar = Math.max(16, th * rows / dropShown.size());
+                float by = top + (th - bar) * dropScroll / Math.max(1, dropShown.size() - rows);
+                ui.rect(r[0] + r[2] - 7, top, 4, th, Theme.BUTTON);
                 ui.rect(r[0] + r[2] - 7, by, 4, bar, Theme.ACCENT);
             }
         }
@@ -223,18 +309,161 @@ public final class Widgets {
         return value;
     }
 
-    /** A number with − and + buttons a {@code step} each, kept within {@code min} to {@code max}. */
+    /**
+     * A number: a slider to drag (or the wheel over it, a {@code step} a
+     * notch; the gamepad's left and right) and its value in a box beside it
+     * - click the box and type a number, Enter to keep it, Esc to leave it
+     * as it was. Kept within {@code min} to {@code max}, and dragged to the
+     * nearest {@code step}. A wide range (a price up to 100000) slides finer
+     * near its low end.
+     */
+    public double number(Ui ui, String id, String label, double value, double step, double min, double max,
+                         String format, float x, float y, float w) {
+        float lw = label.isEmpty() ? 0 : w * 0.42f;
+        if (!label.isEmpty()) label(ui, label, x, y, lw);
+        return slideAndType(ui, id, value, step, min, max, format, x + lw, y, w - lw);
+    }
+
+    /**
+     * The rail and the value box of {@link #number}, in {@code bw} from
+     * {@code bx} (a narrow one is the box alone). {@code value} itself when
+     * nothing touched it, so a value between steps is left as it is.
+     */
+    private double slideAndType(Ui ui, String id, double value, double step, double min, double max, String format,
+                                float bx, float y, float bw) {
+        Input in = ui.input();
+        float vw = Math.min(70, Math.max(46, bw * 0.34f));
+        boolean railed = bw - vw - 8 >= 34;
+        if (!railed) vw = bw;
+        float rw = railed ? bw - vw - 8 : 0, vx = bx + bw - vw;
+        double nudge = step > 0 ? step : (max - min) / 50;
+        boolean wide = max - min > 2000 && min >= 0;
+        double out = value;
+        boolean changed = false, dragged = false;
+        if (railed) {
+            double t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+            if (wide) t = Math.sqrt(t);
+            float rail = y + ROW / 2f - 3;
+            ui.rect(bx, rail, rw, 6, Theme.BUTTON);
+            ui.rect(bx, rail, (float) (rw * t), 6, Theme.withAlpha(Theme.ACCENT, 0.7f));
+            boolean held = id.equals(dragging);
+            boolean hot = held || ui.hover(bx - 6, y, rw + 12, ROW);
+            ui.rect((float) (bx + rw * t - 5), y + 4, 10, ROW - 8,
+                    held ? Theme.ACCENT : hot ? Theme.ITEM_SELECTED : Theme.TITLE);
+            ui.target(bx - 6, y, rw + 12, ROW, Ui.Kind.SLIDER);
+            ui.hint(hot ? "slide" : null);
+            if (ui.clicked(bx - 6, y, rw + 12, ROW) && !in.padFocusing()) dragging = id;
+            if (id.equals(dragging)) {
+                if (!in.mouseDown(GLFW_MOUSE_BUTTON_LEFT)) {
+                    dragging = null;
+                } else {
+                    double f = Math.max(0, Math.min(1, (in.mouseX() - bx) / rw));
+                    if (wide) f = f * f;
+                    out = min + (max - min) * f;
+                    changed = dragged = true;
+                }
+            }
+            if (hot && !held && in.scroll() != 0) {
+                out = value + Math.signum(in.scroll()) * nudge;
+                in.consumeScroll();
+                changed = true;
+            }
+            if (in.padFocusing() && in.navAdjust() != 0 && ui.hover(bx - 6, y, rw + 12, ROW)) {
+                out = value + in.navAdjust() * nudge;
+                in.adjust(0);
+                changed = true;
+            }
+        }
+        // the value, typed in
+        String key = id + "#value";
+        boolean mine = key.equals(typing);
+        if (mine) typingSeen = System.nanoTime();
+        ui.target(vx, y, vw, ROW, Ui.Kind.TEXT);
+        if (!mine && ui.clicked(vx, y, vw, ROW)) {
+            typing = key;
+            typingSeen = System.nanoTime();
+            buffer = "";
+            original = String.format(format, value).trim();
+            mine = true;
+            ui.textPressed();
+        } else if (mine && in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && !ui.hover(vx, y, vw, ROW)) {
+            mine = false;
+            typing = null;
+            out = parse(buffer, value);
+            changed = out != value;
+        }
+        if (mine) {
+            for (char c : in.typedText().toCharArray()) {
+                if ((Character.isDigit(c) || c == '.' || c == '-' || c == ',') && buffer.length() < 12) buffer += c;
+            }
+            if (in.repeated(GLFW_KEY_BACKSPACE) && !buffer.isEmpty()) buffer = buffer.substring(0, buffer.length() - 1);
+            if (in.pressed(GLFW_KEY_ENTER) || in.pressed(GLFW_KEY_KP_ENTER) || in.pressed(GLFW_KEY_TAB)) {
+                in.consumeKey(GLFW_KEY_ENTER);
+                in.consumeKey(GLFW_KEY_KP_ENTER);
+                in.consumeKey(GLFW_KEY_TAB);
+                typing = null;
+                out = parse(buffer, value);
+                changed = out != value;
+                mine = false;
+            } else if (in.pressed(GLFW_KEY_ESCAPE)) {
+                in.consumeKey(GLFW_KEY_ESCAPE);
+                typing = null;
+                mine = false;
+            }
+        }
+        boolean over = ui.hover(vx, y, vw, ROW);
+        if (over && !mine) ui.hint("text");
+        ui.rect(vx, y, vw, ROW, mine ? Theme.BUTTON_HOVER : over ? Theme.withAlpha(Theme.BUTTON_HOVER, 0.8f) : Theme.BUTTON);
+        ui.outline(vx, y, vw, ROW, 1, mine ? Theme.ACCENT : Theme.PANEL_EDGE);
+        String shown = mine ? buffer + ((System.nanoTime() / 500_000_000L) % 2 == 0 ? "|" : "")
+                : String.format(format, value).trim();
+        if (mine && buffer.isEmpty()) ui.text(ui.tiny, original, vx + 6, y + (ROW - ui.tiny.lineHeight()) / 2,
+                Theme.ITEM_DISABLED);
+        shown = Ui.fit(ui.small, shown, vw - 8);
+        ui.text(ui.small, shown, vx + vw - 5 - ui.small.width(shown), y + (ROW - ui.small.lineHeight()) / 2, Theme.TITLE);
+        if (over && !mine) tip("Click to type a value (" + String.format(format, min).trim() + " to "
+                + String.format(format, max).trim() + ")", vx - 120, y + ROW + 2);
+        if (!changed) return value;
+        // dragged: to the nearest step; nudged or typed: as it is, kept within the range
+        return dragged ? snap(out, step, min, max) : snap(out, 0, min, max);
+    }
+
+    /** {@code v} kept within {@code min}..{@code max}, to the nearest {@code step} (from {@code min}). */
+    static double snap(double v, double step, double min, double max) {
+        if (Double.isNaN(v)) return min;
+        if (step > 0) v = min + Math.round((v - min) / step) * step;
+        v = Math.max(min, Math.min(max, v));
+        // (no 0.30000000000000004 from adding tenths)
+        return Math.round(v * 1e6) / 1e6;
+    }
+
+    /** A number typed in ("1,500", "-2.5", "") - or {@code fallback} for what is not one. */
+    static double parse(String typed, double fallback) {
+        String t = typed == null ? "" : typed.replace(",", "").trim();
+        if (t.isEmpty() || t.equals("-") || t.equals(".")) return fallback;
+        try {
+            return Double.parseDouble(t);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /**
+     * A number with − and + buttons a {@code step} each, kept within
+     * {@code min} to {@code max} - and between them a slider and a box to
+     * type the value straight in ({@link #number}), so a long way is not a
+     * hundred clicks.
+     */
     public double stepper(Ui ui, String label, double value, double step, double min, double max, String format,
                    float x, float y, float w) {
         float lw = w * 0.42f, bx = x + lw, bw = w - lw;
         label(ui, label, x, y, lw);
         double v = value;
-        if (ui.button("-", bx, y, 28, ROW)) v -= step;
-        if (ui.button("+", bx + bw - 28, y, 28, ROW)) v += step;
-        String text = String.format(format, value);
-        ui.text(ui.small, text, bx + (bw - ui.small.width(text)) / 2, y + (ROW - ui.small.lineHeight()) / 2,
-                Theme.TITLE);
-        return Math.max(min, Math.min(max, v));
+        if (ui.button("-", bx, y, 26, ROW)) v = value - step;
+        if (ui.button("+", bx + bw - 26, y, 26, ROW)) v = value + step;
+        if (v != value) return snap(v, 0, min, max);
+        return slideAndType(ui, "step:" + label + "@" + Math.round(x) + "," + Math.round(y), value, step, min, max,
+                format, bx + 30, y, bw - 60);
     }
 
     /** On or off. */
@@ -270,6 +499,13 @@ public final class Widgets {
         if (ui.button("<", bx, y, aw, ROW)) i = Math.floorMod(i - 1, n);
         if (ui.button(">", bx + bw - aw, y, aw, ROW)) i = Math.floorMod(i + 1, n);
         float mw = bw - 2 * aw - 4, mx = bx + aw + 2;
+        // the gamepad's left and right step through it while it has the focus
+        ui.target(mx, y, mw, ROW, Ui.Kind.CHOICE);
+        Input pad = ui.input();
+        if (pad.padFocusing() && pad.navAdjust() != 0 && ui.hover(mx, y, mw, ROW)) {
+            i = Math.floorMod(i + pad.navAdjust(), n);
+            pad.adjust(0);
+        }
         String full = shown.get(i), text = Ui.fit(ui.small, full, mw - (n > 2 ? 22 : 8));
         boolean open = id.equals(dropId);
         boolean hot = open || ui.hover(mx, y, mw, ROW);
@@ -289,7 +525,9 @@ public final class Widgets {
                 i = Math.floorMod(i + 1, n);
             } else {
                 dropId = id;
-                dropShown = List.copyOf(shown);
+                dropAll = List.copyOf(shown);
+                dropFilter = "";
+                filterDrop();
                 dropIndex = i;
                 float widest = 0;
                 for (String o : shown) widest = Math.max(widest, ui.small.width(o));
@@ -331,14 +569,23 @@ public final class Widgets {
      * while it is).
      */
     public String text(Ui ui, String id, String label, String value, float x, float y, float w) {
+        return text(ui, id, label, value, x, y, w, "");
+    }
+
+    /** {@link #text(Ui, String, String, String, float, float, float)}, saying {@code placeholder} while it is empty. */
+    public String text(Ui ui, String id, String label, String value, float x, float y, float w, String placeholder) {
         Input in = ui.input();
         float lw = label.isEmpty() ? 0 : w * 0.42f, bx = x + lw, bw = w - lw;
         if (!label.isEmpty()) label(ui, label, x, y, lw);
         boolean mine = id.equals(typing);
+        if (mine) typingSeen = System.nanoTime();
+        ui.target(bx, y, bw, ROW, Ui.Kind.TEXT);
         if (!mine && ui.clicked(bx, y, bw, ROW)) {
+            typingSeen = System.nanoTime();
             typing = id;
             buffer = original = value;
             mine = true;
+            ui.textPressed();
         } else if (mine && in.mousePressed(GLFW_MOUSE_BUTTON_LEFT) && !ui.hover(bx, y, bw, ROW)) {
             typing = null;
             mine = false;
@@ -371,6 +618,10 @@ public final class Widgets {
                 if (ui.hover(bx, y, bw, ROW)) tip(out, bx, y + ROW + 2);
                 shown = Ui.fit(ui.small, shown, bw - 12);
             }
+        }
+        if (out.isEmpty() && !placeholder.isEmpty()) {
+            ui.text(ui.small, Ui.fit(ui.small, placeholder, bw - 24), bx + (mine ? 14 : 8),
+                    y + (ROW - ui.small.lineHeight()) / 2, Theme.ITEM_DISABLED);
         }
         ui.text(ui.small, shown, bx + 8, y + (ROW - ui.small.lineHeight()) / 2, Theme.TITLE);
         return out;

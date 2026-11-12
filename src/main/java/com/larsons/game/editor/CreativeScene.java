@@ -400,6 +400,35 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return out;
     }
 
+    /** What is being searched for over the whole palette (Ctrl+F), or "" for the category's own list. */
+    private String paletteSearch = "";
+
+    /**
+     * Every palette entry with each word of {@code query} in its name or its
+     * category's: those whose name starts with it first, then those with a
+     * word starting with it, then the rest, each in the palette's order.
+     */
+    public static List<Integer> search(List<ObjectTypes.Entry> palette, String query) {
+        String q = query.trim().toLowerCase(java.util.Locale.ROOT);
+        List<Integer> out = new ArrayList<>();
+        if (q.isEmpty()) return out;
+        String[] words = q.split("\\s+");
+        List<int[]> scored = new ArrayList<>();
+        for (int i = 0; i < palette.size(); i++) {
+            ObjectTypes.Entry e = palette.get(i);
+            String name = e.label().toLowerCase(java.util.Locale.ROOT);
+            String all = name + " " + e.category().title().toLowerCase(java.util.Locale.ROOT);
+            boolean every = true;
+            for (String w : words) every &= all.contains(w);
+            if (!every) continue;
+            int score = name.startsWith(q) ? 0 : (" " + name).contains(" " + words[0]) ? 1 : name.contains(q) ? 2 : 3;
+            scored.add(new int[]{score, i});
+        }
+        scored.sort(java.util.Comparator.comparingInt((int[] a) -> a[0]).thenComparingInt(a -> a[1]));
+        for (int[] a : scored) out.add(a[1]);
+        return out;
+    }
+
     /** Place palette entry {@code i} from now on (keeping the turn it was being placed at). */
     private void choose(int i) {
         if (palette.isEmpty()) return;
@@ -532,6 +561,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 game.toast(snap ? "Snap to a " + GRID + " m grid" : "Snap off", Theme.HINT);
             }
             if (in.pressed(GLFW_KEY_F)) frameSelection();
+        }
+        if (ctrl && in.pressed(GLFW_KEY_F)) {
+            // search everything there is to place
+            setTool(Tool.PLACE);
+            hideUi = false;
+            widgets.focusText("palette-search", paletteSearch);
+        }
+        if (!ctrl) {
             if (in.pressed(GLFW_KEY_TAB)) camera.cyclePreset();
             double turn = (in.repeated(GLFW_KEY_R) ? (shift ? -TURN : TURN) : 0) + (in.pressed(GLFW_KEY_Q) ? 45 : 0)
                     - (in.pressed(GLFW_KEY_E) ? 45 : 0);
@@ -1632,15 +1669,28 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.rect(0, TOP_H - 1, ui.width(), 1, Theme.PANEL_EDGE);
         float x = 8;
         List<Tool> tools = tools();
-        String[] right = {"Undo", "Redo", "Save", "Play (F5)", outside != null ? "Outside" : "Menu"};
-        // the buttons' padding: as roomy as the bar has room for (eleven tools and five buttons on a small screen)
-        float labels = 0;
-        for (int i = 0; i < tools.size(); i++) labels += ui.body.width((i < 10 ? "0 " : "") + tools.get(i).label);
-        for (String r : right) labels += ui.body.width(r);
+        String[] right = {"Undo", "Redo", "Save", "Play (F5)", "Settings", outside != null ? "Outside" : "Menu"};
         int buttons = tools.size() + right.length;
-        float pad = Math.max(8, Math.min(22, (ui.width() - 16 - 60 - labels) / buttons - 4));
+        // the buttons' padding: as roomy as the bar has room for (eleven tools and six buttons on a small screen);
+        // on a narrow one the tools' number keys are left off their buttons (said in their tips), then Play's F5
+        boolean numbered = true;
+        float labels = 0;
+        for (int pass = 0; pass < 3; pass++) {
+            numbered = pass == 0;
+            if (pass == 2) right[3] = "Play";
+            labels = 0;
+            for (int i = 0; i < tools.size(); i++) {
+                labels += ui.body.width((numbered && i < 10 ? "0 " : "") + tools.get(i).label);
+            }
+            for (String r : right) labels += ui.body.width(r);
+            if (labels + buttons * 12 <= ui.width() - 16 - 60) break;
+        }
+        float pad = Math.max(6, Math.min(22, (ui.width() - 16 - 60 - labels) / buttons - 4));
         for (int i = 0; i < tools.size(); i++) {
-            String label = (i < 10 ? (i + 1) % 10 + " " : "") + tools.get(i).label;
+            String label = (numbered && i < 10 ? (i + 1) % 10 + " " : "") + tools.get(i).label;
+            if (!numbered && i < 10 && ui.hover(x, 6, ui.body.width(label) + pad, TOP_H - 12)) {
+                widgets.tip(tools.get(i).label + " (key " + (i + 1) % 10 + ")", x, TOP_H + 2);
+            }
             float bw = ui.body.width(label) + pad;
             if (ui.button(label, x, 6, bw, TOP_H - 12, tools.get(i) == tool, true)) setTool(tools.get(i));
             x += bw + 4;
@@ -1673,7 +1723,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case 1 -> redo();
                     case 2 -> save();
                     case 3 -> playTest(spawnOrPointer());
-                    case 4 -> leave();         // (inside: back outside)
+                    case 4 -> game.openSettings();
+                    case 5 -> leave();         // (inside: back outside)
                     default -> { }
                 }
             }
@@ -1987,23 +2038,46 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private void placePanel(Ui ui, float x, float y, float w, float bottom) {
         y = heading(ui, "Place", x, y);
-        // what to place, by kind: a list that drops down (twenty kinds), the arrows stepping through them
-        List<Category> cats = new ArrayList<>();
-        for (Category c : Category.values()) if (!entriesOf(c).isEmpty() || c == category) cats.add(c);
-        List<String> catLabels = new ArrayList<>();
-        for (Category c : cats) catLabels.add(c.label());
-        int ci = Math.max(0, cats.indexOf(category));
-        int picked = widgets.choice(ui, "", catLabels, ci, x, y, w);
-        if (picked != ci) {
-            category = cats.get(picked);
-            paletteScroll = 0;
-            choose(firstOf(category));
+        Input in = ui.input();
+        // a search over everything there is (Ctrl+F): Enter places the first found, Esc clears it
+        boolean searching = widgets.typingIn("palette-search");
+        boolean enter = searching && (in.pressed(GLFW_KEY_ENTER) || in.pressed(GLFW_KEY_KP_ENTER));
+        boolean escape = searching && in.pressed(GLFW_KEY_ESCAPE);
+        String was = paletteSearch;
+        paletteSearch = widgets.text(ui, "palette-search", "", paletteSearch, x, y, w - 34,
+                "Search everything (Ctrl+F)");
+        if (escape) paletteSearch = "";
+        if (!paletteSearch.equals(was)) paletteScroll = 0;
+        if (ui.button("×", x + w - 28, y, 28, Widgets.ROW, false, !paletteSearch.isEmpty())) {
+            paletteSearch = "";
+            widgets.stopTyping();
+        }
+        y += Widgets.ROW + 8;
+        boolean found = !paletteSearch.isBlank();
+        List<Integer> entries;
+        if (found) {
+            entries = search(palette, paletteSearch);
+            if (enter && !entries.isEmpty()) choose(entries.get(0));
+            ui.text(ui.small, entries.isEmpty() ? "Nothing called that" : things(entries.size(), "thing") + " found",
+                    x, y + (Widgets.ROW - ui.small.lineHeight()) / 2, entries.isEmpty() ? Theme.WARNING : Theme.HINT);
+        } else {
+            // what to place, by kind: a list that drops down, grouped (World, Build, Furnish, Story...)
+            List<Category> cats = new ArrayList<>();
+            for (Category c : Category.values()) if (!entriesOf(c).isEmpty() || c == category) cats.add(c);
+            List<String> catLabels = new ArrayList<>();
+            for (Category c : cats) catLabels.add(c.title());
+            int ci = Math.max(0, cats.indexOf(category));
+            int picked = widgets.choice(ui, "", catLabels, ci, x, y, w);
+            if (picked != ci) {
+                category = cats.get(picked);
+                paletteScroll = 0;
+                choose(firstOf(category));
+            }
+            entries = entriesOf(category);
         }
         y += Widgets.ROW + 10;
-        List<Integer> entries = entriesOf(category);
         float row = 26;
         int rows = Math.max(1, (int) ((bottom - y - 60) / row));
-        Input in = ui.input();
         if (ui.hover(x, y, w, rows * row) && in.scroll() != 0) {
             paletteScroll -= (int) Math.signum(in.scroll()) * 3;
             in.consumeScroll();
@@ -2017,9 +2091,17 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             boolean hot = ui.hover(x, ry, w, row - 2);
             ui.rect(x, ry, w, row - 2, on ? Theme.BUTTON_HOVER : hot ? Theme.withAlpha(Theme.BUTTON_HOVER, 0.6f)
                     : Theme.withAlpha(Theme.BUTTON, 0.5f));
-            String label = Ui.fit(ui.small, e.label(), w - 16);
+            // (found by a search: where it is filed, along its right)
+            String where = found ? e.category().label().split("[:,]")[0] : "";
+            float ww = where.isEmpty() ? 0 : Math.min(w * 0.45f, ui.tiny.width(where) + 10);
+            String label = Ui.fit(ui.small, e.label(), w - 16 - ww);
             ui.text(ui.small, label, x + 8, ry + (row - 2 - ui.small.lineHeight()) / 2,
                     on ? Theme.ITEM_SELECTED : Theme.ITEM);
+            if (!where.isEmpty()) {
+                String wf = Ui.fit(ui.tiny, where, ww - 6);
+                ui.text(ui.tiny, wf, x + w - 6 - ui.tiny.width(wf), ry + (row - 2 - ui.tiny.lineHeight()) / 2,
+                        Theme.ITEM_DISABLED);
+            }
             if (hot && !label.equals(e.label())) widgets.tip(e.label(), x + w + 8, ry);
             if (ui.clicked(x, ry, w, row - 2)) choose(i);
         }
@@ -3197,7 +3279,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (ui.button("Back to as it comes", x, y, w, 28, false, !life.isDefault())) {
             lifeEdit(l -> {
                 for (CritterKind k : CritterKind.values()) l.setDensity(k, 1);
-                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
+                for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 0);
                 l.setRegrow(1);
                 l.setYield(1);
             }, "Life as it comes");
@@ -3207,8 +3289,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The Life tool's animals: how thick each kind that comes by lives here, two columns of them. */
     private void animalsPage(Ui ui, float x, float y, float w) {
         Life life = level.life();
-        y += ui.paragraph(ui.small, "They come and go round the player by biome. How many of each:",
-                x, y, w, Theme.HINT) + 12;
+        y += ui.paragraph(ui.small, "None come by on their own unless turned up here - the biome brings none. "
+                + "Turned up, they come and go round the player wherever they can live. Or place a herd where it "
+                + "should be. How many of each:", x, y, w, Theme.HINT) + 12;
         float cw = (w - 12) / 2;
         AnimalKind[] kinds = AnimalKind.values();
         for (int i = 0; i < kinds.length; i++) {
@@ -3225,7 +3308,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             int n = view.world().animals().count(k);
             if (n > 0) about.add(n + " " + (n == 1 ? k.singular() : k.label()).toLowerCase());
         }
-        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none here (try another biome)"
+        y += ui.paragraph(ui.small, "About now: " + (about.length() == 0 ? "none (turn some up, or place a herd)"
                 : about), x, y, w, Theme.ITEM) + 8;
         if (ui.button("Place a herd", x, y, (w - 6) / 2, 28)) placeLife(ObjectTypes.ANIMALS);
         if (ui.button("All off", x + (w - 6) / 2 + 6, y, (w - 6) / 2, 28)) {
@@ -3234,12 +3317,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }, "No animals");
         }
         y += 34;
-        boolean asTheyCome = true;
-        for (AnimalKind k : kinds) asTheyCome &= life.density(k) == 1;
-        if (ui.button("Back to as they come", x, y, w, 28, false, !asTheyCome)) {
+        if (ui.button("Every kind a few (1×)", x, y, w, 28)) {
             lifeEdit(l -> {
                 for (AnimalKind k : AnimalKind.values()) l.setDensity(k, 1);
-            }, "Animals as they come");
+            }, "Every animal");
         }
     }
 
@@ -3554,13 +3635,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     // a swatch of it (or "none"), the picker, and taking it off
                     int cur = ObjectTypes.hex(String.valueOf(v));
                     ui.text(ui.small, p.label(), x, y + 6, Theme.ITEM);
-                    float sx = x + w * 0.4f;
-                    if (cur >= 0) ui.rect(sx, y + 2, 22, 22, Theme.rgb((cur >> 16) & 255, (cur >> 8) & 255, cur & 255, 1f));
-                    else ui.text(ui.small, "none", sx, y + 6, Theme.ITEM_DISABLED);
-                    if (ui.button("Pick", sx + 28, y, 58, 26)) {
+                    float sx = x + w * 0.42f;
+                    if (cur >= 0) {
+                        ui.rect(sx, y + 2, 26, 22, Theme.rgb((cur >> 16) & 255, (cur >> 8) & 255, cur & 255, 1f));
+                    } else {
+                        ui.outline(sx, y + 2, 26, 22, 1, Theme.PANEL_EDGE);
+                        ui.text(ui.tiny, "none", sx + 13 - ui.tiny.width("none") / 2,
+                                y + 2 + (22 - ui.tiny.lineHeight()) / 2, Theme.ITEM_DISABLED);
+                    }
+                    float bw2 = Math.min(58, (x + w - sx - 34 - 4) / 2);
+                    if (ui.button("Pick", sx + 32, y, bw2, 26)) {
                         colourPick = new ColourPick(o, p.key(), false, p.label() + ": " + typeLabel(o), List.of());
                     }
-                    if (cur >= 0 && ui.button("None", sx + 92, y, 58, 26)) edit(o, p.label(), () -> o.set(p.key(), null));
+                    if (cur >= 0 && ui.button("None", sx + 36 + bw2, y, bw2, 26)) {
+                        edit(o, p.label(), () -> o.set(p.key(), null));
+                    }
                 }
                 case COLOURS -> {
                     // a herd's colours: a chip of each, and the picker
@@ -3842,8 +3931,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         String key = o.id() + ":" + label;
-        if (!(widgets.typing() && key.equals(propSnapshot))) undo.before(level, Undo.Part.OBJECTS, label);
-        propSnapshot = widgets.typing() ? key : null;
+        // (a value being typed or a slider being dragged: one undo for the lot, not one a frame)
+        boolean held = widgets.typing() || widgets.dragging();
+        if (!(held && key.equals(propSnapshot))) undo.before(level, Undo.Part.OBJECTS, label);
+        propSnapshot = held ? key : null;
         change.run();
         changed();
     }

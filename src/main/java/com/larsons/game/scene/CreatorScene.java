@@ -227,6 +227,7 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
             if (page == Page.WHO) game.switchTo("menu");
             else show(Page.values()[page.ordinal() - 1]);
         }
+        if (ui.button("Settings", x + 24 + 200, fy, 130, 38)) game.openSettings();
         if (page != Page.BEGIN) {
             boolean can = page != Page.CLASS || !heroClass.isEmpty();
             if (ui.button("Next", x + w - 24 - 190, fy, 190, 38, false, can)) show(Page.values()[page.ordinal() + 1]);

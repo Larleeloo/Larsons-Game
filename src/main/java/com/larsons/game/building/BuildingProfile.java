@@ -109,7 +109,11 @@ public final class BuildingProfile {
         this.texel = texel;
         this.depthMin = depthMin;
         this.depthStep = depthStep;
-        this.frames = Collections.unmodifiableMap(new EnumMap<>(frames));
+        // (an EnumMap of its own: copying an empty map that is not one - a model-only
+        // profile's, scaled when its width is changed - would throw)
+        Map<Elevation, Frame> own = new EnumMap<>(Elevation.class);
+        own.putAll(frames);
+        this.frames = Collections.unmodifiableMap(own);
         this.parts = List.copyOf(parts);
         this.footprint = List.copyOf(footprint);
         this.door = door;

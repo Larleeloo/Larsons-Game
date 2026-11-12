@@ -57,6 +57,7 @@ public final class Animal implements Target {
     double sheetTime, rate = 1;
     double alpha;
     boolean leaving, gone;
+    boolean wild;                           // it came by on its own (the level's number for its kind brought it)
     double homeX, homeZ, roam;
     double health;
     double sinceHurt = Double.MAX_VALUE;

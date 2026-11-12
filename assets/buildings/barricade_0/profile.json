@@ -1,0 +1,53 @@
+{
+ "key": "barricade_0",
+ "label": "Barricade, 0 boards",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.98,
+ "model": true,
+ "parts": [
+  {
+   "key": "boards",
+   "label": "Boards",
+   "colour": "#8a5a30",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "posts",
+   "label": "Posts",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "nails",
+   "label": "Nails",
+   "colour": "#4a4a52",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   -1.023,
+   0.0,
+   0.176,
+   0.198
+  ],
+  [
+   "box",
+   1.023,
+   0.0,
+   0.176,
+   0.198
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

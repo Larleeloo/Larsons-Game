@@ -80,6 +80,10 @@ public final class BuildingCatalog {
             // the story's: what is made at, read, kept shut and called up - and the horde game's
             "workbench", "signpost", "locked_door", "iron_gate", "summon_station", "wall_buy", "mystery_box",
             "barricade",
+            // a barricade's stages, from bare posts to every board up (the horde game's; not on the palette)
+            "barricade_0", "barricade_1", "barricade_2", "barricade_3", "barricade_4", "barricade_5",
+            "barricade_6", "barricade_7", "barricade_8", "barricade_9", "barricade_10", "barricade_11",
+            "barricade_12",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
             "lantern_post");

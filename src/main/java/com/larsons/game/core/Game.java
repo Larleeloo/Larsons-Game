@@ -68,6 +68,8 @@ public final class Game implements AutoCloseable {
     private final Window window;
     private final Batch batch;
     private final Ui ui;
+    /** Every setting, over any screen: F10, or a screen's Settings button ({@link #openSettings}). */
+    private final com.larsons.game.scene.SettingsMenu settingsMenu;
     /** The colour grade (Pause, Colours) and what puts it on the picture; made when first asked for. */
     private com.larsons.game.grade.Grading grading;
     private com.larsons.game.gfx.GradeFilter gradeFilter;
@@ -135,6 +137,7 @@ public final class Game implements AutoCloseable {
         batch = new Batch();
         ui = new Ui(window, batch);
         pointers = new com.larsons.game.ui.Pointers(settings.assets);
+        settingsMenu = new com.larsons.game.scene.SettingsMenu(this);
         window.input().setBindings(com.larsons.game.input.Bindings.load(settings.config.resolve("controls.json")));
         long uiNs = System.nanoTime() - t1;
 
@@ -149,6 +152,10 @@ public final class Game implements AutoCloseable {
         // it draws when there is something new to show, never waiting on the display between steps
         window.swapInterval(0);
         window.show();
+        // the way the window was last shown: borderless or full screen as the player left it
+        com.larsons.game.gfx.Window.Mode saved = com.larsons.game.gfx.Window.Mode.of(settings.displayMode,
+                com.larsons.game.gfx.Window.Mode.WINDOWED);
+        if (saved != com.larsons.game.gfx.Window.Mode.WINDOWED) window.setMode(saved);
 
         sprites = boot.run(Boot.Step.SPRITE_INDEX, r -> indexSprites(r, gpu));
         sprites.warmFallbacks();
@@ -480,8 +487,15 @@ public final class Game implements AutoCloseable {
                 pendingShot = Screenshot.defaultPath();
                 Sounds.play(SoundKeys.ui("screenshot"));
             }
-            if (in.pressed(GLFW_KEY_F11)) toggleFullscreen();
             if (!booting) autopilot.step(dt, this);
+            // F11 (or what it is rebound to) and Alt+Enter: full screen and back, on any screen
+            if (in.pressed(com.larsons.game.input.Action.FULLSCREEN) || in.pressed(GLFW_KEY_F11)
+                    || (in.pressed(GLFW_KEY_ENTER) && (in.down(GLFW_KEY_LEFT_ALT) || in.down(GLFW_KEY_RIGHT_ALT)))) {
+                in.consumeKey(GLFW_KEY_F11);
+                in.consumeKey(GLFW_KEY_ENTER);
+                toggleFullscreen();
+            }
+            if (!booting) ui.newFrame();
             Music.update(dt);
 
             long t0 = System.nanoTime();
@@ -495,8 +509,15 @@ public final class Game implements AutoCloseable {
                     settings.save();
                 }
                 sprites.pump();
-                if (!importer.visible()) scene.update(dt);
-                pointers.apply(window, settings.pointer, settings.heroClass);
+                if (!settingsMenu.open() && in.pressed(com.larsons.game.input.Action.SETTINGS)
+                        && !importer.visible()) {
+                    in.consume(com.larsons.game.input.Action.SETTINGS);
+                    settingsMenu.open(null);
+                }
+                // (the gamepad drives the settings as a menu, whatever the screen under them was doing)
+                if (settingsMenu.open()) in.setUiMode(true);
+                // (under the settings the screen stands still: a game paused, an editor waiting)
+                if (!importer.visible() && !settingsMenu.open()) scene.update(dt);
             }
             long t1 = System.nanoTime();
 
@@ -504,12 +525,21 @@ public final class Game implements AutoCloseable {
             glClearColor(Theme.BACKGROUND[0], Theme.BACKGROUND[1], Theme.BACKGROUND[2], 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             graded = false;
+            pointers.clearHint();
+            // under the settings the screen is drawn, but hears nothing
+            in.setMuted(settingsMenu.open());
             scene.render();
+            in.setMuted(false);
             if (!booting) applyGrade();
             if (booting) bootRenders++;
             if (loading != null) drawLoading(dt);
             drawOverlays(dt);
 
+            if (!booting) {
+                ui.drawFocus();
+                pointers.apply(window, settings.pointer, settings.heroClass,
+                        settings.dynamicPointer ? ui.pointerHint() : "", in.mouseDown(0), in.padFocusing() && !in.padPointer());
+            }
             takeShot(!autopilot.active());
             // (the drawing's time is to here: the swap after it waits for the display, which is no work of ours)
             Perf.endFrame(t1 - t0, System.nanoTime() - t1, dt, settings.logPerf);
@@ -555,13 +585,46 @@ public final class Game implements AutoCloseable {
      * window.
      */
     public void toggleFullscreen() {
-        int hz = window.setFullscreen(!window.fullscreen());
-        pacer.recheck();
-        System.out.println("[gpu] " + (window.fullscreen() ? "full screen at " + hz + " Hz" : "windowed")
-                + " - frame pacing: " + pacer.describe());
-        toast(window.fullscreen() ? "Full screen, " + hz + " Hz (F11: back to the window)" : "Windowed",
-                Theme.HINT);
+        var full = com.larsons.game.gfx.Window.Mode.of(settings.fullscreenKind,
+                com.larsons.game.gfx.Window.Mode.BORDERLESS);
+        if (full == com.larsons.game.gfx.Window.Mode.WINDOWED) full = com.larsons.game.gfx.Window.Mode.BORDERLESS;
+        setDisplayMode(window.fullscreen() ? com.larsons.game.gfx.Window.Mode.WINDOWED : full);
     }
+
+    /**
+     * Show the window as {@code mode} - windowed, borderless over the
+     * monitor, or with the monitor to itself - and keep it so for the next
+     * start (and, for a full screen, as the one F11 goes to).
+     */
+    public void setDisplayMode(com.larsons.game.gfx.Window.Mode mode) {
+        int hz = window.setMode(mode);
+        pacer.recheck();
+        var now = window.mode();
+        settings.displayMode = now.name().toLowerCase(java.util.Locale.ROOT);
+        if (now != com.larsons.game.gfx.Window.Mode.WINDOWED) settings.fullscreenKind = settings.displayMode;
+        settings.save();
+        System.out.println("[gpu] " + now.label + (hz > 0 ? " at " + hz + " Hz" : "")
+                + " - frame pacing: " + pacer.describe());
+        String key = window.input().label(com.larsons.game.input.Action.FULLSCREEN);
+        if (now != mode) {
+            toast("The display would not switch to " + mode.label.toLowerCase(java.util.Locale.ROOT), Theme.WARNING);
+        } else {
+            toast(now == com.larsons.game.gfx.Window.Mode.WINDOWED ? "Windowed (" + key + ": full screen)"
+                    : now.label + (hz > 0 ? ", " + hz + " Hz" : "") + " (" + key + ": back to the window)", Theme.HINT);
+        }
+    }
+
+    /** Open the settings over whatever screen is up (at {@code tab}, or the one last open). */
+    public void openSettings(com.larsons.game.scene.SettingsMenu.Tab tab) {
+        settingsMenu.open(tab);
+    }
+
+    public void openSettings() {
+        settingsMenu.open(null);
+    }
+
+    /** Whether the settings are up over the screen. */
+    public boolean settingsOpen() { return settingsMenu.open(); }
 
     private void drawOverlays(double dt) {
         ui.begin();
@@ -584,6 +647,7 @@ public final class Game implements AutoCloseable {
             y -= 38;
         }
         if (settings.perfOverlay && booted) drawPerf();
+        if (booted) settingsMenu.draw(ui);
         // The importer is modal: it draws over everything, toasts included.
         importer.draw(ui, this);
         ui.end();
@@ -845,6 +909,7 @@ public final class Game implements AutoCloseable {
         groundTexture.close();
         sprites.close();
         pointers.close();
+        settingsMenu.dispose();
         if (gradeFilter != null) gradeFilter.close();
         com.larsons.game.ui.CardArt.dispose();
         ui.close();

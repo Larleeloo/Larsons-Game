@@ -66,6 +66,8 @@ public enum Action {
     HIDE_HUD("Hide the HUD", Group.OTHER, keys(GLFW_KEY_H), pads()),
     DEBUG("Developer's readout", Group.OTHER, keys(GLFW_KEY_F7), pads()),
     PERF("Performance overlay", Group.OTHER, keys(GLFW_KEY_F8), pads()),
+    SETTINGS("Settings (anywhere)", Group.OTHER, keys(GLFW_KEY_F10), pads()),
+    FULLSCREEN("Full screen / windowed", Group.OTHER, keys(GLFW_KEY_F11), pads()),
     PAUSE("Pause menu", Group.OTHER, keys(GLFW_KEY_ESCAPE), pads(Pad.MENU));
 
     /** The Controls page's sections. */

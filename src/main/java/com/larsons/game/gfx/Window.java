@@ -204,21 +204,64 @@ public final class Window implements AutoCloseable {
         return best;
     }
 
-    /** Whether the window has its monitor to itself, full screen ({@link #setFullscreen}). */
+    /**
+     * How the game is shown: in a window with its frame, borderless over the
+     * whole monitor (the desktop's own mode: no switch, alt-tab is instant,
+     * and it is what most players mean by full screen), or with the monitor
+     * to itself - switched to its fastest refresh rate.
+     */
+    public enum Mode {
+        WINDOWED("Windowed"), BORDERLESS("Borderless full screen"), FULLSCREEN("Exclusive full screen");
+
+        public final String label;
+
+        Mode(String label) { this.label = label; }
+
+        /** The mode saved as {@code name} ("windowed", "borderless", "fullscreen"), else {@code fallback}. */
+        public static Mode of(String name, Mode fallback) {
+            if (name != null) for (Mode m : values()) if (m.name().equalsIgnoreCase(name.trim())) return m;
+            return fallback;
+        }
+    }
+
+    /** Borderless over the monitor ({@link Mode#BORDERLESS}): no frame, the monitor's size. */
+    private boolean borderless;
+
+    /** How the window is shown now. */
+    public Mode mode() {
+        if (glfwGetWindowMonitor(handle) != MemoryUtil.NULL) return Mode.FULLSCREEN;
+        return borderless ? Mode.BORDERLESS : Mode.WINDOWED;
+    }
+
+    /** Whether the window fills its monitor, borderless or with the monitor to itself ({@link #setMode}). */
     public boolean fullscreen() {
-        return glfwGetWindowMonitor(handle) != MemoryUtil.NULL;
+        return mode() != Mode.WINDOWED;
+    }
+
+    /** Full screen in the given way, or back in a window; returns the refresh rate (0: windowed). */
+    public int setFullscreen(boolean on) {
+        return setMode(on ? Mode.BORDERLESS : Mode.WINDOWED);
     }
 
     /**
-     * Go full screen on the monitor the window is on - at the resolution the
-     * monitor runs at, switched to its fastest refresh rate there, so a
-     * 144 Hz display the system keeps at 60 shows the game at 144 - or back
-     * into the window it was. Returns the refresh rate asked for (0: back in
-     * a window).
+     * Show the window in {@code mode}: framed where it was before, borderless
+     * over the monitor it is on, or full screen with that monitor to itself
+     * at its fastest refresh rate (falling back to the rate it runs at when a
+     * driver refuses the faster one). Returns the refresh rate asked for (0:
+     * in a window).
      */
-    public int setFullscreen(boolean on) {
-        if (on == fullscreen()) return on ? refreshRate() : 0;
-        if (!on) {
+    public int setMode(Mode want) {
+        Mode now = mode();
+        if (want == now) return want == Mode.WINDOWED ? 0 : refreshRate();
+        if (now == Mode.WINDOWED) remember();
+        if (want == Mode.WINDOWED) {
+            if (now == Mode.FULLSCREEN) {
+                glfwSetWindowMonitor(handle, MemoryUtil.NULL, windowed[0], windowed[1], windowed[2], windowed[3],
+                        GLFW_DONT_CARE);
+            }
+            borderless = false;
+            glfwSetWindowAttrib(handle, GLFW_DECORATED, GLFW_TRUE);
+            glfwSetWindowAttrib(handle, GLFW_FLOATING, GLFW_FALSE);
             glfwSetWindowMonitor(handle, MemoryUtil.NULL, windowed[0], windowed[1], windowed[2], windowed[3],
                     GLFW_DONT_CARE);
             measure();
@@ -226,6 +269,42 @@ public final class Window implements AutoCloseable {
         }
         long monitor = monitor();
         if (monitor == MemoryUtil.NULL) return 0;
+        GLFWVidMode vm = glfwGetVideoMode(monitor);
+        if (vm == null) return 0;
+        if (want == Mode.BORDERLESS) {
+            if (now == Mode.FULLSCREEN) {
+                glfwSetWindowMonitor(handle, MemoryUtil.NULL, windowed[0], windowed[1], windowed[2], windowed[3],
+                        GLFW_DONT_CARE);
+            }
+            int mx, my;
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1);
+                glfwGetMonitorPos(monitor, x, y);
+                mx = x.get(0);
+                my = y.get(0);
+            }
+            borderless = true;
+            glfwSetWindowAttrib(handle, GLFW_DECORATED, GLFW_FALSE);
+            glfwSetWindowMonitor(handle, MemoryUtil.NULL, mx, my, vm.width(), vm.height(), GLFW_DONT_CARE);
+            glfwFocusWindow(handle);
+            measure();
+            return Math.max(0, vm.refreshRate());
+        }
+        borderless = false;
+        glfwSetWindowAttrib(handle, GLFW_DECORATED, GLFW_TRUE);
+        int hz = Math.max(vm.refreshRate(), fastestRate(monitor));
+        glfwSetWindowMonitor(handle, monitor, 0, 0, vm.width(), vm.height(), hz);
+        if (glfwGetWindowMonitor(handle) == MemoryUtil.NULL && hz != vm.refreshRate()) {
+            // (a driver that lists a faster rate than it will switch to: the rate it runs at)
+            hz = vm.refreshRate();
+            glfwSetWindowMonitor(handle, monitor, 0, 0, vm.width(), vm.height(), hz);
+        }
+        measure();
+        return hz;
+    }
+
+    /** Where the window is, and how big, to go back to from full screen. */
+    private void remember() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1);
             glfwGetWindowPos(handle, x, y);
@@ -234,12 +313,6 @@ public final class Window implements AutoCloseable {
         }
         windowed[2] = width;
         windowed[3] = height;
-        GLFWVidMode now = glfwGetVideoMode(monitor);
-        if (now == null) return 0;
-        int hz = Math.max(now.refreshRate(), fastestRate(monitor));
-        glfwSetWindowMonitor(handle, monitor, 0, 0, now.width(), now.height(), hz);
-        measure();
-        return hz;
     }
 
     /** The monitor the window is on: its own when full screen, else the one under its centre, else the primary. */

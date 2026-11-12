@@ -176,7 +176,20 @@ class PeoplesTest {
             assertTrue(Breed.living().stream().anyMatch(b -> b.people() == p), p.key());
         }
         assertTrue(Breed.horde().size() >= 5);
-        assertTrue(Breed.RISEN_BRUTE.steady() && Breed.RISEN_CRAWLER.crawls() && Breed.RISEN_SPITTER.spits());
+        assertTrue(Breed.RISEN_BRUTE.steady() && Breed.RISEN_CRAWLER.crawls());
+        // the Risen are creatures of their own, and fight with their hands alone
+        for (Breed b : Breed.horde()) {
+            assertTrue(b.creature(), b.key());
+            assertFalse(b.spits(), b.key());
+            assertTrue(b.weapons().isEmpty(), b.key());
+            for (boolean masc : new boolean[]{true, false}) {
+                assertFalse(b.risenSprites(masc).isEmpty(), b.key());
+                for (String sheet : b.risenSprites(masc)) {
+                    assertTrue(java.nio.file.Files.isRegularFile(java.nio.file.Path.of("assets/sprites/objects", sheet,
+                            "profile.json")), sheet);
+                }
+            }
+        }
         assertTrue(Breed.RISEN_RUNNER.run() > Breed.RISEN_WALKER.run());
         assertTrue(Breed.RISEN_BRUTE.health() > 3 * Breed.RISEN_WALKER.health());
         // the Bortzal are of every size: half a person's height to half as tall again

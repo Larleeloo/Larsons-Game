@@ -120,8 +120,40 @@ class InteriorTest {
         assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.PLANTS, "Small potted plant"));
         assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.FARM, "Hay bale"));
         assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Pile of gems"));
-        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.CLUTTER, "Bear meat (for show)"));
-        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.INSIDE, "Storage chest"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.SHOWN, "Bear meat (for show)"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.LOOT, "Storage chest"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.LOOT, "Treasure chest"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.SHOPS, "Market stall: supplies"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.QUESTS, "Locked door"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.SUPPLIES, "Coins"));
+        assertTrue(filed.test(com.larsons.game.level.ObjectType.Category.SCENERY, "Climbing vines"));
+        // the buildings a working spot stands up are placed as that spot, never as a building that does nothing
+        for (String k : java.util.List.of("workbench", "locked_door", "wall_buy", "mystery_box", "barricade")) {
+            assertFalse(palette.stream().anyMatch(e -> e.type().equals(ObjectTypes.BUILDING)
+                    && k.equals(e.props().get("kind"))), k);
+        }
+        // every category has something in it, and each is under one of the groups
+        for (var cat : com.larsons.game.level.ObjectType.Category.values()) {
+            if (cat == com.larsons.game.level.ObjectType.Category.TEMPLATES) continue;
+            assertTrue(palette.stream().anyMatch(e -> e.category() == cat), cat + " is empty");
+        }
+    }
+
+    @Test
+    void thePalettesSearchFindsByNameOrCategoryNamesFirst() {
+        BuildingCatalog.use(BuildingCatalog.load(Path.of("assets", "buildings")));
+        var palette = ObjectTypes.palette();
+        List<Integer> found = com.larsons.game.editor.CreativeScene.search(palette, "candle");
+        assertFalse(found.isEmpty());
+        assertTrue(palette.get(found.get(0)).label().toLowerCase().startsWith("candle"));
+        for (int i : found) assertTrue((palette.get(i).label() + " " + palette.get(i).category().title())
+                .toLowerCase().contains("candle"));
+        // every word, anywhere in its name or its category's
+        List<Integer> pots = com.larsons.game.editor.CreativeScene.search(palette, "potted plant");
+        assertTrue(pots.stream().allMatch(i -> (palette.get(i).label() + " " + palette.get(i).category().title())
+                .toLowerCase().contains("plant")));
+        assertTrue(com.larsons.game.editor.CreativeScene.search(palette, "zzqx").isEmpty());
+        assertTrue(com.larsons.game.editor.CreativeScene.search(palette, "  ").isEmpty());
     }
 
     @Test

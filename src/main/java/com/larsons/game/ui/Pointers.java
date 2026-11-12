@@ -17,9 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.lwjgl.glfw.GLFW.glfwCreateCursor;
-import static org.lwjgl.glfw.GLFW.glfwDestroyCursor;
-import static org.lwjgl.glfw.GLFW.glfwSetCursor;
+import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * The mouse pointer: her class's (a wand for a Mage, a lute for a Bard, a
@@ -71,31 +69,85 @@ public final class Pointers implements AutoCloseable {
         return setting;
     }
 
+    /**
+     * What the pointer is over in the world this frame - "talk", "attack",
+     * "take", "open", "locked", "build", "no" - said by the scene; the
+     * interface's own hint (a button, a slider, a text field) comes first.
+     */
+    private String worldHint = "";
+
+    /** Forget the last frame's hint (each frame starts plain). */
+    public void clearHint() {
+        worldHint = "";
+    }
+
+    /** The scene says what the pointer is over in the world: "talk", "attack", "take", "open", "locked" ... */
+    public void hint(String hint) {
+        worldHint = hint == null ? "" : hint;
+    }
+
+    public String worldHint() { return worldHint; }
+
     /** Show {@code setting}'s pointer (for {@code heroClass}) over {@code window} - the system's when it has none. */
     public void apply(Window window, String setting, String heroClass) {
+        apply(window, setting, heroClass, "", false, false);
+    }
+
+    private boolean hidden;
+    private final Map<Integer, Long> standard = new HashMap<>();
+
+    /**
+     * Show the pointer as it is this frame: {@code setting}'s (for {@code
+     * heroClass}), changed by what it is over ({@code uiHint}, else what the
+     * scene said: {@link #hint}) - lit over a button, a speech bubble over
+     * someone to talk to, swords over a foe ... - pressed in while the
+     * button is down; or none while the gamepad moves a focus about a menu.
+     */
+    public void apply(Window window, String setting, String heroClass, String uiHint, boolean pressed, boolean hide) {
+        long h = window.handle();
+        if (hide != hidden) {
+            hidden = hide;
+            glfwSetInputMode(h, GLFW_CURSOR, hide ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
+        }
+        if (hide) return;
         String name = resolve(setting, heroClass);
+        String hint = uiHint == null || uiHint.isEmpty() ? worldHint : uiHint;
         if (name.equals(CUSTOM)) {
             long stamp = stamp(dir.resolve("custom.png"));
             if (stamp != customStamp) {           // a new picture dropped in: made again
                 customStamp = stamp;
-                Long old = cursors.remove(CUSTOM);
-                if (old != null && old != 0) glfwDestroyCursor(old);
+                cursors.entrySet().removeIf(e -> {
+                    if (!e.getKey().startsWith(CUSTOM + "@")) return false;
+                    if (e.getValue() != null && e.getValue() != 0) glfwDestroyCursor(e.getValue());
+                    return true;
+                });
                 shown = "";
             }
         }
-        String key = name + "@" + (window.scale() >= 1.5f ? 2 : 1);
+        boolean big = window.scale() >= 1.5f;
+        String key = name + "@" + (big ? 2 : 1) + "|" + hint + (pressed ? "|down" : "");
         if (key.equals(shown)) return;
         shown = key;
-        if (name.equals(SYSTEM)) {
-            glfwSetCursor(window.handle(), MemoryUtil.NULL);
+        if (name.equals(SYSTEM) || hint.equals("text")) {
+            // the system's own: an arrow, a hand over a button, a text cursor, a crosshair over a foe
+            int shape = switch (hint) {
+                case "text" -> GLFW_IBEAM_CURSOR;
+                case "click", "talk", "take", "open", "buy" -> name.equals(SYSTEM) ? GLFW_HAND_CURSOR : 0;
+                case "slide" -> GLFW_HRESIZE_CURSOR;
+                case "attack" -> GLFW_CROSSHAIR_CURSOR;
+                default -> 0;
+            };
+            glfwSetCursor(h, shape == 0 ? MemoryUtil.NULL
+                    : standard.computeIfAbsent(shape, org.lwjgl.glfw.GLFW::glfwCreateStandardCursor));
             return;
         }
-        long c = cursors.computeIfAbsent(key, k -> make(name, window.scale() >= 1.5f));
-        glfwSetCursor(window.handle(), c);
+        long c = cursors.computeIfAbsent(key, k -> make(name, big, hint, pressed));
+        glfwSetCursor(h, c);
     }
 
-    private long make(String name, boolean big) {
-        BufferedImage img = read(name, big);
+    /** {@code name}'s picture as the pointer: changed for {@code hint}, pressed in or not. */
+    private long make(String name, boolean big, String hint, boolean pressed) {
+        BufferedImage img = PointerArt.compose(read(name, big), hint, pressed, big ? 2 : 1);
         if (img == null) return MemoryUtil.NULL;
         int w = img.getWidth(), h = img.getHeight();
         ByteBuffer px = MemoryUtil.memAlloc(w * h * 4);
@@ -114,6 +166,22 @@ public final class Pointers implements AutoCloseable {
         } finally {
             MemoryUtil.memFree(px);
         }
+    }
+
+    private final Map<String, Texture> previews = new HashMap<>();
+
+    /** The pointer {@code setting} makes over {@code hint}, drawn at {@code (x, y)} 32 points across - to see. */
+    public void preview(Ui ui, String setting, String heroClass, String hint, float x, float y) {
+        String name = resolve(setting, heroClass);
+        if (name.equals(SYSTEM)) {
+            ui.text(ui.tiny, "(system)", x - 8, y + 10, Theme.ITEM_DISABLED);
+            return;
+        }
+        Texture t = previews.computeIfAbsent(name + "|" + hint, k -> {
+            BufferedImage img = PointerArt.compose(read(name, true), hint, false, 2);
+            return img == null ? null : Texture.of(img, true);
+        });
+        if (t != null) ui.batch().rect(t, x, y, 32, 32, 0, 0, 1, 1, 1, 1, 1, 1);
     }
 
     private BufferedImage read(String name, boolean big) {
@@ -148,6 +216,10 @@ public final class Pointers implements AutoCloseable {
     public void close() {
         for (long c : cursors.values()) if (c != 0) glfwDestroyCursor(c);
         cursors.clear();
+        for (long c : standard.values()) if (c != 0) glfwDestroyCursor(c);
+        standard.clear();
+        for (Texture t : previews.values()) if (t != null) t.close();
+        previews.clear();
         for (Texture t : icons.values()) if (t != null) t.close();
         icons.clear();
     }

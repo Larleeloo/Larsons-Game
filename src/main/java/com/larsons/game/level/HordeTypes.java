@@ -48,9 +48,21 @@ public final class HordeTypes {
     private HordeTypes() {}
 
     /** What a board can sell: every weapon, the ammunition, every potion and scroll. */
+    /** Where a weapon board shows what it sells: how high its middle is, how much it has room for, how far out. */
+    static final double BOARD_MIDDLE = 1.3, BOARD_HIGH = 1.0, BOARD_FRONT = -0.12;
+
+    /** What a board selling {@code item} at {@code tier} sells - a weapon at its tier, a forged one as forged - or null. */
+    public static com.larsons.game.world.Item soldItem(String item, String tier) {
+        if (item == null || item.isBlank()) return null;
+        if (item.startsWith(com.larsons.game.world.Forged.PREFIX)) return com.larsons.game.world.Item.parse(item);
+        return com.larsons.game.world.Item.parse(item + (tier == null || LOWEST.equals(tier) ? "" : " " + tier));
+    }
+
     public static List<String> sold() {
         List<String> out = new ArrayList<>();
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
+        // the weapons forged in Creative Mode's Forge
+        for (com.larsons.game.world.Forged f : com.larsons.game.world.Forged.all()) out.add(f.key());
         for (ItemDef d : Supplies.AMMO) out.add(d.id());
         for (Goods.Good g : Goods.ofKind(Goods.Kind.POTION)) out.add(g.id());
         for (Goods.Good g : Goods.ofKind(Goods.Kind.SCROLL)) out.add(g.id());
@@ -69,6 +81,22 @@ public final class HordeTypes {
         return out;
     }
 
+    /** The most boards a barricade can have ({@code barricade_12}). */
+    public static final int MOST_BOARDS = 12;
+
+    /**
+     * A barricade with {@code boards} boards nailed across its frame
+     * ({@code assets/buildings/barricade_<n>}: none, the frame alone, its gap
+     * open), or the six-board one where those are missing.
+     */
+    public static com.larsons.game.building.BuildingProfile barricade(int boards) {
+        var catalog = com.larsons.game.building.BuildingCatalog.get();
+        var p = catalog.profile("barricade_" + Math.max(0, Math.min(MOST_BOARDS, boards)));
+        if (p == null) p = boards > 0 ? catalog.profile("barricade") : null;
+        if (p == null && boards > 0) p = catalog.profile("crate");
+        return p;
+    }
+
     static void registerAll() {
         ObjectTypes.register(new ObjectType(SPAWN, "Risen spawn", Category.ZOMBIES,
                 List.of(Prop.choice("kind", "What comes", ANY, o -> kinds()),
@@ -77,18 +105,55 @@ public final class HordeTypes {
                 0.7, 0.3, 0x7CC050, false, (o, b) -> b.world().hordeSpawns().add(new World.HordeSpawn(o.id(),
                         b.onGround(o), o.str("kind", ANY), (int) Math.round(o.num("from", 1)), o.str("after", "")))));
 
-        StoryTypes.spot(BARRICADE, "Barricade", Category.ZOMBIES,
+        // boards across a gap, built board by board (barricade_0 .. _12); she never gets out through it
+        ObjectTypes.register(new ObjectType(BARRICADE, "Barricade", Category.ZOMBIES,
                 List.of(Prop.text("name", "Name", "Barricade"),
-                        Prop.number("planks", "Boards", 6, 1, 12, 1)),
-                "barricade", "hammer", 1.1, 1.65, 0x8A5A30);
+                        Prop.number("planks", "Boards", 6, 1, MOST_BOARDS, 1)),
+                1.1, 1.65, 0x8A5A30, false, (o, b) -> {
+            Vec3 at = b.onGround(o);
+            int boards = Math.max(1, Math.min(MOST_BOARDS, (int) Math.round(o.num("planks", 6))));
+            var look = com.larsons.game.building.BuildingLook.of(o.props().get("look"));
+            var p = barricade(boards);
+            if (p != null) b.world().addBuilding(new com.larsons.game.building.Building(o.id(), p, at, o.yaw(), look,
+                    null));
+            var wall = barricade(MOST_BOARDS);
+            if (wall != null) b.world().addPlayerWall(new com.larsons.game.building.Building(o.id(), wall, at, o.yaw(),
+                    look, null));
+            b.world().addSpot(new com.larsons.game.world.Spot(o.id(), BARRICADE, o.str("name", "Barricade"), at,
+                    o.yaw(), o.props()).icon("hammer").markerHeight(2.2));
+        }));
 
-        StoryTypes.spot(WALL_BUY, "Weapon board", Category.ZOMBIES,
+        // a weapon board: what it sells hung on it to be seen - any weapon, a forged one too
+        ObjectTypes.register(new ObjectType(WALL_BUY, "Weapon board", Category.ZOMBIES,
                 List.of(Prop.text("name", "Name (blank: what it sells)", ""),
                         Prop.choice("item", "Sells", "sword", o -> sold()),
                         Prop.choice("tier", "Tier (a weapon's)", LOWEST, o -> tiers()),
                         Prop.number("cost", "Price (coins or points)", 500, 0, 100000, 50),
                         Prop.number("again", "Price to whet and feed it again (0: half)", 0, 0, 100000, 50)),
-                "wall_buy", "coins", 1.0, 2.0, 0xD6AA5C);
+                1.0, 2.0, 0xD6AA5C, false, (o, b) -> {
+            Vec3 at = b.onGround(o);
+            var catalog = com.larsons.game.building.BuildingCatalog.get();
+            var p = catalog.profile("wall_buy");
+            if (p == null) p = catalog.profile("weapon_rack");
+            com.larsons.game.building.Building board = null;
+            if (p != null) {
+                board = new com.larsons.game.building.Building(o.id(), p, at, o.yaw(),
+                        com.larsons.game.building.BuildingLook.of(o.props().get("look")), null);
+                b.world().addBuilding(board);
+            }
+            com.larsons.game.world.Item item = soldItem(o.str("item", "sword"), o.str("tier", LOWEST));
+            String name = o.str("name", "");
+            if (name.isBlank()) name = item == null ? "Weapon board" : item.fullName();
+            b.world().addSpot(new com.larsons.game.world.Spot(o.id(), WALL_BUY, name, at, o.yaw(), o.props())
+                    .icon("coins").markerHeight(2.5));
+            if (item != null && board != null) {
+                // hung on the board where the chalk shows it, upright, in front of the planks
+                double length = Math.min(BOARD_HIGH, item.def().worldSize());
+                Vec3 face = board.toWorld(0, BOARD_FRONT);
+                b.world().show(item, new Vec3(face.x(), at.y() + BOARD_MIDDLE - length / 2, face.z()),
+                        board.heading() + Math.PI / 2);
+            }
+        }));
 
         StoryTypes.spot(BOX, "Mystery box", Category.ZOMBIES,
                 List.of(Prop.text("name", "Name", "Mystery box"),

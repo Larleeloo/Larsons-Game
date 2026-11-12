@@ -123,7 +123,7 @@ public final class FolkTypes {
             f.roaming(o.num("roam", 0)).with(o.props());
         }));
 
-        ObjectTypes.register(new ObjectType(QUEST, "Quest", Category.STORY,
+        ObjectTypes.register(new ObjectType(QUEST, "Quest", Category.QUESTS,
                 List.of(Prop.text("title", "Title", "A task"),
                         Prop.text("giver", "Given by (a person's name)", "Villager"),
                         Prop.choice("kind", "To do", Quest.Kind.KILL.key(), o -> Quest.Kind.keys()),
@@ -216,7 +216,7 @@ public final class FolkTypes {
             p.put("stock", k[3]);
             p.put("buys", true);
             p.put("greeting", "Have a look. Everything has its price.");
-            out.add(new ObjectTypes.Entry((String) k[0], Category.TOWN, PERSON, p));
+            out.add(new ObjectTypes.Entry((String) k[0], Category.SHOPS, PERSON, p));
         }
         for (String what : List.of(AnimalKind.BOAR.key(), AnimalKind.BUFFALO.key(), World.VERNEES, World.FLIER,
                 Breed.BORTZAL.key(), Breed.DRURINEAN.key(), Breed.HALF_DRURINEAN.key(), Breed.KHORIGALE.key())) {

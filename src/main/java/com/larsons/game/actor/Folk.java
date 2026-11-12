@@ -53,6 +53,8 @@ public final class Folk implements Target {
     public static final double CREATURE_WALK = 0.875, CREATURE_RUN = 2.78;
     /** The Bortzal's skins: goblin yellow and ashy purple. */
     public static final int GOBLIN_YELLOW = 0xC8B428, ASHY_PURPLE = 0x8E7AA8, GRAVE_GREEN = 0x7A9A6A;
+    /** The Risen's skins: grave green, ashen grey, bruised blue, a sallow yellow. */
+    public static final int[] RISEN_SKINS = {GRAVE_GREEN, 0x8C8A84, 0x6E7A96, 0x9A9A6A, GRAVE_GREEN};
 
     private final int id;
     private final Breed breed;
