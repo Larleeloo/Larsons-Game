@@ -1,0 +1,132 @@
+{
+ "key": "covered_market",
+ "label": "Covered market arcade",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.125,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#e8dcc0",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Cornices",
+   "colour": "#d0c2a2",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "shopfront",
+   "label": "Shop fronts",
+   "colour": "#6a1e22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Shop windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "glass",
+   "label": "Glass roof",
+   "colour": "#a8c8d0",
+   "texture": "panes",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#3a4a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roofs",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "floor",
+   "label": "Floor",
+   "colour": "#8a8a8e",
+   "texture": "flagstones",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Fascias",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Names",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#3a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lamps",
+   "label": "Lamps",
+   "colour": "#ffd890",
+   "texture": "smooth",
+   "glow": true
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   -6.875,
+   0.0,
+   6.25,
+   37.5
+  ],
+  [
+   "box",
+   6.875,
+   0.0,
+   6.25,
+   37.5
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -20.625
+ ],
+ "interior": false,
+ "anim": null
+}

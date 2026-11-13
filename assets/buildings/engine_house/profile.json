@@ -1,0 +1,149 @@
+{
+ "key": "engine_house",
+ "label": "Pumping engine house",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 35.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Stone dressings",
+   "colour": "#d8ccb4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4458",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#2e3a40",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#3a4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#7a3e2e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "beam",
+   "label": "Beam and rods",
+   "colour": "#2e3438",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "flywheel",
+   "label": "Flywheel",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Pipes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   12.5,
+   15.0
+  ],
+  [
+   "box",
+   7.062,
+   -1.875,
+   1.625,
+   7.75
+  ],
+  [
+   "box",
+   9.5,
+   5.0,
+   2.75,
+   2.75
+  ],
+  [
+   "circle",
+   0.0,
+   12.5,
+   1.75
+  ],
+  [
+   "box",
+   0.0,
+   7.875,
+   4.5,
+   0.75
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -9.0
+ ],
+ "interior": true,
+ "anim": {
+  "frames": 8,
+  "degrees": 45.0,
+  "speed": 30.0
+ }
+}

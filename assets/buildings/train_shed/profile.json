@@ -1,0 +1,204 @@
+{
+ "key": "train_shed",
+ "label": "Train shed",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 21.875,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Side walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Stone bands",
+   "colour": "#d8ccb4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "ribs",
+   "label": "Iron ribs",
+   "colour": "#3a4a5a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glazing",
+   "colour": "#9ab8c8",
+   "texture": "panes",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Slated haunches",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "screen",
+   "label": "End screens",
+   "colour": "#2e3a44",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "platform",
+   "label": "Platforms",
+   "colour": "#9a948a",
+   "texture": "flagstones",
+   "glow": false
+  },
+  {
+   "key": "rails",
+   "label": "Rails",
+   "colour": "#6a6a72",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sleepers",
+   "label": "Sleepers",
+   "colour": "#4a3424",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lamps",
+   "label": "Lamps",
+   "colour": "#ffd890",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "iron",
+   "label": "Lamp posts and benches",
+   "colour": "#22282a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   16.875,
+   0.0,
+   1.25,
+   50.0
+  ],
+  [
+   "box",
+   -16.875,
+   0.0,
+   1.25,
+   50.0
+  ],
+  [
+   "box",
+   -12.375,
+   23.875,
+   2.5,
+   0.75
+  ],
+  [
+   "box",
+   0.0,
+   23.875,
+   2.5,
+   0.75
+  ],
+  [
+   "box",
+   12.375,
+   23.875,
+   2.5,
+   0.75
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   -6.0,
+   0.312,
+   4.75,
+   48.125,
+   1.125
+  ],
+  [
+   "box",
+   -6.0,
+   -24.581,
+   3.0,
+   0.337,
+   0.375
+  ],
+  [
+   "box",
+   -6.0,
+   -24.244,
+   3.0,
+   0.337,
+   0.75
+  ],
+  [
+   "box",
+   -6.0,
+   -23.906,
+   3.0,
+   0.337,
+   1.125
+  ],
+  [
+   "box",
+   6.0,
+   0.312,
+   4.75,
+   48.125,
+   1.125
+  ],
+  [
+   "box",
+   6.0,
+   -24.581,
+   3.0,
+   0.337,
+   0.375
+  ],
+  [
+   "box",
+   6.0,
+   -24.244,
+   3.0,
+   0.337,
+   0.75
+  ],
+  [
+   "box",
+   6.0,
+   -23.906,
+   3.0,
+   0.337,
+   1.125
+  ]
+ ],
+ "door": [
+  0.0,
+  -27.5
+ ],
+ "interior": false,
+ "anim": null
+}

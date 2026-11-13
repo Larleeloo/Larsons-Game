@@ -1,0 +1,76 @@
+{
+ "key": "cab_shelter",
+ "label": "Cabmen's shelter",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.927,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#2e5a3a",
+   "texture": "clapboard",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#e8e0c8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4458",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#2e5a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "base",
+   "label": "Base",
+   "colour": "#6e6a64",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Stove pipe",
+   "colour": "#2a2a2e",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   5.75,
+   2.75
+  ]
+ ],
+ "steps": [],
+ "door": [
+  3.875,
+  0.0
+ ],
+ "interior": false,
+ "anim": null
+}

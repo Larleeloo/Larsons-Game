@@ -1,0 +1,118 @@
+{
+ "key": "tavern",
+ "label": "Tavern",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.753,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#e0d2b2",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "tiles",
+   "label": "Ground floor tiles",
+   "colour": "#2e5a44",
+   "texture": "glazed_tiles",
+   "glow": false
+  },
+  {
+   "key": "beams",
+   "label": "Beams",
+   "colour": "#3a281a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a4a3c",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#3a281a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#4a2a18",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e0b060",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "sign",
+   "label": "Sign",
+   "colour": "#3a2416",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Sign's picture",
+   "colour": "#d8a040",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#6e6a64",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#7a4434",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass and lamps",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   11.45,
+   10.2
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -6.125
+ ],
+ "interior": true,
+ "anim": null
+}

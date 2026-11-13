@@ -1,0 +1,144 @@
+{
+ "key": "great_clock_tower",
+ "label": "Great clock tower",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 79.25,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Tower",
+   "colour": "#c8b48a",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Buttresses and tracery",
+   "colour": "#b09a74",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Spire",
+   "colour": "#3e4a5a",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock faces",
+   "colour": "#f4ecd2",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Hands",
+   "colour": "#1e1e24",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Belfry louvres",
+   "colour": "#3a3a44",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#8a7a5a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#3a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Plinth",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Bells and works",
+   "colour": "#b88a3a",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   11.5,
+   11.5
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -5.95,
+   3.75,
+   0.4,
+   1.25
+  ],
+  [
+   "box",
+   0.0,
+   -6.35,
+   3.75,
+   0.4,
+   0.938
+  ],
+  [
+   "box",
+   0.0,
+   -6.75,
+   3.75,
+   0.4,
+   0.625
+  ],
+  [
+   "box",
+   0.0,
+   -7.15,
+   3.75,
+   0.4,
+   0.312
+  ]
+ ],
+ "door": [
+  0.0,
+  -7.5
+ ],
+ "interior": false,
+ "anim": null
+}

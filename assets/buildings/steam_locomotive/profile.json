@@ -1,0 +1,94 @@
+{
+ "key": "steam_locomotive",
+ "label": "Steam locomotive",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.812,
+ "model": true,
+ "parts": [
+  {
+   "key": "boiler",
+   "label": "Boiler",
+   "colour": "#2e4a3a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "black",
+   "label": "Smokebox and chassis",
+   "colour": "#1e1e22",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "wheels",
+   "label": "Wheels",
+   "colour": "#5a1e22",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d0a850",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "cab",
+   "label": "Cab",
+   "colour": "#2e4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Cab windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "tender",
+   "label": "Tender",
+   "colour": "#2e4a3a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "coal",
+   "label": "Coal",
+   "colour": "#2a2a2e",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "lamp",
+   "label": "Lamps",
+   "colour": "#fff0c0",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "red",
+   "label": "Buffer beams",
+   "colour": "#a8282a",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   2.25,
+   2.875,
+   16.75
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

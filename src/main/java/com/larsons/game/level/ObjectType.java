@@ -47,6 +47,7 @@ public record ObjectType(String key, String label, Category category, List<Prop>
         // what is built
         BUILDINGS("Build", "Buildings"),
         TOWN("Build", "Town"),
+        CITY("Build", "City: steam-age streets"),
         INSIDE("Build", "Rooms: walls, floors, stairs"),
         // what is put in it
         FURNITURE("Furnish", "Furniture"),

@@ -1,0 +1,118 @@
+{
+ "key": "warehouse",
+ "label": "Wharf warehouse",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 28.652,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#6e3a2c",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#6e3a2c",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Brick dressings",
+   "colour": "#a86a48",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4458",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#d8ccb0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Loading doors",
+   "colour": "#3a4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#c8b070",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#22282a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "shutters",
+   "label": "Iron shutters",
+   "colour": "#2e3a34",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Painted name",
+   "colour": "#e6dcc4",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Lettering",
+   "colour": "#2a2a2a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "rope",
+   "label": "Chain and hook",
+   "colour": "#4a4a50",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   17.5,
+   15.0
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -9.0
+ ],
+ "interior": true,
+ "anim": null
+}

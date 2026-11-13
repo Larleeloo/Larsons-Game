@@ -1,0 +1,134 @@
+{
+ "key": "lodging_house",
+ "label": "Half-timbered lodging house",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 21.766,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Plaster",
+   "colour": "#e2d6b8",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#d8cba8",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "beams",
+   "label": "Beams",
+   "colour": "#3a281a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a4a3c",
+   "texture": "shingles",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Ground floor",
+   "colour": "#8e887c",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#3a281a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#5a2e1e",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "shutters",
+   "label": "Shutters",
+   "colour": "#5a6e3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#c8b070",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#6e6a64",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#7a4434",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Steam pipes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Sign",
+   "colour": "#5a3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Sign's picture",
+   "colour": "#d8a040",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   8.125,
+   10.0
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   -1.625,
+   -5.344,
+   1.875,
+   0.687,
+   0.2
+  ]
+ ],
+ "door": [
+  -1.625,
+  -6.0
+ ],
+ "interior": true,
+ "anim": null
+}

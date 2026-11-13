@@ -77,6 +77,16 @@ public final class BuildingCatalog {
             // the town's
             "market_stall", "market_stall_awning", "row_house", "shop_house", "workshop", "clocktower", "foundry",
             "wishing_well", "fountain", "notice_board", "stocks", "market_cross", "planter", "statue",
+            // the steam-age city's: homes, shops, grand buildings, works and railways, bridges, the street's things
+            "terrace_house", "stucco_townhouse", "tenement", "corner_mansion", "lodging_house", "corner_shop",
+            "tavern", "tea_room", "apothecary", "clockmaker", "bank", "department_store", "post_office",
+            "grand_hotel", "theatre", "museum", "guildhall", "constabulary", "fire_station", "chapel", "cathedral",
+            "great_clock_tower", "city_gate", "station_hall", "train_shed", "warehouse", "printing_works",
+            "brewery", "ironworks", "engine_house", "gasometer", "water_tower", "airship_tower", "covered_market",
+            "palm_house", "bandstand", "iron_bridge", "tower_bridge",
+            "pillar_box", "phone_kiosk", "police_box", "newsstand", "advertising_column", "street_clock",
+            "cab_shelter", "drinking_fountain", "iron_railing", "bollard", "steam_carriage", "steam_omnibus",
+            "steam_locomotive",
             // the story's: what is made at, read, kept shut and called up - and the horde game's
             "workbench", "signpost", "locked_door", "iron_gate", "summon_station", "wall_buy", "mystery_box",
             "barricade",
@@ -86,7 +96,7 @@ public final class BuildingCatalog {
             "barricade_12",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
-            "lantern_post");
+            "lantern_post", "gas_lamp", "gas_lamp_double");
 
     /** Read {@code root}: each folder with a profile, and the patterns. Never fails: what cannot be read is left out. */
     public static BuildingCatalog load(Path root) {

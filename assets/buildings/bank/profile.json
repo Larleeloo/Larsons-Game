@@ -1,0 +1,187 @@
+{
+ "key": "bank",
+ "label": "Bank",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 22.938,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#e2d8c0",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#d8ccb2",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "columns",
+   "label": "Columns",
+   "colour": "#efe6d2",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Cornice and pediment",
+   "colour": "#e8dec8",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a6070",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "dome",
+   "label": "Dome",
+   "colour": "#5e9a84",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock face",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Clock's hands",
+   "colour": "#2a2a30",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Bronze doors",
+   "colour": "#7a5a2a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Steps and plinth",
+   "colour": "#9a948a",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Gilt",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   17.5,
+   15.0
+  ],
+  [
+   "box",
+   -5.25,
+   -10.0,
+   1.25,
+   1.25
+  ],
+  [
+   "box",
+   -1.75,
+   -10.0,
+   1.25,
+   1.25
+  ],
+  [
+   "box",
+   1.75,
+   -10.0,
+   1.25,
+   1.25
+  ],
+  [
+   "box",
+   5.25,
+   -10.0,
+   1.25,
+   1.25
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -9.125,
+   12.5,
+   3.25,
+   1.5
+  ],
+  [
+   "box",
+   0.0,
+   -11.0,
+   12.5,
+   0.5,
+   1.125
+  ],
+  [
+   "box",
+   0.0,
+   -11.5,
+   12.5,
+   0.5,
+   0.75
+  ],
+  [
+   "box",
+   0.0,
+   -12.0,
+   12.5,
+   0.5,
+   0.375
+  ],
+  [
+   "box",
+   0.0,
+   -12.5,
+   12.5,
+   0.5,
+   0.0
+  ]
+ ],
+ "door": [
+  0.0,
+  -13.25
+ ],
+ "interior": true,
+ "anim": null
+}

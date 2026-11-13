@@ -1,0 +1,140 @@
+{
+ "key": "corner_mansion",
+ "label": "Mansion flats with a turret",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 28.625,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#a04a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#a04a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "stone",
+   "label": "Stone bands",
+   "colour": "#e0d2b4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4a5266",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "turret_roof",
+   "label": "Turret's cap",
+   "colour": "#5e9a84",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#efe6d4",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#3a2416",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "shopfront",
+   "label": "Shop fronts",
+   "colour": "#2e4a3e",
+   "texture": "glazed_tiles",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Fascias",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Names",
+   "colour": "#e0b040",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#a04a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   15.0,
+   15.0
+  ],
+  [
+   "circle",
+   -7.0,
+   -7.0,
+   2.75
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   5.75,
+   -7.844,
+   2.0,
+   0.687,
+   0.2
+  ]
+ ],
+ "door": [
+  5.75,
+  -8.625
+ ],
+ "interior": true,
+ "anim": null
+}

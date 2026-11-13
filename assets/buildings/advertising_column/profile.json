@@ -1,0 +1,51 @@
+{
+ "key": "advertising_column",
+ "label": "Advertising column",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 5.062,
+ "model": true,
+ "parts": [
+  {
+   "key": "paint",
+   "label": "Column",
+   "colour": "#2e4a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "posters",
+   "label": "Posters",
+   "colour": "#e8dcc0",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "posters2",
+   "label": "Bright posters",
+   "colour": "#c84a3a",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Finial",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.875
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

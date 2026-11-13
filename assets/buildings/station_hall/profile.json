@@ -1,0 +1,201 @@
+{
+ "key": "station_hall",
+ "label": "Railway station",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 38.25,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#9a4e38",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#9a4e38",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Stone dressings",
+   "colour": "#e0d4ba",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roofs",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "tower",
+   "label": "Tower's roof",
+   "colour": "#3e4a5a",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock faces",
+   "colour": "#f4ecd2",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Hands",
+   "colour": "#1e1e24",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#efe8da",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#2e2a24",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "canopy",
+   "label": "Canopy's glass",
+   "colour": "#a8c8d0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#2a3a34",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Name board",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   40.0,
+   15.0
+  ],
+  [
+   "box",
+   -16.25,
+   -0.625,
+   8.0,
+   16.75
+  ],
+  [
+   "box",
+   16.25,
+   -0.625,
+   8.0,
+   16.75
+  ],
+  [
+   "box",
+   0.0,
+   -6.25,
+   6.5,
+   6.5
+  ],
+  [
+   "circle",
+   -15.375,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   -11.541,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   -7.709,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   -3.875,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   3.875,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   7.709,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   11.541,
+   -11.75,
+   0.25
+  ],
+  [
+   "circle",
+   15.375,
+   -11.75,
+   0.25
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -11.25
+ ],
+ "interior": true,
+ "anim": null
+}

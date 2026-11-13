@@ -1,0 +1,150 @@
+{
+ "key": "post_office",
+ "label": "Post office",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#a85a40",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#a85a40",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Stone dressings",
+   "colour": "#e2d6bc",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#efe8da",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#6a1a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "sign",
+   "label": "Fascia",
+   "colour": "#a82a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#f0d070",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock face",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Clock's hands",
+   "colour": "#2a2a30",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "tubes",
+   "label": "Pneumatic tubes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d0a850",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   17.25,
+   12.5
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -6.45,
+   12.0,
+   0.4,
+   0.75
+  ],
+  [
+   "box",
+   0.0,
+   -6.85,
+   12.0,
+   0.4,
+   0.5
+  ],
+  [
+   "box",
+   0.0,
+   -7.25,
+   12.0,
+   0.4,
+   0.25
+  ]
+ ],
+ "door": [
+  0.0,
+  -7.875
+ ],
+ "interior": true,
+ "anim": null
+}

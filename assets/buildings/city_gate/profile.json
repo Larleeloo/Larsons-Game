@@ -1,0 +1,134 @@
+{
+ "key": "city_gate",
+ "label": "City gatehouse",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 29.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#a49a88",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Dressed stone",
+   "colour": "#cabea4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "battlements",
+   "label": "Battlements",
+   "colour": "#b4aa96",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roofs",
+   "colour": "#3e4658",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "portcullis",
+   "label": "Portcullis",
+   "colour": "#2e2e34",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#6a6458",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#4a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "banners",
+   "label": "Banners",
+   "colour": "#8a2a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock face",
+   "colour": "#1e2a4a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "hands",
+   "label": "Clock's hands",
+   "colour": "#e0c060",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   -8.125,
+   0.0,
+   7.5,
+   11.25
+  ],
+  [
+   "box",
+   8.125,
+   0.0,
+   7.5,
+   11.25
+  ],
+  [
+   "circle",
+   -11.875,
+   -5.625,
+   1.375
+  ],
+  [
+   "circle",
+   11.875,
+   -5.625,
+   1.375
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

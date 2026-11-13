@@ -101,6 +101,31 @@
    "name": "metal",
    "label": "Metal",
    "suits": "bands, portcullis"
+  },
+  {
+   "name": "ashlar",
+   "label": "Ashlar (dressed stone)",
+   "suits": "banks, churches, grand fronts"
+  },
+  {
+   "name": "riveted",
+   "label": "Riveted iron",
+   "suits": "steam works, boilers, bridges"
+  },
+  {
+   "name": "glazed_tiles",
+   "label": "Glazed tiles",
+   "suits": "taverns, shop fronts, stations"
+  },
+  {
+   "name": "standing_seam",
+   "label": "Copper sheeting",
+   "suits": "domes, spires, steam roofs"
+  },
+  {
+   "name": "corrugated",
+   "label": "Corrugated iron",
+   "suits": "sheds, factories, gas works"
   }
  ]
 }

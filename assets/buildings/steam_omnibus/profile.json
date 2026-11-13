@@ -1,0 +1,87 @@
+{
+ "key": "steam_omnibus",
+ "label": "Steam omnibus",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.375,
+ "model": true,
+ "parts": [
+  {
+   "key": "body",
+   "label": "Body",
+   "colour": "#a8282a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "cream",
+   "label": "Cream panels",
+   "colour": "#e8dcc0",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "chassis",
+   "label": "Chassis",
+   "colour": "#1e1e22",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "wheels",
+   "label": "Wheels",
+   "colour": "#2a2a2e",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d0a850",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "seat",
+   "label": "Top deck seats",
+   "colour": "#5a3a22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "boiler",
+   "label": "Boiler",
+   "colour": "#3a3a40",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "bills",
+   "label": "Advertisements",
+   "colour": "#f0d070",
+   "texture": "plaster",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.75,
+   8.5
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -1,0 +1,45 @@
+{
+ "key": "iron_railing",
+ "label": "Iron railings (4 m)",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 2.213,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#22222a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "wall",
+   "label": "Dwarf wall",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "coping",
+   "label": "Coping",
+   "colour": "#c8bea8",
+   "texture": "ashlar",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   5.0,
+   0.375
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

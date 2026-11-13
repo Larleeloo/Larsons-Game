@@ -1,0 +1,201 @@
+{
+ "key": "cathedral",
+ "label": "Domed cathedral",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 51.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#ddd2bc",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#d2c6ae",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "columns",
+   "label": "Columns",
+   "colour": "#ece2cc",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Cornices and pediments",
+   "colour": "#c8bca2",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roofs",
+   "colour": "#5a6270",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "dome",
+   "label": "Dome",
+   "colour": "#6e7884",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#8a8270",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#4a2e1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Steps and plinth",
+   "colour": "#9a948a",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   3.125,
+   20.0,
+   38.75
+  ],
+  [
+   "box",
+   0.0,
+   5.0,
+   37.5,
+   15.0
+  ],
+  [
+   "box",
+   0.0,
+   -19.375,
+   32.5,
+   6.25
+  ],
+  [
+   "circle",
+   0.0,
+   22.5,
+   7.75
+  ],
+  [
+   "circle",
+   -6.25,
+   -24.875,
+   0.75
+  ],
+  [
+   "circle",
+   -3.75,
+   -24.875,
+   0.75
+  ],
+  [
+   "circle",
+   -1.25,
+   -24.875,
+   0.75
+  ],
+  [
+   "circle",
+   1.25,
+   -24.875,
+   0.75
+  ],
+  [
+   "circle",
+   3.75,
+   -24.875,
+   0.75
+  ],
+  [
+   "circle",
+   6.25,
+   -24.875,
+   0.75
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -24.125,
+   16.0,
+   3.25,
+   1.25
+  ],
+  [
+   "box",
+   0.0,
+   -25.95,
+   16.0,
+   0.4,
+   1.25
+  ],
+  [
+   "box",
+   0.0,
+   -26.35,
+   16.0,
+   0.4,
+   0.938
+  ],
+  [
+   "box",
+   0.0,
+   -26.75,
+   16.0,
+   0.4,
+   0.625
+  ],
+  [
+   "box",
+   0.0,
+   -27.15,
+   16.0,
+   0.4,
+   0.312
+  ]
+ ],
+ "door": [
+  0.0,
+  -27.75
+ ],
+ "interior": false,
+ "anim": null
+}

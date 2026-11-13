@@ -1,0 +1,132 @@
+{
+ "key": "ironworks",
+ "label": "Ironworks foundry",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 28.125,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#7a3e2e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#7a3e2e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Brick dressings",
+   "colour": "#a86a48",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4458",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "North lights",
+   "colour": "#e8a860",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Frames",
+   "colour": "#2e3a40",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#3a3a3a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Furnace glow",
+   "colour": "#ff8a30",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8a860",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#6e3a2c",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#22282a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Steam pipes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Name board",
+   "colour": "#1e1e24",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   22.5,
+   17.5
+  ]
+ ],
+ "steps": [],
+ "door": [
+  -7.5,
+  -10.5
+ ],
+ "interior": true,
+ "anim": null
+}

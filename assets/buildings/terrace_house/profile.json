@@ -1,0 +1,144 @@
+{
+ "key": "terrace_house",
+ "label": "Brick terrace house",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.14,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Party walls",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Stucco and dressings",
+   "colour": "#e6dcc6",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#efe8da",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#22303a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "railings",
+   "label": "Railings",
+   "colour": "#2a2a30",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Steam pipes",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   7.5,
+   10.0
+  ],
+  [
+   "box",
+   0.0,
+   -6.062,
+   7.5,
+   1.625
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   -1.875,
+   -5.45,
+   1.875,
+   0.4,
+   1.0
+  ],
+  [
+   "box",
+   -1.875,
+   -5.85,
+   1.875,
+   0.4,
+   0.75
+  ],
+  [
+   "box",
+   -1.875,
+   -6.25,
+   1.875,
+   0.4,
+   0.5
+  ],
+  [
+   "box",
+   -1.875,
+   -6.65,
+   1.875,
+   0.4,
+   0.25
+  ]
+ ],
+ "door": [
+  -1.875,
+  -7.375
+ ],
+ "interior": true,
+ "anim": null
+}

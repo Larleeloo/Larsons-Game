@@ -564,6 +564,290 @@ public final class Interiors {
                 g.light("lantern", 3.0, -1.0, 2.4, 6.5);
                 floors.add(g.floor);
             }
+            // --- the steam-age city's -----------------------------------------------------------
+            case "terrace_house", "stucco_townhouse", "lodging_house", "tenement", "corner_mansion" ->
+                    floors.addAll(make("row_house"));
+            case "corner_shop", "clockmaker", "apothecary", "post_office", "department_store" -> {
+                floors.addAll(make("shop_house"));
+                String name = switch (kind) {
+                    case "clockmaker" -> "Clockmaker";
+                    case "apothecary" -> "Apothecary";
+                    case "post_office" -> "Post office";
+                    case "department_store" -> "Department store";
+                    default -> "Corner shop";
+                };
+                for (LevelObject o : floors.get(0).objects()) {
+                    if (o.type().equals(ObjectTypes.SHOP)) o.set("name", name);
+                }
+            }
+            case "printing_works" -> floors.addAll(make("workshop"));
+            case "ironworks", "engine_house" -> floors.addAll(make("foundry"));
+            case "tavern" -> {
+                // the taproom: the bar and its keeper, barrels behind, tables by the fire; rooms to let upstairs
+                Plan g = new Plan(0, 10, 8, Looks.HOUSE);
+                g.front(0, "window", -3.4, "window", 3.4);
+                g.back("window", 2.0);
+                g.west("window", 0);
+                g.east();
+                g.stairs(true, 4.0, -2.4);
+                g.against(Side.NORTH, -1.5, "counter");
+                g.shop("Tavern", -1.5, -2.6, "");
+                g.at("barrel", -4.4, -3.4, SOUTH);
+                g.at("barrel", -3.6, -3.4, SOUTH);
+                g.at("small_keg", -4.4, -2.6, SOUTH);
+                g.against(Side.EAST, 0.8, "fireplace");
+                g.at("table", -2.4, 1.4, NORTH);
+                g.chairsAt(-2.4, 1.4, true);
+                g.at("table", 1.6, 1.6, NORTH);
+                g.chairsAt(1.6, 1.6, false);
+                g.at("tableware", 1.6, 1.6, NORTH);
+                g.onWall(Side.WEST, -1.6, "deer_head");
+                g.onWall(Side.NORTH, 1.6, "banner");
+                g.light("lantern", -1.5, -2.0, 2.2, 5.5);
+                g.light("candle", 0.0, 1.5, 1.05, 5.0);
+                floors.add(g.floor);
+                Plan u = new Plan(1, 10, 8, Looks.HOUSE);
+                u.front("window", -3.0, "window", 3.0);
+                u.back("window", -2.0);
+                u.west("window", 0);
+                u.east();
+                u.stairs(false, 4.0, -2.4);
+                u.inner(0, -4.0, 0, 1.0, "door", EAST);
+                u.against(Side.WEST, -2.0, "bed");
+                u.against(Side.NORTH, -3.6, "nightstand");
+                u.at("bed", 2.6, 2.6, NORTH);
+                u.against(Side.SOUTH, -2.0, "wardrobe");
+                u.at("rug", -2.6, 1.6, NORTH);
+                u.light("candle", -2.5, 0.0, 0.9, 4.0);
+                u.light("candle", 2.5, 1.0, 0.9, 4.0);
+                floors.add(u.floor);
+            }
+            case "tea_room" -> {
+                Plan g = new Plan(0, 8, 7, Looks.SHOP);
+                g.front(0, "window", -2.6, "window", 2.6);
+                g.back();
+                g.west("window", 0);
+                g.east("window", 0);
+                g.against(Side.NORTH, 1.6, "shop_counter");
+                g.shop("Tea room", 1.6, -1.65, "");
+                g.at("table", -2.3, 0.2, NORTH);
+                g.chairsAt(-2.3, 0.2, false);
+                g.at("tableware", -2.3, 0.2, NORTH);
+                g.at("table", 1.2, 1.4, NORTH);
+                g.chairsAt(1.2, 1.4, false);
+                g.at("potted_plant", -3.5, -3.0, SOUTH);
+                g.at("potted_plant", 3.5, 2.9, NORTH);
+                g.onWall(Side.NORTH, -1.6, "painting");
+                g.light("candle", -0.5, 0.6, 2.6, 5.5);
+                floors.add(g.floor);
+            }
+            case "bank" -> {
+                // the banking hall: its counters and their clerk, desks behind, the vault's chest, a clock
+                Plan g = new Plan(0, 12, 10, Looks.CASTLE);
+                g.front(0, "window", -4.0, "window", 4.0);
+                g.back("window", -3.0, "window", 3.0);
+                g.west("window", 0);
+                g.east("window", 0);
+                g.at("shop_counter", -2.4, -1.2, SOUTH);
+                g.at("shop_counter", 2.4, -1.2, SOUTH);
+                g.shop("Bank", -2.4, -2.0, "");
+                g.at("desk", -3.8, -3.4, SOUTH);
+                g.at("desk", 3.8, -3.4, SOUTH);
+                g.at("chair", -3.8, -4.1, SOUTH);
+                g.at("chair", 3.8, -4.1, SOUTH);
+                g.chest(0.0, -4.2, SOUTH);
+                g.against(Side.WEST, 2.4, "grandfather_clock");
+                g.at("settee", 3.8, 3.0, NORTH);
+                g.at("rug", 0.0, 2.0, NORTH);
+                g.at("potted_tree", -5.2, 4.2, NORTH);
+                g.at("potted_tree", 5.2, 4.2, NORTH);
+                g.light("candle", 0.0, 0.5, 3.0, 7.5);
+                floors.add(g.floor);
+            }
+            case "grand_hotel" -> {
+                // the lobby: the desk and its clerk, armchairs and palms; a floor of rooms over it
+                Plan g = new Plan(0, 14, 10, Looks.SHOP);
+                g.front(0, "window", -4.6, "window", 4.6);
+                g.back("window", -3.0, "window", 3.0);
+                g.west("window", 0);
+                g.east("window", 0);
+                g.stairs(true, 5.6, -2.6);
+                g.against(Side.NORTH, -2.4, "counter");
+                g.shop("Grand hotel", -2.4, -3.5, "");
+                g.against(Side.NORTH, 1.6, "grandfather_clock");
+                g.at("rug", 0.0, 1.2, NORTH);
+                g.at("armchair", -2.0, 1.6, EAST);
+                g.at("armchair", 2.0, 1.6, WEST);
+                g.at("side_table", 0.0, 1.6, NORTH);
+                g.at("settee", 0.0, 3.4, NORTH);
+                g.at("potted_tree", -6.2, 4.2, NORTH);
+                g.at("potted_tree", 6.2, 4.2, NORTH);
+                g.at("potted_plant", -6.2, -4.2, SOUTH);
+                g.at("coat_rack", 5.8, 3.8, NORTH);
+                g.onWall(Side.WEST, 0.0, "painting");
+                g.light("candle", 0.0, 1.0, 3.0, 8.0);
+                floors.add(g.floor);
+                Plan u = new Plan(1, 14, 10, Looks.HOUSE);
+                u.front("window", -4.6, "window", -1.4, "window", 1.4, "window", 4.6);
+                u.back("window", -3.0, "window", 3.0);
+                u.west("window", 0);
+                u.east("window", 0);
+                u.stairs(false, 5.6, -2.6);
+                u.inner(-3.0, -5.0, -3.0, 5.0, "door", EAST);
+                u.inner(1.4, 0.4, 1.4, 5.0, "door", WEST);
+                u.against(Side.WEST, 2.0, "bed");
+                u.against(Side.NORTH, -5.2, "wardrobe");
+                u.at("dresser", -4.8, 4.3, NORTH);
+                u.at("bed", -0.6, 3.4, NORTH);
+                u.at("nightstand", 0.6, 4.3, NORTH);
+                u.at("bed", 4.6, 3.4, NORTH);
+                u.at("nightstand", 5.8, 4.3, NORTH);
+                u.at("rug", -0.8, -1.6, NORTH);
+                u.at("armchair", -1.8, -3.6, SOUTH);
+                u.light("candle", -5.0, 2.0, 0.9, 4.0);
+                u.light("candle", 0.0, 3.5, 0.9, 4.0);
+                u.light("candle", 4.6, 3.5, 0.9, 4.0);
+                floors.add(u.floor);
+            }
+            case "theatre" -> {
+                // the stalls: rows of benches facing the stage at the back, its curtains, the boxes' lights
+                Plan g = new Plan(0, 14, 16, Looks.SHOP);
+                g.front(0, "window", -5.0, "window", 5.0);
+                g.back();
+                g.west();
+                g.east();
+                for (int r = 0; r < 5; r++) {
+                    double z = 0.6 + r * 1.4;
+                    g.at("bench", -3.2, z, NORTH);
+                    g.at("bench", 3.2, z, NORTH);
+                }
+                g.at("rug", 0.0, -5.0, NORTH);
+                for (double x = -5.6; x <= 5.7; x += 1.6) g.onWall(Side.NORTH, x, "banner");
+                g.at("crate", -4.8, -5.8, SOUTH);
+                g.at("potted_plant", 4.8, -5.8, SOUTH);
+                g.light("lantern", 0.0, -5.0, 2.6, 7.0);
+                g.light("candle", -6.0, 2.0, 2.0, 5.0);
+                g.light("candle", 6.0, 2.0, 2.0, 5.0);
+                floors.add(g.floor);
+            }
+            case "station_hall" -> {
+                // the booking hall: the ticket office and its clerk, benches to wait on, luggage, the clock
+                Plan g = new Plan(0, 16, 9, Looks.SHOP);
+                g.front(0, "window", -5.5, "window", -2.6, "window", 2.6, "window", 5.5);
+                g.back("arch", -4.0, "arch", 4.0);
+                g.west("window", 0);
+                g.east("window", 0);
+                g.against(Side.WEST, -1.0, "shop_counter");
+                g.shop("Ticket office", -6.6, -1.0, "");
+                for (double x : new double[]{-2.0, 2.0}) {
+                    g.at("bench", x, 0.4, NORTH);
+                    g.at("bench", x, 2.2, SOUTH);
+                }
+                g.against(Side.NORTH, 0.0, "grandfather_clock");
+                g.at("crate", 6.6, 3.4, NORTH);
+                g.at("crate", 5.8, 3.5, NORTH);
+                g.at("storage_chest", 6.5, 2.6, WEST);
+                g.at("potted_tree", -7.0, 3.6, NORTH);
+                g.at("notice_board", 4.0, -3.9, SOUTH);
+                g.light("lantern", -2.0, 1.3, 2.6, 6.0);
+                g.light("lantern", 3.0, 1.3, 2.6, 6.0);
+                floors.add(g.floor);
+            }
+            case "warehouse" -> {
+                Plan g = new Plan(0, 12, 10, Looks.WORKS);
+                g.front(0, "window", -4.0, "window", 4.0);
+                g.back("window", -3.0, "window", 3.0);
+                g.west("window", 0);
+                g.east("window", 0);
+                g.stairs(true, 4.6, -2.6);
+                double[][] stacks = {{-4.8, -3.8}, {-4.0, -3.8}, {-4.8, -3.0}, {-2.4, -3.8}, {-1.6, -3.8}, {4.6, 3.6},
+                        {3.8, 3.6}, {-4.8, 3.6}};
+                for (double[] c : stacks) g.at("crate", c[0], c[1], NORTH);
+                for (double x = -1.0; x <= 1.1; x += 0.8) g.at("barrel", x, 3.6, NORTH);
+                g.at("grain_sacks", -3.0, 1.6, NORTH);
+                g.at("grain_sacks", -1.8, 1.6, NORTH);
+                g.at("hand_cart", 1.8, 0.6, WEST);
+                g.light("lantern", 0.0, 0.0, 2.4, 7.0);
+                floors.add(g.floor);
+                Plan u = new Plan(1, 12, 10, Looks.WORKS);
+                u.front("window", -4.0, "window", 4.0);
+                u.back("window", -3.0, "window", 3.0);
+                u.west("window", 0);
+                u.east("window", 0);
+                u.stairs(false, 4.6, -2.6);
+                for (double x = -4.8; x <= 0.1; x += 0.8) u.at("crate", x, 3.7, NORTH);
+                for (double x = -4.8; x <= -1.5; x += 0.8) u.at("barrel", x, -3.8, SOUTH);
+                u.chest(1.2, 3.6, NORTH);
+                u.light("lantern", 0.0, 0.0, 2.4, 6.0);
+                floors.add(u.floor);
+            }
+            case "brewery" -> {
+                Plan g = new Plan(0, 11, 9, Looks.WORKS);
+                g.front(0, "window", -3.6, "window", 3.6);
+                g.back("window", -2.0, "window", 2.0);
+                g.west("window", 0);
+                g.east();
+                g.at("cauldron", -3.4, -2.4, NORTH);
+                g.at("cauldron", -1.6, -2.4, NORTH);
+                g.at("boiler", 4.0, -3.0, NORTH);
+                g.at("distiller", 1.2, -2.8, NORTH);
+                for (double x = -4.6; x <= -2.0; x += 0.85) g.at("barrel", x, 3.4, NORTH);
+                for (double x = 2.0; x <= 4.6; x += 0.8) g.at("small_keg", x, 3.5, NORTH);
+                g.at("grain_sacks", 4.2, 0.6, WEST);
+                g.at("table", 0.0, 1.2, NORTH);
+                g.at("bottles", 0.0, 1.2, NORTH);
+                g.light("lantern", -1.5, -1.0, 2.4, 6.0);
+                g.light("lantern", 2.0, 1.5, 2.4, 6.0);
+                floors.add(g.floor);
+            }
+            case "constabulary" -> {
+                // the front desk and the sergeant's books; a cell behind its wall
+                Plan g = new Plan(0, 9, 8, Looks.HOUSE);
+                g.front(0, "window", -3.0, "window", 3.0);
+                g.back("window", -2.6);
+                g.west("window", 0);
+                g.east();
+                g.inner(1.5, -4.0, 1.5, 0.0, "door", WEST);
+                g.at("desk", -1.6, -0.6, SOUTH);
+                g.at("chair", -1.6, -1.3, SOUTH);
+                g.against(Side.WEST, -2.2, "bookshelf");
+                g.against(Side.NORTH, -0.6, "cupboard");
+                g.at("coat_rack", -3.8, 3.4, NORTH);
+                g.at("notice_board", 0.0, 3.6, NORTH);
+                g.at("bed", 3.2, -2.6, SOUTH);
+                g.at("bucket", 3.9, -0.6, NORTH);
+                g.light("lantern", -1.6, -0.6, 2.2, 5.0);
+                g.light("candle", 3.0, -2.0, 1.4, 3.0);
+                floors.add(g.floor);
+            }
+            case "fire_station" -> {
+                Plan g = new Plan(0, 12, 10, Looks.WORKS);
+                g.front(0, "window", -4.0, "window", 4.0);
+                g.back("window", -3.0, "window", 3.0);
+                g.west("window", 0);
+                g.east();
+                g.stairs(true, 5.0, -3.0);
+                g.at("hand_cart", -2.6, 0.0, NORTH);
+                g.at("hand_cart", 1.0, 0.0, NORTH);
+                for (double x = -5.0; x <= -2.5; x += 0.8) g.at("bucket", x, -4.0, SOUTH);
+                g.at("barrel", 5.2, 3.8, NORTH);
+                g.at("barrel", 4.4, 3.8, NORTH);
+                g.at("coat_rack", -5.0, 3.8, NORTH);
+                g.at("boiler", -4.6, -3.4, SOUTH);
+                g.light("lantern", 0.0, 0.0, 2.4, 7.0);
+                floors.add(g.floor);
+                Plan u = new Plan(1, 12, 10, Looks.HOUSE);
+                u.front("window", -4.0, "window", 0.0, "window", 4.0);
+                u.back("window", -3.0, "window", 3.0);
+                u.west("window", 0);
+                u.east();
+                u.stairs(false, 5.0, -3.0);
+                for (double x = -4.6; x <= 1.0; x += 1.4) u.at("bed", x, -3.4, SOUTH);
+                u.at("table", 0.0, 2.4, NORTH);
+                u.chairsAt(0.0, 2.4, true);
+                u.light("candle", 0.0, 2.4, 1.05, 5.0);
+                floors.add(u.floor);
+            }
             default -> { }
         }
         return floors;

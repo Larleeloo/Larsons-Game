@@ -1,0 +1,44 @@
+{
+ "key": "pillar_box",
+ "label": "Pillar post box",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 2.025,
+ "model": true,
+ "parts": [
+  {
+   "key": "paint",
+   "label": "Red paint",
+   "colour": "#b8241e",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "black",
+   "label": "Base and slot",
+   "colour": "#1e1e22",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Royal cipher",
+   "colour": "#e0c060",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.45
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}
