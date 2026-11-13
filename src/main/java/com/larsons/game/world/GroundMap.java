@@ -89,7 +89,12 @@ public final class GroundMap {
 
     /** A map {@code size} metres a side (rounded to whole cells), centred on the origin, all grass. */
     public GroundMap(double size) {
-        cell = cellFor(size);
+        this(size, cellFor(size));
+    }
+
+    /** A map {@code size} metres a side in cells {@code cell} metres a side, centred on the origin, all grass. */
+    public GroundMap(double size, double cell) {
+        this.cell = cell;
         cells = Math.max(1, (int) Math.round(size / cell));
         origin = -cells * cell / 2;
         w[0] = new float[cells * cells * 4];
@@ -389,6 +394,31 @@ public final class GroundMap {
         return this;
     }
 
+    /**
+     * Set every material's weight in one go, cell by cell: {@code weights[m]}
+     * is material {@code m}'s, a byte a cell row by row from the north-west
+     * corner (null: none of it) - for maps made whole, as the ground round a
+     * level is ({@link SurroundGen}).
+     */
+    public GroundMap setWeights(byte[][] weights) {
+        for (int g = 0; g < GROUPS; g++) {
+            boolean any = false;
+            for (int k = 0; k < 4; k++) any |= weights[g * 4 + k] != null;
+            if (!any) {
+                setRgba(g, null);
+                continue;
+            }
+            byte[] rgba = new byte[cells * cells * 4];
+            for (int k = 0; k < 4; k++) {
+                byte[] m = weights[g * 4 + k];
+                if (m == null) continue;
+                for (int i = 0; i < cells * cells; i++) rgba[i * 4 + k] = m[i];
+            }
+            setRgba(g, rgba);
+        }
+        return this;
+    }
+
     /** Every layer's bytes (null for one never painted), to put back with {@link #restore}: an undo step. */
     public byte[][] snapshot() {
         byte[][] out = new byte[LAYERS][];
@@ -404,7 +434,7 @@ public final class GroundMap {
 
     /** A copy to paint on without changing this one. */
     public GroundMap copy() {
-        GroundMap m = new GroundMap(size());
+        GroundMap m = new GroundMap(size(), cell);
         for (int g = 0; g < LAYERS; g++) {
             if (w[g] != null) m.w[g] = w[g].clone();
             m.empty[g] = empty[g];

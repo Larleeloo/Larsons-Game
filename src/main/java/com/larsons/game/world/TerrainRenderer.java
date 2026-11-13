@@ -150,6 +150,13 @@ public final class TerrainRenderer implements AutoCloseable {
 
     private final Shader shader;
     private final GroundTexture ground;
+    /**
+     * A square it leaves out (x from, x to, z from, z to; null: none) - all
+     * but its outermost band of cells - drawing the flat cells too: the ground
+     * round a level, which leaves the level to its own ground ({@link
+     * SurroundRenderer}).
+     */
+    private double[] hole;
     private final int vao, vbo, ebo;
     /** The terrain whose mesh is on the GPU, and how many indices it has. */
     private Terrain terrain;
@@ -166,7 +173,13 @@ public final class TerrainRenderer implements AutoCloseable {
     }
 
     public TerrainRenderer(GroundTexture ground, Terrain terrain) {
+        this(ground, terrain, null);
+    }
+
+    /** {@link #TerrainRenderer(GroundTexture, Terrain)} leaving out {@code hole} ({@link #hole}), flat cells drawn. */
+    public TerrainRenderer(GroundTexture ground, Terrain terrain, double[] hole) {
         this.ground = ground;
+        this.hole = hole == null ? null : hole.clone();
         shader = new Shader("terrain", VERTEX, FRAGMENT);
         vao = glGenVertexArrays();
         glBindVertexArray(vao);
@@ -184,11 +197,18 @@ public final class TerrainRenderer implements AutoCloseable {
         if (count > 0) System.out.println("[terrain] " + count / 3 + " triangles");
     }
 
+    /** Leave out {@code hole} from now on ({@link #hole}; null: none) - its mesh put on the GPU again at the next draw. */
+    public void setHole(double[] h) {
+        if (java.util.Arrays.equals(h, hole)) return;
+        hole = h == null ? null : h.clone();
+        terrain = null;
+    }
+
     /** Put {@code t}'s mesh on the GPU in place of the last one's (a level's, or its ground just sculpted). */
     private void upload(Terrain t) {
         terrain = t;
         float[] verts = vertices(t);
-        int[] indices = indices(t);
+        int[] indices = indices(t, hole);
         count = indices.length;
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -228,12 +248,30 @@ public final class TerrainRenderer implements AutoCloseable {
      * at {@code y = 0} (the flat ground's own).
      */
     static int[] indices(Terrain t) {
+        return indices(t, null);
+    }
+
+    /**
+     * {@link #indices(Terrain)} - or, with a {@code hole} (x from, x to, z
+     * from, z to), every cell but those wholly inside it a cell in from its
+     * edge, the flat ones too.
+     */
+    static int[] indices(Terrain t, double[] hole) {
         int nx = t.columns(), nz = t.rows();
         int[] out = new int[Math.max(0, nx - 1) * Math.max(0, nz - 1) * 6];
         int k = 0;
+        double st = t.step();
         for (int j = 0; j + 1 < nz; j++) {
             for (int i = 0; i + 1 < nx; i++) {
-                if (t.flatCell(i, j)) continue;
+                if (hole != null) {
+                    double x0 = t.originX() + i * st, z0 = t.originZ() + j * st;
+                    if (x0 > hole[0] + st * 0.5 && x0 + st < hole[1] - st * 0.5 && z0 > hole[2] + st * 0.5
+                            && z0 + st < hole[3] - st * 0.5) {
+                        continue;
+                    }
+                } else if (t.flatCell(i, j)) {
+                    continue;
+                }
                 int a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
                 out[k++] = a;
                 out[k++] = c;

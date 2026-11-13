@@ -149,6 +149,15 @@ public final class WaterRenderer implements AutoCloseable {
 
     private final Shader shader;
     private final int vao, vbo;
+    /**
+     * Whether the sea runs on past the level to the horizon (false: the
+     * ground round the level has its own, {@link SurroundRenderer}); a square
+     * the sea leaves out (x from, x to, z from, z to: the level, round which
+     * this is the ground's water; null: none); metres a cell of the sea's grid.
+     */
+    private boolean reach = true;
+    private double[] hole;
+    private double seaCell = SEA_CELL;
     private WaterMap water;
     private Terrain terrain;
     private int version = -1, count;
@@ -178,6 +187,23 @@ public final class WaterRenderer implements AutoCloseable {
     static final double RIM = 0.15;
 
     static float[] mesh(WaterMap w, Terrain t) {
+        return mesh(w, t, true, null, SEA_CELL);
+    }
+
+    /**
+     * Whether the sea runs on to the horizon past the level ({@code reach}),
+     * leaving out {@code hole}, in cells {@code seaCell} m a side: the water
+     * drawn of the ground round a level ({@link SurroundRenderer}).
+     */
+    public void setReach(boolean reach, double[] hole, double seaCell) {
+        if (reach == this.reach && java.util.Arrays.equals(hole, this.hole) && seaCell == this.seaCell) return;
+        this.reach = reach;
+        this.hole = hole == null ? null : hole.clone();
+        this.seaCell = seaCell;
+        version = -1;
+    }
+
+    static float[] mesh(WaterMap w, Terrain t, boolean reach, double[] hole, double seaCellSize) {
         Mesh m = new Mesh();
         int n = w.cells();
         // the painted cells that show (not under the sea), and each corner's surface: the mean of the cells
@@ -195,11 +221,20 @@ public final class WaterRenderer implements AutoCloseable {
         for (int j = 0; j <= n; j++) {
             for (int i = 0; i <= n; i++) {
                 double sum = 0;
-                int count = 0;
+                int count = 0, banks = 0;
                 for (int dr = -1; dr <= 0; dr++) {
                     for (int dc = -1; dc <= 0; dc++) {
                         int c = i + dc, r = j + dr;
-                        if (c < 0 || r < 0 || c >= n || r >= n || !wet[r * n + c]) continue;
+                        if (c < 0 || r < 0 || c >= n || r >= n) {
+                            // past the map: a bank, unless the water runs on there (into the ground round the level)
+                            if (reach) banks++;
+                            continue;
+                        }
+                        if (!wet[r * n + c]) {
+                            // a dry cell: a bank, unless it is in the hole (the level's own water is there)
+                            if (hole == null || !inHole(w, c, r, hole)) banks++;
+                            continue;
+                        }
                         sum += w.surfaceAt(c, r);
                         count++;
                     }
@@ -208,7 +243,7 @@ public final class WaterRenderer implements AutoCloseable {
                 double y = sum / count, x = w.west() + i * w.cell(), z = w.west() + j * w.cell();
                 double d = y - t.height(x, z);
                 // where the painted water ends short of a bank, it ends in a slant across the cell, not a step
-                if (count < 4) d = Math.min(d, -RIM);
+                if (banks > 0) d = Math.min(d, -RIM);
                 cy[j * k1 + i] = (float) y;
                 cd[j * k1 + i] = (float) d;
             }
@@ -225,13 +260,14 @@ public final class WaterRenderer implements AutoCloseable {
         }
         double sea = w.seaLevel();
         if (!Double.isNaN(sea)) {
-            double half = w.size() / 2;
-            int cells = (int) Math.ceil(w.size() / SEA_CELL);
+            double half = w.size() / 2, sc = seaCellSize;
+            int cells = (int) Math.ceil(w.size() / sc);
             int code = WaterMap.Kind.SEA.code();
             for (int r = 0; r < cells; r++) {
                 for (int c = 0; c < cells; c++) {
-                    double x0 = -half + c * SEA_CELL, z0 = -half + r * SEA_CELL;
-                    double x1 = x0 + SEA_CELL, z1 = z0 + SEA_CELL;
+                    double x0 = -half + c * sc, z0 = -half + r * sc;
+                    double x1 = x0 + sc, z1 = z0 + sc;
+                    if (hole != null && x0 >= hole[0] && x1 <= hole[1] && z0 >= hole[2] && z1 <= hole[3]) continue;
                     double d00 = sea - t.height(x0, z0), d10 = sea - t.height(x1, z0);
                     double d01 = sea - t.height(x0, z1), d11 = sea - t.height(x1, z1);
                     if (Math.max(Math.max(d00, d10), Math.max(d01, d11)) <= 0) continue;
@@ -241,7 +277,7 @@ public final class WaterRenderer implements AutoCloseable {
                     m.quad(x0, z0, x1, z1, sea, sea, sea, sea, d00, d10, d01, d11, 0, 0, code);
                 }
             }
-            if (sea > 0) {
+            if (sea > 0 && reach) {
                 // beyond the level the ground is flat at 0: the sea runs on to the horizon
                 double R = SEA_REACH, d = sea;
                 m.quad(-R, -R, R, -half, sea, sea, sea, sea, d, d, d, d, 0, 0, code);
@@ -251,6 +287,12 @@ public final class WaterRenderer implements AutoCloseable {
             }
         }
         return m.floats();
+    }
+
+    /** Whether cell {@code (c, r)} of {@code w} lies in {@code hole} (west, east, north, south). */
+    private static boolean inHole(WaterMap w, int c, int r, double[] hole) {
+        double x = w.west() + (c + 0.5) * w.cell(), z = w.west() + (r + 0.5) * w.cell();
+        return x > hole[0] && x < hole[1] && z > hole[2] && z < hole[3];
     }
 
     private static final class Mesh {
@@ -296,7 +338,7 @@ public final class WaterRenderer implements AutoCloseable {
             water = w;
             terrain = t;
             version = w.version();
-            buf = mesh(w, t);
+            buf = mesh(w, t, reach, hole, seaCell);
             count = buf.length / STRIDE;
             glBindBuffer(GL_ARRAY_BUFFER, vbo);
             glBufferData(GL_ARRAY_BUFFER, buf, GL_DYNAMIC_DRAW);

@@ -29,6 +29,14 @@
     "rays": 0.6
   },
   "music": "shuffle",
+  "surroundings": {
+    "theme": "town",
+    "far": 1600,
+    "density": 0.8,
+    "height": 1,
+    "seed": 15,
+    "haze": 0.35
+  },
   "objects": [
     {"id": 1, "type": "spawn", "x": 0, "z": 14, "yaw": 0},
     {"id": 2, "type": "building", "x": 0, "z": -39.875, "yaw": 180, "kind": "keep"},

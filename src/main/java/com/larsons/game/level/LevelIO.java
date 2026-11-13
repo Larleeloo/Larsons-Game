@@ -52,6 +52,7 @@ import java.util.stream.Stream;
  *   "sky": {"zenith": "#5C78A3", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
  *   "music": "dream_on",
  *   "life": {"critters": {"firefly": 2, "frog": 0}, "regrow": 0.5, "yield": 1},
+ *   "surroundings": {"theme": "forest", "far": 1600, "density": 1, "height": 1, "seed": 1, "haze": 0.35},
  *   "objects": [
  *     {"id": 1, "type": "spawn", "x": 0, "z": 0, "yaw": 0},
  *     {"id": 2, "type": "scenery", "x": 6.5, "z": -8, "yaw": 37.5, "sprite": "oak_tree"},
@@ -72,7 +73,7 @@ public final class LevelIO {
     static final double OFFSET = 128, SCALE = 256;
 
     private static final Set<String> KNOWN = Set.of("format", "name", "size", "sky", "music", "sea", "life", "objects",
-            "interiors", "weather", "cover");
+            "interiors", "weather", "cover", "surroundings");
     private static final Set<String> OBJECT_KEYS = Set.of("id", "type", "x", "z", "lift", "yaw");
 
     private LevelIO() {}
@@ -174,6 +175,9 @@ public final class LevelIO {
         if (j.get("life") != null) level.setLife(Life.fromJson(j.get("life")));
         if (j.get("weather") instanceof Map<?, ?> wj) level.setWeather(weather(Json.asObject(wj)));
         level.setCover(com.larsons.game.world.Sky.Cover.byKey(Json.str(j, "cover", "open")));
+        if (j.get("surroundings") != null) {
+            level.setSurroundings(com.larsons.game.world.Surroundings.fromJson(j.get("surroundings")));
+        }
         int highest = 0;
         Object objs = j.get("objects");
         if (objs instanceof List<?> list) {
@@ -463,6 +467,7 @@ public final class LevelIO {
         if (!level.life().isDefault()) head.put("life", tidy(level.life().toJson()));
         if (!level.weather().isDefault()) head.put("weather", weather(level.weather()));
         if (level.cover() != com.larsons.game.world.Sky.Cover.OPEN) head.put("cover", level.cover().key());
+        if (!level.surroundings().isDefault()) head.put("surroundings", level.surroundings().toJson());
         for (Map.Entry<String, Object> e : level.extra().entrySet()) head.putIfAbsent(e.getKey(), tidy(e.getValue()));
         Map<String, Object> ins = interiors(level);
         if (!ins.isEmpty()) head.put("interiors", ins);

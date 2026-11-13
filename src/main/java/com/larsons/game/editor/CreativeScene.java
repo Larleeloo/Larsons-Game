@@ -54,6 +54,9 @@ import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.Biome;
 import com.larsons.game.world.DayCycle;
 import com.larsons.game.world.Sky;
+import com.larsons.game.world.SurroundGen;
+import com.larsons.game.world.SurroundRenderer;
+import com.larsons.game.world.Surroundings;
 import com.larsons.game.world.Weather;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
@@ -2930,6 +2933,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 48;
         thinFog = widgets.toggle(ui, "Thin fog here", thinFog, x, y, w);
         y += 38;
+        y = surroundingsSection(ui, x, y, w);
 
         // the backdrops
         ui.text(ui.small, "Backdrops (" + sky.backdrops().size() + " of " + Sky.MAX_BACKDROPS + ")", x, y,
@@ -3000,6 +3004,75 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         y += 38;
         if (backdrop >= 0 && backdrop < list.size()) backdropEditor(ui, list.get(backdrop), x, y, w);
+    }
+
+    /**
+     * What lies round the level past its edges ({@link Surroundings}): the
+     * country, in 3D - near, the level's ground carried on with its trees,
+     * rocks and houses; far, the land on to the horizon.
+     */
+    private float surroundingsSection(Ui ui, float x, float y, float w) {
+        Surroundings s = level.surroundings();
+        ui.text(ui.small, "Beyond the edge", x, y, Theme.ITEM);
+        y += 18;
+        y += ui.paragraph(ui.tiny, "The country round the level, in 3D: its hills, paths, streets and rivers carried "
+                + "on past the edge, then the land on to the horizon.", x, y, w, Theme.HINT) + 6;
+        List<String> themes = new ArrayList<>();
+        for (Surroundings.Theme t : Surroundings.Theme.values()) themes.add(t.label());
+        int ti = widgets.choice(ui, "Country", themes, s.theme().ordinal(), x, y, w);
+        if (ti != s.theme().ordinal()) surroundEdit(s.withTheme(Surroundings.Theme.values()[ti]), "Country");
+        s = level.surroundings();
+        y += 34;
+        String blurb = s.theme().blurb();
+        SurroundRenderer sr = game.worldRenderer().surroundings();
+        SurroundGen.Result made = sr == null ? null : sr.shown();
+        if (s.theme() == Surroundings.Theme.AUTO && made != null) blurb += " Now: " + made.theme().label() + ".";
+        y += ui.paragraph(ui.tiny, blurb, x, y, w, Theme.HINT) + 8;
+        if (!s.any()) return y + 6;
+        Surroundings n = s;
+        double near = widgets.slider(ui, "sr-near", "Near ground (m)", s.near(), 0, Surroundings.MAX_NEAR,
+                s.near() == 0 ? "as fits" : "%.0f", x, y + 10, w);
+        if (near != s.near()) {
+            near = near < Surroundings.MIN_NEAR * 0.6 ? 0 : Math.round(near / 8) * 8.0;
+            n = n.withNear(near);
+        }
+        y += 40;
+        double far = widgets.slider(ui, "sr-far", "Far off (m)", s.far(), Surroundings.MIN_FAR, Surroundings.MAX_FAR,
+                "%.0f", x, y + 10, w);
+        if (far != s.far()) n = n.withFar(Math.round(far / 50) * 50.0);
+        y += 40;
+        boolean built = s.theme() == Surroundings.Theme.CITY || s.theme() == Surroundings.Theme.TOWN;
+        double density = widgets.slider(ui, "sr-density", built ? "Houses and trees" : "Trees and rocks",
+                s.density(), 0, 2, "%.2f", x, y + 10, w);
+        if (density != s.density()) n = n.withDensity(density);
+        y += 40;
+        double height = widgets.slider(ui, "sr-height", "Hills and peaks", s.height(), 0, 3, "%.2f", x, y + 10, w);
+        if (height != s.height()) n = n.withHeight(height);
+        y += 40;
+        double haze = widgets.slider(ui, "sr-haze", "Haze far off", s.haze(), 0, 1, "%.2f", x, y + 10, w);
+        if (haze != s.haze()) n = n.withHaze(haze);
+        y += 40;
+        boolean carry = widgets.toggle(ui, "Paths, rivers run on", s.carry(), x, y, w);
+        if (carry != s.carry()) n = n.withCarry(carry);
+        y += 34;
+        int seed = (int) widgets.stepper(ui, "Lay of the land", s.seed(), 1, 1, 9999, "%.0f", x, y, w - 64);
+        if (seed != s.seed()) n = n.withSeed(seed);
+        if (ui.button("New", x + w - 58, y, 58, Widgets.ROW)) n = n.withSeed(1 + random.nextInt(9999));
+        y += 34;
+        if (ui.button("As it comes", x, y, w, 26, false, !s.isDefault())) n = Surroundings.DEFAULT;
+        y += 34;
+        if (!n.equals(s)) surroundEdit(n, "Surroundings");
+        return y;
+    }
+
+    /** Change what lies round the level to {@code s} - one undo step for a whole drag of a slider. */
+    private void surroundEdit(Surroundings s, String label) {
+        if (s.equals(level.surroundings())) return;
+        String key = "surround:" + label;
+        if (!widgets.dragging() || !key.equals(propSnapshot)) undo.before(level, Undo.Part.SKY, label);
+        propSnapshot = widgets.dragging() ? key : null;
+        level.setSurroundings(s);
+        dirty = true;
     }
 
     private void backdropEditor(Ui ui, Sky.Backdrop b, float x, float y, float w) {
@@ -4359,6 +4432,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 while (preview.loading() && System.nanoTime() < until) Thread.onSpinWait();
                 if (a.length > 1) preview.seek(Double.parseDouble(a[1]));
                 if (a.length > 2 && a[2].equals("play")) preview.play();
+            }
+            // surround <theme> [near= far= density= height= seed= haze= carry=]: what lies round the level
+            case "surround" -> {
+                Surroundings su = Surroundings.parse(argument, level.surroundings());
+                if (su == null) return false;
+                level.setSurroundings(su);
+                dirty = true;
             }
             case "sky" -> {
                 // sky zenith|horizon #RRGGBB, sky fog <m>

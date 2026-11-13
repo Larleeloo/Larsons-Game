@@ -197,7 +197,7 @@ class BuildingTest {
     private static final java.util.Set<String> FLAT_OR_HUNG = java.util.Set.of("rug", "painting", "banner",
             "wall_shelf", "pot_rack", "dish_rack", "mirror", "deer_head", "boar_head", "bear_head", "crossed_swords",
             "hanging_planter", "window_box", "wheat_field", "cabbage_patch", "pumpkin_patch", "broom", "farm_tools",
-            "book_stack", "tableware", "bottles", "berry_bowl");
+            "book_stack", "tableware", "bottles", "berry_bowl", "rail_track");
 
     @Test
     void theGamesBuildingsAreAllThereWithTheirPatterns() {

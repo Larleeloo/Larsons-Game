@@ -43,6 +43,7 @@ public final class Level {
     private Life life = new Life();
     private com.larsons.game.world.Weather weather = com.larsons.game.world.Weather.NONE;
     private com.larsons.game.world.Sky.Cover cover = com.larsons.game.world.Sky.Cover.OPEN;
+    private com.larsons.game.world.Surroundings surroundings = com.larsons.game.world.Surroundings.DEFAULT;
     private HeightField heights;
     private GroundMap ground;
     private WaterMap water;
@@ -147,6 +148,13 @@ public final class Level {
 
     public void setCover(com.larsons.game.world.Sky.Cover c) {
         cover = c == null ? com.larsons.game.world.Sky.Cover.OPEN : c;
+    }
+
+    /** What lies round it past its edges, drawn in 3D (Sky tool): the country it is a piece of. */
+    public com.larsons.game.world.Surroundings surroundings() { return surroundings; }
+
+    public void setSurroundings(com.larsons.game.world.Surroundings s) {
+        surroundings = s == null ? com.larsons.game.world.Surroundings.DEFAULT : s;
     }
 
     public HeightField heights() { return heights; }

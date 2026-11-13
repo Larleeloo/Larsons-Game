@@ -7,6 +7,7 @@ import com.larsons.game.level.ObjectTypes;
 import com.larsons.game.story.Quest;
 import com.larsons.game.world.Atmosphere;
 import com.larsons.game.world.GroundMap;
+import com.larsons.game.world.Surroundings;
 import com.larsons.game.world.WaterMap;
 
 import javax.imageio.ImageIO;
@@ -256,6 +257,8 @@ public final class London {
         l.sky(0x5D6779, 0xC4B49A, 150, Atmosphere.DEFAULT.withStartHour(17.2).withClouds(0.7).withMist(0.25)
                 .withMistHeight(3.0).withRays(0.15));
         l.wild("crow", "cat", "dog", "robin", "duck", "swan");
+        // and round it the city goes on: its streets past the edge, rows of houses, roofs and towers to the horizon
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.CITY, 0, 2400, 1, 0.6, 7, 0.45, true));
     }
 
     void ground() {

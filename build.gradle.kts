@@ -82,6 +82,8 @@ application {
 tasks.test {
     useJUnitPlatform()
     systemProperty("java.awt.headless", "true")
+    // (the levels' surroundings - London's streets and houses carried on round it - need more than the 512 MB default)
+    maxHeapSize = "2g"
 }
 
 // Every launched JVM sees the `-Dlarsons.*` flags on the Gradle command line.

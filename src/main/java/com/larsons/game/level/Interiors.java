@@ -813,7 +813,7 @@ public final class Interiors {
                 g.against(Side.WEST, -2.2, "bookshelf");
                 g.against(Side.NORTH, -0.6, "cupboard");
                 g.at("coat_rack", -3.8, 3.4, NORTH);
-                g.at("notice_board", 0.0, 3.6, NORTH);
+                g.at("notice_board", 1.8, 3.6, NORTH);
                 g.at("bed", 3.2, -2.6, SOUTH);
                 g.at("bucket", 3.9, -0.6, NORTH);
                 g.light("lantern", -1.6, -0.6, 2.2, 5.0);
@@ -829,7 +829,7 @@ public final class Interiors {
                 g.stairs(true, 5.0, -3.0);
                 g.at("hand_cart", -2.6, 0.0, NORTH);
                 g.at("hand_cart", 1.0, 0.0, NORTH);
-                for (double x = -5.0; x <= -2.5; x += 0.8) g.at("bucket", x, -4.0, SOUTH);
+                for (double x = -2.2; x <= 0.3; x += 0.8) g.at("bucket", x, -4.0, SOUTH);
                 g.at("barrel", 5.2, 3.8, NORTH);
                 g.at("barrel", 4.4, 3.8, NORTH);
                 g.at("coat_rack", -5.0, 3.8, NORTH);

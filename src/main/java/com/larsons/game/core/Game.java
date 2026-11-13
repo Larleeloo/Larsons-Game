@@ -32,6 +32,7 @@ import com.larsons.game.world.Scenery;
 import com.larsons.game.world.SceneryLayout;
 import com.larsons.game.world.SceneryRenderer;
 import com.larsons.game.world.Terrain;
+import com.larsons.game.world.SurroundRenderer;
 import com.larsons.game.world.TerrainRenderer;
 import com.larsons.game.world.VoidRenderer;
 import com.larsons.game.world.WorldRenderer;
@@ -235,6 +236,8 @@ public final class Game implements AutoCloseable {
             BuildingCatalog catalog = BuildingCatalog.load(settings.assets.resolve("buildings"));
             BuildingCatalog.use(catalog);
             if (items.pixelPalette() != null) w.useBuildings(new BuildingRenderer(catalog, items.pixelPalette()));
+            r.detail("what lies round the levels");
+            w.useSurroundings(new SurroundRenderer(groundTexture, scenerySprites));
             r.summary(plural(t.triangles(), "triangle") + " of hills, " + plural(catalog.keys().size(), "building")
                     + " and " + plural(catalog.textures().size(), "pattern"));
             return new Renderers(v, t, w);

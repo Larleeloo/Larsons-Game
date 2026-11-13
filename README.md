@@ -29,7 +29,7 @@ which the game's real places are made.
 - [What she carries](#what-she-carries): the inventory, purse and pouch, loot, the wardrobe
 - [People, their days, and missions](#people-their-days-and-missions)
 - [Shops, crafting and the land's bounty](#shops-crafting-and-the-lands-bounty)
-- [The world](#the-world): biomes, water, day and night, weather, life, buildings, the Brass Vale
+- [The world](#the-world): biomes, water, day and night, weather, life, buildings, Old London, beyond the edge, the Brass Vale
 - [The horde](#the-horde)
 - [Sound and music](#sound-and-music)
 - [Colours](#colours)
@@ -92,6 +92,7 @@ last decade). Gradle comes with the repository.
 ./gradlew gameJar       # build/libs/larsons-game.jar (LWJGL and its natives for Windows, macOS, Linux)
 ./gradlew shareZip      # build/distributions/Larsons-Game.zip: the game to send to friends
 ./gradlew makeBrassVale # writes the Brass Vale's eleven levels again from tools/BrassVale.java
+./gradlew makeLondon    # writes Old London again from tools/London.java
 ```
 
 ## Sharing the game
@@ -593,6 +594,87 @@ beds, tables, hearths, shops, a laboratory's boilers and coils - with stairs
 between its floors, lit by its candles and fire. Furniture is 3D too: a
 hundred kinds from beds and bathtubs to hay bales and weapon racks.
 
+**The City shelf** (Place → Build → *City: steam-age streets*) adds **53
+more** in the game's steampunk-meets-medieval look: brick terraces, stucco
+town houses, tenements, mansion flats with a turret and a half-timbered
+lodging house; a bank, guildhall, post office, constabulary, fire station,
+theatre, museum of curiosities, grand hotel, department store, covered market,
+tea room, tavern, apothecary and clockmaker's; a domed cathedral, a gothic
+chapel and a great clock tower; a railway station and train shed with
+locomotives on their track, a steam omnibus and a steam carriage; an
+ironworks, printing works, tower brewery, gas holder, pumping engine house,
+water tower, wharf warehouse, palm house and an airship mooring tower; an
+iron arch bridge and a bascule bridge with towers that **span a river** (they
+stand on its banks, whatever the water under them), embankment walls, a city
+gatehouse and a bandstand; and the street's furniture - single and double
+**gas lamps** that light up at dusk, pillar boxes, telephone kiosks, police
+boxes, news stands, cabmen's shelters, street clocks, drinking fountains,
+advertising columns, bollards and iron railings. The houses, shops and halls
+are furnished inside like the rest.
+
+### Old London
+
+<p align="center">
+  <img src="docs/screenshots/london-thames.png" width="49%" alt="Old London: the Thames, its embankments and the bascule bridge">
+  <img src="docs/screenshots/london-street.png" width="49%" alt="A London street at dusk, the gas lamps lit">
+</p>
+
+**Old London** (`assets/levels/london`, Dev → *Play* or *Edit*) is a demo of
+the City shelf: downtown London of about 1912, **512 m a side and dense** -
+every one of the 53 city pieces, some 1,500 buildings and props in all. The
+Thames winds across it between upright embankment walls, crossed by
+Westminster and Blackfriars' iron bridges and the great bascule bridge with
+its two towers; north of it Westminster's clock tower and hall, Brass Square
+and its fountains, the theatre on the Strand, the market, the museum, the
+cathedral on its close, the City's bank, post office and guildhall, the
+railway station with its shed, yard and lines, the airship field and the
+park with its palm house; terraces, tenements and shops round yards and mews;
+on the South Bank, wharves, warehouses, breweries, foundries and the gas
+works. Some 320 gas lamps line the streets, steam carriages and omnibuses
+stand at the kerbs, and Londoners go about their day. It
+is written by `tools/London.java` (`./gradlew makeLondon`; `-Pplan` draws
+its plan to `build/london-plan.png`).
+
+### Beyond the edge
+
+<p align="center">
+  <img src="docs/screenshots/surround-city.png" width="49%" alt="London's streets running on past the level's edge, rows of houses to the horizon">
+  <img src="docs/screenshots/surround-mountains.png" width="49%" alt="A level ringed by pine forest and snowy peaks">
+</p>
+
+**What lies round a level** (`world/Surroundings`, made by
+`world/SurroundGen`, drawn by `world/SurroundRenderer`) is the country it is
+a piece of, in 3D, so a level never ends at a line on the grass, whatever its
+size from 64 m to 2048 m:
+
+- **The near ground** - a ring a quarter of the level's size wide (48 to 128
+  m, or as set) - is real ground: **the level's own edge carried on**, its
+  hills, its paths and streets, its rivers in their channels, then turning,
+  over the first few tens of metres, into the country of its theme, with its
+  trees, rocks, grass and flowers, and in a town or a city **its houses along
+  the streets**. At the edge it is the level's ground to the centimetre: there
+  is no seam.
+- **The far country** - out to 300 to 4,000 m - goes on to the horizon in
+  simple shapes: the forest's canopy, the mountains and their snow, the dunes
+  and mesas, the sea, a volcano, crystal prisms, the city's roofs, spires and
+  chimneys with their windows lit at night. Low down it fades into the
+  level's fog as everything does; its heights stand out of it in the haze.
+
+**Seventeen themes**: *Auto* (worked out from what lies along the level's
+edges: its ground, its trees, its houses, its sea), **Meadows and farmland**,
+**Forest**, **Pine forest**, **Jungle**, **Highland hills**, **Mountains**,
+**Snowfields**, **Desert**, **Savannah**, **Swamp**, **Coast and sea**,
+**Ash waste**, **Crystal lands**, **Town and fields**, **City streets**, and
+*None* (the open plain, as before). Each is set in Creative Mode's **Sky**
+tool under *Beyond the edge*, with how wide the near ground is, how far the
+far country reaches, how thick its trees, rocks and houses stand, how high its
+hills rise, the haze far off, whether the level's paths and rivers run on,
+and which of the endless lands of its theme it is (**New** rolls another). It
+is made in a fraction of a second, again a moment after each change, and
+saved with the level (`"surroundings"` in its `level.json`). Every level of the
+Brass Vale and the samples has one that fits it; Copperpit Mine, a cave, has
+none.
+
 ### The Brass Vale
 
 The game's first lands (`assets/overworld/maps/brass_vale.json`): **Oakhollow**
@@ -682,7 +764,7 @@ played, what you are about to place standing under the pointer.
 | **3 Sculpt** | raise, lower, smooth, flatten |
 | **4 Paint** | sixteen grounds - and roads of cobbles, flagstones, brick and packed earth - and the **biome** brush |
 | **5 Scatter** | plants, trees and rocks: one, a mix, a biome's, or a brush of your own |
-| **6 Sky** | the sky's colours, the fog, distant backgrounds round the horizon, open sky, inside or a cave |
+| **6 Sky** | the sky's colours, the fog, **beyond the edge** (the country round the level in 3D: its theme, near ground, far reach, density, hills, haze), distant backgrounds round the horizon, open sky, inside or a cave |
 | **7 Time** | the hour it starts at, the day's length, the planet, clouds, stars, aurora, mist, light rays, and the weather |
 | **8 Level** | name, size (64 m to 2048 m), the walls in the way, the music |
 | **9 Water** | ponds, streams, swamp, crystal water, the sea |
@@ -762,7 +844,7 @@ A level is a folder of `assets/levels/`, meant to be read and to sit in git:
 
 ```
 assets/levels/<level>/
-  level.json    its name, size, sky, time, weather, music, life, and every object (one a line), and the buildings' insides
+  level.json    its name, size, sky, time, weather, music, life, what lies round it, and every object (one a line), and the buildings' insides
   height.png    the sculpted ground, 16-bit grey: a height every 0.5 m (value / 256 - 128 m)
   ground.png    the paint, a pixel every 0.25 m (ground2.png, ground3.png for the other grounds)
   water.png     the water, a pixel every 0.5 m: its surface, its kind, the way it flows
@@ -910,7 +992,9 @@ moves, falls, climbing and swimming, combat and the dice, the foes' ways and
 sight, the folk's days, the inventory, purse and pouch, loot and chests,
 cards, quests and missions, shops and the editor's rows, levels saved and read
 back, undo, the buildings and their insides, the weather and the day, the
-sounds and the music, saving and the map.
+sounds and the music, saving and the map, and what lies round a level (its
+settings saved and read back, the ground carried on past the edge without a
+seam, every theme, London's streets going on).
 
 The game also drives itself, for smoke tests and screenshots on a machine
 with no screen (`core/Autopilot`):
@@ -925,10 +1009,12 @@ Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
 `teleport`, `goto`, `time`, `timelapse`, `weather`, `give`, `coins`, `hero`,
 `wear`, `colour`, `style`, `stance`, `attack`, `heavy`, `spin`, `parry`,
 `block`, `dash`, `roll`, `jump`, `crouch`, `lock`, `pickup`, `chest`,
+`surround` (the country round the level: `surround pines height=1.5 seed=4`),
+`fog`,
 `store`, `shop`, `door`, `enter`, `outside`, `say` / `endtalk`, `journal`,
 `station`, `summon`, `animal`, `health`, `fall`, `climb`, `round` (the
 horde's), and more. In the editor: `tool`, `entry`, `place`, `select`,
-`selectid`, `set`, `look`, `sculpt`, `paint`, `biome`, `water`, `sky`,
+`selectid`, `set`, `look`, `sculpt`, `paint`, `biome`, `water`, `sky`, `surround`,
 `backdrop`, `life`, `forge`, `save`, `undo`, `playtest`. Their full forms are
 in `DemoScene.script` and `CreativeScene.script`.
 

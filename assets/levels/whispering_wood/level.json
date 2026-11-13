@@ -29,6 +29,14 @@
     "rays": 1
   },
   "music": "shuffle",
+  "surroundings": {
+    "theme": "forest",
+    "far": 1600,
+    "density": 1.2,
+    "height": 1.2,
+    "seed": 3,
+    "haze": 0.35
+  },
   "life": {
     "critters": {
       "firefly": 1,

@@ -98,6 +98,8 @@ public final class VoidRenderer implements AutoCloseable {
             uniform vec4 uPlanet;       // its radius (radians; 0: none), its pattern, rings (1) or not, its storms' time
             uniform vec4 uClouds;       // cover, wind offset (x, z, metres), 0
             uniform vec3 uCloudLit, uCloudShade;
+            uniform int uPass;          // 0 all of it; 1 the sky only (the horizon's colour below it); 2 the ground only,
+            uniform vec4 uInside;       // ... within x0, x1, z0, z1 (the level: the ground round it is drawn as itself)
             out vec4 fragColor;
             """ + GroundTexture.GLSL + SceneLight.GLSL + """
 
@@ -590,6 +592,7 @@ public final class VoidRenderer implements AutoCloseable {
                 float te = edges ? edgeAlong(dir) : 1e9;
                 vec3 atEdge = uEye + dir * max(te, 0.0);
                 if (dir.y >= -1e-4 || uEye.y <= 0.0) {
+                    if (uPass == 2) discard;
                     vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
                     // far off at the horizon, then - in front of them - those round the level's edge
                     vec4 far = backdrops(dir, uHorizon, false);
@@ -603,6 +606,13 @@ public final class VoidRenderer implements AutoCloseable {
                     fragColor = vec4(col, 1.0);
                     return;
                 }
+                if (uPass == 1) {
+                    // the sky only: below it, the far ground (drawn after, round the level) fades into the horizon
+                    vec4 foot = backdrops(dir, uHorizon, true);
+                    fragColor = vec4(mix(uHorizon, foot.rgb, foot.a), 1.0);
+                    return;
+                }
+                if (uPass == 2 && (p.x < uInside.x || p.x > uInside.y || p.z < uInside.z || p.z > uInside.w)) discard;
                 if (edges && t > te && te >= 0.0) {
                     // out over the edge before the ground: a backdrop stands there, or beyond it the far plain
                     vec4 far = backdropsOnEdge(atEdge, uHorizon);
@@ -690,6 +700,22 @@ public final class VoidRenderer implements AutoCloseable {
      */
     public void draw(OrbitCamera camera, double aspect, float fogDistance, Mat4 viewProj, Terrain terrain, Sky sky,
                      DayCycle.Daylight light, SceneLight scene, double time, float pixelDegrees) {
+        draw(camera, aspect, fogDistance, viewProj, terrain, sky, light, scene, time, pixelDegrees, ALL, null);
+    }
+
+    /** What {@link #draw} draws: all of it; the sky only (the horizon's colour below it); the ground only, within a square. */
+    public static final int ALL = 0, SKY = 1, GROUND = 2;
+
+    /**
+     * {@link #draw}, only the {@code part} of it asked for: {@link #ALL};
+     * {@link #SKY} - the sky, the horizon's colour below it, for the ground
+     * round a level to be drawn over ({@link SurroundRenderer}); {@link
+     * #GROUND} - the ground alone, only within {@code inside} (x from, x to,
+     * z from, z to: the level), writing its depth.
+     */
+    public void draw(OrbitCamera camera, double aspect, float fogDistance, Mat4 viewProj, Terrain terrain, Sky sky,
+                     DayCycle.Daylight light, SceneLight scene, double time, float pixelDegrees, int part,
+                     double[] inside) {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_ALWAYS);
         glDepthMask(true);
@@ -719,6 +745,12 @@ public final class VoidRenderer implements AutoCloseable {
             shader.set("uBdD[" + i + "]", c2[0], c2[1], c2[2], (float) b.extent());
         }
         shader.set("uBackdrops", n);
+        shader.set("uPass", part);
+        if (inside != null) {
+            shader.set("uInside", (float) inside[0], (float) inside[1], (float) inside[2], (float) inside[3]);
+        } else {
+            shader.set("uInside", -1e9f, 1e9f, -1e9f, 1e9f);
+        }
         if (edges != null) {
             shader.set("uEdges", (float) edges[0], (float) edges[1], (float) edges[2], (float) edges[3]);
         } else {

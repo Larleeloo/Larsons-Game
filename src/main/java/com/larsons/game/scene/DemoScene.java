@@ -777,7 +777,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
-        camera.keepAbove(world.terrain(), 0.8);
+        // (near the level's edge the camera may swing out over the ground round it: kept out of that too)
+        Terrain round = world.surroundGround();
+        double[] edges = world.bounds();
+        boolean nearEdge = round != null && edges != null && Math.max(Math.abs(camera.target().x()),
+                Math.abs(camera.target().z())) > edges[1] - OrbitCamera.MAX_DISTANCE * 1.2;
+        camera.keepAbove(nearEdge ? round : world.terrain(), 0.8);
         if (inside != null || game.settings().outdoors() != com.larsons.game.building.Walls.UP) camera.keepClear();
         else camera.keepClear(this::firstWall);
         sounds.update(world, camera, durations());
@@ -2267,6 +2272,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                                 ? com.larsons.game.world.Weather.Mode.NONE : com.larsons.game.world.Weather.Mode.FIXED));
                 world.weatherNow().set(k, a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
             }
+            // what lies round the level: surround <theme> [near=96] [far=1600] [density=1] [height=1] [seed=1]
+            // [haze=0.35] [carry=false] (none: the open plain)
+            case "surround" -> {
+                com.larsons.game.world.Surroundings su = com.larsons.game.world.Surroundings.parse(argument,
+                        world.surroundings());
+                if (su == null) return false;
+                world.setSurroundings(su);
+            }
+            // the fog: fog <metres>
+            case "fog" -> world.setSky(world.sky().withFog(Double.parseDouble(argument.trim())));
             // where she stands, printed (for scripted checks)
             case "where" -> System.out.printf(java.util.Locale.ROOT, "[where] %.2f %.2f %.2f heading %.1f%n",
                     p.feet().x(), p.feet().y(), p.feet().z(), Math.toDegrees(p.heading()));

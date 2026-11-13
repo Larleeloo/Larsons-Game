@@ -8,6 +8,7 @@ import com.larsons.game.world.GroundMap;
 import com.larsons.game.world.Sky;
 import com.larsons.game.world.WaterMap;
 import com.larsons.game.world.Weather;
+import com.larsons.game.world.Surroundings;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -60,6 +61,7 @@ public final class BrassVale {
 
     static Land oakhollow() {
         Land l = new Land("oakhollow", "Oakhollow", 192, 11);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.FOREST, 0, 1600, 1, 1, 8, 0.35, true));
         l.sky(0x5C78A3, 0xBDC9DB, 130, AIR.withStartHour(9));
         l.wild("rabbit", "squirrel", "butterfly", "bee", "robin", "blue_jay", "cardinal", "pheasant");
         l.roll(1.5, 48).hill(58, -58, 34, 5).flat(0, 0, 44, 0.4);
@@ -178,6 +180,7 @@ public final class BrassVale {
 
     static Land millersCrossing() {
         Land l = new Land("millers_crossing", "Miller's Crossing", 192, 23);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.MEADOW, 0, 1800, 1, 1, 12, 0.35, true));
         l.sky(0x5A7AA8, 0xC4CFDC, 120, AIR.withStartHour(14).withClouds(0.5));
         l.wild("rabbit", "squirrel", "fox", "butterfly", "robin", "crow", "pheasant");
         l.roll(1.8, 44);
@@ -246,6 +249,7 @@ public final class BrassVale {
 
     static Land brasswick() {
         Land l = new Land("brasswick", "Brasswick", 256, 37);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.TOWN, 0, 1800, 1, 0.9, 4, 0.35, true));
         l.sky(0x5C78A3, 0xC8CCD4, 140, AIR.withStartHour(11).withClouds(0.45));
         l.wild("robin", "crow", "butterfly");
         l.roll(1.2, 60).flat(0, 0, 150, 0.3);
@@ -399,6 +403,7 @@ public final class BrassVale {
 
     static Land whisperingWood() {
         Land l = new Land("whispering_wood", "The Whispering Wood", 256, 41);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.FOREST, 0, 1600, 1.2, 1.2, 3, 0.35, true));
         l.sky(0x3F5F78, 0x9FB4B8, 60, AIR.withStartHour(16).withMist(0.6).withMistHeight(4).withRays(1)
                 .withClouds(0.5));
         l.wild("rabbit", "squirrel", "fox", "deer", "owl", "robin", "blue_jay", "crow", "pheasant", "butterfly");
@@ -468,6 +473,7 @@ public final class BrassVale {
 
     static Land fishersRest() {
         Land l = new Land("fishers_rest", "Fisher's Rest", 192, 53);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.COAST, 0, 2400, 1, 1, 2, 0.3, true));
         l.sky(0x4F7FB0, 0xC9DCE6, 150, AIR.withStartHour(7).withClouds(0.3).withMist(0.15));
         l.wild("rabbit", "butterfly", "robin", "crow", "eagle");
         l.roll(1.0, 40);
@@ -616,6 +622,7 @@ public final class BrassVale {
 
     static Land drurinObservatory() {
         Land l = new Land("drurin_observatory", "The Drurin Observatory", 192, 71);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.PINES, 0, 2400, 1, 1.6, 13, 0.3, true));
         l.sky(0x1F2A52, 0x6A5A8A, 150, AIR.withStartHour(20).withStars(1).withAurora(0.6).withPlanetAt(170, 34)
                 .withPlanetSize(40).withRings(true).withClouds(0.15));
         l.wild("rabbit", "fox", "deer", "owl", "eagle");
@@ -681,6 +688,7 @@ public final class BrassVale {
 
     static Land khorigaleCamp() {
         Land l = new Land("khorigale_camp", "Khorigale Camp", 192, 83);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.SAVANNAH, 0, 2000, 1, 1, 9, 0.3, true));
         l.sky(0x6A86B0, 0xE2CFA8, 150, AIR.withStartHour(17).withClouds(0.2).withMist(0.05));
         l.wild("rabbit", "iguana", "eagle", "crow", "butterfly");
         l.roll(1.2, 55).flat(0, 0, 40);
@@ -766,6 +774,7 @@ public final class BrassVale {
 
     static Land sallowMarsh() {
         Land l = new Land("sallow_marsh", "The Sallow Marsh", 256, 97);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.SWAMP, 0, 1400, 1, 0.8, 5, 0.5, true));
         l.sky(0x4A5560, 0x8C9488, 58, AIR.withStartHour(16.5).withMist(0.75).withMistHeight(3.5).withClouds(0.8)
                 .withRays(0.2).withAurora(0));
         l.wild("crow", "owl");
@@ -833,6 +842,7 @@ public final class BrassVale {
 
     static Land oldWatchtower() {
         Land l = new Land("old_watchtower", "The Old Watchtower", 256, 101);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.HILLS, 0, 2000, 1, 1.4, 6, 0.3, true));
         l.sky(0x5A4A48, 0xC08A5A, 95, AIR.withStartHour(17.5).withClouds(0.7).withMist(0.3).withAurora(0));
         l.wild("crow", "eagle");
         l.roll(1.5, 40);
@@ -902,6 +912,7 @@ public final class BrassVale {
 
     static Land crystalHollow() {
         Land l = new Land("crystal_hollow", "Crystal Hollow", 192, 113);
+        l.level.setSurroundings(new Surroundings(Surroundings.Theme.CRYSTAL, 0, 1800, 1, 1.3, 11, 0.3, true));
         l.sky(0x1A1440, 0x5A3A8A, 110, AIR.withStartHour(22).withStars(1).withAurora(1).withClouds(0.1)
                 .withMist(0.18).withPlanetAt(120, 40).withPlanetSize(34));
         l.wild("owl", "butterfly");
