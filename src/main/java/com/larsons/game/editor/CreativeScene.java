@@ -3030,7 +3030,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += ui.paragraph(ui.tiny, blurb, x, y, w, Theme.HINT) + 8;
         if (!s.any()) return y + 6;
         Surroundings n = s;
-        double near = widgets.slider(ui, "sr-near", "Near ground (m)", s.near(), 0, Surroundings.MAX_NEAR,
+        double near = widgets.slider(ui, "sr-near", "Near land (m)", s.near(), 0, Surroundings.MAX_NEAR,
                 s.near() == 0 ? "as fits" : "%.0f", x, y + 10, w);
         if (near != s.near()) {
             near = near < Surroundings.MIN_NEAR * 0.6 ? 0 : Math.round(near / 8) * 8.0;
@@ -3052,7 +3052,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         double haze = widgets.slider(ui, "sr-haze", "Haze far off", s.haze(), 0, 1, "%.2f", x, y + 10, w);
         if (haze != s.haze()) n = n.withHaze(haze);
         y += 40;
-        boolean carry = widgets.toggle(ui, "Paths, rivers run on", s.carry(), x, y, w);
+        boolean carry = widgets.toggle(ui, "Paths carry on", s.carry(), x, y, w);
         if (carry != s.carry()) n = n.withCarry(carry);
         y += 34;
         int seed = (int) widgets.stepper(ui, "Lay of the land", s.seed(), 1, 1, 9999, "%.0f", x, y, w - 64);

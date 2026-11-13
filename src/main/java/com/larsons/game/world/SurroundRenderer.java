@@ -71,7 +71,7 @@ public final class SurroundRenderer implements AutoCloseable {
             uniform vec3 uEye;
             uniform vec3 uHorizon;
             uniform vec3 uSun;
-            uniform vec3 uAmbient;
+            """ + SceneLight.GLSL + """
             uniform float uFog;          // the level's fog: 63 % of the ground hidden this far out
             uniform vec3 uHaze;          // the haze its heights are seen through: least, metres it doubles over, radius
             uniform vec2 uLift;          // from what height its heights stand out of the fog, and over how many metres
@@ -84,6 +84,20 @@ public final class SurroundRenderer implements AutoCloseable {
                 uint h = q.x * 374761393u + q.y * 668265263u;
                 h = (h ^ (h >> 13u)) * 1274126177u;
                 return float((h ^ (h >> 16u)) & 0xffffu) / 65535.0;
+            }
+
+            // the mist the near ground has, between the eye and a far point: as sceneMist, without its
+            // drifting banks and dither (too fine to see out there), so the flats far off lie in it too
+            float farMist(vec3 p) {
+                if (uMist.x <= 0.0) return 0.0;
+                vec3 rd = p - uCamera;
+                float t = length(rd);
+                if (t < 1e-3) return 0.0;
+                rd /= t;
+                float b = uMist.y;
+                float m = abs(rd.y) < 1e-3 ? uMist.x * exp(-b * uCamera.y) * t
+                        : uMist.x / b * exp(-b * uCamera.y) * (1.0 - exp(-t * rd.y * b)) / rd.y;
+                return clamp(floor((1.0 - exp(-m * 0.7)) * 8.0 + 0.5) / 8.0, 0.0, 0.92);
             }
 
             void main() {
@@ -101,18 +115,28 @@ public final class SurroundRenderer implements AutoCloseable {
                     c *= g > 0.94 ? 1.35 : g > 0.75 ? 1.08 : 1.0;
                     shade = 1.0;
                 } else if (mat == 2) {
-                    // a canopy: round crowns, lit on top, dark in the gaps between them
-                    vec2 q = vPos.xz / 5.5;
+                    // a canopy: round crowns, lit on top, dark in the gaps between them - on a steep
+                    // slope seen from the side, so they stay round rather than drawn out down it
+                    vec2 q = vPos.xz / 5.0;
+                    if (abs(n.y) < 0.6) {
+                        vec2 t = normalize(vec2(-n.z, n.x) + vec2(1e-4, 0.0));
+                        q = vec2(dot(vPos.xz, t), vPos.y * 1.3) / 5.0;
+                    }
                     vec2 i = floor(q);
                     float best = 9.0;
+                    vec2 tree = i;
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dx = -1; dx <= 1; dx++) {
                             vec2 o = i + vec2(dx, dy);
                             vec2 cc = o + 0.2 + 0.6 * vec2(fh(o), fh(o + 17.0));
-                            best = min(best, length(q - cc));
+                            float l = length(q - cc);
+                            if (l < best) {
+                                best = l;
+                                tree = o;
+                            }
                         }
                     }
-                    c *= best < 0.32 ? 1.14 : best < 0.58 ? 0.98 : 0.74;
+                    c *= (0.88 + 0.24 * fh(tree + 5.0)) * (best < 0.3 ? 1.14 : best < 0.56 ? 0.97 : 0.72);
                 } else if (mat == 3 && abs(n.y) < 0.3) {
                     // a wall: rows of windows, some lit at night
                     vec3 t = normalize(vec3(-n.z, 0.0, n.x));
@@ -129,7 +153,11 @@ public final class SurroundRenderer implements AutoCloseable {
                     c *= 1.08;
                     glow = vCol * 0.45 * uNight;
                 }
+                // the land far off a little greyer than close to, as the air makes it (and as the near ground's
+                // tiles read, their light and dark specks together)
+                if (mat == 0 || mat == 2) c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.96;
                 vec3 lit = mat == 5 ? c * (1.0 + 0.15 * sin(uTime * 2.0 + vPos.x * 0.05)) : c * shade * uAmbient + glow;
+                if (mat != 5) lit = mix(lit, uMistColour, farMist(vPos));
 
                 // the fog: low down as the ground has it, its heights out of it, seen through the haze
                 float d = length(vPos - uEye);
@@ -344,7 +372,7 @@ public final class SurroundRenderer implements AutoCloseable {
         shader.set("uHorizon", fog[0], fog[1], fog[2]);
         Vec3 sun = TerrainRenderer.SUN;
         shader.set("uSun", (float) sun.x(), (float) sun.y(), (float) sun.z());
-        shader.set("uAmbient", scene.ambient[0], scene.ambient[1], scene.ambient[2]);
+        scene.bind(shader);                                   // (its ambient light and its mist)
         shader.set("uFog", fogDistance);
         Surroundings s = shownKey.settings();
         shader.set("uHaze", (float) s.haze(), (float) Math.max(300, s.far() * 0.8), (float) far.radius());

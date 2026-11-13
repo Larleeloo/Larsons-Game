@@ -715,14 +715,15 @@ public final class SurroundGen {
                 }
                 case DESERT -> {
                     w[GroundMap.SAND] = 1;
-                    w[GroundMap.GRAVEL] = (float) smooth(0.68, 0.74, f(x, z, 30));
-                    w[GroundMap.STONE] = (float) smooth(0.7, 0.95, slope);
+                    w[GroundMap.GRAVEL] = (float) smooth(0.77, 0.81, f(x, z, 22));   // (stony here and there)
+                    // the dunes' steep lee sides stay sand; the mesas' cliffs are warm rock (grey stone reads as holes)
+                    w[GroundMap.DIRT] = (float) smooth(0.95, 1.25, slope);
                     w[GroundMap.DRY_GRASS] = (float) smooth(0.78, 0.82, f(x, z, 14));
                 }
                 case SAVANNAH -> {
-                    w[GroundMap.DRY_GRASS] = (float) (1 - smooth(0.2, 0.26, f(x, z, 40)));
-                    w[GroundMap.DIRT] = (float) smooth(0.72, 0.78, f(x, z, 25));
-                    w[GroundMap.STONE] = (float) smooth(0.6, 0.8, slope);
+                    w[GroundMap.DRY_GRASS] = 1;
+                    w[GroundMap.DIRT] = (float) Math.max(smooth(0.72, 0.78, f(x, z, 25)), 0.8 * smooth(0.7, 0.95, slope));
+                    w[GroundMap.STONE] = (float) smooth(1.0, 1.3, slope);
                 }
                 case SWAMP -> {
                     w[GroundMap.MUD] = (float) smooth(0.42, 0.5, f(x, z, 22));
@@ -739,7 +740,7 @@ public final class SurroundGen {
                     w[GroundMap.STONE] = (float) Math.max(smooth(0.5, 0.7, slope), smooth(0.66, 0.72, f(x, z, 19)));
                 }
                 case CRYSTAL -> {
-                    w[GroundMap.CRYSTAL] = (float) smooth(0.42, 0.5, f(x, z, 30));
+                    w[GroundMap.CRYSTAL] = (float) smooth(0.28, 0.36, f(x, z, 30));
                     w[GroundMap.STONE] = (float) Math.max(smooth(0.55, 0.75, slope), smooth(0.7, 0.75, f(x, z, 18)));
                 }
                 case CITY -> w[GroundMap.PACKED] = (float) smooth(0.3, 0.4, f(x, z, 12));
@@ -875,7 +876,9 @@ public final class SurroundGen {
                     double h = ring.height(x, z);
                     double slope = ring.slope(x, z);
                     themeGround(x, z, d, h, slope, tw);
-                    double fade = smooth(2, 14, d + 7 * c(x, z, 9));
+                    // the level's own ground giving way to the country's, raggedly, over more of a big ring
+                    double span = city || town ? 14 : Math.max(14, B * 0.8);
+                    double fade = smooth(2, span, d + span * (0.5 * c(x, z, 9 + span * 0.3) + 0.3 * c(x, z, 4)));
                     double keepRoad = !carry ? 1 - fade : city ? 1 : town ? 1 - smooth(60, 120, d + 14 * c(x, z, 13))
                             : 1 - smooth(16, 48, d + 12 * c(x, z, 13));
                     int i = r * cells + c;
@@ -1470,20 +1473,24 @@ public final class SurroundGen {
         }
 
         /** The far ground's colour at {@code (x, z)}: the theme's materials' colours, as the near ring has them. */
+        private static final float[] SANDSTONE = {0.78f, 0.6f, 0.42f};
+
         float[] groundColour(double x, double z, double d, double h, double slope, float[] tw) {
             themeGround(x, z, d, h, slope, tw);
             float[] col = tile(-1).clone();
+            // (sandstone in the dry lands: grey cliffs read as holes in the dunes)
+            boolean dry = theme == Theme.DESERT || theme == Theme.SAVANNAH;
             for (int m : GroundMap.ORDER) {
                 double v = tw[m];
                 if (v <= 0.02) continue;
-                float[] t = tile(m);
+                float[] t = dry && m == GroundMap.STONE ? SANDSTONE : tile(m);
                 double a = smooth(0.35, 0.65, v);
                 for (int i = 0; i < 3; i++) col[i] += (float) ((t[i] - col[i]) * a);
             }
             // rock where it is steep, as the hills' faces are
             double rock = smooth(0.85, 1.25, slope);
             if (rock > 0) {
-                float[] st = tile(GroundMap.STONE);
+                float[] st = dry ? SANDSTONE : tile(GroundMap.STONE);
                 for (int i = 0; i < 3; i++) col[i] += (float) ((st[i] * 0.85f - col[i]) * rock);
             }
             // a little light and shade over it, so its folds read from afar
@@ -1541,7 +1548,7 @@ public final class SurroundGen {
                         mat = MAT_WATER;
                     } else {
                         col = groundColour(x, z, d, h, slope, tw);
-                        double canopy = d > W * 0.9 ? canopy(x, z, d, h, slope) : 0;
+                        double canopy = d > W * 0.85 ? canopy(x, z, d, h, slope) : 0;
                         if (canopy > 0.05) {
                             y += canopy;
                             col = canopyColour(x, z, h);
@@ -1552,10 +1559,10 @@ public final class SurroundGen {
                             if (vd < volcano[3] * 0.13) {
                                 col = new float[]{1f, 0.42f, 0.12f};
                                 mat = MAT_GLOW;
-                            } else if (vd < volcano[3] && noise.hash((int) (x / 30), (int) (z / 30), 7) > 0.93
-                                    && slope > 0.3) {
-                                col = new float[]{0.95f, 0.35f, 0.1f};
-                                mat = MAT_GLOW;
+                            } else if (vd < volcano[3] * 0.8 && slope > 0.3) {
+                                // old flows of black rock down its flanks (no glow: lit patches read as blocks this far off)
+                                double flow = smooth(0.55, 0.75, rid(x, z, 90)) * (1 - smooth(0.4, 0.8, vd / volcano[3]));
+                                for (int ci = 0; ci < 3; ci++) col[ci] = (float) (col[ci] * (1 - 0.55 * flow));
                             }
                         }
                     }
@@ -1643,7 +1650,8 @@ public final class SurroundGen {
                 }
             }
             if (m <= 0) return 0;
-            double onset = smooth(W * 0.9, W * 0.9 + 10, d);
+            // rising gently out of the near ring's own trees, not a wall of them at its edge
+            double onset = smooth(W * 0.85, W * 0.85 + Math.max(30, W * 0.6), d);
             return m * onset * top * (0.75 + 0.5 * f(x, z, 20));
         }
 
