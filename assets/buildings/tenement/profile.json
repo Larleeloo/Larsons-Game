@@ -1,0 +1,135 @@
+{
+ "key": "tenement",
+ "label": "Brick tenement",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 25.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#9a5a3e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#9a5a3e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Stone bands",
+   "colour": "#d8cdb4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a5a62",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#e8e0d0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#3e2a1c",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "iron",
+   "label": "Fire escape",
+   "colour": "#2e2e34",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7a7670",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#9a5a3e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Pipes",
+   "colour": "#b87333",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "tank",
+   "label": "Water tank",
+   "colour": "#6e5a44",
+   "texture": "riveted",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   15.0,
+   11.25
+  ],
+  [
+   "box",
+   8.25,
+   0.0,
+   1.5,
+   6.5
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   -3.75,
+   -5.969,
+   2.0,
+   0.687,
+   0.2
+  ],
+  [
+   "box",
+   3.75,
+   -5.969,
+   2.0,
+   0.687,
+   0.2
+  ]
+ ],
+ "door": [
+  -3.75,
+  -6.75
+ ],
+ "interior": true,
+ "anim": null
+}

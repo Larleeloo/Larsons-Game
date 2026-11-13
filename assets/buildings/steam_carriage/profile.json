@@ -1,0 +1,73 @@
+{
+ "key": "steam_carriage",
+ "label": "Steam carriage",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.5,
+ "model": true,
+ "parts": [
+  {
+   "key": "body",
+   "label": "Body",
+   "colour": "#5a1e22",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "chassis",
+   "label": "Chassis",
+   "colour": "#1e1e22",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "wheels",
+   "label": "Wheels",
+   "colour": "#2a2a2e",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d0a850",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "seat",
+   "label": "Seats",
+   "colour": "#3a2418",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "lamp",
+   "label": "Lamps",
+   "colour": "#ffe0a0",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "boiler",
+   "label": "Boiler",
+   "colour": "#3a3a40",
+   "texture": "riveted",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   -0.125,
+   2.125,
+   4.875
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

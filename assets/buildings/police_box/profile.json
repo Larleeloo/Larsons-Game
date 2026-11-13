@@ -1,0 +1,66 @@
+{
+ "key": "police_box",
+ "label": "Police box",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 4.125,
+ "model": true,
+ "parts": [
+  {
+   "key": "paint",
+   "label": "Blue paint",
+   "colour": "#1e3a6a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Windows",
+   "colour": "#e0e8f0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "sign",
+   "label": "Sign",
+   "colour": "#101418",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "letters",
+   "label": "Lettering",
+   "colour": "#f0f0f4",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "lamp",
+   "label": "Lamp",
+   "colour": "#f0f4ff",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "base",
+   "label": "Base",
+   "colour": "#6e6a64",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.85,
+   1.85
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -1,0 +1,129 @@
+{
+ "key": "clockmaker",
+ "label": "Clockmaker's shop",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.998,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#7a4a3a",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#7a4a3a",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "shopfront",
+   "label": "Shop front",
+   "colour": "#1e3a4a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#efe6d4",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#1e3a4a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#c8b070",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "clock",
+   "label": "Clock face",
+   "colour": "#efe6cc",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Hands",
+   "colour": "#2a2a30",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "gears",
+   "label": "Gears",
+   "colour": "#b88a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Fascia",
+   "colour": "#1e2e3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   6.5,
+   8.75
+  ]
+ ],
+ "steps": [],
+ "door": [
+  1.5,
+  -5.5
+ ],
+ "interior": true,
+ "anim": {
+  "frames": 8,
+  "degrees": 40.0,
+  "speed": 12.0
+ }
+}

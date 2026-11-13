@@ -1,0 +1,51 @@
+{
+ "key": "street_clock",
+ "label": "Street clock",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 6.5,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Post",
+   "colour": "#1e3a2e",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Faces",
+   "colour": "#f4ecd2",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "hands",
+   "label": "Hands",
+   "colour": "#1e1e24",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.275
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

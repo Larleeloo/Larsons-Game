@@ -296,6 +296,8 @@ public final class World {
     private Vec3 focus;
     /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
     private double[] bounds;
+    private Surroundings surroundings = Surroundings.NONE;
+    private Terrain surroundGround;
     private double time;
 
     public World(Wardrobe wardrobe) {
@@ -1249,6 +1251,24 @@ public final class World {
 
     /** The light rays placed in it (beside those the trees give: {@link LightRays}). */
     public List<RaySpot> raySpots() { return raySpots; }
+
+    /** What lies round the level past its edges, drawn in 3D ({@link Surroundings}): none until a level sets it. */
+    public Surroundings surroundings() { return surroundings; }
+
+    public void setSurroundings(Surroundings s) {
+        surroundings = s == null ? Surroundings.NONE : s;
+    }
+
+    /**
+     * The ground round the level as drawn ({@link SurroundRenderer}'s near
+     * ring, the level's own heights within it), or null while there is none:
+     * the camera keeps out of it.
+     */
+    public Terrain surroundGround() { return surroundGround; }
+
+    public void setSurroundGround(Terrain t) {
+        surroundGround = t;
+    }
 
     /** Keep her within {@code x0 .. x1}, {@code z0 .. z1} from the next tick: a level's edges (null: none). */
     public void setBounds(double x0, double x1, double z0, double z1) {

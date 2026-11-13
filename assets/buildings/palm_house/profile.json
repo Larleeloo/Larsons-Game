@@ -1,0 +1,90 @@
+{
+ "key": "palm_house",
+ "label": "Palm house",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 17.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "glass",
+   "label": "Glass",
+   "colour": "#a8d8c8",
+   "texture": "panes",
+   "glow": false
+  },
+  {
+   "key": "ribs",
+   "label": "White ironwork",
+   "colour": "#e8ece8",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "plinth",
+   "label": "Plinth",
+   "colour": "#a49a88",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "palms",
+   "label": "Palms",
+   "colour": "#3a7a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "trunks",
+   "label": "Trunks",
+   "colour": "#7a5a3a",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#e8ece8",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   15.5,
+   20.5
+  ],
+  [
+   "box",
+   -17.5,
+   0.0,
+   20.5,
+   13.0
+  ],
+  [
+   "box",
+   17.5,
+   0.0,
+   20.5,
+   13.0
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -11.875
+ ],
+ "interior": false,
+ "anim": null
+}

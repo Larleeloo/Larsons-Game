@@ -1,0 +1,121 @@
+{
+ "key": "chapel",
+ "label": "Gothic chapel",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 30.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#9a9488",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#9a9488",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Dressed stone",
+   "colour": "#c8bea8",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4658",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "spire",
+   "label": "Spire",
+   "colour": "#4a5466",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Stained glass",
+   "colour": "#a080d0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Tracery",
+   "colour": "#6a6458",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#4a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Cross",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   10.0,
+   18.75
+  ],
+  [
+   "box",
+   6.875,
+   -7.5,
+   4.25,
+   4.25
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -9.575,
+   3.0,
+   0.4,
+   0.5
+  ],
+  [
+   "box",
+   0.0,
+   -9.975,
+   3.0,
+   0.4,
+   0.25
+  ]
+ ],
+ "door": [
+  0.0,
+  -10.875
+ ],
+ "interior": false,
+ "anim": null
+}

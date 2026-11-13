@@ -1,0 +1,125 @@
+{
+ "key": "department_store",
+ "label": "Department store",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 34.625,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#e6d6b8",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#a4583e",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Pilasters and cornices",
+   "colour": "#f0e6d0",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "dome",
+   "label": "Dome",
+   "colour": "#5e9a84",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#3a4a3e",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#3a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#8aa8c0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "awning",
+   "label": "Awnings",
+   "colour": "#7a2a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "awning2",
+   "label": "Awning stripes",
+   "colour": "#e8dcc0",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Name board",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Gilt and flagpole",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   27.5,
+   20.0
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -11.5
+ ],
+ "interior": true,
+ "anim": null
+}

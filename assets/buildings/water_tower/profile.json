@@ -1,0 +1,90 @@
+{
+ "key": "water_tower",
+ "label": "Water tower",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 26.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Tower",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Stone bands",
+   "colour": "#d8ccb4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "tank",
+   "label": "Tank",
+   "colour": "#5a6a72",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Tank's roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Ladder and rails",
+   "colour": "#22282a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#3a4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#c8b070",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Gauge and valves",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   6.75,
+   6.75
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -4.375
+ ],
+ "interior": false,
+ "anim": null
+}

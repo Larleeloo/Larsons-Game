@@ -1,0 +1,37 @@
+{
+ "key": "rail_track",
+ "label": "Railway track (12 m)",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 0.35,
+ "model": true,
+ "parts": [
+  {
+   "key": "ballast",
+   "label": "Ballast",
+   "colour": "#6e6a62",
+   "texture": "cobble",
+   "glow": false
+  },
+  {
+   "key": "sleepers",
+   "label": "Sleepers",
+   "colour": "#4a3626",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "rails",
+   "label": "Rails",
+   "colour": "#8a8c92",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

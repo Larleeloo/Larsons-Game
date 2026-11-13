@@ -116,7 +116,15 @@ public final class SceneryRenderer implements AutoCloseable {
      */
     public void draw(Batch batch, Scenery scenery, Mat4 viewProj, float[] fogColor, float fogFar, double time,
                      OrbitCamera camera, Vec3 uprightNormal) {
+        draw(batch, scenery, viewProj, fogColor, fogFar, time, camera, uprightNormal, 0);
+    }
+
+    /** {@link #draw}, leaving out what stands farther than {@code farthest} metres from the eye (0: none left out). */
+    public void draw(Batch batch, Scenery scenery, Mat4 viewProj, float[] fogColor, float fogFar, double time,
+                     OrbitCamera camera, Vec3 uprightNormal, double farthest) {
         if (scenery.isEmpty() || sheets.isEmpty()) return;
+        Vec3 eye = camera.eye();
+        double reachSq = farthest > 0 ? farthest * farthest : Double.MAX_VALUE;
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         glDepthMask(true);
@@ -138,6 +146,8 @@ public final class SceneryRenderer implements AutoCloseable {
                     : byName.get(forage.picked());
             Texture bareSheet = bareSprite == null ? null : sheets.get(bareSprite.name());
             for (Scenery.Placed p : e.getValue()) {
+                double ex = p.x() - eye.x(), ez = p.z() - eye.z();
+                if (ex * ex + ez * ez > reachSq) continue;
                 // (out of view: not drawn - a ball round its card or cross, with room for a lean)
                 double sc = p.scale();
                 // (a card that faces the camera leans back with the view: its top may be half its height off)

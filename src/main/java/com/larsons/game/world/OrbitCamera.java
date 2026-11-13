@@ -42,6 +42,10 @@ public final class OrbitCamera {
     private double autoPitch, wantAutoPitch, autoZoom = 1, wantAutoZoom = 1;
     /** Pitch added to keep the eye out of the ground. */
     private double lift;
+    /** How much of its distance it keeps, to stay out of the buildings (1: all of it). */
+    private double pull = 1;
+    /** Pitch added to see over the buildings in the way. */
+    private double rise;
     private Vec3 target = new Vec3(0, 0.9, 0);
     private final double fovY = Math.toRadians(50);
     private double maxDistance = MAX_DISTANCE;
@@ -98,6 +102,42 @@ public final class OrbitCamera {
         lift = save + (want - save) * (want > save ? 0.35 : 0.08);
     }
 
+    /**
+     * Keep the buildings from between the eye and her: {@code firstHit}
+     * says how far along the line from her to an eye (0 to 1) the first
+     * wall in the way stands - over 1 for none. The camera swings up over
+     * them first, as it does over a hill (up to 48° more), and only where
+     * that is not enough comes in in front of them, at once; it eases back
+     * once the way is clear. In a city's narrow streets she is never lost
+     * behind a house front, and the view is never from inside one.
+     */
+    public void keepClear(java.util.function.ToDoubleBiFunction<Vec3, Vec3> firstHit) {
+        double save = rise, want = 0, hit = 2;
+        for (int i = 0; i <= 12; i++) {
+            rise = want;
+            hit = firstHit.applyAsDouble(target, unpulledEye());
+            if (hit >= 1 || pitch() >= MAX_PITCH - 1e-3 || i == 12) break;
+            want += Math.toRadians(4);
+        }
+        rise = save + (want - save) * (want > save ? 0.3 : 0.05);
+        if (hit < 1) hit = firstHit.applyAsDouble(target, unpulledEye());
+        double d = Math.max(MIN_DISTANCE, distance * autoZoom);
+        double keep = hit >= 1 ? 1 : Math.max(MIN_DISTANCE / d, hit - 0.6 / d);
+        pull = keep < pull ? keep : pull + (keep - pull) * 0.06;
+    }
+
+    /** Nothing in the way: the camera eases back to where it was asked to be. */
+    public void keepClear() {
+        rise *= 0.95;
+        pull += (1 - pull) * 0.06;
+    }
+
+    /** Where the eye would be, kept back its whole distance (nothing in the way). */
+    public Vec3 unpulledEye() {
+        double p = pitch(), d = distance * autoZoom, cp = Math.cos(p);
+        return target.add(Math.sin(yaw) * cp * d, Math.sin(p) * d, Math.cos(yaw) * cp * d);
+    }
+
     /** Whether the eye is out of the ground and nothing of it stands between the eye and her. */
     private boolean clear(Terrain terrain, double clearance) {
         Vec3 e = eye();
@@ -117,6 +157,8 @@ public final class OrbitCamera {
         distance = wantDistance;
         autoPitch = wantAutoPitch;
         autoZoom = wantAutoZoom;
+        pull = 1;
+        rise = 0;
     }
 
     /** Orbit directly (mouse drag): radians of yaw and pitch. */
@@ -160,10 +202,10 @@ public final class OrbitCamera {
     public double yaw() { return yaw; }
 
     /** The camera's angle as it stands: the one asked for, raised or lowered by the automatic height. */
-    public double pitch() { return clampPitch(pitch + autoPitch + lift); }
+    public double pitch() { return clampPitch(pitch + autoPitch + lift + rise); }
 
     /** How far back it stands: the zoom asked for, times the automatic height's. */
-    public double distance() { return distance * autoZoom; }
+    public double distance() { return distance * autoZoom * pull; }
 
     /** The angle asked for (keys, presets, the mouse), without the automatic height. */
     public double basePitch() { return pitch; }

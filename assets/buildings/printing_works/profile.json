@@ -1,0 +1,150 @@
+{
+ "key": "printing_works",
+ "label": "Printing works",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 22.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#7e4232",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#7e4232",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Brick dressings",
+   "colour": "#c88a5a",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#3e4458",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "lantern",
+   "label": "Roof lantern",
+   "colour": "#a8c8d0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#2e3a40",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Loading doors",
+   "colour": "#3a4a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "chimney",
+   "label": "Boiler chimney",
+   "colour": "#6e3a2c",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Ironwork",
+   "colour": "#2a2a30",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "flywheel",
+   "label": "Flywheel",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Name board",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e8dcc0",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   18.75,
+   15.0
+  ],
+  [
+   "box",
+   11.375,
+   3.125,
+   4.0,
+   8.75
+  ],
+  [
+   "box",
+   10.0,
+   -4.0,
+   1.25,
+   1.75
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -8.75
+ ],
+ "interior": true,
+ "anim": {
+  "frames": 8,
+  "degrees": 45.0,
+  "speed": 40.0
+ }
+}

@@ -1,0 +1,43 @@
+{
+ "key": "gas_lamp",
+ "label": "Gas street lamp",
+ "group": "fixture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 4.224,
+ "model": true,
+ "parts": [
+  {
+   "key": "iron",
+   "label": "Column",
+   "colour": "#22282a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Lantern",
+   "colour": "#ffd070",
+   "texture": "panes",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.187
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "flame": [
+  0.0,
+  0.0,
+  3.74
+ ],
+ "stands": true
+}

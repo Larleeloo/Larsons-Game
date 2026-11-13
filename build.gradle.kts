@@ -82,6 +82,8 @@ application {
 tasks.test {
     useJUnitPlatform()
     systemProperty("java.awt.headless", "true")
+    // (the levels' surroundings - London's streets and houses carried on round it - need more than the 512 MB default)
+    maxHeapSize = "2g"
 }
 
 // Every launched JVM sees the `-Dlarsons.*` flags on the Gradle command line.
@@ -310,6 +312,20 @@ tasks.register<JavaExec>("makeBrassVale") {
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs("-Djava.awt.headless=true")
     workingDir = projectDir
+}
+
+// Old London, a demo level of the city buildings: the Thames and its bridges, the West End, the City,
+// the docks - laid out in code as Creative Mode would save it (and opened there to be changed).
+//   ./gradlew makeLondon               → assets/levels/london/
+//   ./gradlew makeLondon -Pplan        → and build/london-plan.png, the plan from above
+tasks.register<JavaExec>("makeLondon") {
+    group = "application"
+    description = "Write the Old London demo level into assets/levels/london"
+    mainClass = "com.larsons.game.tools.London"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("-Djava.awt.headless=true")
+    workingDir = projectDir
+    args(listOfNotNull("assets/levels", if (project.hasProperty("plan")) "build/london-plan.png" else null))
 }
 
 // A stand-in "Blender" sprite set rendered from the fallback puppet — body, a

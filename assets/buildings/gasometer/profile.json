@@ -1,0 +1,79 @@
+{
+ "key": "gasometer",
+ "label": "Gas holder",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 23.25,
+ "model": true,
+ "parts": [
+  {
+   "key": "frame",
+   "label": "Guide frame",
+   "colour": "#4a5a6a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "girders",
+   "label": "Girders",
+   "colour": "#8a3a2a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "drum",
+   "label": "Holder",
+   "colour": "#6e7a66",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "crown",
+   "label": "Crown",
+   "colour": "#5e6a58",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Brick tank",
+   "colour": "#8a4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "pipes",
+   "label": "Gas mains",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Valves",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   12.375
+  ],
+  [
+   "box",
+   14.0,
+   0.0,
+   3.75,
+   6.25
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

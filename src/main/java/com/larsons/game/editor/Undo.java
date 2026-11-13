@@ -34,7 +34,8 @@ final class Undo {
 
     /** What a part of the level was, before a change: what is not kept is null. */
     private record State(String label, double size, List<LevelObject> objects, float[] heights, byte[][] ground,
-                         byte[] water, double sea, Sky sky, String name, String music, Life life) {}
+                         byte[] water, double sea, Sky sky, String name, String music, Life life,
+                         com.larsons.game.world.Surroundings surroundings) {}
 
     private final Deque<State> undo = new ArrayDeque<>(), redo = new ArrayDeque<>();
 
@@ -66,7 +67,8 @@ final class Undo {
                 all || part == Part.SKY ? level.sky() : null,
                 all ? level.name() : null,
                 all || part == Part.SKY ? level.music() : null,
-                all || part == Part.SKY ? level.life().copy() : null);
+                all || part == Part.SKY ? level.life().copy() : null,
+                all || part == Part.SKY ? level.surroundings() : null);
     }
 
     boolean canUndo() { return !undo.isEmpty(); }
@@ -106,6 +108,7 @@ final class Undo {
         if (s.name() != null) level.setName(s.name());
         if (s.music() != null) level.setMusic(s.music());
         if (s.life() != null) level.setLife(s.life().copy());
+        if (s.surroundings() != null) level.setSurroundings(s.surroundings());
         return s.label();
     }
 }

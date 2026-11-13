@@ -155,6 +155,8 @@ public final class GroundTexture implements AutoCloseable {
     private TextureArray maps;
     private float mapWest = (float) GroundMap.origin(), mapSize = (float) GroundMap.SIZE;
     private final float tile, texel;
+    /** Whether its tiles are another's ({@link #GroundTexture(GroundTexture, GroundMap)}): not closed with it. */
+    private final boolean shared;
 
     /**
      * Load {@code ground}'s grass and its other textures and upload {@code
@@ -162,6 +164,7 @@ public final class GroundTexture implements AutoCloseable {
      * will not load) is no grass.
      */
     public GroundTexture(ScenerySprites.Ground ground, GroundMap map) {
+        shared = false;
         PixelData g = ground == null ? null : load(ground.texture());
         if (g == null) {
             tiles = null;
@@ -190,6 +193,20 @@ public final class GroundTexture implements AutoCloseable {
         }
         tiles = TextureArray.tiled(layers);
         System.out.println("[scenery] ground: " + w + "x" + h + " grass" + found + ", a tile every " + tile + " m");
+        use(map);
+    }
+
+    /**
+     * The same tiles as {@code tilesOf} - not loaded again - with a map of
+     * its own, {@code map}: the ground round a level ({@link
+     * SurroundRenderer}). Must be made on the GL thread.
+     */
+    public GroundTexture(GroundTexture tilesOf, GroundMap map) {
+        shared = true;
+        tiles = tilesOf.tiles;
+        tile = tilesOf.tile;
+        texel = tilesOf.texel;
+        System.arraycopy(tilesOf.loaded, 0, loaded, 0, loaded.length);
         use(map);
     }
 
@@ -271,7 +288,7 @@ public final class GroundTexture implements AutoCloseable {
 
     @Override
     public void close() {
-        if (tiles != null) tiles.close();
+        if (tiles != null && !shared) tiles.close();
         if (maps != null) maps.close();
     }
 }

@@ -1,0 +1,156 @@
+{
+ "key": "grand_hotel",
+ "label": "Grand hotel",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 33.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#8e4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#8e4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Stone dressings",
+   "colour": "#e0d2b6",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e5874",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "turret",
+   "label": "Turrets' roofs",
+   "colour": "#5e9a84",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#efe8da",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Doors",
+   "colour": "#2a1e16",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "railings",
+   "label": "Balconies",
+   "colour": "#26262c",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "canopy",
+   "label": "Canopy",
+   "colour": "#7a1e22",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "sign",
+   "label": "Name board",
+   "colour": "#1e2e26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimneys",
+   "colour": "#8e4a36",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "brass",
+   "label": "Brass",
+   "colour": "#d0a850",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   30.0,
+   17.5
+  ],
+  [
+   "circle",
+   -3.125,
+   -16.125,
+   0.25
+  ],
+  [
+   "circle",
+   3.125,
+   -16.125,
+   0.25
+  ],
+  [
+   "circle",
+   -3.125,
+   -12.5,
+   0.25
+  ],
+  [
+   "circle",
+   3.125,
+   -12.5,
+   0.25
+  ]
+ ],
+ "steps": [],
+ "door": [
+  0.0,
+  -10.25
+ ],
+ "interior": true,
+ "anim": null
+}

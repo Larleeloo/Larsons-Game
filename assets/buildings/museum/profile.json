@@ -1,0 +1,203 @@
+{
+ "key": "museum",
+ "label": "Museum of curiosities",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 27.75,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#e6dcc4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#ddd2b8",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "columns",
+   "label": "Columns",
+   "colour": "#f0e8d6",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Cornice and pediment",
+   "colour": "#d6cab0",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a6070",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glass dome",
+   "colour": "#a8d0d8",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "iron",
+   "label": "Dome's ironwork",
+   "colour": "#2e3a3a",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Window frames",
+   "colour": "#8a8270",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Bronze doors",
+   "colour": "#6a4a24",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Steps and plinth",
+   "colour": "#9a948a",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "banners",
+   "label": "Banners",
+   "colour": "#2a4a7a",
+   "texture": "woven",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   35.0,
+   20.0
+  ],
+  [
+   "circle",
+   -6.25,
+   -13.125,
+   0.75
+  ],
+  [
+   "circle",
+   -3.75,
+   -13.125,
+   0.75
+  ],
+  [
+   "circle",
+   -1.25,
+   -13.125,
+   0.75
+  ],
+  [
+   "circle",
+   1.25,
+   -13.125,
+   0.75
+  ],
+  [
+   "circle",
+   3.75,
+   -13.125,
+   0.75
+  ],
+  [
+   "circle",
+   6.25,
+   -13.125,
+   0.75
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -12.0,
+   16.0,
+   4.0,
+   1.5
+  ],
+  [
+   "box",
+   0.0,
+   -14.2,
+   16.0,
+   0.4,
+   1.5
+  ],
+  [
+   "box",
+   0.0,
+   -14.6,
+   16.0,
+   0.4,
+   1.2
+  ],
+  [
+   "box",
+   0.0,
+   -15.0,
+   16.0,
+   0.4,
+   0.9
+  ],
+  [
+   "box",
+   0.0,
+   -15.4,
+   16.0,
+   0.4,
+   0.6
+  ],
+  [
+   "box",
+   0.0,
+   -15.8,
+   16.0,
+   0.4,
+   0.3
+  ]
+ ],
+ "door": [
+  0.0,
+  -16.0
+ ],
+ "interior": false,
+ "anim": null
+}

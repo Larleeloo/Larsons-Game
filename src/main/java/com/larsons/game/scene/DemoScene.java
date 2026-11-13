@@ -777,8 +777,33 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         lockedCamera(dt);
         autoHeight();
         camera.update(dt, follow());
-        camera.keepAbove(world.terrain(), 0.8);
+        // (near the level's edge the camera may swing out over the ground round it: kept out of that too)
+        Terrain round = world.surroundGround();
+        double[] edges = world.bounds();
+        boolean nearEdge = round != null && edges != null && Math.max(Math.abs(camera.target().x()),
+                Math.abs(camera.target().z())) > edges[1] - OrbitCamera.MAX_DISTANCE * 1.2;
+        camera.keepAbove(nearEdge ? round : world.terrain(), 0.8);
+        if (inside != null || game.settings().outdoors() != com.larsons.game.building.Walls.UP) camera.keepClear();
+        else camera.keepClear(this::firstWall);
         sounds.update(world, camera, durations());
+    }
+
+    /**
+     * How far along the line from {@code from} to {@code to} (0 to 1) the
+     * first building in the way stands - one tall enough to hide her, not a
+     * bridge, a lamp or a piece of furniture; over 1 for none.
+     */
+    double firstWall(Vec3 from, Vec3 to) {
+        Vec3 d = to.sub(from);
+        double reach = d.length() + 2, best = 2;
+        for (Building b : world.buildings()) {
+            com.larsons.game.building.BuildingProfile p = b.profile();
+            if (p.furniture() || p.spans() || p.room() != null || p.height() < 3.5 || p.footprint().isEmpty()) continue;
+            if (b.position().sub(from).horizontalLength() > reach + p.reach()) continue;
+            double t = b.rayHit(from, d);
+            if (t >= 0.03 && t < best) best = t;          // (from her own doorstep: not in the way)
+        }
+        return best;
     }
 
     /**
@@ -2247,6 +2272,16 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                                 ? com.larsons.game.world.Weather.Mode.NONE : com.larsons.game.world.Weather.Mode.FIXED));
                 world.weatherNow().set(k, a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
             }
+            // what lies round the level: surround <theme> [near=96] [far=1600] [density=1] [height=1] [seed=1]
+            // [haze=0.35] [carry=false] (none: the open plain)
+            case "surround" -> {
+                com.larsons.game.world.Surroundings su = com.larsons.game.world.Surroundings.parse(argument,
+                        world.surroundings());
+                if (su == null) return false;
+                world.setSurroundings(su);
+            }
+            // the fog: fog <metres>
+            case "fog" -> world.setSky(world.sky().withFog(Double.parseDouble(argument.trim())));
             // where she stands, printed (for scripted checks)
             case "where" -> System.out.printf(java.util.Locale.ROOT, "[where] %.2f %.2f %.2f heading %.1f%n",
                     p.feet().x(), p.feet().y(), p.feet().z(), Math.toDegrees(p.heading()));

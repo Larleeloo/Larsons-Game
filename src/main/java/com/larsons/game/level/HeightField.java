@@ -117,7 +117,28 @@ public final class HeightField {
 
     /** The ground she walks on: these heights, with {@code walls} to climb and {@code places} with names. */
     public Terrain terrain(List<Terrain.Wall> walls, List<Terrain.Place> places) {
-        return Terrain.of(origin, origin, n, n, step, h, walls, places);
+        return terrain(walls, places, false);
+    }
+
+    /**
+     * {@link #terrain}, with its edge {@code open}: the edge points at the
+     * height just in from them rather than at 0, so that the ground runs
+     * level out to the edge and on into what lies round it (its
+     * {@link com.larsons.game.world.Surroundings}) without a lip at the seam.
+     */
+    public Terrain terrain(List<Terrain.Wall> walls, List<Terrain.Place> places, boolean open) {
+        float[] hs = h;
+        if (open && n > 2) {
+            hs = h.clone();
+            for (int j = 0; j < n; j++) {
+                for (int i = 0; i < n; i++) {
+                    if (i > 0 && j > 0 && i < n - 1 && j < n - 1) continue;
+                    int ii = Math.max(1, Math.min(n - 2, i)), jj = Math.max(1, Math.min(n - 2, j));
+                    hs[j * n + i] = h[jj * n + ii];
+                }
+            }
+        }
+        return Terrain.of(origin, origin, n, n, step, hs, walls, places);
     }
 
     // --- the brushes ---------------------------------------------------------------------

@@ -77,7 +77,12 @@ public final class WaterMap {
 
     /** No water over a square {@code size} metres a side, centred on the origin. */
     public WaterMap(double size) {
-        cell = cellFor(size);
+        this(size, cellFor(size));
+    }
+
+    /** No water over a square {@code size} metres a side, centred on the origin, in cells {@code cell} metres a side. */
+    public WaterMap(double size, double cell) {
+        this.cell = cell;
         cells = Math.max(1, (int) Math.round(size / cell));
         origin = -cells * cell / 2;
         surface = new float[cells * cells];
@@ -145,6 +150,28 @@ public final class WaterMap {
     /** The painted water's kind over cell {@code (c, r)} (null: none). */
     public Kind kindOf(int c, int r) {
         return Kind.byCode(kind[r * cells + c]);
+    }
+
+    /**
+     * Set cell {@code (c, r)}: water of {@code kind} (null: none) with its
+     * surface {@code level} metres high, flowing {@code (fx, fz)} - for maps
+     * made whole, as the ground round a level is ({@link SurroundGen}).
+     */
+    public void setCell(int c, int r, Kind kind, double level, double fx, double fz) {
+        if (this == NONE) throw new UnsupportedOperationException("WaterMap.NONE stays dry");
+        int i = r * cells + c;
+        surface[i] = kind == null ? Float.NaN : (float) level;
+        this.kind[i] = (byte) (kind == null ? 0 : kind.code());
+        flowX[i] = kind == null ? 0 : (float) fx;
+        flowZ[i] = kind == null ? 0 : (float) fz;
+        if (kind != null) empty = false;
+        version++;
+    }
+
+    /** The painted water's flow at {@code (x, z)}: x, z metres a second (0, 0 where there is none). */
+    public double[] flowAt(double x, double z) {
+        int i = index(x, z);
+        return i < 0 ? new double[2] : new double[]{flowX[i], flowZ[i]};
     }
 
     /** Cell {@code (c, r)}'s flow: x, z metres a second. */
@@ -381,7 +408,7 @@ public final class WaterMap {
 
     /** A copy to paint on without changing this one. */
     public WaterMap copy() {
-        WaterMap w = new WaterMap(size());
+        WaterMap w = new WaterMap(size(), cell);
         w.setBytes(bytes());
         w.seaLevel = seaLevel;
         return w;

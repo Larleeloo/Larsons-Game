@@ -105,6 +105,7 @@ public final class LevelWorld {
         world.setSky(level.sky());
         world.setWeather(level.weather());
         world.setCover(level.cover());
+        world.setSurroundings(level.surroundings());
         world.setLife(level.life());
         world.ammo().setEnabled(usesAmmo(level));
         world.startDay();
@@ -186,7 +187,15 @@ public final class LevelWorld {
         }
         LevelObject spawn = level.spawn();
         if (spawn != null) places.add(new Terrain.Place("spawn", spawn.x(), spawn.z()));
-        return hf.terrain(walls, places);
+        return hf.terrain(walls, places, openEdge(level));
+    }
+
+    /**
+     * Whether {@code level}'s ground runs on past its edge into what lies
+     * round it (its surroundings, outdoors), so its edge is not held at 0.
+     */
+    public static boolean openEdge(Level level) {
+        return level.surroundings().any() && level.cover() == com.larsons.game.world.Sky.Cover.OPEN;
     }
 
     /** How far in from the vines' foot their face's top is looked for, metres. */

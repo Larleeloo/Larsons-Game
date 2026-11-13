@@ -38,7 +38,7 @@ public final class BuildingProfile {
 
     /** What kind of thing it is: a building, a piece of furniture, or a piece of a room ({@link Room}). */
     public static final String BUILDING = "building", FURNITURE = "furniture", ROOM = "room", FIXTURE = "fixture",
-            TOWN = "town";
+            TOWN = "town", CITY = "city";
 
     /** A view's size in pixels and the pixel its ground point is at. */
     public record Frame(int width, int height, double anchorX, double anchorY, double angle) {}
@@ -87,6 +87,8 @@ public final class BuildingProfile {
     private boolean stands;
     /** What she walks up onto: its porch, its steps, its stairs. */
     private List<Step> steps = List.of();
+    /** A bridge: it spans from its front to its back, set at the height of the ground at its two ends. */
+    private boolean spans;
     /** How much wider, deeper and taller than it comes it is made (a placed one's size). */
     private double sx = 1, sy = 1, sz = 1;
 
@@ -202,6 +204,12 @@ public final class BuildingProfile {
     /** Whether it is the town's: a market stall, a town house, a workshop, a clock tower, a foundry. */
     public boolean town() { return group.equals(TOWN); }
 
+    /** Whether it is the steam-age city's: a terrace, a bank, a theatre, a station, a bridge, a post box. */
+    public boolean city() { return group.equals(CITY); }
+
+    /** Whether it is a bridge: it spans from its front to its back, standing on the ground at its two ends. */
+    public boolean spans() { return spans; }
+
     /** Measure it by its model: {@code top} metres tall (when it has no height of its own written). */
     void measured(double top) {
         if (Double.isNaN(modelHeight) && top > 0) modelHeight = top;
@@ -247,6 +255,7 @@ public final class BuildingProfile {
         q.modelOnly = modelOnly;
         q.shelf = shelf;
         q.stands = stands;
+        q.spans = spans;
         q.flame = flame == null ? null : new double[]{flame[0] * wide, flame[1] * deep, flame[2] * tall};
         List<Step> st = new ArrayList<>();
         for (Step s : steps) st.add(new Step(s.x() * wide, s.y() * deep, s.w() * wide, s.d() * deep, s.top() * tall));
@@ -329,6 +338,7 @@ public final class BuildingProfile {
                     ((Number) f.get(2)).doubleValue()};
         }
         p.stands = Json.bool(o, "stands", false);
+        p.spans = Json.bool(o, "spans", false);
         List<Step> steps = new ArrayList<>();
         if (o.get("steps") instanceof List<?> sl) {
             for (Object x : sl) {

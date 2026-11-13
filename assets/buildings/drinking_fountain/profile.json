@@ -1,0 +1,45 @@
+{
+ "key": "drinking_fountain",
+ "label": "Drinking fountain",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.25,
+ "model": true,
+ "parts": [
+  {
+   "key": "granite",
+   "label": "Granite",
+   "colour": "#8a8a8e",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "bronze",
+   "label": "Bronze",
+   "colour": "#7a6a3a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "water",
+   "label": "Water",
+   "colour": "#5a9ac8",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.75,
+   1.75
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

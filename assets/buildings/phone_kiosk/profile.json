@@ -1,0 +1,52 @@
+{
+ "key": "phone_kiosk",
+ "label": "Telephone kiosk",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.462,
+ "model": true,
+ "parts": [
+  {
+   "key": "paint",
+   "label": "Red paint",
+   "colour": "#b8241e",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Glazing",
+   "colour": "#c8d8e0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "sign",
+   "label": "Crown sign",
+   "colour": "#f0ead8",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "base",
+   "label": "Base",
+   "colour": "#6e6a64",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   1.275,
+   1.275
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

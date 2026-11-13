@@ -1,0 +1,130 @@
+{
+ "key": "apothecary",
+ "label": "Apothecary",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 14.664,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Front and back walls",
+   "colour": "#d8ccb0",
+   "texture": "plaster",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#8a5a42",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "shopfront",
+   "label": "Shop front",
+   "colour": "#2e5a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#4e4a46",
+   "texture": "slate",
+   "glow": false
+  },
+  {
+   "key": "trim",
+   "label": "Trim",
+   "colour": "#2e5a3a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#2e5a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#7ac0a0",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "sign",
+   "label": "Fascia",
+   "colour": "#1e3a26",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lettering",
+   "label": "Name",
+   "colour": "#e0c060",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "copper",
+   "label": "Copper still",
+   "colour": "#b87333",
+   "texture": "standing_seam",
+   "glow": false
+  },
+  {
+   "key": "glass",
+   "label": "Bottles",
+   "colour": "#5ab0d0",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "chimney",
+   "label": "Chimney",
+   "colour": "#8a5a42",
+   "texture": "brick",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   7.0,
+   8.75
+  ],
+  [
+   "circle",
+   4.438,
+   1.25,
+   0.812
+  ],
+  [
+   "circle",
+   4.438,
+   -0.5,
+   0.562
+  ]
+ ],
+ "steps": [],
+ "door": [
+  -1.625,
+  -5.5
+ ],
+ "interior": true,
+ "anim": null
+}

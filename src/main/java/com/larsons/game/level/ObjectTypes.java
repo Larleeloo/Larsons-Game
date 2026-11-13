@@ -330,7 +330,7 @@ public final class ObjectTypes {
      */
     static List<String> fixtures() {
         return List.of("candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce",
-                "lantern", "lantern_post", "glow");
+                "lantern", "lantern_post", "gas_lamp", "gas_lamp_double", "glow");
     }
 
     /**
@@ -483,9 +483,25 @@ public final class ObjectTypes {
             }
         }
         y = Math.max(y, terrain.height(o.x(), o.z()) - 1.5);
+        if (p.spans()) y = spanHeight(at, p, terrain);
         return new Building(o.id(), p, new Vec3(o.x(), y + o.lift(), o.z()), o.yaw(),
                 BuildingLook.of(o.props().get("look")), o.str("interior", null))
                 .withPassage(new Building.Passage(o.str("passage", "none"), o.str("to", ""), o.bool("hidden", false)));
+    }
+
+    /**
+     * Where a bridge stands: on the lower of the banks at its two ends (the
+     * middle of its front and of its back), whatever the river under it.
+     */
+    static double spanHeight(Building at, BuildingProfile p, com.larsons.game.world.Terrain terrain) {
+        double lo = 0, hi = 0;
+        for (BuildingProfile.Shape s : p.footprint()) {
+            double r = s.circle() ? s.w() : s.d() / 2;
+            lo = Math.min(lo, s.y() - r);
+            hi = Math.max(hi, s.y() + r);
+        }
+        Vec3 a = at.toWorld(0, lo + 0.5), b = at.toWorld(0, hi - 0.5);
+        return Math.min(terrain.height(a.x(), a.z()), terrain.height(b.x(), b.z()));
     }
 
     /**
@@ -498,7 +514,7 @@ public final class ObjectTypes {
 
     /** Where the palette files a building: furniture by the shelf it is kept on (kitchen, decor, plants…). */
     static Category shelf(BuildingProfile p) {
-        if (!p.furniture()) return p.town() ? Category.TOWN : Category.BUILDINGS;
+        if (!p.furniture()) return p.town() ? Category.TOWN : p.city() ? Category.CITY : Category.BUILDINGS;
         String sh = p.shelf();
         if (sh == null) return Category.FURNITURE;
         return switch (sh) {
@@ -891,6 +907,8 @@ public final class ObjectTypes {
                 {"Standing candelabra", "standing_candelabra", 1.6, "candle", 5.0},
                 {"Chandelier", "chandelier", 2.7, "candle", 7.0}, {"Wall sconce", "wall_sconce", 1.7, "candle", 4.5},
                 {"Lantern", "lantern", 1.0, "lantern", 5.0}, {"Lantern post", "lantern_post", 1.9, "lantern", 7.0},
+                {"Gas street lamp", "gas_lamp", 4.2, "lantern", 10.0},
+                {"Double gas lamp", "gas_lamp_double", 4.7, "lantern", 12.0},
                 {"Glow (magic)", "glow", 1.2, "magic", 5.0}};
         for (Object[] l : lights) {
             Map<String, Object> props = new LinkedHashMap<>();

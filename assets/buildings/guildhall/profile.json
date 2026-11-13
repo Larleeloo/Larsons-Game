@@ -1,0 +1,157 @@
+{
+ "key": "guildhall",
+ "label": "Guildhall",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 29.0,
+ "model": true,
+ "parts": [
+  {
+   "key": "walls",
+   "label": "Walls",
+   "colour": "#a49a88",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "side_walls",
+   "label": "Side walls",
+   "colour": "#a49a88",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "dressing",
+   "label": "Dressed stone",
+   "colour": "#cabea4",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "roof",
+   "label": "Roof",
+   "colour": "#5a4a44",
+   "texture": "clay_tiles",
+   "glow": false
+  },
+  {
+   "key": "battlements",
+   "label": "Battlements",
+   "colour": "#b4aa96",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "trim",
+   "label": "Tracery",
+   "colour": "#6a6458",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "door",
+   "label": "Door",
+   "colour": "#4a2a1a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Foundation",
+   "colour": "#7e7a74",
+   "texture": "stone_blocks",
+   "glow": false
+  },
+  {
+   "key": "banners",
+   "label": "Banners",
+   "colour": "#8a2a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "gilt",
+   "label": "Gilding",
+   "colour": "#d8b050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "clock",
+   "label": "Clock face",
+   "colour": "#1e2a4a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "hands",
+   "label": "Clock's hands and numerals",
+   "colour": "#e0c060",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lantern",
+   "label": "Louvre",
+   "colour": "#6a4a2e",
+   "texture": "boards",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   27.5,
+   15.0
+  ],
+  [
+   "box",
+   0.0,
+   -8.75,
+   7.5,
+   5.0
+  ]
+ ],
+ "steps": [
+  [
+   "box",
+   0.0,
+   -11.45,
+   5.0,
+   0.4,
+   0.637
+  ],
+  [
+   "box",
+   0.0,
+   -11.85,
+   5.0,
+   0.4,
+   0.425
+  ],
+  [
+   "box",
+   0.0,
+   -12.25,
+   5.0,
+   0.4,
+   0.213
+  ]
+ ],
+ "door": [
+  0.0,
+  -13.125
+ ],
+ "interior": false,
+ "anim": null
+}

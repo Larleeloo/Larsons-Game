@@ -182,6 +182,16 @@ public final class WorldRenderer implements AutoCloseable {
         buildings = r;
     }
 
+    /** What lies round a level, drawn with {@code r} from now on ({@link Surroundings}; it is closed with this). */
+    public void useSurroundings(SurroundRenderer r) {
+        surround = r;
+    }
+
+    /** The surroundings' renderer (null: none). */
+    public SurroundRenderer surroundings() { return surround; }
+
+    private SurroundRenderer surround;
+
     /** Draw the buildings that are the level objects {@code ids} lit up (null: none) - the editor's selection. */
     public void highlightBuildings(Set<Integer> ids) {
         highlight = ids == null ? Set.of() : ids;
@@ -245,6 +255,8 @@ public final class WorldRenderer implements AutoCloseable {
 
         ground = world.terrain();
         lightUp(world, camera, light);
+        // what lies round the level: its far ring after the sky, its near ring with the level's ground
+        boolean around = surround != null && surround.prepare(world) && !indoors;
         if (indoors) {
             glClearColor(dark[0], dark[1], dark[2], 1f);
             glDepthMask(true);
@@ -261,23 +273,43 @@ public final class WorldRenderer implements AutoCloseable {
             }
         } else {
             voidRenderer.useGround(world.ground());
-            voidRenderer.setEdges(world.bounds());       // (the backdrops stand round the level's edges)
             // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
             float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
-            voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
+            if (around) {
+                // the sky, the far ring over it, then the level's own ground within its edges (the backdrops far off)
+                voidRenderer.setEdges(null);
+                voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel,
+                        VoidRenderer.SKY, null);
+                surround.drawFar(camera, aspect, fog, fogFar, light, sceneLight, world.time());
+                voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel,
+                        VoidRenderer.GROUND, surround.hole());
+            } else {
+                voidRenderer.setEdges(world.bounds());       // (the backdrops stand round the level's edges)
+                voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, sky, light, sceneLight, world.time(), pixel);
+            }
             if (terrain != null) terrain.draw(ground, camera, viewProj, fog, fogFar, sceneLight);
+            if (around) surround.drawGround(camera, viewProj, fog, fogFar, sceneLight);
         }
         if (buildings != null) {
             // the windows lit from dusk to dawn
             double t = Math.max(0, Math.min(1, (0.55 - light.day()) / 0.4));
             buildings.draw(world.buildings(), camera, camera.target(), viewProj, fog, fogFar, sceneLight, smooth(t),
                     world.time(), highlight);
+            if (around) {
+                buildings.draw(surround.buildings(), camera, camera.target(), viewProj, fog, fogFar, sceneLight,
+                        smooth(t), world.time(), Set.of());
+            }
         }
         batch.useSceneLight(sceneLight);
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
         scenery.showBare(world::picked);
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright);
+        if (around) {
+            // (out past the fog, the trees round the level are not drawn at all)
+            scenery.draw(batch, surround.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera,
+                    upright, fogFar * 2.3 + 20);
+        }
 
         // --- shadows -------------------------------------------------------------
         glEnable(GL_DEPTH_TEST);
@@ -331,6 +363,21 @@ public final class WorldRenderer implements AutoCloseable {
                     (float) (0.5 * f.alpha()));
         }
         for (Building b : world.buildings()) buildingShadow(b);
+        if (around) {
+            // the shadows round the level, on its ground, as far as the fog lets them be seen
+            Terrain was = ground;
+            ground = surround.ground();
+            double reach = Math.pow(fogFar * 1.6 + 10, 2);
+            for (Scenery.Placed s : surround.scenery().shadowed()) {
+                double dx = s.x() - eye.x(), dz = s.z() - eye.z();
+                if (dx * dx + dz * dz < reach) groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
+            }
+            for (Building b : surround.buildings()) {
+                double dx = b.position().x() - eye.x(), dz = b.position().z() - eye.z();
+                if (dx * dx + dz * dz < reach) buildingShadow(b);
+            }
+            ground = was;
+        }
         batch.end();
 
         // --- sprites, far to near (tested against the scenery, not written) --------
@@ -811,7 +858,9 @@ public final class WorldRenderer implements AutoCloseable {
         }
 
         // --- the water, over what stands and wades in it ------------------------------
+        water.setReach(!around, null, WaterRenderer.SEA_CELL);       // (round a level, its own sea runs on)
         water.draw(world.water(), ground, eye, viewProj, fog, fogFar, light, sceneLight, world.time());
+        if (around) surround.drawWater(eye, viewProj, fog, fogFar, light, sceneLight, world.time());
 
         // --- she dives: seen down through the water over her, in its colour, dimmer the deeper she is ---
         if (p.underWater() && steed == null && !stack.layers().isEmpty()) {
@@ -1265,5 +1314,6 @@ public final class WorldRenderer implements AutoCloseable {
         piece.close();
         water.close();
         if (buildings != null) buildings.close();
+        if (surround != null) surround.close();
     }
 }

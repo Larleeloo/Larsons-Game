@@ -1,0 +1,125 @@
+{
+ "key": "airship_tower",
+ "label": "Airship mooring tower",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 48.6,
+ "model": true,
+ "parts": [
+  {
+   "key": "lattice",
+   "label": "Steel lattice",
+   "colour": "#3a3a44",
+   "texture": "riveted",
+   "glow": false
+  },
+  {
+   "key": "deck",
+   "label": "Platform",
+   "colour": "#6a4a2e",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "lift",
+   "label": "Lift cage",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "lamp",
+   "label": "Beacon",
+   "colour": "#ff5040",
+   "texture": "smooth",
+   "glow": true
+  },
+  {
+   "key": "envelope",
+   "label": "Airship's envelope",
+   "colour": "#c8b89a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "bands",
+   "label": "Envelope's bands",
+   "colour": "#8a6a4a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "fins",
+   "label": "Fins",
+   "colour": "#8a2a2a",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "gondola",
+   "label": "Gondola",
+   "colour": "#6a4a2e",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "windows",
+   "label": "Gondola's windows",
+   "colour": "#e8c890",
+   "texture": "panes",
+   "glow": true
+  },
+  {
+   "key": "brass",
+   "label": "Propellers and fittings",
+   "colour": "#c8a050",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "foundation",
+   "label": "Footings",
+   "colour": "#8e8a82",
+   "texture": "stone_blocks",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   -5.625,
+   -5.625,
+   1.062
+  ],
+  [
+   "circle",
+   -5.625,
+   5.625,
+   1.062
+  ],
+  [
+   "circle",
+   5.625,
+   -5.625,
+   1.062
+  ],
+  [
+   "circle",
+   5.625,
+   5.625,
+   1.062
+  ],
+  [
+   "box",
+   0.0,
+   0.0,
+   2.0,
+   2.0
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}
