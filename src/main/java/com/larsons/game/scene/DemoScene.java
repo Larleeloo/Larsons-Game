@@ -778,7 +778,27 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         autoHeight();
         camera.update(dt, follow());
         camera.keepAbove(world.terrain(), 0.8);
+        if (inside != null || game.settings().outdoors() != com.larsons.game.building.Walls.UP) camera.keepClear();
+        else camera.keepClear(this::firstWall);
         sounds.update(world, camera, durations());
+    }
+
+    /**
+     * How far along the line from {@code from} to {@code to} (0 to 1) the
+     * first building in the way stands - one tall enough to hide her, not a
+     * bridge, a lamp or a piece of furniture; over 1 for none.
+     */
+    double firstWall(Vec3 from, Vec3 to) {
+        Vec3 d = to.sub(from);
+        double reach = d.length() + 2, best = 2;
+        for (Building b : world.buildings()) {
+            com.larsons.game.building.BuildingProfile p = b.profile();
+            if (p.furniture() || p.spans() || p.room() != null || p.height() < 3.5 || p.footprint().isEmpty()) continue;
+            if (b.position().sub(from).horizontalLength() > reach + p.reach()) continue;
+            double t = b.rayHit(from, d);
+            if (t >= 0.03 && t < best) best = t;          // (from her own doorstep: not in the way)
+        }
+        return best;
     }
 
     /**

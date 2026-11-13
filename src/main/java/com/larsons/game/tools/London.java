@@ -232,6 +232,12 @@ public final class London {
     }
 
     void report() {
+        tally.clear();
+        for (LevelObject o : l.level.objects()) {
+            String kind = o.str("kind", "");
+            if (o.type().equals(ObjectTypes.BUILDING)) tally.merge(kind, 1, Integer::sum);
+            else if (o.type().equals(ObjectTypes.LIGHT)) tally.merge(o.str("fixture", "light"), 1, Integer::sum);
+        }
         List<String> missing = new ArrayList<>();
         for (String k : catalog.keys()) {
             BuildingProfile p = catalog.profile(k);
