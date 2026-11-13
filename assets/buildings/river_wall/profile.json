@@ -1,0 +1,52 @@
+{
+ "key": "river_wall",
+ "label": "Embankment wall (5 m)",
+ "group": "city",
+ "pixel": 0.0375,
+ "texel": 0.0375,
+ "height": 3.9,
+ "model": true,
+ "parts": [
+  {
+   "key": "granite",
+   "label": "Granite",
+   "colour": "#8e8a82",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "coping",
+   "label": "Coping",
+   "colour": "#b4ae9e",
+   "texture": "ashlar",
+   "glow": false
+  },
+  {
+   "key": "bronze",
+   "label": "Lion heads",
+   "colour": "#5a6a4a",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "weed",
+   "label": "Waterline",
+   "colour": "#3e4a36",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   5.0,
+   1.375
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

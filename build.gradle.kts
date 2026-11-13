@@ -312,6 +312,20 @@ tasks.register<JavaExec>("makeBrassVale") {
     workingDir = projectDir
 }
 
+// Old London, a demo level of the city buildings: the Thames and its bridges, the West End, the City,
+// the docks - laid out in code as Creative Mode would save it (and opened there to be changed).
+//   ./gradlew makeLondon               → assets/levels/london/
+//   ./gradlew makeLondon -Pplan        → and build/london-plan.png, the plan from above
+tasks.register<JavaExec>("makeLondon") {
+    group = "application"
+    description = "Write the Old London demo level into assets/levels/london"
+    mainClass = "com.larsons.game.tools.London"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("-Djava.awt.headless=true")
+    workingDir = projectDir
+    args(listOfNotNull("assets/levels", if (project.hasProperty("plan")) "build/london-plan.png" else null))
+}
+
 // A stand-in "Blender" sprite set rendered from the fallback puppet — body, a
 // cap and the sword on separate held-out layers — for trying the real-sheet
 // path and the drag-and-drop importer before the real renders exist.

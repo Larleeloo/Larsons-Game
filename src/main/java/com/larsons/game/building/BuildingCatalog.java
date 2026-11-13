@@ -86,7 +86,7 @@ public final class BuildingCatalog {
             "palm_house", "bandstand", "iron_bridge", "tower_bridge",
             "pillar_box", "phone_kiosk", "police_box", "newsstand", "advertising_column", "street_clock",
             "cab_shelter", "drinking_fountain", "iron_railing", "bollard", "steam_carriage", "steam_omnibus",
-            "steam_locomotive",
+            "steam_locomotive", "rail_track", "river_wall",
             // the story's: what is made at, read, kept shut and called up - and the horde game's
             "workbench", "signpost", "locked_door", "iron_gate", "summon_station", "wall_buy", "mystery_box",
             "barricade",
