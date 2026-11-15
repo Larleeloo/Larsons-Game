@@ -2,6 +2,7 @@ package com.larsons.game.scene;
 
 import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
+import com.larsons.game.sprite.Variants;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
@@ -149,12 +150,21 @@ class WardrobePanelTest {
         return player.inventory().items().stream().filter(i -> i.def() == w("dye_pink")).count();
     }
 
+    /** The item's own colours that are unlocked (the palette's, which follow them, apart: {@link #palette}). */
     private static List<String> open(List<Wearables.Colour> colours) {
-        return colours.stream().filter(Wearables.Colour::unlocked).map(Wearables.Colour::option).toList();
+        return colours.stream().filter(c -> !Variants.isCustom(c.option())).filter(Wearables.Colour::unlocked)
+                .map(Wearables.Colour::option).toList();
     }
 
+    /** The item's own colours. */
     private static List<String> options(List<Wearables.Colour> colours) {
-        return colours.stream().map(Wearables.Colour::option).toList();
+        return colours.stream().map(Wearables.Colour::option).filter(c -> !Variants.isCustom(c)).toList();
+    }
+
+    /** The palette's colours among them: all of them ({@code unlocked} null), or those unlocked or not. */
+    private static List<String> palette(List<Wearables.Colour> colours, Boolean unlocked) {
+        return colours.stream().filter(c -> Variants.isCustom(c.option()))
+                .filter(c -> unlocked == null || c.unlocked() == unlocked).map(Wearables.Colour::option).toList();
     }
 
     @Test
@@ -220,8 +230,13 @@ class WardrobePanelTest {
                 "lips already pink");
         player.inventory().add(Item.of(w("dye_pink")));
         Set<ItemDef> dye = Wearables.owned(player.inventory());
-        assertEquals(List.of(), open(Wearables.colours(Slot.HAIR, "bob", all, null, dye, wr)),
+        assertEquals(List.of(), open(Wearables.colours(Slot.SHIRT, "plaid_flannel", all, null, dye, wr)),
                 "a dye in the bag unlocks nothing until it is used");
+        for (Slot s : List.of(Slot.HAIR, Slot.EYEBROWS)) {
+            List<Wearables.Colour> hers = Wearables.colours(s, "bob", all, null, none, wr);
+            assertEquals(all, open(hers), s + ": every colour from the start");
+            assertEquals(Wearables.PALETTE, palette(hers, true), s + ": and every colour of the palette");
+        }
         wr.unlock(Slot.MAKEUP, "eyeliner", "pink");
         assertEquals(List.of("pink"), open(Wearables.colours(Slot.MAKEUP, "eyeliner", all, null, none, wr)),
                 "makeup is dyed like the rest");
@@ -235,12 +250,49 @@ class WardrobePanelTest {
     }
 
     @Test
+    void everyColourOfThePaletteFollowsTheItemsOwnAndTakesADyeOfIt() {
+        Wardrobe wr = player.wardrobe();
+        wr.set(Slot.SHIRT, "plaid_flannel");
+        List<Wearables.Colour> colours = WardrobePanel.colours(lib, Slot.SHIRT, player);
+        assertEquals(Wearables.PALETTE, palette(colours, null), "after its own three, the palette's hundred");
+        assertEquals(100, Wearables.PALETTE.size());
+        assertEquals(List.of(), palette(colours, true), "what is worn takes a dye for each");
+        // a colour of the palette no named dye is: its own dye, by its colour
+        String teal = Wearables.PALETTE.stream().filter(c -> !Wearables.DYE_RGB.containsValue(Wearables.rgb(c)))
+                .findFirst().orElseThrow();
+        ItemDef dye = Wearables.dye(teal);
+        assertNotNull(dye, teal);
+        assertEquals("dye_" + teal.substring(1), dye.id());
+        assertEquals(Wearables.colourName(teal) + " dye", dye.name());
+        assertFalse(Wearables.colourName(teal).startsWith("#"), "a palette colour has a name: " + teal);
+        Wearables.Colour locked = colours.stream().filter(c -> c.option().equals(teal)).findFirst().orElseThrow();
+        assertNull(WardrobePanel.pick(wr, player, Slot.SHIRT, locked), "no dye of it: nothing to offer");
+        player.inventory().add(Item.of(dye));
+        assertEquals(teal, WardrobePanel.pick(wr, player, Slot.SHIRT, locked), "offered");
+        assertTrue(Wearables.useDye(wr, player.inventory(), Slot.SHIRT, teal));
+        assertEquals(teal, wr.colour(Slot.SHIRT));
+        assertNull(Wearables.dyeIn(player.inventory(), teal), "used up");
+        assertEquals(List.of(teal), palette(WardrobePanel.colours(lib, Slot.SHIRT, player), true));
+        // one of the 14 named dyes' own colours is that dye's
+        String pink = String.format("#%06x", Wearables.DYE_RGB.get("pink"));
+        assertTrue(Wearables.PALETTE.contains(pink), "the dyes' colours are the palette's");
+        assertSame(w("dye_pink"), Wearables.dye(pink));
+        // an item with no colour of its own to change takes none of the palette's either
+        assertEquals(List.of(), Wearables.colours(Slot.SHIRT, "one_colour", List.of(), null,
+                Wearables.owned(player.inventory()), wr));
+        // every name is its own
+        assertEquals(100, Wearables.PALETTE.stream().map(Wearables::colourName).distinct().count());
+    }
+
+    @Test
     void everythingUnlockedOpensEveryColour() {
         List<String> all = List.of("brown", "pink");
         try {
             Wearables.setEverything(true);
-            assertEquals(all, open(Wearables.colours(Slot.SHIRT, "plaid_flannel", all, null,
-                    Wearables.owned(player.inventory()), new Wardrobe())));
+            List<Wearables.Colour> colours = Wearables.colours(Slot.SHIRT, "plaid_flannel", all, null,
+                    Wearables.owned(player.inventory()), new Wardrobe());
+            assertEquals(all, open(colours));
+            assertEquals(Wearables.PALETTE, palette(colours, true), "and the palette's");
         } finally {
             Wearables.setEverything(false);
         }

@@ -135,4 +135,69 @@ class ArmourLayersTest {
         assertFalse(r.fallbackBody());
         return r.layers().stream().map(LayerStack.Layer::slot).toList();
     }
+
+
+    @Test
+    void longHairIsGatheredAtTheHeadWhileSheSwimsAStroke() throws Exception {
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.BODY, "hero");
+        for (String hair : List.of("long_waves", "braids", "curls")) {
+            w.set(Slot.HAIR, hair);
+            assertEquals("bob", w.keptTo(Slot.HAIR, AnimState.SWIM), hair);
+        }
+        w.set(Slot.HAIR, "beanie_long");
+        assertEquals("beanie_short", w.keptTo(Slot.HAIR, AnimState.SWIM), "under its beanie still");
+        assertNull(w.keptTo(Slot.HAIR, AnimState.SWIM_IDLE), "treading water she is upright: it hangs as it does");
+        assertNull(w.keptTo(Slot.HAIR, AnimState.WALK));
+        assertNull(w.keptTo(Slot.SHIRT, AnimState.SWIM), "her hair only");
+        w.set(Slot.HAIR, "pixie");
+        assertNull(w.keptTo(Slot.HAIR, AnimState.SWIM), "short hair is as it is");
+        w.clear(Slot.HAIR);
+        assertNull(w.keptTo(Slot.HAIR, AnimState.SWIM));
+
+        // in the stack: her long hair's sheet is the one kept near the bob's, the same state from the same view
+        for (String rel : List.of("body/hero", "hair/long_waves", "hair/bob")) {
+            Path dir = root.resolve(rel);
+            Files.createDirectories(dir);
+            ImageIO.write(VariantsTest.sheet(), "png", dir.resolve("swim_side_e.png").toFile());
+            ImageIO.write(VariantsTest.sheet(), "png", dir.resolve("walk_side_e.png").toFile());
+            Files.writeString(dir.resolve("profile.json"),
+                    "{\"frameWidth\": 4, \"frameHeight\": 1, \"pixelArt\": true}", StandardCharsets.UTF_8);
+        }
+        lib = new SpriteLibrary(root, 1L << 30, 1.0, (layout, pixels, source) -> {
+            pixels.free();
+            return new SheetTexture(layout, SpriteLibrary.bytesOf(layout), source);
+        });
+        w.set(Slot.HAIR, "long_waves");
+        SpriteView view = new SpriteView(Elevation.SIDE, Facing.EAST, Elevation.SIDE.renderAngle());
+        SpriteLibrary.Resolved hair = lib.resolve(lib.source("hero", Slot.HAIR, "long_waves", w.style(), false),
+                AnimState.SWIM, Elevation.SIDE, Facing.EAST);
+        SpriteLibrary.Resolved bob = lib.resolve(lib.source("hero", Slot.HAIR, "bob", w.style(), false),
+                AnimState.SWIM, Elevation.SIDE, Facing.EAST);
+        SpriteLibrary.Resolved kept = hair.keptNear(bob.file());
+        assertTrue(kept.keep());
+        assertNotEquals(hair.key(), kept.key(), "a sheet of its own beside the whole one");
+        assertNotEquals(hair.cutBy(bob.file()).key(), kept.key(), "kept near it is not cut under it");
+        assertEquals(hair.key(), hair.keptNear(null).key());
+        // (every sheet asked for first: a stack resolved before its body is in draws the generated one, on the GPU)
+        SpriteLibrary.Resolved whole = lib.resolve(lib.source("hero", Slot.HAIR, "long_waves", w.style(), false),
+                AnimState.WALK, Elevation.SIDE, Facing.EAST);
+        for (AnimState state : List.of(AnimState.SWIM, AnimState.WALK)) {
+            lib.sheet(lib.resolve(lib.source("hero", Slot.BODY, "hero", w.style(), false), state, Elevation.SIDE,
+                    Facing.EAST));
+        }
+        lib.sheet(kept);
+        lib.sheet(whole);
+        lib.awaitDecodes();
+        lib.pumpAll();
+        assertNotNull(lib.sheet(kept));
+        LayerStack.Result r = LayerStack.resolve(lib, w, AnimState.SWIM, 0, view, new LayerStack.Memory());
+        assertFalse(r.fallbackBody());
+        assertEquals(List.of(Slot.BODY, Slot.HAIR), r.layers().stream().map(LayerStack.Layer::slot).toList());
+        assertSame(lib.sheet(kept), r.layers().get(1).sheet(), "swimming: the sheet kept near the bob's");
+        // walking, it is the whole sheet
+        LayerStack.Result walk = LayerStack.resolve(lib, w, AnimState.WALK, 0, view, new LayerStack.Memory());
+        assertNotSame(lib.sheet(kept), lib.sheet(whole));
+        assertSame(lib.sheet(whole), walk.layers().get(1).sheet());
+    }
 }

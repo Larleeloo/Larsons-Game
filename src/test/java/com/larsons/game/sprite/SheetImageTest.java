@@ -255,4 +255,37 @@ class SheetImageTest {
         BufferedImage same = indexed(8, 4, dress);
         assertSame(same, SheetImage.cutUnder(same, odd, 4, 4));
     }
+
+
+    @Test
+    void aLayerKeptNearAnotherLosesWhatIsFarFromIt() {
+        // two 64x64 frames side by side (a reach of one pixel): long hair (2) down a column of each, a cap of
+        // short hair (3) at the top of the first frame only
+        int w = 128, h = 64;
+        int[] hair = new int[w * h], cap = new int[w * h];
+        for (int y = 4; y < 40; y++) {
+            hair[y * w + 10] = 2;
+            hair[y * w + 64 + 10] = 2;
+        }
+        for (int y = 4; y < 8; y++) cap[y * w + 10] = 3;
+        cap[20 * w + 30] = 1;                               // the empty-frame marker is not hair
+        assertEquals(1, SheetImage.reach(64));
+        assertEquals(3, SheetImage.reach(128));
+        BufferedImage kept = SheetImage.keepNear(indexed(w, h, hair), indexed(w, h, cap), 64, 64);
+        int[] px = kept.getRaster().getPixels(0, 0, w, h, (int[]) null);
+        for (int y = 4; y < 40; y++) {
+            assertEquals(y <= 8 ? 2 : 0, px[y * w + 10], "row " + y + ": kept to within a pixel of the cap");
+            assertEquals(0, px[y * w + 64 + 10], "the second frame has no cap: none of it stays");
+        }
+        assertInstanceOf(IndexColorModel.class, kept.getColorModel(), "still a palette sheet");
+        // a cap in the next frame over does not count for this one
+        int[] edge = new int[w * h], next = new int[w * h];
+        edge[10 * w + 63] = 2;
+        next[10 * w + 64] = 3;
+        assertEquals(0, SheetImage.keepNear(indexed(w, h, edge), indexed(w, h, next), 64, 64).getRaster()
+                .getSample(63, 10, 0));
+        // not two palette sheets of one size: left as it is
+        BufferedImage same = indexed(w, h, hair);
+        assertSame(same, SheetImage.keepNear(same, indexed(64, 64, new int[64 * 64]), 64, 64));
+    }
 }

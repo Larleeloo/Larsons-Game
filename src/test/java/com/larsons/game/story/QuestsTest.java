@@ -151,4 +151,39 @@ class QuestsTest {
         assertTrue(Quests.rewards(null).isEmpty());
         assertEquals("", Quests.rewardText(""));
     }
+
+
+    @Test
+    void aMissionFollowedIsFollowedInEveryLevel() {
+        Map<String, Object> saved = new LinkedHashMap<>();
+        Quest bears = quest("bears", Quest.Kind.KILL, "bear", 2, 30, "", "");
+        Quest word = quest("word", Quest.Kind.TALK, "Garrick", 1, 0, "", "");
+        Quest later = quest("later", Quest.Kind.TALK, "Tilda", 1, 0, "", "");
+        Quests village = new Quests(saved, List.of(bears, word, later), "Oakhollow");
+        assertEquals(List.of(), village.elsewhere(), "nothing taken yet");
+        village.accept(bears);
+        village.accept(word);
+        village.talked("Garrick");
+        assertEquals(List.of(), village.elsewhere(), "her own are in her own list");
+
+        // the next level: the same save, a quest of its own
+        Quest own = quest("own", Quest.Kind.TALK, "Maren", 1, 0, "", "");
+        Quests town = new Quests(saved, List.of(own), "Brasswick");
+        List<Quests.Elsewhere> there = town.elsewhere();
+        assertEquals(List.of("bears", "word"), there.stream().map(Quests.Elsewhere::id).toList());
+        assertEquals("The bears", there.get(0).title());
+        assertEquals("Oakhollow", there.get(0).place());
+        assertEquals(Quests.State.ACTIVE, there.get(0).state());
+        assertEquals(Quests.State.READY, there.get(1).state());
+        assertEquals("Done - go back to Maren", there.get(1).goal());
+        // one she stops following is not shown; one handed in is over
+        village.setTracked("bears", false);
+        assertEquals(List.of("word"), town.elsewhere().stream().map(Quests.Elsewhere::id).toList());
+        village.handIn(word, new Inventory(4));
+        assertEquals(List.of(), town.elsewhere());
+        // the map's list: wherever they are
+        village.setTracked("bears", true);
+        assertEquals(List.of("bears"), Quests.elsewhere(saved, null).stream().map(Quests.Elsewhere::id).toList());
+        assertEquals(List.of(), Quests.elsewhere(null, null));
+    }
 }

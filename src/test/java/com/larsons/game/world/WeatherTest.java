@@ -123,4 +123,53 @@ class WeatherTest {
         assertEquals(Weather.Kind.SANDSTORM, w.weather().kind());
         assertEquals(Sky.Cover.CAVE, w.cover());
     }
+
+
+    @Test
+    void aLevelsOwnEventsComeAsOftenAsEachIsSetInSpellsAsLongAsSet(@TempDir Path root) throws Exception {
+        Weather w = Weather.NONE.withMode(Weather.Mode.CUSTOM).withOften(0.5).withSpell(40).withStrength(0.8);
+        for (Weather.Kind k : Weather.Kind.values()) w = w.withEvent(k, 0);
+        assertEquals(Weather.Kind.CLEAR, w.eventFor(0.4), "no event set: clear skies");
+        w = w.withEvent(Weather.Kind.SNOW, 1).withEvent(Weather.Kind.SANDSTORM, 0.25);
+        assertEquals(1, w.event(Weather.Kind.SNOW), 1e-9);
+        assertEquals(0, w.event(Weather.Kind.RAIN), 1e-9);
+        assertEquals(0, w.withEvent(Weather.Kind.CLEAR, 1).event(Weather.Kind.CLEAR), 1e-9, "clear is no event");
+        int snow = 0, sand = 0;
+        for (int i = 0; i < 1000; i++) {
+            Weather.Kind k = w.eventFor(i / 1000.0);
+            if (k == Weather.Kind.SNOW) snow++;
+            else if (k == Weather.Kind.SANDSTORM) sand++;
+            else fail("only what is set comes: " + k);
+        }
+        assertEquals(800, snow, 2, "four times in five");
+        assertEquals(200, sand, 2);
+
+        // through the day: only those two, about half of the time, in spells of 40 seconds
+        Weather.Now now = new Weather.Now(3);
+        Set<Weather.Kind> seen = EnumSet.noneOf(Weather.Kind.class);
+        int wet = 0, steps = 0;
+        for (double t = 0; t < 40 * 600; t += 1) {
+            now.tick(1, t, w, Biome.MARSH);
+            if (now.kind() != Weather.Kind.CLEAR) {
+                seen.add(now.kind());
+                wet++;
+            }
+            steps++;
+        }
+        assertEquals(EnumSet.of(Weather.Kind.SNOW, Weather.Kind.SANDSTORM), seen, "whatever the biome");
+        double share = wet / (double) steps;
+        assertTrue(share > 0.3 && share < 0.7, "weather " + share + " of the time");
+        assertEquals(Weather.SHORTEST_SPELL, w.withSpell(1).spell(), 1e-9);
+        assertEquals(Weather.LONGEST_SPELL, w.withSpell(1e6).spell(), 1e-9);
+        assertEquals(Weather.SPELL, Weather.DEMO.spell(), 1e-9, "the usual length unless a level says");
+
+        // and a level keeps them
+        Level l = Level.blank("Snowfield", 64);
+        l.setWeather(w);
+        LevelIO.save(l, root.resolve("snowfield"));
+        Level back = LevelIO.load(root.resolve("snowfield"));
+        assertEquals(w, back.weather());
+        assertEquals(40, back.weather().spell(), 1e-9);
+        assertEquals(0.25, back.weather().event(Weather.Kind.SANDSTORM), 1e-9);
+    }
 }

@@ -136,4 +136,54 @@ class StoreTest {
         List<Target> targets = List.of(barrel);
         assertNull(Combat.lockCandidate(new Vec3(0, 1.5, 0), new Vec3(0, 0, -1), Vec3.ZERO, targets, null));
     }
+
+
+    @Test
+    void whatBreaksOnlySometimesHasCoinsAndThenAmongWhatItHolds() {
+        World w = new World(new Wardrobe());
+        int with = 0, n = 600;
+        for (int i = 0; i < n; i++) {
+            Store.Kind kind = i % 2 == 0 ? Store.Kind.BARREL : Store.Kind.POT;
+            Store s = w.addStore(new Store(100 + i, kind, new Vec3(i * 3, 0, 5), 0));
+            if (s.coins() == 0) {
+                assertEquals(0, s.items().count(), "nothing in it at all");
+                continue;
+            }
+            with++;
+            assertTrue(s.coins() >= 2 && s.coins() <= 7, "a few: " + s.coins());
+            assertEquals(s.coins(), s.items().total(Item.of(Supplies.COINS)), "in its inventory");
+            // the same ones however often the level is played
+            Store again = new World(new Wardrobe()).addStore(new Store(100 + i, kind, new Vec3(i * 3, 0, 5), 0));
+            assertEquals(s.coins(), again.coins());
+        }
+        assertEquals(Store.COINS_IN / 100.0, with / (double) n, 0.07, "about one in three");
+        // a rack does not break: never
+        for (int i = 0; i < 60; i++) {
+            assertEquals(0, w.addStore(new Store(900 + i, Store.Kind.RACK, new Vec3(i, 0, -9), 0)).coins());
+        }
+        // broken, the coins it had spill with the rest; one with none spills none
+        Store rich = null, poor = null;
+        for (Store s : w.stores()) {
+            if (s.kind() != Store.Kind.BARREL) continue;
+            if (s.coins() > 0 && rich == null) rich = s;
+            if (s.coins() == 0 && poor == null) poor = s;
+        }
+        assertNotNull(rich);
+        assertNotNull(poor);
+        int had = rich.coins();
+        rich.hurt(Store.Kind.BARREL.toughness() + 1, Vec3.ZERO, true);
+        poor.hurt(Store.Kind.BARREL.toughness() + 1, Vec3.ZERO, true);
+        w.tick(0.01);
+        int spilled = 0;
+        for (World.GroundItem g : w.items()) {
+            assertEquals(Supplies.COINS, g.item.def(), "only the coins there were");
+            assertTrue(g.position.horizontalDistance(rich.position()) < 1, "by the one that had them");
+            spilled += g.amount();
+        }
+        assertEquals(had, spilled);
+        // looked into instead, they go to her purse
+        int before = w.player().coins();
+        w.pocket(5);
+        assertEquals(before + 5, w.player().coins());
+    }
 }

@@ -209,4 +209,37 @@ class SaveGameTest {
             Saves.useFolder(Path.of("config", "saves"));
         }
     }
+
+
+    @Test
+    void theHourTheDayWhatSheHasSeenAndTheTipsGivenAreThePlaythroughsOwn() {
+        SaveGame s = new SaveGame();
+        assertTrue(s.hour() < 0, "not begun: the first level's own hour");
+        assertEquals(1, s.day());
+        s.clock(9.5);
+        s.clock(23.2);
+        assertEquals(1, s.day());
+        s.clock(0.4);
+        assertEquals(2, s.day(), "past midnight: a day more");
+        s.clock(7);
+        assertEquals(2, s.day(), "slept until morning: the same day still");
+        s.clock(22);
+        s.clock(7);
+        assertEquals(3, s.day(), "and the night slept through");
+        s.clock(31);
+        assertEquals(7, s.hour(), 1e-9, "an hour of the day");
+        s.seen().put("brass_vale/oakhollow", "128:abc");
+        s.tips().add("swim");
+        SaveGame back = SaveGame.parse(s.json());
+        assertEquals(7, back.hour(), 1e-9);
+        assertEquals(3, back.day());
+        assertEquals("128:abc", back.seen().get("brass_vale/oakhollow"));
+        assertTrue(back.tips().contains("swim"));
+        // a new playthrough has none of it
+        SaveGame fresh = new SaveGame();
+        assertTrue(fresh.seen().isEmpty());
+        assertTrue(fresh.tips().isEmpty());
+        assertTrue(fresh.hour() < 0);
+        assertTrue(SaveGame.parse(new LinkedHashMap<>()).hour() < 0, "an old save: the level's own hour");
+    }
 }
