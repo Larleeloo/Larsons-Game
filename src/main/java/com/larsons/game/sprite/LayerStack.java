@@ -20,7 +20,7 @@ import java.util.List;
  *       playable.</li>
  *   <li>A state the body has no sheet for from this view is shown as the
  *       first of its {@link AnimState#fallback() fallbacks} it has one for -
- *       a 512-pixel set rendered before the crouch existed crouches as it
+ *       an imported set made before the crouch existed crouches as it
  *       stands - and every layer plays that state with it.</li>
  *   <li>What is drawn in the hands is the state's {@link Stance}'s: the
  *       wardrobe's carried items for the sword stance, the stance's own
@@ -237,6 +237,12 @@ public final class LayerStack {
                 SpriteLibrary.Resolved over = lib.resolve(
                         lib.source(bodyItem, cutBy, wardrobe.get(cutBy), wardrobe.style(), left), state, elev, facing);
                 if (over != null && over.mirrored() == file.mirrored()) file = file.cutBy(over.file());
+            }
+            String near = wardrobe.keptTo(slot, state);
+            if (file != null && near != null) {
+                SpriteLibrary.Resolved to = lib.resolve(
+                        lib.source(bodyItem, slot, near, wardrobe.style(), left), state, elev, facing);
+                if (to != null && to.mirrored() == file.mirrored()) file = file.keptNear(to.file());
             }
             SheetTexture sheet = null;
             if (file != null) {

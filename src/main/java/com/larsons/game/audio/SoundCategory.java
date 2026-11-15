@@ -23,7 +23,7 @@ public enum SoundCategory {
     HITS("hits", "Hits & magic",
             "The damage dice, blows landing, arrows and bolts striking, spells, poison, blocks and parries."),
     CREATURES("creatures", "Creatures",
-            "The training dummies and the flying dummies - struck, knocked down, back up, diving at her."),
+            "The training dummies and the flying dummies - struck, knocked down, back up, diving at you."),
     WORLD("world", "World & loot",
             "The chests, the loot thrown out of them and its rarity, picking things up and dropping them."),
     AMBIENT("ambient", "Ambient",

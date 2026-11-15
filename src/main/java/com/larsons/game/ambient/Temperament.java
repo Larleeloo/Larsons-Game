@@ -15,13 +15,13 @@ public enum Temperament {
     /** Minds its own business; runs when she hits it. */
     CALM("calm", "Calm", "minds its own business, runs when hit"),
     /** Runs from her when she comes near. */
-    SKITTISH("skittish", "Skittish", "runs when she comes near"),
+    SKITTISH("skittish", "Skittish", "runs when you come near"),
     /** Comes up to her and keeps by her a while; runs when hit. */
-    FRIENDLY("friendly", "Friendly", "comes up to her, follows a while"),
+    FRIENDLY("friendly", "Friendly", "comes up to you, follows a while"),
     /** Warns her off when she comes near, goes for her when she stays - or hits it. */
-    DEFENSIVE("defensive", "Defensive", "warns her off, fights back"),
+    DEFENSIVE("defensive", "Defensive", "warns you off, fights back"),
     /** Goes for her on sight. */
-    HOSTILE("hostile", "Hostile", "goes for her on sight");
+    HOSTILE("hostile", "Hostile", "goes for you on sight");
 
     private final String key, label, about;
 

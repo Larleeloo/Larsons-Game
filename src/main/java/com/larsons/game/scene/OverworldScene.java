@@ -77,6 +77,10 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
     private Facing facing = Facing.SOUTH;
     private double time, saidShut = -10;
     private boolean menuOpen;
+    /** "Reset the map" was chosen once: it asks again before it does it. */
+    private boolean sureReset;
+    /** The destinations marked for the missions she follows (read when the map opens). */
+    private java.util.Map<String, com.larsons.game.overworld.Missions.Mark> marks = java.util.Map.of();
     private final MenuList menu = new MenuList();
     private final LayerStack.Memory memory = new LayerStack.Memory();
     private String hovered;
@@ -119,8 +123,36 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
         mapId = id;
     }
 
+    /** Which destinations the missions she follows are at. */
+    private void findMissions() {
+        marks = com.larsons.game.overworld.Missions.marks(map, game.settings().levelsDir(), save.quests());
+    }
+
+    /**
+     * The map as it was when she first came to it: every place on it
+     * uncleared, its chests full again, what she had seen of its places
+     * forgotten, and she back at its start. What she carries, her level and
+     * her missions are hers still.
+     */
+    private void resetMap() {
+        String prefix = mapId + "/";
+        save.cleared().removeIf(c -> c.startsWith(prefix));
+        save.flags().keySet().removeIf(f -> f.startsWith("chest:" + prefix));
+        save.seen().keySet().removeIf(p -> p.startsWith(prefix));
+        route.clear();
+        walk = null;
+        Overworld.Node start = map.start();
+        save.setPlace(mapId, start == null ? "" : start.id);
+        place();
+        camSet = false;
+        if (back == null) Saves.write();
+        Sounds.play(SoundKeys.ui("map_arrive"));
+        game.toast(map.name() + " is as it was: every place uncleared, and you are back at the start", Theme.OK);
+    }
+
     /** Stand her where the save has her, or at the map's start. */
     private void place() {
+        findMissions();
         Overworld.Node n = map.node(save.node());
         if (n == null) n = map.start();
         at = n == null ? "" : n.id;
@@ -172,8 +204,11 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
         save.played(dt);
         Input in = game.window().input();
         in.setUiMode(menuOpen);
-        if (in.pressed(Action.PAUSE)) {
+        // the menu: Esc, or the gamepad's Menu or View (select) - whichever opened it shuts it again
+        if (in.pressed(Action.PAUSE) || in.padPressed(Pad.VIEW) || menuOpen && in.padPressed(Pad.MENU)) {
+            in.consume(Action.PAUSE);
             menuOpen = !menuOpen;
+            sureReset = false;
             menu.setFocus(0);
             Sounds.play(SoundKeys.ui(menuOpen ? "open" : "close"));
             return;
@@ -347,6 +382,14 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
             if (!menuOpen && ui.hover(nx - s * 0.25f, ny - s * 0.6f, s * 1.5f, s * 1.6f)) hovered = n.id;
         }
         token(ui, ox, oy, s);
+        // the missions she follows: a mark bobbing over each place one is to be done at
+        for (Overworld.Node n : map.nodes()) {
+            var mark = marks.get(n.id);
+            if (mark == null) continue;
+            float size = s * 0.95f, bob = (float) Math.sin(time * 3 + n.x) * s * 0.07f;
+            com.larsons.game.ui.CardArt.icon(ui, mark.ready() ? "question" : "quest",
+                    ox + (n.x + 0.5f) * s - size / 2, oy + n.y * s - size * 1.25f + bob, size, 1f);
+        }
         for (Overworld.Node n : map.nodes()) {
             boolean here = n.id.equals(at) && walk == null;
             if (!here && !n.id.equals(hovered)) continue;
@@ -396,6 +439,31 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
         ui.panel(16, 16, pw, 78);
         ui.text(ui.large, save.name(), 32, 24, Theme.TITLE);
         ui.text(ui.small, cls + (cls.isEmpty() ? "" : "  ·  ") + save.coins() + " coins", 32, 60, Theme.ACCENT);
+        // the day and the hour, as she left the last place; the missions she follows, and where each is
+        if (save.hour() >= 0) {
+            String when = "Day " + save.day() + "  ·  " + com.larsons.game.world.DayCycle.clock(save.hour());
+            float tw = ui.small.width(when) + 20;
+            ui.plate(ui.width() - tw - 16, 16, tw, 26, Theme.BRASS);
+            ui.text(ui.small, when, ui.width() - tw - 6, 21, Theme.TITLE);
+        }
+        if (game.settings().missionTracker && !menuOpen) {
+            float mw = 300, mx = ui.width() - mw - 14, my = 52;
+            int shown = 0;
+            for (var m : com.larsons.game.story.Quests.elsewhere(save.quests(), null)) {
+                if (shown++ >= com.larsons.game.story.Quests.MOST_TRACKED) break;
+                String where = "";
+                for (Overworld.Node node : map.nodes()) {
+                    var mark = marks.get(node.id);
+                    if (mark != null && mark.titles().contains(m.title())) {
+                        where += (where.isEmpty() ? "" : ", ") + node.name;
+                    }
+                }
+                String goal = m.goal() + (where.isEmpty() ? (m.place().isBlank() ? "" : "  (" + m.place() + ")")
+                        : "  (at " + where + ")");
+                my += Story.trackerPlate(ui, mx, my, mw, m.title(), goal,
+                        m.state() == com.larsons.game.story.Quests.State.READY, false) + 6;
+            }
+        }
         // the map's name, top middle
         float nw = ui.large.width(map.name()) + 56;
         ui.plate(ui.width() / 2f - nw / 2, 16, nw, 44, Theme.BRASS);
@@ -429,7 +497,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
             }
         }
         String moves = in.usingPad() ? "Stick: walk the roads" : "WASD / arrows / click: walk the roads";
-        String hint = moves + "   ·   " + in.label(Action.PAUSE) + ": menu";
+        String hint = moves + "   ·   " + in.label(Action.PAUSE) + (in.usingPad() ? " / View" : "") + ": menu";
         ui.rect(12, ui.height() - 28, ui.small.width(hint) + 16, 22, Theme.withAlpha(Theme.SOOT, 0.6f));
         ui.text(ui.small, hint, 20, ui.height() - 25, Theme.HINT);
     }
@@ -440,30 +508,41 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
 
     private void menu(Ui ui) {
         ui.scrim();
-        float w = 380, h = 360, x = ui.width() / 2f - w / 2, y = ui.height() / 2f - h / 2;
+        float w = 400, h = back != null ? 400 : 470, x = ui.width() / 2f - w / 2, y = ui.height() / 2f - h / 2;
         ui.panel(x, y, w, h);
         ui.textCentered(ui.large, back != null ? "Trying the map" : save.name(), ui.width() / 2f, y + 16, Theme.TITLE);
         ui.textCentered(ui.small, back != null ? "Nothing is saved" : "Played " + save.playedFor()
                 + "  ·  saved as you go", ui.width() / 2f, y + 54, Theme.HINT);
-        String[] items = back != null ? new String[]{"Back to the map", "Back to the editor", "Settings"}
-                : new String[]{"Back to the map", "Save and quit to the main menu", "Save and quit the game",
+        String reset = sureReset ? "Sure? Choose again to reset it" : "Reset the map";
+        String[] items = back != null ? new String[]{"Back to the map", "Back to the editor", reset, "Settings"}
+                : new String[]{"Back to the map", "Save and quit to the main menu", "Save and quit the game", reset,
                 "Settings"};
         int pick = menu.show(ui, items, x + 30, y + 92, w - 60, 46, 10);
-        if (pick == 0) menuOpen = false;
-        if (pick == items.length - 1) {
+        ui.paragraph(ui.small, sureReset ? "Every place on " + map.name() + " is uncleared, its chests are full "
+                + "again and you walk from its start. You keep what you carry, your level and your missions."
+                : "", x + 30, y + 92 + items.length * 56 + 2, w - 60, Theme.WARNING);
+        if (pick < 0) return;
+        String chosen = items[pick];
+        if (!chosen.equals(reset)) sureReset = false;
+        if (pick == 0) {
+            menuOpen = false;
+        } else if (chosen.equals("Settings")) {
             game.openSettings();
-            return;
-        }
-        if (pick == 1) {
-            if (back != null) {
-                back.run();
+        } else if (chosen.equals(reset)) {
+            if (!sureReset) {
+                sureReset = true;
             } else {
-                Saves.write();
-                Saves.stop();
-                game.switchTo("menu");
+                sureReset = false;
+                menuOpen = false;
+                resetMap();
             }
-        }
-        if (pick == 2 && back == null) {
+        } else if (chosen.equals("Back to the editor")) {
+            back.run();
+        } else if (chosen.equals("Save and quit to the main menu")) {
+            Saves.write();
+            Saves.stop();
+            game.switchTo("menu");
+        } else if (chosen.equals("Save and quit the game")) {
             Saves.write();
             game.quit();
         }
@@ -487,6 +566,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
                 if (n != null) enter(n);
             }
             case "mapmenu" -> menuOpen = !menuOpen;
+            case "resetmap" -> resetMap();
             default -> {
                 return false;
             }

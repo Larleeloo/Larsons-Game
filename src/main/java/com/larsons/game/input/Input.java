@@ -181,6 +181,56 @@ public final class Input {
 
     /** The keys and the mouse button the gamepad holds down in a menu. */
     private boolean synthLeft, synthRight, synthEscape, synthEnter;
+    /**
+     * The buttons that went down while a menu was up. Only those click and
+     * go back: one held since before - the very press that opened the menu -
+     * does nothing until it is let go and pressed again (or Menu, still
+     * down the frame after it opened the pause menu, shut it again at once).
+     */
+    private final boolean[] menuArmed = new boolean[Pad.COUNT];
+
+    private boolean menuHeld(int button) {
+        if (padPressed[button]) menuArmed[button] = true;
+        if (!padDown[button]) menuArmed[button] = false;
+        return menuArmed[button];
+    }
+
+    // --- a gamepad a script plays (core/Autopilot), where none is plugged in ---
+
+    private boolean[] scriptButtons;
+    private float[] scriptAxes;
+
+    /** Press or let go of {@code input} on a gamepad of the script's own (a button, a trigger, or a stick's way). */
+    public void scriptPad(int input, boolean down) {
+        if (scriptButtons == null) {
+            scriptButtons = new boolean[Pad.BUTTONS];
+            scriptAxes = new float[]{0, 0, 0, 0, -1, -1};
+        }
+        float v = down ? 1 : 0;
+        switch (input) {
+            case Pad.LT -> scriptAxes[Pad.AXIS_LT] = down ? 1 : -1;
+            case Pad.RT -> scriptAxes[Pad.AXIS_RT] = down ? 1 : -1;
+            case Pad.LS_UP -> scriptAxes[Pad.AXIS_LY] = -v;
+            case Pad.LS_DOWN -> scriptAxes[Pad.AXIS_LY] = v;
+            case Pad.LS_LEFT -> scriptAxes[Pad.AXIS_LX] = -v;
+            case Pad.LS_RIGHT -> scriptAxes[Pad.AXIS_LX] = v;
+            case Pad.RS_UP -> scriptAxes[Pad.AXIS_RY] = -v;
+            case Pad.RS_DOWN -> scriptAxes[Pad.AXIS_RY] = v;
+            case Pad.RS_LEFT -> scriptAxes[Pad.AXIS_RX] = -v;
+            case Pad.RS_RIGHT -> scriptAxes[Pad.AXIS_RX] = v;
+            default -> {
+                if (input >= 0 && input < Pad.BUTTONS) scriptButtons[input] = down;
+            }
+        }
+    }
+
+    /** Whether a script is playing a gamepad ({@link #scriptPad}). */
+    public boolean scriptedPad() { return scriptButtons != null; }
+
+    /** The scripted gamepad's state this frame, fed as a real one's is. */
+    public void scriptPadState(double dt) {
+        if (scriptButtons != null) padState("Scripted gamepad", scriptButtons, scriptAxes, dt);
+    }
 
     // --- moving through a menu with the gamepad (read by ui/Ui once a frame) ---
 
@@ -265,7 +315,7 @@ public final class Input {
             if (padPressed[Pad.RB]) tabStep = 1;
 
             if (!keyboard) {
-                boolean a = padDown[Pad.A];
+                boolean a = menuHeld(Pad.A);
                 if (dpadNavigating && !navigable) {
                     if (a != synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = a);
                     if (synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = false);
@@ -273,8 +323,10 @@ public final class Input {
                     if (a != synthLeft) mouseButtonEvent(GLFW_MOUSE_BUTTON_LEFT, synthLeft = a);
                     if (synthEnter) keyEvent(GLFW_KEY_ENTER, synthEnter = false);
                 }
-                if (padDown[Pad.X] != synthRight) mouseButtonEvent(GLFW_MOUSE_BUTTON_RIGHT, synthRight = padDown[Pad.X]);
-                boolean esc = padDown[Pad.B] || padDown[Pad.MENU];
+                boolean x = menuHeld(Pad.X);
+                if (x != synthRight) mouseButtonEvent(GLFW_MOUSE_BUTTON_RIGHT, synthRight = x);
+                boolean b = menuHeld(Pad.B), menu = menuHeld(Pad.MENU);
+                boolean esc = b || menu;
                 if (esc != synthEscape) keyEvent(GLFW_KEY_ESCAPE, synthEscape = esc);
             }
 
@@ -482,6 +534,17 @@ public final class Input {
             case MOUSE -> !muted && b.code() >= 0 && b.code() < mousePressed.length && mousePressed[b.code()];
             case PAD -> !uiMode && padPressed(b.code());
         };
+    }
+
+    /**
+     * Whether one of {@code a}'s gamepad buttons went down this frame, menu
+     * up or not: for the button that opened a panel (the inventory, the
+     * cards) to shut it again, where {@link #pressed(Action)} reads the
+     * gamepad only while playing.
+     */
+    public boolean padPressed(Action a) {
+        for (Bind b : bindings.pads(a)) if (padPressed(b.code())) return true;
+        return false;
     }
 
     /** Whether any of {@code a}'s keys or buttons is held. */

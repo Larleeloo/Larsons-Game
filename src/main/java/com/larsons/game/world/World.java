@@ -498,7 +498,13 @@ public final class World {
     /** Keep {@code s} in the world: a barrel's, a crate's or a storage chest's hold. */
     public Store addStore(Store s) {
         stores.add(s);
+        s.hideCoins();
         return s;
+    }
+
+    /** {@code n} coins out of something she looked into, into her purse (a card may make them more). */
+    public void pocket(int n) {
+        if (n > 0) player.addCoins((int) Math.round(n * player.buffs().times(Buffs.Kind.COINS)));
     }
 
     /** The barrels, crates and storage chests. */
@@ -1649,6 +1655,8 @@ public final class World {
      */
     public void felled(com.larsons.game.combat.Target t) {
         if (t instanceof Animal || t instanceof com.larsons.game.actor.Folk) return;
+        // a barrel, a crate, a pot broken: what it held spills out (smash) - coins only if it had some in it
+        if (t instanceof Store) return;
         if (t instanceof com.larsons.game.actor.Serpent sp) {
             kills.add(new Kill(com.larsons.game.actor.Serpent.SPRITES, null, sp.position(), false));
             earn(com.larsons.game.actor.Serpent.XP * sp.size());
@@ -2140,6 +2148,51 @@ public final class World {
             }
         }
         return best;
+    }
+
+    /** A bed she stands at - she can sleep in it until morning - or null. */
+    public Building reachableBed() {
+        Vec3 me = player.ground();
+        Building best = null;
+        double bestD = Double.MAX_VALUE;
+        for (Building b : buildings) {
+            if (!isBed(b.key()) || b.passage() != null) continue;
+            if (Math.abs(player.feet().y() - b.position().y()) > 1.5) continue;
+            if (!b.blocks(me.x(), me.z(), feet() + WARDROBE_REACH)) continue;
+            double d = b.position().horizontalDistance(me);
+            if (d < bestD) {
+                best = b;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    /** Whether a building of kind {@code key} is one she sleeps in. */
+    public static boolean isBed(String key) {
+        return key != null && (key.equals("bed") || key.startsWith("bed_") || key.endsWith("_bed")
+                || key.equals("bedroll") || key.equals("hammock") || key.equals("cot"));
+    }
+
+    /** The hour she wakes at when she has slept the night through. */
+    public static final double MORNING = 7;
+
+    /** Whether it is dark enough to sleep: from dusk until the sun is up. */
+    public boolean bedtime() {
+        double h = clock.hour();
+        return sky.air().timeRuns() && (h >= DayCycle.SUNSET - 0.5 || h < DayCycle.SUNRISE);
+    }
+
+    /**
+     * Sleep until the morning: the clock on to {@link #MORNING}, her health
+     * whole again. Whether she slept (not by day, not where the time stands
+     * still, not with a foe near).
+     */
+    public boolean sleep() {
+        if (!bedtime() || foesIn(new Area("bed", player.ground(), 18)) > 0) return false;
+        clock.setHour(MORNING);
+        player.heal(Player.MAX_HEALTH);
+        return true;
     }
 
     /** Whether a building of kind {@code key} is one she changes her clothes at (a wardrobe, a dressing screen). */

@@ -839,7 +839,7 @@ public final class SoundKeys {
             case "loot_land" -> "Loot landing";
             case "forage_pick" -> "Picking from a bush";
             case "door_open" -> "A door opening (going in or out)";
-            case "door_close" -> "A door shutting behind her";
+            case "door_close" -> "A door shutting behind you";
             case "stairs" -> "Going up or down the stairs";
             case "saddle_on" -> "Saddling a horse";
             case "mount" -> "Getting up on a horse";
@@ -952,9 +952,9 @@ public final class SoundKeys {
 
     private static String foeName(String s) {
         return switch (s) {
-            case "alert" -> "A foe noticing her";
+            case "alert" -> "A foe noticing you";
             case "fall" -> "A foe falling";
-            case "risen_groan" -> "The Risen: a groan as one notices her";
+            case "risen_groan" -> "The Risen: a groan as one notices you";
             case "risen_fall" -> "The Risen: one falling";
             case "vernees_hiss" -> "A Vérnees: its hiss before it strikes";
             case "vernees_fall" -> "A Vérnees: falling out of the sky";
@@ -998,7 +998,7 @@ public final class SoundKeys {
             case "scroll_read" -> "A scroll read";
             case "egg_hatch" -> "A spawner egg hatching";
             case "storm" -> "A storm scroll's storm";
-            case "return" -> "A scroll of return: back where she came in";
+            case "return" -> "A scroll of return: back where you came in";
             case "horn_fill" -> "The drinking horn filled";
             case "horn_drink" -> "Drinking from the horn";
             case "crystal_ball" -> "Looking into the crystal ball";

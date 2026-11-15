@@ -103,7 +103,7 @@
     "warlock": {
       "name": "Warlock",
       "colour": "#8a3cc8",
-      "pointer": "gloved_hand",
+      "pointer": "staff",
       "about": "Dark spells: hexes, drained souls, poison, health traded for mana.",
       "deck": [
         {

@@ -108,6 +108,8 @@ final class InventoryPanel {
     private final Game game;
     private final World world;
     private boolean open;
+    /** Just opened: on the gamepad, the focus starts on the first slot of the bag. */
+    private boolean fresh;
     private Item cursor;
     private int cursorAmount;
     private int cursorFrom = -1;
@@ -175,6 +177,7 @@ final class InventoryPanel {
     void show() {
         if (open) return;
         open = true;
+        fresh = true;
         Sounds.play(SoundKeys.ui("inventory_open"));
     }
 
@@ -384,9 +387,21 @@ final class InventoryPanel {
         sortButtons(ui, inv, px, py, pw, ph);
 
         List<Spot> spots = spots(inv.size(), px, py, pw, ph);
+        if (fresh) {
+            fresh = false;
+            if (ui.input().usingPad()) {
+                for (Spot s : spots) {
+                    if (Inventory.isHotbar(s.slot())) continue;
+                    ui.input().warp(s.x(), s.y());
+                    break;
+                }
+            }
+        }
         hovered = -1;
         hoveredStore = -1;
         for (Spot s : spots) {
+            // (each slot is something the gamepad's focus can rest on: A is a click on it, X a right-click)
+            ui.target(s.x() - s.r() * 0.5f, s.y() - s.r() * 0.5f, s.r(), s.r(), Ui.Kind.BUTTON);
             boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
             if (hot) hovered = s.slot();
             boolean sel = s.slot() == inv.selected();
@@ -405,6 +420,7 @@ final class InventoryPanel {
             ui.textCentered(ui.small, held.count() + " / " + held.size(), qx + qw / 2, qy + qh * 0.035f + 30,
                     Theme.ITEM_DISABLED);
             for (Spot s : storeSpots(held.size(), qx, qy, qw, qh)) {
+                ui.target(s.x() - s.r() * 0.5f, s.y() - s.r() * 0.5f, s.r(), s.r(), Ui.Kind.BUTTON);
                 boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
                 if (hot) hoveredStore = s.slot();
                 slot(ui, s.x(), s.y(), s.r(), held.get(s.slot()), held.amount(s.slot()), hot, false);
@@ -513,14 +529,34 @@ final class InventoryPanel {
             icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
             count(ui, cursorAmount, (float) in.mouseX(), (float) in.mouseY(), r);
         }
-        String help = shop != null
+        boolean pad = in.usingPad();
+        // on the gamepad Y drops what is on the pointer (there is no "outside" to click)
+        if (pad && cursor != null && in.padPressed(com.larsons.game.input.Pad.Y)) {
+            Item d = world.dropItem(cursor, cursorAmount);
+            if (d != null) {
+                Sounds.play(SoundKeys.item(d.id(), "drop"));
+                game.saveWardrobe();
+                game.toast("Dropped " + (cursorAmount > 1 ? cursorAmount + " " : "") + d.fullName(), Theme.HINT);
+            }
+            cursor = null;
+            cursorAmount = 0;
+            cursorFrom = -1;
+            cursorInStore = false;
+        }
+        String help = pad ? (shop != null ? "A on its button: buy · X on an item of yours: sell one · B: close"
+                : store != null ? "A: pick up / put down · X: move between them · Y: drop what you hold · B: close"
+                : "A: pick up / put down · X: eat, a weapon's tiers, or to / from the hotbar · Y: drop what you hold · "
+                + "LB / RB: more · B: close")
+                : shop != null
                 ? "Buy: its button · Right-click or Shift-click an item of yours: sell one · E, I or Esc: close"
                 : store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "
                 + "E, I or Esc: close"
                 : "Click: pick up / put down · Right-click: eat, or a weapon's tiers · Shift-click: to / from the hotbar · "
                 + "Click outside: drop · J: cards · I or Esc: close";
-        ui.textCentered(ui.small, help, ui.width() / 2f, py + ph + 10, Theme.HINT);
+        // (under the panel, and never off the bottom of the window)
+        ui.textCentered(ui.small, Ui.fit(ui.small, help, ui.width() - 24), ui.width() / 2f,
+                Math.min(py + ph + 10, ui.height() - ui.small.lineHeight() - 3), Theme.HINT);
     }
 
     /** A panel's background: the picture, or a plain dark panel (with the hotbar's band on hers). */
@@ -542,6 +578,7 @@ final class InventoryPanel {
      * stack of the same, or swapping with what is there.
      */
     private void click(Inventory inv, int slot, boolean inStore, boolean shift) {
+        if (inStore && cursor == null && pocket(inv, slot)) return;
         if (shift && cursor == null) {
             if (store == null) quickMove(slot);
             else if (inStore) transfer(inv, slot, inventory(), true);
@@ -583,6 +620,7 @@ final class InventoryPanel {
     private boolean transfer(Inventory from, int slot, Inventory to, boolean toHer) {
         Item it = from.get(slot);
         if (it == null) return false;
+        if (toHer && pocket(from, slot)) return true;
         int n = from.amount(slot);
         int left = to.put(it, n, toHer);
         if (left == n) {
@@ -598,6 +636,21 @@ final class InventoryPanel {
         return true;
     }
 
+    /**
+     * Coins in slot {@code slot} of a store's {@code from}: into her purse,
+     * never a slot of hers. Whether there were coins there.
+     */
+    private boolean pocket(Inventory from, int slot) {
+        Item it = from.get(slot);
+        if (it == null || it.def() != com.larsons.game.world.Supplies.COINS) return false;
+        int n = from.amount(slot), before = world.player().coins();
+        from.take(slot);
+        world.pocket(n);
+        Sounds.play(SoundKeys.item(it.id(), "pickup"));
+        game.toast("+" + coins(world.player().coins() - before), COIN);
+        return true;
+    }
+
     /** "Take all": everything in the store into her inventory, as much as fits. */
     private void takeAll() {
         Inventory held = store.items(), inv = inventory();
@@ -605,6 +658,10 @@ final class InventoryPanel {
         for (int i = 0; i < held.size(); i++) {
             Item it = held.get(i);
             if (it == null) continue;
+            if (pocket(held, i)) {
+                any = true;
+                continue;
+            }
             int n = held.amount(i), left = inv.put(it, n, true);
             if (left == n) continue;
             if (left == 0) held.take(i);

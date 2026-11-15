@@ -133,6 +133,8 @@ class PeoplesTest {
                         // a tail is her skin's colour, whatever people's skin it is
                         for (People p : People.values()) {
                             for (String skin : p.skins()) {
+                                // (a tone written as a colour of the palette is shaded from it: Variants.custom)
+                                if (Variants.isCustom(skin)) continue;
                                 assertTrue(v.channel(Variants.SKIN).options().containsKey(skin), dir + ": " + skin);
                             }
                         }

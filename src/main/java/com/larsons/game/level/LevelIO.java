@@ -85,13 +85,31 @@ public final class LevelIO {
         o.put("kind", w.kind().key());
         o.put("strength", round(w.strength()));
         o.put("often", round(w.often()));
+        if (w.spell() != com.larsons.game.world.Weather.SPELL) o.put("spell", round(w.spell()));
+        if (w.mode() == com.larsons.game.world.Weather.Mode.CUSTOM
+                || !w.events().equals(com.larsons.game.world.Weather.USUAL_EVENTS)) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            w.events().forEach((k, v) -> {
+                if (v > 0) e.put(k.key(), round(v));
+            });
+            o.put("events", e);
+        }
         return o;
     }
 
     static com.larsons.game.world.Weather weather(Map<String, Object> j) {
         com.larsons.game.world.Weather.Mode m = com.larsons.game.world.Weather.Mode.byKey(Json.str(j, "mode", "none"));
+        Map<com.larsons.game.world.Weather.Kind, Double> events = null;
+        if (j.get("events") instanceof Map<?, ?> ej) {
+            events = new java.util.EnumMap<>(com.larsons.game.world.Weather.Kind.class);
+            for (Map.Entry<?, ?> e : ej.entrySet()) {
+                com.larsons.game.world.Weather.Kind k = com.larsons.game.world.Weather.Kind.byKey(String.valueOf(e.getKey()));
+                if (k != null && e.getValue() instanceof Number n) events.put(k, n.doubleValue());
+            }
+        }
         return new com.larsons.game.world.Weather(m, com.larsons.game.world.Weather.Kind.byKey(Json.str(j, "kind",
-                "rain")), Json.num(j, "strength", 0.8), Json.num(j, "often", 0.4));
+                "rain")), Json.num(j, "strength", 0.8), Json.num(j, "often", 0.4),
+                Json.num(j, "spell", com.larsons.game.world.Weather.SPELL), events);
     }
 
     // --- the folder of levels -------------------------------------------------------------

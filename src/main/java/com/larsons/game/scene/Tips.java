@@ -16,7 +16,7 @@ import java.util.Map;
  * first steps, a foe near, someone to talk to, a chest, deep water, the first
  * night, a storm, being hidden - a few words on what to do, on a strip of
  * parchment at the top of the screen, one at a time, for a few seconds. Each
- * comes once in all ({@link Settings#tipsSeen}); none come while Settings,
+ * comes once in a playthrough (its save keeps them: {@code SaveGame#tips}; outside one, {@link Settings#tipsSeen}); none come while Settings,
  * Game, Tutorial tips is off. The whole of it is How to play
  * ({@link HowToPlay}), on the main menu and in the pause menu.
  */
@@ -57,17 +57,25 @@ final class Tips {
     }
 
     private final Settings settings;
+    /** The tips already given: a playthrough's own (kept in its save), or the settings' for everything else. */
+    private final java.util.Set<String> seen;
     private final ArrayDeque<String> waiting = new ArrayDeque<>();
     private String showing;
     private double age;
 
     Tips(Settings settings) {
+        this(settings, null);
+    }
+
+    /** The tips of a playthrough, which keeps in {@code seen} the ones it has given (null: the settings keep them). */
+    Tips(Settings settings, java.util.Set<String> seen) {
         this.settings = settings;
+        this.seen = seen != null ? seen : settings.tipsSeen;
     }
 
     /** Show the tip {@code id} - once in all, after any already waiting - unless the tips are off. */
     void offer(String id) {
-        if (!settings.tutorialTips || !TEXT.containsKey(id) || settings.tipsSeen.contains(id)) return;
+        if (!settings.tutorialTips || !TEXT.containsKey(id) || seen.contains(id)) return;
         if (id.equals(showing) || waiting.contains(id)) return;
         waiting.add(id);
     }
@@ -88,8 +96,8 @@ final class Tips {
         if (showing == null && !waiting.isEmpty()) {
             showing = waiting.poll();
             age = 0;
-            settings.tipsSeen.add(showing);
-            settings.save();
+            seen.add(showing);
+            if (seen == settings.tipsSeen) settings.save();
             Sounds.play(SoundKeys.ui("tab"), 0.5);
         }
     }

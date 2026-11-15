@@ -24,8 +24,8 @@ import java.util.TreeSet;
  * slot means that layer is not drawn at all — cosmetics without sheets are
  * left blank, as the design asks.
  *
- * <p>The wardrobe also has a {@link Style}: the whole character drawn from the
- * 512-pixel renders, or from the pixel art made of them; a colour per slot
+ * <p>The wardrobe also has a {@link Style}: the whole character drawn in the
+ * 128-pixel pixel art or the 64-pixel; a colour per slot
  * (an option of the item's {@code variants.json} - the body's colour is the
  * skin tone of every layer); and a {@link Hand}: right- or left-handed, or
  * whichever hand the sword is in.
@@ -51,7 +51,6 @@ public final class Wardrobe {
      * still {@code sword}), so a style is one switch for the whole character.
      */
     public enum Style {
-        RENDERED("rendered", "", "512 px"),
         PIXEL_128("px128", "_px128", "Pixel 128"),
         PIXEL_64("px64", "_px64", "Pixel 64");
 
@@ -77,6 +76,7 @@ public final class Wardrobe {
             return item + suffix + LEFT_SUFFIX;
         }
 
+        /** The style called {@code key}; null for one there is none of (the 512-pixel renders are gone). */
         public static Style byKey(String key) {
             for (Style s : values()) if (s.key.equalsIgnoreCase(key)) return s;
             return null;
@@ -139,7 +139,7 @@ public final class Wardrobe {
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
     /** The colours dyes have unlocked: {@code "<slot>/<item>"} to its colour options. */
     private final Map<String, Set<String>> unlocked = new TreeMap<>();
-    private Style style = Style.RENDERED;
+    private Style style = Style.PIXEL_128;
     private Hand hand = Hand.AUTO;
 
     public String get(Slot slot) {
@@ -193,10 +193,27 @@ public final class Wardrobe {
         return null;
     }
 
+    /** Long hair, and the short cut it is gathered to while swimming ({@link #keptTo}). */
+    private static final Map<String, String> GATHERED = Map.of(
+            "long_waves", "bob", "braids", "bob", "curls", "bob", "beanie_long", "beanie_short");
+
+    /**
+     * The item whose sheet {@code slot}'s layer is kept near in {@code
+     * state}, or null: swimming a stroke - flat on the water, head up - long
+     * hair, which hangs straight down from the head, would hang through the
+     * chest and out under it; it is kept to where a short cut has hair
+     * ({@link SheetImage#keepNear}), gathered at the head.
+     */
+    public String keptTo(Slot slot, AnimState state) {
+        if (slot != Slot.HAIR || state != AnimState.SWIM) return null;
+        String hair = items.get(Slot.HAIR);
+        return hair == null ? null : GATHERED.get(hair);
+    }
+
     public Style style() { return style; }
 
     public void setStyle(Style style) {
-        this.style = style == null ? Style.RENDERED : style;
+        this.style = style == null ? Style.PIXEL_128 : style;
     }
 
     /**
@@ -265,10 +282,24 @@ public final class Wardrobe {
         return w;
     }
 
+    /**
+     * Wear what {@code other} wears, in its colours, its style and its hand -
+     * but keep what is in the hands (the carried slots are the weapons').
+     */
+    public void become(Wardrobe other) {
+        for (Slot s : Slot.values()) {
+            if (s.carried()) continue;
+            set(s, other.get(s));
+            setColour(s, other.colour(s));
+        }
+        style = other.style;
+        hand = other.hand;
+    }
+
     public Map<String, Object> toJson() {
         Map<String, Object> out = new LinkedHashMap<>();
         for (Map.Entry<Slot, String> e : items.entrySet()) out.put(e.getKey().key(), e.getValue());
-        if (style != Style.RENDERED) out.put("style", style.key());
+        out.put("style", style.key());
         if (hand != Hand.AUTO) out.put("hand", hand.key());
         if (!colours.isEmpty()) {
             Map<String, Object> c = new LinkedHashMap<>();

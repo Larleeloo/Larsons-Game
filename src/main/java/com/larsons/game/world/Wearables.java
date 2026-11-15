@@ -1,7 +1,9 @@
 package com.larsons.game.world;
 
+import com.larsons.game.sprite.PixelPalette;
 import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.Stance;
+import com.larsons.game.sprite.Variants;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.sprite.fallback.FallbackSprites;
 
@@ -29,7 +31,8 @@ import java.util.Set;
  *   Uncommon  belt, gloves, sheath, laced shirt, wool mantle,
  *             chainmail shirt, chainmail pants
  *   Rare      laced dress, silver wrist band, silver necklace, silver hoops,
- *             the 14 dyes, makeup (noir, rose, plum), lipstick, the hair
+ *             the dyes (the 14 named ones and one of every other colour
+ *             of the palette), makeup (noir, rose, plum), lipstick, the hair
  *             styles, the eyebrows (long waves, side part and arched owned
  *             by default),
  *             the iron armour
@@ -66,6 +69,17 @@ public final class Wearables {
      * 128 colours.
      */
     public static final Map<String, Integer> DYE_RGB = dyeRgb();
+    /**
+     * Every colour a thing can be: the palette's 100 fills ({@link
+     * PixelPalette#FILLS}), each as {@code #rrggbb} - a colour a slot takes
+     * like one of its own options ({@link Variants#isCustom}) - the greys
+     * first, then round the colour wheel from the browns, each hue from dark
+     * to light. A skin, a head of hair, eyes and horns take any of them; what
+     * is worn takes one with a dye of it ({@link #dye}).
+     */
+    public static final List<String> PALETTE = palette();
+    /** Each of {@link #PALETTE}'s colours by name: "Dark brown 3". */
+    private static final Map<String, String> PALETTE_NAMES = paletteNames();
     /** The hair styles: every folder under {@code assets/sprites/hair/}. */
     public static final List<String> HAIR_STYLES = List.of("long_waves", "bob", "ponytail", "pixie", "braids",
             "curls", "crew_cut", "side_part", "undercut", "beanie_long", "beanie_short");
@@ -156,6 +170,12 @@ public final class Wearables {
         out.add(metal("silver_hoops", "Silver hoops", Rarity.RARE, "silver", "gold_hoops", Slot.EARRINGS));
         for (String c : DYE_COLOURS) {
             out.add(def("dye_" + c, readable(c) + " dye", new Wearable(Rarity.RARE, List.of(), List.of(), null, c, DYE)));
+        }
+        // a dye of every other colour of the palette (the 14 above are 14 of its fills)
+        for (String c : PALETTE) {
+            if (DYE_RGB.containsValue(rgb(c))) continue;
+            out.add(def("dye_" + c.substring(1), PALETTE_NAMES.get(c) + " dye",
+                    new Wearable(Rarity.RARE, List.of(), List.of(), null, c, DYE)));
         }
         for (String look : List.of("noir", "rose", "plum")) {
             out.add(def("makeup_" + look, readable(look) + " makeup",
@@ -286,6 +306,92 @@ public final class Wearables {
         return Collections.unmodifiableMap(out);
     }
 
+    // --- the palette's colours ---------------------------------------------------------
+
+    /** A {@code #rrggbb} colour's RGB. */
+    public static int rgb(String custom) {
+        return Integer.parseInt(custom.substring(1), 16) & 0xFFFFFF;
+    }
+
+    /** What a colour is called: an option's name ("Royal blue"), a palette colour's ("Dark brown 3"), or as written. */
+    public static String colourName(String colour) {
+        if (colour == null) return "Own colours";
+        if (Variants.isCustom(colour)) {
+            String n = PALETTE_NAMES.get(colour.toLowerCase(Locale.ROOT));
+            return n != null ? n : colour;
+        }
+        return readable(colour);
+    }
+
+    /** The colour a dye is in its bottle (RGB), or {@code otherwise}. */
+    static int dyeRgb(String dye, int otherwise) {
+        if (Variants.isCustom(dye)) return rgb(dye);
+        return DYE_RGB.getOrDefault(dye, otherwise);
+    }
+
+    /** Where a colour sits among the hues - the greys 0, then round the wheel from the browns - and its name there. */
+    private record Hue(int order, String name, double lightness) {}
+
+    private static Hue hue(int rgb) {
+        double[] lab = Variants.Oklab.of(rgb);
+        double L = lab[0], c = Math.hypot(lab[1], lab[2]);
+        double h = Math.toDegrees(Math.atan2(lab[2], lab[1]));
+        if (h < 0) h += 360;
+        if (c < 0.025) {
+            return new Hue(0, L > 0.93 ? "White" : L < 0.2 ? "Black" : L < 0.42 ? "Dark grey" : L < 0.68 ? "Grey"
+                    : "Light grey", L);
+        }
+        String[] names = {"Rose", "Red", "Orange", "Amber", "Yellow", "Lime", "Green", "Teal", "Cyan", "Blue",
+                "Indigo", "Violet", "Magenta", "Rose"};
+        double[] upTo = {18, 40, 62, 88, 108, 128, 160, 190, 228, 262, 290, 318, 345, 360};
+        int at = 0;
+        while (at < upTo.length - 1 && h > upTo[at]) at++;
+        String name = names[at];
+        int order = at == upTo.length - 1 ? 15 : at + 3;
+        boolean warm = name.equals("Red") || name.equals("Orange") || name.equals("Amber");
+        if (warm && L < 0.62 && c < 0.16) {
+            name = L > 0.28 ? "Brown" : "Umber";
+            order = 1;
+        } else if ((warm || name.equals("Yellow")) && !name.equals("Red") && L > 0.8 && c < 0.1) {
+            name = "Cream";
+            order = 2;
+        } else if ((name.equals("Rose") || name.equals("Red")) && L > 0.75) {
+            name = "Pink";
+        }
+        String shade = L < 0.3 ? "Deep" : L < 0.48 ? "Dark" : L < 0.7 ? "" : L < 0.86 ? "Light" : "Pale";
+        boolean plain = name.equals("Cream") || name.equals("Brown") || name.equals("Umber");
+        if (c < 0.06 && !plain) shade = shade.isEmpty() ? "Dusty" : shade + " dusty";
+        return new Hue(order, shade.isEmpty() ? name : shade + " " + name.toLowerCase(Locale.ROOT), L);
+    }
+
+    private static List<String> palette() {
+        List<Integer> fills = new ArrayList<>();
+        for (int c : PixelPalette.FILLS) if (!fills.contains(c)) fills.add(c);
+        fills.sort((a, b) -> {
+            Hue x = hue(a), y = hue(b);
+            return x.order() != y.order() ? Integer.compare(x.order(), y.order())
+                    : Double.compare(x.lightness(), y.lightness());
+        });
+        List<String> out = new ArrayList<>();
+        for (int c : fills) out.add(String.format(Locale.ROOT, "#%06x", c));
+        return List.copyOf(out);
+    }
+
+    private static Map<String, String> paletteNames() {
+        // (colours of one name are numbered from the darkest)
+        Map<String, List<String>> named = new LinkedHashMap<>();
+        for (String c : PALETTE) named.computeIfAbsent(hue(rgb(c)).name(), k -> new ArrayList<>()).add(c);
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> e : named.entrySet()) {
+            List<String> of = new ArrayList<>(e.getValue());
+            of.sort((a, b) -> Double.compare(hue(rgb(a)).lightness(), hue(rgb(b)).lightness()));
+            for (int i = 0; i < of.size(); i++) {
+                out.put(of.get(i), of.size() == 1 ? e.getKey() : e.getKey() + " " + (i + 1));
+            }
+        }
+        return Collections.unmodifiableMap(out);
+    }
+
     /** "honey_blonde" -> "Honey blonde". */
     static String readable(String key) {
         String s = key.replace('_', ' ');
@@ -297,8 +403,21 @@ public final class Wearables {
         return null;
     }
 
-    /** The dye of colour option {@code colour}, or null when there is none. */
+    /**
+     * The dye of colour {@code colour} - an option ("royal_blue") or one of
+     * the palette's ({@code #rrggbb}; one of the 14 options' own colours is
+     * that option's dye) - or null when there is none.
+     */
     public static ItemDef dye(String colour) {
+        if (colour == null) return null;
+        if (Variants.isCustom(colour)) {
+            String c = colour.toLowerCase(Locale.ROOT);
+            for (Map.Entry<String, Integer> e : DYE_RGB.entrySet()) {
+                if (e.getValue() == rgb(c)) return byId("dye_" + e.getKey());
+            }
+            ItemDef d = byId("dye_" + c.substring(1));
+            return d != null && c.equals(d.wearable().dye()) ? d : null;
+        }
         ItemDef d = byId("dye_" + colour);
         return d != null && colour.equals(d.wearable().dye()) ? d : null;
     }
@@ -330,7 +449,7 @@ public final class Wearables {
         if (d.isTack()) return new Pickup(d.id(), "blanket", Tack.SADDLE_RGB);
         if (!d.isWearable()) return null;
         String dye = d.wearable().dye();
-        if (dye != null) return new Pickup(BOTTLE, "liquid", DYE_RGB.getOrDefault(dye, item.rarity().rgb()));
+        if (dye != null) return new Pickup(BOTTLE, "liquid", dyeRgb(dye, item.rarity().rgb()));
         String cut = TAILORED_COLOUR.get(d.id());
         if (cut != null) return new Pickup(HANGER, "cloth", DYE_RGB.getOrDefault(cut, item.rarity().rgb()));
         return new Pickup(armour(d) ? SHIELD : HANGER, armour(d) ? "face" : "cloth", item.rarity().rgb());
@@ -392,20 +511,29 @@ public final class Wearables {
      * The colours of {@code folder} worn in {@code slot}, out of {@code all}
      * (its {@code variants.json}'s): every one unlocked for the skin, the eyes
      * and the other free layers and for what is carried; none for a metal (its
-     * colour is the item's); otherwise every one, unlocked where a dye of it
-     * was used on this item ({@link Wardrobe#unlocked}), for the lips every
-     * one with the lipstick owned, and the colour already applied ({@code
-     * current}); every one while {@link #everything()} is on.
+     * colour is the item's); every one for the hair and the eyebrows, which
+     * are hers to colour from the start; otherwise every one, unlocked where
+     * a dye of it was used on this item ({@link Wardrobe#unlocked}), for the
+     * lips every one with the lipstick owned, and the colour already applied
+     * ({@code current}); every one while {@link #everything()} is on. After
+     * the item's own options come the palette's colours ({@link #PALETTE}),
+     * unlocked the same way.
      */
     public static List<Colour> colours(Slot slot, String folder, List<String> all, String current,
                                        Set<ItemDef> owned, Wardrobe wardrobe) {
         List<Colour> out = new ArrayList<>();
         if (metal(slot, folder)) return out;
         boolean open = everything || slot.carried() || (free(slot) && slot != Slot.MOUTH)
-                || (slot == Slot.MOUTH && owned.contains(LIPSTICK));
+                || (slot == Slot.MOUTH && owned.contains(LIPSTICK)) || slot == Slot.HAIR || slot == Slot.EYEBROWS;
         for (String c : all) {
             out.add(new Colour(c, open || c.equals(current) || wardrobe.unlocked(slot, folder, c)
                     || tailoredIn(owned, slot, folder, c)));
+        }
+        // and any of the palette's colours (an item with no colour of its own to change takes none)
+        if (!all.isEmpty()) {
+            for (String c : PALETTE) {
+                out.add(new Colour(c, open || c.equalsIgnoreCase(current) || wardrobe.unlocked(slot, folder, c)));
+            }
         }
         return out;
     }

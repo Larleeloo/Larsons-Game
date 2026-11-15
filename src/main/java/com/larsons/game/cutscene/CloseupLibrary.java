@@ -214,6 +214,8 @@ public final class CloseupLibrary {
      */
     public static Map<String, String> choice(Slot slot, String own, String skin) {
         Map<String, String> c = new HashMap<>();
+        // (lips nobody has painted are the skin's colour, a little darker)
+        if (own == null && slot == Slot.MOUTH) own = Variants.NATURAL;
         if (own != null && slot != Slot.BODY) c.put(Variants.OWN, own);
         if (skin != null) c.put(Variants.SKIN, skin);
         return c;

@@ -297,8 +297,8 @@ public final class ObjectTypes {
                 List.of(Prop.text("name", "Name", "Market stall"),
                         Prop.choice("stall", "Stall", "market_stall", o -> shopStalls()),
                         Prop.rows("stock", "Sells", "", Rows.stock("Nothing listed: the usual - whetstones, "
-                                + "wedges, studs, crystals, arrows, bolts, ingots, scrolls and cards for her class")),
-                        Prop.toggle("buys", "Buys what she sells (half its worth)", true)),
+                                + "wedges, studs, crystals, arrows, bolts, ingots, scrolls and cards for the player's class")),
+                        Prop.toggle("buys", "Buys what they sell (half its worth)", true)),
                 1.4, 2.6, 0xF0C030, false,
                 (o, b) -> {
                     Vec3 at = b.onGround(o);
@@ -679,8 +679,8 @@ public final class ObjectTypes {
     /** What a place of someone's day is called in the editor: "Her post", "Spot: well", "Cottage #12". */
     public static String dayPlaceLabel(String key) {
         if (key == null) return "";
-        if (key.equals(com.larsons.game.actor.Schedule.POST)) return "Her post";
-        if (key.equals(com.larsons.game.actor.Schedule.HOME)) return "Her home";
+        if (key.equals(com.larsons.game.actor.Schedule.POST)) return "Their post";
+        if (key.equals(com.larsons.game.actor.Schedule.HOME)) return "Their home";
         if (key.startsWith(com.larsons.game.actor.Schedule.BUILDING)) return houseLabel(key);
         return "\u201C" + key + "\u201D";
     }

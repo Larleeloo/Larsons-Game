@@ -349,7 +349,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
-        this.tips = new Tips(game.settings());
+        this.tips = new Tips(game.settings(), campaign != null ? campaign.save().tips() : null);
         this.inventory = new InventoryPanel(game, world);
         this.story = new Story(game, world, inventory, campaign != null ? campaign.save().quests() : null,
                 campaign != null ? campaign.placeName() : level.name());
@@ -381,7 +381,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             world.onLooted(c -> {
                 if (c.object() != 0) flags.put(chestFlag(campaign.place(), c), "looted");
             });
+            // the hour it is in her world: as she left it in the last place (a level whose time stands still keeps its own)
+            if (campaign.save().hour() >= 0 && world.sky().air().timeRuns()) {
+                world.clock().setHour(campaign.save().hour());
+            }
         }
+        miniMap = new MiniMap(world, campaign != null ? campaign.save().seen().get(campaign.place()) : null);
         world.ownWhatIsWorn();
         Player p = world.player();
         if (at != null) {
@@ -398,6 +403,10 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** The horde game played here (a horde map: {@link com.larsons.game.level.HordeRules}), or null. */
     private HordeGame horde;
+
+    /** The small map in the corner: what of this level she has seen (null: the demo's world has none). */
+    private MiniMap miniMap;
+    private double mapKept;
     /** The horde map's id (its folder's name), for its best round; null when it is not a saved one. */
     private String hordeMap;
 
@@ -440,6 +449,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (campaign == null) return;
         campaign.save().take(world.player());
         if (clearedHere) campaign.save().cleared().add(campaign.place());
+        if (miniMap != null) campaign.save().seen().put(campaign.place(), miniMap.encode());
         com.larsons.game.save.Saves.write();
     }
 
@@ -622,7 +632,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         if (campaign != null) {
             campaign.save().played(dt);
+            if (world.sky().air().timeRuns()) campaign.save().clock(world.clock().hour());
             clearedByRule(dt);
+        }
+        if (miniMap != null && inside == null) {
+            miniMap.discover(world.player().ground());
+            // what she has newly seen is written down now and then (and whenever she is: leaving, a place cleared)
+            mapKept += dt;
+            if (campaign != null && miniMap.changed() && mapKept > 20) {
+                mapKept = 0;
+                campaign.save().seen().put(campaign.place(), miniMap.encode());
+            }
         }
         if (in.pressed(Action.PAUSE) || in.pressed(GLFW_KEY_ESCAPE)) {
             in.consume(Action.PAUSE);
@@ -641,7 +661,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             back.run();
             return;
         }
-        if (in.pressed(Action.INVENTORY)) {
+        // (the gamepad's own inventory button shuts it again, though a menu is up then)
+        if (in.pressed(Action.INVENTORY) || inventory.open() && in.padPressed(Action.INVENTORY)) {
             table.close();
             inventory.toggle();
         }
@@ -976,7 +997,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
     private enum Use {
-        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON
+        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, BED, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON
     }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
@@ -1007,6 +1028,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // a way through (a wardrobe with a stair at its back, a bookshelf that swings out) - and a wardrobe
         if (g == null && usablePassage() != null) return Use.PASSAGE;
         if (g == null && world.reachableWardrobe() != null) return Use.WARDROBE;
+        if (g == null && world.reachableBed() != null) return Use.BED;
         if (st != null && ds < dc && ds < dg && ds <= db) return Use.STORE;
         com.larsons.game.world.Shop sh = world.reachableShop();
         if (sh != null && g == null) return Use.SHOP;       // (what lies on the counter is picked up first)
@@ -1043,6 +1065,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 Sounds.play(SoundKeys.world("door_open"));
                 pause.open(PauseMenu.Page.WARDROBE);
             }
+            case BED -> sleep();
             case SADDLE -> saddleHorse();
             case MOUNT -> world.mount(world.reachableHorse());
             case DISMOUNT -> {
@@ -1062,7 +1085,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (campaign != null) {
                     toMap(s.bool("clears", true) && "exit".equals(campaign.clear()));
                 } else if (back != null) {
-                    game.toast("The way back to the map: in a playthrough she leaves here", Theme.HINT);
+                    game.toast("The way back to the map: in a playthrough you leave here", Theme.HINT);
                 } else {
                     game.switchTo("menu");
                 }
@@ -1082,6 +1105,30 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     : "");
             default -> "Use " + s.name();
         };
+    }
+
+    /** E at a bed: after dark, the night slept through - morning, and her health whole. */
+    private void sleep() {
+        if (!world.sky().air().timeRuns()) {
+            game.toast("The time stands still here: there is no night to sleep through", Theme.HINT);
+            return;
+        }
+        if (!world.bedtime()) {
+            game.toast("It is not dark yet (" + com.larsons.game.world.DayCycle.clock(world.clock().hour())
+                    + "). Come back to bed after sunset", Theme.HINT);
+            return;
+        }
+        if (!world.sleep()) {
+            game.toast("You cannot sleep with foes near", Theme.WARNING);
+            return;
+        }
+        fade = 1.9;                                  // (dark a moment, then the morning)
+        Sounds.play(SoundKeys.ui("close"));
+        if (campaign != null) {
+            campaign.save().clock(world.clock().hour());
+            keep();
+        }
+        game.toast("You slept until morning" + (campaign != null ? " - day " + campaign.save().day() : ""), Theme.OK);
     }
 
     /** E by a horse with a saddle on her: it is saddled, and hers to ride. */
@@ -1668,6 +1715,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawSupplies(ui, world, hotbar - 34);
                 combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
+            if (!inventory.open() && hudShown) corner(ui);
             if (!game.importer().visible()) inventory.draw(ui);
             if (!inventory.open()) story.draw(ui, hudShown);
             if (!inventory.open() && !story.modal()) tips.draw(ui);
@@ -1682,6 +1730,37 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (!game.importer().visible()) pause.draw(ui, frameDt, world.player());
         if (choosing && !pause.open()) chooseClass(ui);
         ui.end();
+    }
+
+    /**
+     * The compass along the top and the small map in the top right corner
+     * (Settings → Game turns either off), the day and the hour under the
+     * map; the missions she follows are listed under them.
+     */
+    private void corner(Ui ui) {
+        var s = game.settings();
+        boolean map = s.miniMap && miniMap != null && inside == null && horde == null;
+        boolean compass = s.compass && inside == null;
+        float top = 96;
+        if (map || compass) {
+            List<MiniMap.Waypoint> places = story.waypoints();
+            Vec3 me = world.player().ground();
+            if (map) {
+                float size = 176, x = ui.width() - size - 19, y = 19;
+                miniMap.draw(ui, frameDt, me, world.player().heading(), x, y, size, places);
+                String when = (campaign != null ? "Day " + campaign.save().day() + "  ·  " : "")
+                        + com.larsons.game.world.DayCycle.clock(world.clock().hour());
+                float tw = ui.small.width(when) + 16;
+                ui.rect(x + size - tw + 5, y + size + 9, tw, ui.small.lineHeight() + 4, Theme.withAlpha(Theme.SOOT, 0.6f));
+                ui.text(ui.small, when, x + size - tw + 13, y + size + 10, Theme.TITLE);
+                top = y + size + 16 + ui.small.lineHeight() + 8;
+            }
+            if (compass) {
+                float w = Math.min(520, ui.width() - 2 * 230);
+                if (w >= 220) Compass.draw(ui, camera.yaw(), me, places, ui.width() / 2f, 14, w);
+            }
+        }
+        story.setTrackerTop(top);
     }
 
     /** The class picker, over the game at its start: the nine classes; a click is hers. */
@@ -1736,6 +1815,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             text = "   " + passageText(usablePassage());
         } else if (use == Use.WARDROBE) {
             text = "   Change clothes at the " + world.reachableWardrobe().profile().label().toLowerCase();
+        } else if (use == Use.BED) {
+            text = world.bedtime() ? "   Sleep until morning" : "   Sleep (after dark)";
         } else if (use == Use.CHEST) {
             Chest c = world.reachableChest();
             text = "   " + (c.store() != null ? "Look in the chest"
@@ -2444,6 +2525,28 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (best != null) goIn(best);
             }
             case "outside" -> goOut();
+            // beside the bed nearest her, in the place she is in: bed
+            case "bed" -> {
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    if (!World.isBed(b.key()) || b.passage() != null) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best == null) return false;
+                Vec3 at = null;
+                for (double r = 0.7; r <= 2.4 && at == null; r += 0.3) {
+                    for (int k = 0; k < 8 && at == null; k++) {
+                        Vec3 c = new Vec3(best.position().x() + r * Math.cos(k * Math.PI / 4), 0,
+                                best.position().z() + r * Math.sin(k * Math.PI / 4));
+                        if (best.blocks(c.x(), c.z(), 0.3)) continue;
+                        p.setPosition(c);
+                        if (world.reachableBed() == best) at = c;
+                    }
+                }
+                if (at == null) return false;
+                camera.snapTo(pivot());
+            }
             case "upstairs", "downstairs" -> {
                 boolean up = command.equals("upstairs");
                 Building best = null;

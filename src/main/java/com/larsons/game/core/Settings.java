@@ -148,6 +148,10 @@ public final class Settings {
     public double pickupRange = 2.5;
     /** The tutorial's tips come up in the game the first time each thing happens. */
     public boolean tutorialTips = true;
+    /** The small map in the top corner, and the compass along the top. */
+    public boolean miniMap = true, compass = true;
+    /** Whether there are birds in the world (off: none, at any hour). */
+    public boolean birds;
     /** The tips already shown, so each comes once ({@code scene/Tips}). */
     public final java.util.Set<String> tipsSeen = new java.util.LinkedHashSet<>();
     /** The pointer changes with what it is over (a button, someone to talk to, a foe); off: always the same. */
@@ -211,6 +215,9 @@ public final class Settings {
                 s.autoPickup = Json.bool(j, "autoPickup", true);
                 s.pickupRange = Math.max(0.5, Math.min(8, Json.num(j, "pickupRange", 2.5)));
                 s.tutorialTips = Json.bool(j, "tutorialTips", true);
+                s.birds = Json.bool(j, "birds", false);
+                s.miniMap = Json.bool(j, "miniMap", true);
+                s.compass = Json.bool(j, "compass", true);
                 if (j.get("tipsSeen") instanceof java.util.List<?> seen) {
                     for (Object o : seen) s.tipsSeen.add(String.valueOf(o));
                 }
@@ -252,6 +259,9 @@ public final class Settings {
         j.put("autoPickup", autoPickup);
         j.put("pickupRange", pickupRange);
         j.put("tutorialTips", tutorialTips);
+        j.put("birds", birds);
+        j.put("miniMap", miniMap);
+        j.put("compass", compass);
         j.put("tipsSeen", new java.util.ArrayList<>(tipsSeen));
         j.put("dynamicPointer", dynamicPointer);
         j.put("missionTracker", missionTracker);

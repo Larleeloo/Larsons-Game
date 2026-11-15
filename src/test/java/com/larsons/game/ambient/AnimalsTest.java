@@ -19,6 +19,33 @@ import static org.junit.jupiter.api.Assertions.*;
 /** The animals: who lives where, what they do when she comes near, when she hits them - and when they hit her. */
 class AnimalsTest {
 
+    /** The birds are off as the game comes; these tests are of how they live when they are on. */
+    @org.junit.jupiter.api.BeforeEach
+    void birdsOn() {
+        Animals.setBirds(true);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void birdsAsTheyCome() {
+        Animals.setBirds(false);
+    }
+
+    @Test
+    void withTheBirdsOffNoneComesAtAnyHour() {
+        Animals.setBirds(false);
+        Animals a = fresh(5);
+        a.setLife(turnedUp(AnimalKind.DUCK, AnimalKind.ROBIN, AnimalKind.OWL, AnimalKind.RABBIT));
+        Animals.Herd geese = new Animals.Herd(AnimalKind.GOOSE, new Vec3(6, 0, 0), 3, 4, null, Critters.When.ALWAYS);
+        a.herds().add(geese);
+        for (double day : new double[]{1, 0.5, 0}) {
+            for (int i = 0; i < 1200; i++) a.tick(1 / 30.0, i / 30.0, day, new Vec3(0, 0, 0), null, place(Biome.MARSH, 12), null);
+            for (AnimalKind k : AnimalKind.values()) {
+                if (k.bird()) assertEquals(0, a.count(k), k + " with the birds off, day " + day);
+            }
+        }
+        assertTrue(a.count(AnimalKind.RABBIT) >= 1, "the rest still come");
+    }
+
     /** A place all one biome, flat at 0, with a pond of {@code pond} m round the middle (0: none) and a tree at (5, 5). */
     private static Animals.Place place(Biome b, double pond) {
         return new Animals.Place() {

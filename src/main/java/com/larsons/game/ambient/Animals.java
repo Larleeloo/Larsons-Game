@@ -190,6 +190,23 @@ public final class Animals {
     private double survey, thin;
     private boolean enabled = true;
     private boolean still;
+    /**
+     * Whether there are birds at all. Off: none comes by and no flock a
+     * level has shows, at any hour of the day (in the editor's still view
+     * they stand where they were put, so they can be found and moved).
+     */
+    private static volatile boolean birds;
+
+    /** Turn the birds on or off, everywhere (Settings → Game). */
+    public static void setBirds(boolean on) {
+        birds = on;
+    }
+
+    public static boolean birds() { return birds; }
+
+    private boolean off(AnimalKind k) {
+        return !birds && !still && k.bird();
+    }
 
     public Animals() {
         for (AnimalKind k : AnimalKind.values()) share.put(k, 0.0);
@@ -358,7 +375,7 @@ public final class Animals {
         thin -= dt;
         for (AnimalKind k : AnimalKind.values()) {
             long want = Math.round(wanted(k, day));
-            if (life.density(k) <= 0) {
+            if (life.density(k) <= 0 || off(k)) {
                 // turned off: none come by, and those that came by go - at once where nobody plays (one put
                 // there by a card, a script, a herd, stays)
                 for (Animal a : live) {
@@ -400,7 +417,7 @@ public final class Animals {
         }
         for (Herd h : herds) {
             boolean near = Math.hypot(h.at().x() - focus.x(), h.at().z() - focus.z()) < HERD_REACH;
-            int want = near ? (int) Math.round(h.count() * (still ? 1 : when(h, day))) : 0;
+            int want = near && !off(h.kind()) ? (int) Math.round(h.count() * (still ? 1 : when(h, day))) : 0;
             if (still && near) {
                 // the editor's view: the whole herd there at once, where each will stand
                 int have = 0;

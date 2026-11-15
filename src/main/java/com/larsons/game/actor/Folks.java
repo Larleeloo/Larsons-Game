@@ -62,23 +62,74 @@ public final class Folks {
      * @param skin    its skin: a colour option of the body ("violet_ombre"), "yellow" or "purple" for a Bortzal; null: any
      * @param hostile whether it fights her on sight
      * @param dress   how it is dressed, or null: as its kind is
+     * @param look    the look made for it in the editor - its body, its face, its hair, every thing it wears and
+     *                each one's colour - which then stands for its body, its skin and its dress; null: one drawn
+     *                from its seed
      */
     public record Spec(String body, String weapon, double size, long seed, String name, String skin, boolean hostile,
-                       Looks.Dress dress) {
+                       Looks.Dress dress, Wardrobe look) {
         /** One as its kind comes. */
         public static final Spec ANY = new Spec("either", "own", 0, 0, null, null, true, null);
 
+        public Spec(String body, String weapon, double size, long seed, String name, String skin, boolean hostile,
+                    Looks.Dress dress) {
+            this(body, weapon, size, seed, name, skin, hostile, dress, null);
+        }
+
         public Spec weapon(String w) {
-            return new Spec(body, w, size, seed, name, skin, hostile, dress);
+            return new Spec(body, w, size, seed, name, skin, hostile, dress, look);
         }
 
         public Spec size(double s) {
-            return new Spec(body, weapon, s, seed, name, skin, hostile, dress);
+            return new Spec(body, weapon, s, seed, name, skin, hostile, dress, look);
         }
 
         public Spec seed(long s) {
-            return new Spec(body, weapon, size, s, name, skin, hostile, dress);
+            return new Spec(body, weapon, size, s, name, skin, hostile, dress, look);
         }
+
+        public Spec look(Wardrobe w) {
+            return new Spec(body, weapon, size, seed, name, skin, hostile, dress, w);
+        }
+    }
+
+    /** Whether {@code skin} is one {@code people} can be given: one of its own tones, or any colour ({@code #rrggbb}). */
+    private static boolean skinFor(People people, String skin) {
+        return skin != null && (people.skins().contains(skin) || com.larsons.game.sprite.Variants.isCustom(skin));
+    }
+
+    /**
+     * How the level's person {@code id} of {@code people} looks, made as
+     * {@code spec} says: the look made for her, or the one drawn from her
+     * seed - what {@link #person} dresses her in.
+     */
+    public static Wardrobe personLook(int id, People people, Spec spec) {
+        if (spec == null) spec = Spec.ANY;
+        if (spec.look() != null) return spec.look().copy();
+        long seed = spec.seed() != 0 ? spec.seed() : id * 7919L + 13;
+        Random r = new Random(seed);
+        boolean masc = "masculine".equals(spec.body()) || (!"feminine".equals(spec.body()) && r.nextBoolean());
+        Wardrobe w = Looks.of(people, masc, spec.dress(), seed);
+        if (skinFor(people, spec.skin())) w.setColour(Slot.BODY, spec.skin());
+        return w;
+    }
+
+    /**
+     * How the level's foe {@code id} of {@code breed} looks ({@link
+     * #personLook} for a foe), or null for one that is a creature of its own
+     * sprites (a Bortzal, the risen): there is nothing to dress.
+     */
+    public static Wardrobe foeLook(int id, Breed breed, Spec spec) {
+        if (breed == null || breed.risen() || breed.creature()) return null;
+        if (spec == null) spec = Spec.ANY;
+        if (spec.look() != null) return spec.look().copy();
+        long seed = spec.seed() != 0 ? spec.seed() : id * 7919L + breed.ordinal() * 104729L + 17;
+        Random r = new Random(seed);
+        boolean masc = "masculine".equals(spec.body()) || (!"feminine".equals(spec.body()) && r.nextBoolean());
+        Looks.Dress dress = spec.dress() == null || spec.dress() == Looks.Dress.OWN ? breed.dress() : spec.dress();
+        Wardrobe w = Looks.of(breed.people(), masc, dress, seed);
+        if (skinFor(breed.people(), spec.skin())) w.setColour(Slot.BODY, spec.skin());
+        return w;
     }
 
     private static final double[] ROUND = {0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9};
@@ -265,7 +316,12 @@ public final class Folks {
         } else {
             Looks.Dress dress = spec.dress() == null || spec.dress() == Looks.Dress.OWN ? breed.dress() : spec.dress();
             Wardrobe w = Looks.of(breed.people(), masc, dress, seed);
-            if (spec.skin() != null && breed.people().skins().contains(spec.skin())) w.setColour(Slot.BODY, spec.skin());
+            if (skinFor(breed.people(), spec.skin())) w.setColour(Slot.BODY, spec.skin());
+            if (spec.look() != null) {
+                // (the look made for it in the editor)
+                w = spec.look().copy();
+                masc = "masculine".equals(w.get(Slot.BODY));
+            }
             f = new Folk(id, breed, breed.people(), breed.role(), masc, w, null, at, heading);
             f.crouched = breed.crawls();
             f.sized(size);
@@ -290,7 +346,12 @@ public final class Folks {
         Random r = new Random(seed);
         boolean masc = "masculine".equals(spec.body()) || (!"feminine".equals(spec.body()) && r.nextBoolean());
         Wardrobe w = Looks.of(people, masc, spec.dress(), seed);
-        if (spec.skin() != null && people.skins().contains(spec.skin())) w.setColour(Slot.BODY, spec.skin());
+        if (skinFor(people, spec.skin())) w.setColour(Slot.BODY, spec.skin());
+        if (spec.look() != null) {
+            // (the look made for her in the editor)
+            w = spec.look().copy();
+            masc = "masculine".equals(w.get(Slot.BODY));
+        }
         Folk f = new Folk(id, null, people, Folk.Role.PERSON, masc, w, null, at, heading);
         double lo = Math.max(0.7, people.smallest()), hi = Math.min(1.3, people.tallest());
         f.sized(spec.size() > 0 ? spec.size() : lo + r.nextDouble() * (hi - lo));

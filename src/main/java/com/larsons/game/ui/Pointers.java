@@ -21,7 +21,7 @@ import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * The mouse pointer: her class's (a wand for a Mage, a lute for a Bard, a
- * sword for a Knight, an axe for a Warrior, a gloved hand for a Warlock, a
+ * sword for a Knight, an axe for a Warrior, a staff for a Warlock, a
  * leafy branch for a Druid, a dagger for a Rogue, an arrow for a Ranger, a
  * holy symbol for a Cleric), or one chosen in Pause → Class - any of the
  * nine, a picture of her own ({@code assets/ui/pointers/custom.png}, its
@@ -33,7 +33,7 @@ import static org.lwjgl.glfw.GLFW.*;
 public final class Pointers implements AutoCloseable {
 
     /** The pointers there are, in the order Pause → Class offers them. */
-    public static final List<String> NAMES = List.of("wand", "lute", "sword", "axe", "gloved_hand", "leafy_branch",
+    public static final List<String> NAMES = List.of("wand", "lute", "sword", "axe", "staff", "leafy_branch",
             "dagger", "arrow", "holy_symbol");
     public static final String CLASS = "class", CUSTOM = "custom", SYSTEM = "system";
 
@@ -53,20 +53,25 @@ public final class Pointers implements AutoCloseable {
             case CLASS -> "Your class's";
             case CUSTOM -> "Custom (custom.png)";
             case SYSTEM -> "System arrow";
-            case "gloved_hand" -> "Gloved hand";
+            case "staff" -> "Staff";
             case "leafy_branch" -> "Leafy branch";
             case "holy_symbol" -> "Holy symbol";
             default -> Character.toUpperCase(name.charAt(0)) + name.substring(1);
         };
     }
 
+    /** A pointer by the name it has now: the Warlock's gloved hand of before is the staff. */
+    private static String renamed(String name) {
+        return "gloved_hand".equals(name) ? "staff" : name;
+    }
+
     /** The pointer {@code setting} comes to for {@code heroClass}: a name, or {@link #SYSTEM}. */
     public static String resolve(String setting, String heroClass) {
         if (setting == null || setting.isBlank() || setting.equals(CLASS)) {
             CardBook.Hero h = CardBook.get().hero(heroClass);
-            return h == null ? SYSTEM : h.pointer();
+            return h == null ? SYSTEM : renamed(h.pointer());
         }
-        return setting;
+        return renamed(setting);
     }
 
     /**

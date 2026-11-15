@@ -192,7 +192,7 @@ class StanceTest {
         png("body/hero/idle_middle_s.png");
         png("body/hero/crouch_idle_middle_s.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
-        SpriteLibrary.Source body = lib.source(Slot.BODY, "hero", Wardrobe.Style.RENDERED, false);
+        SpriteLibrary.Source body = lib.source(Slot.BODY, "hero", Wardrobe.Style.PIXEL_128, false);
         Elevation m = Elevation.MIDDLE;
         assertEquals(AnimState.CROUCH_IDLE, LayerStack.shown(lib, body, AnimState.CROUCH_IDLE, m, Facing.SOUTH));
         // the axe's crouch falls back to the sword's crouch, which this set has

@@ -121,8 +121,8 @@ class VariantsTest {
         w.set(Slot.SHIRT, "tunic");
         assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", w.style()));
         assertEquals(0x1020a0, lib.swatch(Slot.SHIRT, "tunic", w.style(), "royal_blue"));
-        assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.RENDERED),
-                "no 512-pixel version: the rendered style draws the 128-pixel one, in its colours");
+        assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.PIXEL_64),
+                "no 64-pixel version: that style draws the 128-pixel one, in its colours");
         SpriteLibrary.Source src = lib.source(Slot.SHIRT, "tunic", w.style(), false);
         assertNull(lib.recolor(src, Slot.SHIRT, w));
         w.setColour(Slot.SHIRT, "black");
@@ -133,10 +133,9 @@ class VariantsTest {
 
     @Test
     void aLeftHandedCharacterUsesLeftHandedArtOrTheTwinMirrored() throws Exception {
-        palettePng("carry_right/sword/attack_side_e.png");
-        palettePng("carry_right/sword/attack_side_w.png");
         palettePng("carry_left/sword_px128_lh/attack_side_e.png");
         palettePng("carry_right/sword_px128/attack_side_e.png");
+        palettePng("carry_right/sword_px128/attack_side_w.png");
         palettePng("carry_left/sword_px128/attack_side_e.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         assertEquals(List.of(), lib.items(Slot.CARRY_LEFT).stream().filter(i -> !Wardrobe.Style.isVersion(i)).toList(),
@@ -144,10 +143,9 @@ class VariantsTest {
         // pixel art: the left-handed version, as it is
         SpriteLibrary.Source px = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_128, true);
         assertEquals(new SpriteLibrary.Source(Slot.CARRY_LEFT, "sword_px128_lh", false), px);
-        // the renders have none: the right hand's sword, from the other side, mirrored (not
-        // the pixel art, although the left hand has some)
-        SpriteLibrary.Source r = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.RENDERED, true);
-        assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword", true), r);
+        // the 64-pixel art has no left-handed version: the right hand's sword, from the other side, mirrored
+        SpriteLibrary.Source r = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_64, true);
+        assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword_px128", true), r);
         SpriteLibrary.Resolved east = lib.resolve(r, AnimState.ATTACK, Elevation.SIDE, Facing.EAST);
         assertTrue(east.mirrored());
         assertTrue(east.file().endsWith("attack_side_w.png"), "seen from the east: the west view, mirrored");
@@ -215,5 +213,89 @@ class VariantsTest {
         assertEquals("sword", Wardrobe.Style.base("sword_px64_lh"));
         assertEquals(Slot.WRISTWEAR, Slot.WRISTWEAR_LEFT.twin());
         assertEquals(Slot.HAIR, Slot.HAIR.twin());
+    }
+
+
+    @Test
+    void anyColourShadesAnItemAndWithThePaletteKnownStaysInIt() {
+        assertTrue(Variants.isCustom("#208040"));
+        for (String no : List.of("mint", "#12345", "#gggggg", "208040x")) assertFalse(Variants.isCustom(no), no);
+        assertFalse(Variants.isCustom(null));
+        Variants v = Variants.parse(JSON);
+        BufferedImage out = Variants.apply(sheet(), v.recolor(Map.of("own", "#208040")));
+        int main = out.getRGB(0, 0) & 0xFFFFFF, shade = out.getRGB(1, 0) & 0xFFFFFF;
+        for (int shift = 0; shift <= 16; shift += 8) {
+            assertEquals((0x208040 >> shift) & 0xFF, (main >> shift) & 0xFF, 2, "the label the swatch is of: the colour");
+        }
+        assertTrue(Variants.Oklab.of(shade)[0] < Variants.Oklab.of(main)[0] - 0.05, "its shade as much darker as before");
+        assertEquals(0xb48c64, out.getRGB(2, 0) & 0xFFFFFF, "the skin's label is not the item's own");
+        // the art's palette known: every label is one of its colours
+        PixelPalette p = PixelPalette.load(Path.of("assets", "sprites"));
+        assertNotNull(p, "assets/sprites/pixel_palette.json");
+        try {
+            Variants.setPalette(p);
+            for (int rgb : new int[]{0x208040, 0x123456, 0xfefefe, 0x4e2507}) {
+                for (int c : Variants.custom(Variants.parse(JSON).channel("own"), rgb)) {
+                    assertTrue(p.contains(c), String.format("#%06x of #%06x", c, rgb));
+                }
+            }
+        } finally {
+            Variants.setPalette(null);
+        }
+        // the fills the game offers as colours are the palette file's
+        int[] file = p.fills(), built = PixelPalette.FILLS.clone();
+        java.util.Arrays.sort(file);
+        java.util.Arrays.sort(built);
+        assertArrayEquals(file, built, "PixelPalette.FILLS is pixel_palette.json's fills");
+    }
+
+    @Test
+    void unpaintedLipsAreTheSkinALittleDarkerWhateverTheSkin() {
+        Variants v = Variants.parse(JSON);
+        String lips = v.natural("mint");
+        assertEquals(String.format("#%06x", Variants.lips(0x80e0a0)), lips, "from the skin's swatch");
+        assertEquals(String.format("#%06x", Variants.lips(0x4e2507)), v.natural("#4e2507"), "or any colour of skin");
+        assertNull(v.natural(null));
+        assertNull(v.natural("no_such_tone"));
+        for (int skin : PixelPalette.FILLS) {
+            double[] s = Variants.Oklab.of(skin), l = Variants.Oklab.of(Variants.lips(skin));
+            assertTrue(l[0] <= s[0] + 0.01, String.format("#%06x: no lighter than the skin", skin));
+            assertTrue(l[0] >= s[0] - 0.12, String.format("#%06x: only a little darker", skin));
+            assertTrue(Math.hypot(l[1] - s[1], l[2] - s[2]) < 0.05,
+                    String.format("#%06x: the skin's own colour, not a red painted on it", skin));
+        }
+        // asked for as the mouth's colour, it is the lips of the skin picked
+        Variants.Recolor natural = v.recolor(Map.of("own", Variants.NATURAL, "skin", "mint"));
+        Variants.Recolor same = Variants.parse(JSON).recolor(Map.of("own", lips, "skin", "mint"));
+        assertNotNull(natural);
+        assertEquals(same.key(), natural.key());
+        assertNull(Variants.parse(JSON).recolor(Map.of("own", Variants.NATURAL)), "no skin picked: its own colours");
+    }
+
+    @Test
+    void aWardrobeBecomesAnotherButKeepsWhatIsInItsHands() {
+        Wardrobe mine = new Wardrobe();
+        mine.set(Slot.SHIRT, "baggy_tee");
+        mine.set(Slot.HAT, "straw_sun_hat");
+        mine.set(Slot.CARRY_RIGHT, "sword");
+        Wardrobe other = new Wardrobe();
+        other.set(Slot.BODY, "masculine");
+        other.setColour(Slot.BODY, "#4e2507");
+        other.set(Slot.SHIRT, "laced_shirt");
+        other.setColour(Slot.SHIRT, "emerald");
+        other.set(Slot.CARRY_RIGHT, "mace");
+        other.setStyle(Wardrobe.Style.PIXEL_64);
+        other.setHand(Wardrobe.Hand.LEFT);
+        mine.become(other);
+        assertEquals("masculine", mine.get(Slot.BODY));
+        assertEquals("#4e2507", mine.skin());
+        assertEquals("laced_shirt", mine.get(Slot.SHIRT));
+        assertEquals("emerald", mine.colour(Slot.SHIRT));
+        assertNull(mine.get(Slot.HAT), "what the other does not wear comes off");
+        assertEquals("sword", mine.get(Slot.CARRY_RIGHT), "the hands are the weapons'");
+        assertEquals(Wardrobe.Style.PIXEL_64, mine.style());
+        assertEquals(Wardrobe.Hand.LEFT, mine.hand());
+        other.set(Slot.SHIRT, "baggy_tee");
+        assertEquals("laced_shirt", mine.get(Slot.SHIRT), "a look of its own from then on");
     }
 }

@@ -62,6 +62,21 @@ public final class Variants {
 
     public static final String OWN = "own", SKIN = "skin";
 
+    /**
+     * The own colour of lips nobody has painted: a little darker than the skin
+     * they are in ({@link #natural}), whatever the skin - so nobody's mouth
+     * stands out of her face in a colour of its own.
+     */
+    public static final String NATURAL = "natural";
+
+    /** The art's 128 colours, which a colour of one's own is shaded in ({@link #custom}); null: any colour. */
+    private static volatile PixelPalette palette;
+
+    /** Shade the colours picked freely ({@code #rrggbb}) in {@code p}'s 128 colours from now on (null: in any). */
+    public static void setPalette(PixelPalette p) {
+        palette = p;
+    }
+
     private final Map<String, Channel> channels;
     private final Map<String, String> defaults;
 
@@ -160,6 +175,7 @@ public final class Variants {
         StringBuilder key = new StringBuilder();
         for (Map.Entry<String, Channel> e : channels.entrySet()) {
             String opt = choice.get(e.getKey());
+            if (NATURAL.equals(opt)) opt = natural(choice.get(SKIN));
             if (opt == null || opt.equals(defaults.get(e.getKey()))) continue;
             int[] cols = isCustom(opt) ? custom(e.getValue(), hex(opt)) : e.getValue().options().get(opt);
             if (cols == null) continue;
@@ -177,6 +193,31 @@ public final class Variants {
         return new Recolor(key.toString(), entries, rgb);
     }
 
+    /**
+     * The colour of unpainted lips in skin {@code skin} (an option of the
+     * skin's channel, or {@code #rrggbb}), as {@code #rrggbb}: the skin's
+     * colour a little darker and a touch warmer. Null when the item shows no
+     * skin or the skin is its own.
+     */
+    public String natural(String skin) {
+        Channel c = channels.get(SKIN);
+        if (c == null || skin == null) return null;
+        Integer rgb = isCustom(skin) ? Integer.valueOf(hex(skin)) : c.swatch().get(skin);
+        if (rgb == null) {
+            int[] cols = c.options().get(skin);
+            if (cols == null || cols.length == 0) return null;
+            rgb = cols[Math.min(1, cols.length - 1)];
+        }
+        return String.format(java.util.Locale.ROOT, "#%06x", lips(rgb));
+    }
+
+    /** {@code skin} (RGB) as the lips in it are: a little darker, a touch warmer. */
+    public static int lips(int skin) {
+        double[] l = Oklab.of(skin & 0xFFFFFF);
+        double L = Math.max(0.08, l[0] - (l[0] > 0.35 ? 0.09 : 0.05));
+        return Oklab.rgb(L, l[1] + 0.012, l[2]);
+    }
+
     /** Whether a colour is {@code #rrggbb} - any colour - rather than an option's name. */
     public static boolean isCustom(String colour) {
         return colour != null && colour.length() == 7 && colour.charAt(0) == '#'
@@ -188,7 +229,10 @@ public final class Variants {
      * much lighter or darker, more or less saturated and turned in hue from
      * the {@code rgb} as it is from the swatch in the channel's first option
      * (in OKLab) - so a shirt in any colour keeps its shading, lines and
-     * highlights. Null if the channel has no option to take the shading from.
+     * highlights. With the art's palette known ({@link #setPalette}) each is
+     * then the nearest of its 128 colours - a line's among the lines, a
+     * fill's among the fills - so the art never leaves the palette. Null if
+     * the channel has no option to take the shading from.
      */
     public static int[] custom(Channel c, int rgb) {
         if (c.options().isEmpty()) return null;
@@ -207,6 +251,10 @@ public final class Variants {
             double C = Math.min(0.32, sc > 1e-4 ? tc * lc / sc : tc);
             double h = sc > 1e-4 ? th + (lh - sh) : th;
             out[i] = Oklab.rgb(L, C * Math.cos(h), C * Math.sin(h));
+        }
+        PixelPalette p = palette;
+        if (p != null) {
+            for (int i = 0; i < out.length; i++) out[i] = p.snap(out[i], p.line(cols[i]));
         }
         return out;
     }

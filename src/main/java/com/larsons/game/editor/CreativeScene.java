@@ -179,6 +179,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * for as it is placed, or a tint - and what it is picking them for.
      */
     private ColourPick colourPick;
+    /** The person or foe whose look is being made in the look dialog, the look so far, and the dialog's parts; or null. */
+    private LevelObject lookTarget;
+    private com.larsons.game.sprite.Wardrobe lookMade;
+    private com.larsons.game.scene.LookEditor lookEditor;
+    private com.larsons.game.scene.Portrait lookPortrait;
 
     /** The colour picker: {@code target}'s prop {@code key}, one colour or ({@code multi}) a herd's several. */
     private record ColourPick(LevelObject target, String key, boolean multi, String title,
@@ -538,6 +543,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_ESCAPE)) {
             in.consumeKey(GLFW_KEY_ESCAPE);
             if (colourPick != null) colourPick = null;
+            else if (lookTarget != null) lookTarget = null;
             else if (!selection.isEmpty()) selection.clear();
             else if (pointer) setPointer(false);
             else leave();
@@ -1476,6 +1482,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             rightPanel(ui);
             help(ui);
             if (colourPick != null) colourDialog(ui);
+            if (lookTarget != null) lookDialog(ui);
             if (boxing) {
                 Input in = ui.input();
                 float x0 = (float) Math.min(boxX, in.mouseX()), y0 = (float) Math.min(boxY, in.mouseY());
@@ -1659,7 +1666,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The rectangles the panels take up, as drawn: the pointer over one is not over the world. */
     private boolean overUi(double mx, double my) {
         Ui ui = game.ui();
-        if (colourPick != null || widgets.dropped()) return true;
+        if (colourPick != null || lookTarget != null || widgets.dropped()) return true;
         if (my < TOP_H || my > ui.height() - HELP_H) return true;
         if (mx < LEFT_W + 8) return true;
         return rightPanelShown() && mx > ui.width() - RIGHT_W - 8;
@@ -1876,7 +1883,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
                     + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
-            case HORDE -> "The horde map's rules: her points, how the rounds grow, which Risen come · Place → Zombies: "
+            case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
@@ -2024,11 +2031,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 "barricade") + ", " + things(level.ofType(HordeTypes.WALL_BUY).size(), "weapon board") + ", "
                 + things(level.ofType(HordeTypes.BOX).size(), "mystery box") + " placed.", x, y, w, Theme.HINT) + 4;
         if (spawns == 0) {
-            y += ui.paragraph(ui.small, "With no Risen spawn placed, they rise in a ring round her.", x, y, w,
+            y += ui.paragraph(ui.small, "With no Risen spawn placed, they rise in a ring round the player.", x, y, w,
                     Theme.WARNING) + 4;
         }
         if (level.spawn() == null) {
-            y += ui.paragraph(ui.small, "Place a player spawn (Markers) where she starts.", x, y, w, Theme.WARNING) + 4;
+            y += ui.paragraph(ui.small, "Place a player spawn (Markers) where the player starts.", x, y, w, Theme.WARNING) + 4;
         }
     }
 
@@ -2590,7 +2597,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 x, y, w);
         y += 44;
         ui.paragraph(ui.small, "Flatten brings the ground to that height; Ctrl+click takes it from the ground. "
-                + "Steeper than 45° is rock she cannot walk up - put vines on it (Place, Terrain) to climb it. "
+                + "Steeper than 45° is rock nobody can walk up - put vines on it (Place, Terrain) to climb it. "
                 + "The edge of the level stays at 0, where it meets the ground beyond.", x, y, w, Theme.HINT);
     }
 
@@ -2727,8 +2734,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         ui.paragraph(ui.small, "Sculpt a hollow (3, Lower), then fill it. The brush paints water level at the depth "
                 + "above where you press; turn \"Lies level\" off for a stream down a slope, and \"Flows\" makes it "
-                + "run the way the brush moves. The sea fills everything below its level, out to the horizon. She "
-                + "wades in the shallows and swims where it is deeper than "
+                + "run the way the brush moves. The sea fills everything below its level, out to the horizon. The "
+                + "player wades in the shallows and swims where it is deeper than "
                 + String.format(java.util.Locale.ROOT, "%.1f", com.larsons.game.world.Player.SWIM_DEPTH) + " m.",
                 x, y, w, Theme.HINT);
     }
@@ -3262,13 +3269,32 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     y + 10, w));
             y += 44;
         }
-        if (nw.mode() == Weather.Mode.BIOME) {
+        if (nw.mode() == Weather.Mode.BIOME || nw.mode() == Weather.Mode.CUSTOM) {
             nw = nw.withOften(widgets.slider(ui, "w-often", "How often", wt.often(), 0, 1, "%.2f", x, y + 10, w));
             y += 44;
-            y += ui.paragraph(ui.small, "Each biome its own weather, in spells of a few minutes: snow over the "
+            nw = nw.withSpell(60 * widgets.slider(ui, "w-spell", "Each spell (min)", wt.spell() / 60,
+                    Weather.SHORTEST_SPELL / 60, Weather.LONGEST_SPELL / 60, "%.1f", x, y + 10, w));
+            y += 44;
+        }
+        if (nw.mode() == Weather.Mode.BIOME) {
+            y += ui.paragraph(ui.small, "Each biome its own weather, in spells: snow over the "
                     + "mountains and the crystal, sandstorms over the savannah and the waste, rain and thunder over "
                     + "the plains, the jungle and the shore, fog over the marsh and the river, wind anywhere.", x, y,
                     w, Theme.HINT) + 10;
+        }
+        if (nw.mode() == Weather.Mode.CUSTOM) {
+            // her own events: each weather, and how often it comes beside the others (0: never)
+            ui.text(ui.small, "The events, and how often each comes:", x, y, Theme.HINT);
+            y += 22;
+            for (Weather.Kind k : Weather.Kind.values()) {
+                if (k == Weather.Kind.CLEAR) continue;
+                nw = nw.withEvent(k, widgets.slider(ui, "w-event-" + k.key(), k.label(), wt.event(k), 0, 1, "%.2f",
+                        x, y + 10, w));
+                y += 40;
+            }
+            y += ui.paragraph(ui.small, "\"How often\" is how much of the time there is weather at all; a spell "
+                    + "of weather is one of these events, the likelier the further its slider is up. At 0 it "
+                    + "never comes.", x, y + 4, w, Theme.HINT) + 14;
         }
         if (!nw.equals(wt)) {
             level.setWeather(nw);
@@ -3748,6 +3774,70 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += used;
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+        // someone who is dressed: their whole look can be made by hand
+        if (o != template && FolkTypes.lookNow(o) != null) {
+            boolean made = FolkTypes.look(o) != null;
+            y += 6;
+            ui.text(ui.small, made ? "Look: made by hand" : "Look: as it comes", x, y + 6, made ? Theme.ACCENT : Theme.ITEM);
+            y += 26;
+            float bw = (w - 6) / 2;
+            if (ui.button("Edit look…", x, y, bw, 30)) openLook(o);
+            if (ui.button("As it comes", x + bw + 6, y, bw, 30, false, made)) {
+                edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
+            }
+        }
+    }
+
+    /** Open the look dialog on {@code o}: its look as it stands, to be changed layer by layer. */
+    private void openLook(LevelObject o) {
+        lookTarget = o;
+        lookMade = FolkTypes.lookNow(o);
+        if (lookEditor == null) {
+            lookEditor = new com.larsons.game.scene.LookEditor(game);
+            lookEditor.setEverything(true);
+            lookPortrait = new com.larsons.game.scene.Portrait(game);
+        }
+        lookPortrait.setFace(false);
+        lookPortrait.setZoom(1);
+    }
+
+    /**
+     * The look dialog, over everything: every layer of a person or a foe -
+     * the body, the skin, the face, the hair, each thing worn and its colour,
+     * from everything there are sprites for and every colour of the palette -
+     * and the character beside it, to turn, zoom in on or see close up. What
+     * is changed is kept on the object ({@link FolkTypes#WARDROBE}) and then
+     * stands for its body, its skin and its dress; "As it comes" takes it off.
+     */
+    private void lookDialog(Ui ui) {
+        LevelObject o = lookTarget;
+        if (level.byId(o.id()) == null || lookMade == null) {
+            lookTarget = null;                 // (taken away under the dialog: undo)
+            return;
+        }
+        ui.scrim();
+        float w = Math.min(1160, ui.width() - 40), h = Math.min(660, ui.height() - 40);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        String name = o.str("name", "").isBlank() ? typeLabel(o) : o.str("name", "");
+        ui.text(ui.large, Ui.fit(ui.large, "Look: " + name, w - 300), x + 24, y + 14, Theme.TITLE);
+        ui.rect(x + 20, y + 56, w - 40, 1, Theme.PANEL_EDGE);
+        float bx = x + 20, by = y + 66, bw = w - 40, bh = h - 66 - 58;
+        float pw = Math.min(320, bw * 0.32f), cw = bw - pw - 24;
+        if (lookEditor.draw(ui, bx, by, cw, bh, lookMade, null)) {
+            var json = lookMade.toJson();
+            edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));
+        }
+        double size = o.num("size", 0) > 0 ? o.num("size", 0) : 1;
+        lookPortrait.draw(ui, 0.016, bx + cw + 24, by, pw, bh, lookMade, size, Math.max(1.3, size), null);
+        float fy = y + h - 48;
+        if (ui.button("Done", x + w - 24 - 160, fy, 160, 36)) lookTarget = null;
+        if (ui.button("As it comes", x + 24, fy, 180, 36, false, FolkTypes.look(o) != null)) {
+            edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
+            lookMade = FolkTypes.lookNow(o);
+        }
+        ui.text(ui.small, "Everything there are sprites for, in any colour. It is kept with the level.", x + 220,
+                fy + 9, Theme.ITEM_DISABLED);
     }
 
     /**
@@ -4083,6 +4173,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private static String shownChoice(String key, String option) {
         if (key.equals("passage")) return Building.Passage.label(option);
+        if (key.equals("skin") && com.larsons.game.sprite.Variants.isCustom(option)) {
+            return com.larsons.game.world.Wearables.colourName(option);
+        }
         switch (key) {
             case "home" -> {
                 if (option.equals(FolkTypes.AUTO)) return "Nearest house";
@@ -4249,6 +4342,25 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 selection.add(o);
                 if (!pointer) setTool(Tool.SELECT);
             }
+            case "wardrobe" -> {
+                // wardrobe: the look dialog on the one selected; wardrobe <slot> <item|none|same> [colour]: wear
+                // it in the dialog; wardrobe done: close it
+                if (a.length > 0 && a[0].equals("done")) {
+                    lookTarget = null;
+                } else if (a.length == 0) {
+                    if (selection.size() != 1 || FolkTypes.lookNow(selection.get(0)) == null) return false;
+                    openLook(selection.get(0));
+                } else if (lookTarget != null) {
+                    com.larsons.game.sprite.Slot slot = com.larsons.game.sprite.Slot.byKey(a[0]);
+                    if (slot == null) return false;
+                    if (a.length > 1 && !a[1].equals("same")) lookMade.set(slot, a[1].equals("none") ? null : a[1]);
+                    if (a.length > 2) lookMade.setColour(slot, a[2].equals("none") ? null : a[2]);
+                    lookEditor.focusOn(slot);
+                    var json = lookMade.toJson();
+                    LevelObject o = lookTarget;
+                    edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));
+                }
+            }
             case "delete" -> deleteSelection();
             case "savetemplate" -> {
                 templateName = argument.trim();
@@ -4387,7 +4499,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 level.setCover(Sky.Cover.byKey(argument.trim()));
                 dirty = true;
             }
-            // weathermode none|biome|fixed [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            // weathermode none|biome|fixed|custom [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            // weatherevent <kind> <how often 0-1>; weatherspell <seconds>; weatheroften <0-1>
             case "weathermode" -> {
                 Weather wt = level.weather().withMode(Weather.Mode.byKey(a[0]));
                 if (a.length > 1) wt = wt.withKind(Weather.Kind.byKey(a[1]));
@@ -4397,6 +4510,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             case "weathernow" -> view.world().weatherNow().set(Weather.Kind.byKey(a[0]),
                     a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
+            case "weatherevent" -> {
+                Weather wt = level.weather().withEvent(Weather.Kind.byKey(a[0]), Double.parseDouble(a[1]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
+            case "weatherspell" -> {
+                Weather wt = level.weather().withSpell(Double.parseDouble(a[0]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
+            case "weatheroften" -> {
+                Weather wt = level.weather().withOften(Double.parseDouble(a[0]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "forge" -> {
                 // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |

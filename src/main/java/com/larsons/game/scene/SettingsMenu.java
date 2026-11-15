@@ -278,6 +278,11 @@ public final class SettingsMenu {
         if (ui.button(s.missionTracker ? "Shown" : "Hidden", c + 400, y, 110, 34, s.missionTracker, true)) {
             s.missionTracker = !s.missionTracker;
         }
+        y += 44;
+        name(ui, "Small map", x, y);
+        if (ui.button(s.miniMap ? "Shown" : "Hidden", c, y, 110, 34, s.miniMap, true)) s.miniMap = !s.miniMap;
+        name(ui, "Compass", x + 400, y);
+        if (ui.button(s.compass ? "Shown" : "Hidden", c + 400, y, 110, 34, s.compass, true)) s.compass = !s.compass;
         y += 50;
         name(ui, "Tutorial tips", x, y);
         if (ui.button(s.tutorialTips ? "On" : "Off", c, y, 110, 34, s.tutorialTips, true)) {
@@ -292,6 +297,11 @@ public final class SettingsMenu {
                 + "How to play, on the main menu and in the pause menu, explains everything.", x, y, w);
         y += 40;
 
+        name(ui, "Birds", x + 400, y);
+        if (ui.button(s.birds ? "On" : "Off", c + 400, y, 110, 34, s.birds, true)) {
+            s.birds = !s.birds;
+            com.larsons.game.ambient.Animals.setBirds(s.birds);
+        }
         name(ui, "Pick up by walking over", x, y);
         if (ui.button(s.autoPickup ? "On" : "Off", c, y, 110, 34, s.autoPickup, true)) s.autoPickup = !s.autoPickup;
         ui.text(ui.small, "Range", c + 130, y + 9, Theme.ITEM);

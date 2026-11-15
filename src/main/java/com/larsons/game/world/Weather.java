@@ -1,6 +1,7 @@
 package com.larsons.game.world;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 /**
@@ -16,14 +17,16 @@ import java.util.Locale;
  * @param mode     none, by biome, or always the same
  * @param kind     the weather when it is fixed
  * @param strength how heavy it is at most, 0.1 – 1 (light rain to a downpour)
- * @param often    by biome: how much of the time there is weather at all, 0 – 1
+ * @param often    by biome, or her own events: how much of the time there is weather at all, 0 – 1
+ * @param spell    how long a spell of weather (or of none) lasts, seconds
+ * @param events   her own events: how often each weather comes beside the others, 0 (never) – 1
  */
-public record Weather(Mode mode, Kind kind, double strength, double often) {
+public record Weather(Mode mode, Kind kind, double strength, double often, double spell, Map<Kind, Double> events) {
 
     /** Whether a level has weather, and how it is chosen. */
     public enum Mode {
         NONE("none", "None: always clear"), BIOME("biome", "By biome, coming and going"), FIXED("fixed",
-                "Always the same");
+                "Always the same"), CUSTOM("custom", "Your own events");
 
         private final String key, label;
 
@@ -68,6 +71,14 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
         }
     }
 
+    /** How long a spell of weather (or of none) lasts unless a level says otherwise, seconds. */
+    public static final double SPELL = 150;
+    /** The shortest and the longest a level's spells can be, seconds. */
+    public static final double SHORTEST_SPELL = 20, LONGEST_SPELL = 1200;
+    /** The events a level's own weather starts with: mostly rain, some wind and fog, a storm now and then. */
+    public static final Map<Kind, Double> USUAL_EVENTS = events(Map.of(Kind.RAIN, 0.6, Kind.WIND, 0.3, Kind.FOG, 0.2,
+            Kind.THUNDERSTORM, 0.15));
+
     /** No weather: clear all the time. */
     public static final Weather NONE = new Weather(Mode.NONE, Kind.RAIN, 0.8, 0.4);
     /** The demo's: by biome, now and then. */
@@ -78,15 +89,68 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
         if (kind == null || kind == Kind.CLEAR) kind = Kind.RAIN;
         strength = Double.isNaN(strength) ? 0.8 : Math.max(0.1, Math.min(1, strength));
         often = Double.isNaN(often) ? 0.4 : Math.max(0, Math.min(1, often));
+        spell = Double.isNaN(spell) || spell <= 0 ? SPELL : Math.max(SHORTEST_SPELL, Math.min(LONGEST_SPELL, spell));
+        events = events == null ? USUAL_EVENTS : events(events);
     }
 
-    public Weather withMode(Mode m) { return new Weather(m, kind, strength, often); }
+    /** A weather with spells of the usual length and the usual events of its own. */
+    public Weather(Mode mode, Kind kind, double strength, double often) {
+        this(mode, kind, strength, often, SPELL, USUAL_EVENTS);
+    }
 
-    public Weather withKind(Kind k) { return new Weather(mode, k, strength, often); }
+    /** {@code e} with every weather in it (those it leaves out never come), in the weathers' order. */
+    private static Map<Kind, Double> events(Map<Kind, Double> e) {
+        Map<Kind, Double> out = new java.util.EnumMap<>(Kind.class);
+        for (Kind k : Kind.values()) {
+            if (k == Kind.CLEAR) continue;
+            Double v = e.get(k);
+            out.put(k, v == null || v.isNaN() ? 0 : Math.max(0, Math.min(1, v)));
+        }
+        return java.util.Collections.unmodifiableMap(out);
+    }
 
-    public Weather withStrength(double s) { return new Weather(mode, kind, s, often); }
+    public Weather withMode(Mode m) { return new Weather(m, kind, strength, often, spell, events); }
 
-    public Weather withOften(double o) { return new Weather(mode, kind, strength, o); }
+    public Weather withKind(Kind k) { return new Weather(mode, k, strength, often, spell, events); }
+
+    public Weather withStrength(double s) { return new Weather(mode, kind, s, often, spell, events); }
+
+    public Weather withOften(double o) { return new Weather(mode, kind, strength, o, spell, events); }
+
+    /** Spells {@code seconds} long. */
+    public Weather withSpell(double seconds) { return new Weather(mode, kind, strength, often, seconds, events); }
+
+    /** Her own events: {@code k} coming {@code often} beside the others (0: never). */
+    public Weather withEvent(Kind k, double often) {
+        Map<Kind, Double> e = new java.util.EnumMap<>(events);
+        if (k != null && k != Kind.CLEAR) e.put(k, often);
+        return new Weather(mode, kind, strength, this.often, spell, e);
+    }
+
+    /** How often {@code k} comes beside the others among her own events, 0 – 1. */
+    public double event(Kind k) {
+        Double v = events.get(k);
+        return v == null ? 0 : v;
+    }
+
+    /**
+     * Which of her own events a spell brings, {@code pick} a number 0 – 1:
+     * each as likely as it is often beside the rest; clear with none set.
+     */
+    public Kind eventFor(double pick) {
+        double sum = 0;
+        for (double v : events.values()) sum += v;
+        if (sum <= 0) return Kind.CLEAR;
+        double at = pick * sum, run = 0;
+        Kind last = Kind.CLEAR;
+        for (Map.Entry<Kind, Double> e : events.entrySet()) {
+            if (e.getValue() <= 0) continue;
+            last = e.getKey();
+            run += e.getValue();
+            if (at < run) return last;
+        }
+        return last;
+    }
 
     /** Whether it is as it comes (none): nothing to write. */
     public boolean isDefault() { return equals(NONE); }
@@ -109,8 +173,6 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
 
     /** How likely each of a biome's weathers is, in its order. */
     static final double[] LIKELY = {0.5, 0.25, 0.15, 0.1};
-    /** How long a spell of weather (or of none) lasts, seconds. */
-    public static final double SPELL = 150;
     /** How fast weather comes in and goes, of its full strength a second. */
     public static final double FADE = 1 / 14.0;
 
@@ -185,8 +247,14 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
             if (w.mode() == Mode.FIXED) {
                 want = w.kind();
                 wantLevel = w.strength();
+            } else if (w.mode() == Mode.CUSTOM) {
+                double[] spell = spell(time, w.spell());
+                if (spell[0] < w.often()) {
+                    want = w.eventFor(spell[1]);
+                    if (want != Kind.CLEAR) wantLevel = w.strength() * (0.45 + 0.55 * spell[2]);
+                }
             } else if (w.mode() == Mode.BIOME) {
-                double[] spell = spell(time);
+                double[] spell = spell(time, w.spell());
                 if (spell[0] < w.often()) {
                     List<Kind> kinds = Weather.of(here);
                     double pick = spell[1], sum = 0;
@@ -220,8 +288,8 @@ public record Weather(Mode mode, Kind kind, double strength, double often) {
         }
 
         /** The spell {@code time} is in: whether it has weather, which, how heavy - three numbers 0 – 1. */
-        static double[] spell(double time) {
-            long n = (long) Math.floor(time / SPELL);
+        static double[] spell(double time, double length) {
+            long n = (long) Math.floor(time / length);
             java.util.Random r = new java.util.Random(n * 0x9E3779B97F4A7C15L + 1025);
             return new double[]{r.nextDouble(), r.nextDouble(), r.nextDouble()};
         }

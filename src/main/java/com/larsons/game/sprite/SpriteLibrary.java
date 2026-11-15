@@ -123,42 +123,58 @@ public final class SpriteLibrary implements AutoCloseable {
      * ({@link Variants#recolored}), so every colour of a sheet is one texture.
      * A sheet worn under another may be cut by it ({@code cut}: that one's
      * file, or null) - what pokes out from under it is taken out as it loads
-     * ({@link SheetImage#cutUnder}).
+     * ({@link SheetImage#cutUnder}). With {@code keep} it is the other way
+     * round: only what of the sheet is near that one's pixels remains
+     * ({@link SheetImage#keepNear}: long hair in the water, kept to the head).
      */
-    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor, Path cut) {
+    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor, Path cut,
+                           boolean keep) {
 
         public Resolved(Path file, boolean mirrored, SpriteProfile profile) {
-            this(file, mirrored, profile, null, null);
+            this(file, mirrored, profile, null, null, false);
         }
 
         public Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
-            this(file, mirrored, profile, recolor, null);
+            this(file, mirrored, profile, recolor, null, false);
         }
 
         /** What the library keeps it under: the file (whatever its colours), and what cuts it. */
         public Key key() {
-            return new Key(file, cut);
+            return new Key(file, cut, keep);
         }
 
         public Resolved withRecolor(Variants.Recolor r) {
-            return new Resolved(file, mirrored, profile, r, cut);
+            return new Resolved(file, mirrored, profile, r, cut, keep);
         }
 
         /** This sheet with what pokes out from under {@code over}'s sheet taken out (null: as it is). */
         public Resolved cutBy(Path over) {
-            return new Resolved(file, mirrored, profile, recolor, over);
+            return new Resolved(file, mirrored, profile, recolor, over, false);
+        }
+
+        /** This sheet with only what is near {@code near}'s pixels left (null: as it is). */
+        public Resolved keptNear(Path near) {
+            return new Resolved(file, mirrored, profile, recolor, near, near != null);
         }
 
         public Resolved flipped() {
-            return new Resolved(file, !mirrored, profile, recolor, cut);
+            return new Resolved(file, !mirrored, profile, recolor, cut, keep);
         }
     }
 
-    /** A decoded sheet's identity: one file, and the file of the sheet it is cut by (null: none). */
-    public record Key(Path file, Path cut) {
+    /**
+     * A decoded sheet's identity: one file, the file of the sheet it is cut
+     * by (null: none), and whether that one cuts it or is what it is kept
+     * near ({@link Resolved}).
+     */
+    public record Key(Path file, Path cut, boolean keep) {
 
         public Key(Path file) {
-            this(file, null);
+            this(file, null, false);
+        }
+
+        public Key(Path file, Path cut) {
+            this(file, cut, false);
         }
     }
 
@@ -571,10 +587,8 @@ public final class SpriteLibrary implements AutoCloseable {
 
     /**
      * The folder to draw {@code item} from in {@code style}: its version in
-     * that style when there is one ({@code straw_sun_hat_px64}), else itself.
-     * An item that exists only as pixel art ({@code beanie_px128} but no
-     * {@code beanie}) is drawn from its 128-pixel version in the rendered
-     * style.
+     * that style when there is one ({@code straw_sun_hat_px64}), else its
+     * 128-pixel version, else itself (a sheet imported under its own name).
      */
     public String styled(Slot slot, String item, Wardrobe.Style style) {
         return styled(null, slot, item, style);
@@ -583,29 +597,19 @@ public final class SpriteLibrary implements AutoCloseable {
     /** {@link #styled(Slot, String, Wardrobe.Style)} for an item worn on {@code body}. */
     public String styled(String body, Slot slot, String item, Wardrobe.Style style) {
         if (item == null) return null;
-        style = drawnIn(body, slot, item, style);
-        if (style == Wardrobe.Style.RENDERED) return item;
         String version = style.folder(item);
-        return entry(body, slot, version) != null ? version : item;
-    }
-
-    /** The style {@code item} is drawn in when {@code style} is asked for (see {@link #styled}). */
-    private Wardrobe.Style drawnIn(String body, Slot slot, String item, Wardrobe.Style style) {
-        if (style == Wardrobe.Style.RENDERED && entry(body, slot, item) == null
-                && entry(body, slot, Wardrobe.Style.PIXEL_128.folder(item)) != null) {
-            return Wardrobe.Style.PIXEL_128;
-        }
-        return style;
+        if (entry(body, slot, version) != null) return version;
+        String usual = Wardrobe.Style.PIXEL_128.folder(item);
+        return entry(body, slot, usual) != null ? usual : item;
     }
 
     /**
      * Where a worn item's sheets come from: a slot's folder, drawn mirrored or
      * not. For the left-handed character ({@link Wardrobe#leftHanded()}) that
-     * is, among the renders, the item's 512-pixel version in the slot's {@link
-     * Slot#twin() twin}, mirrored - the left-hand sword is the right-hand
-     * sword seen in a mirror (and from the mirrored direction); else the
-     * style's left-handed version ({@code sword_px128_lh}) when there is one,
-     * drawn as it is; otherwise the twin's, mirrored.
+     * is the style's left-handed version ({@code sword_px128_lh}) when there
+     * is one, drawn as it is; otherwise the item's version in the slot's
+     * {@link Slot#twin() twin}, mirrored - the left-hand sword is the
+     * right-hand sword seen in a mirror (and from the mirrored direction).
      */
     public record Source(Slot slot, String folder, boolean mirrored, String root) {
 
@@ -626,11 +630,8 @@ public final class SpriteLibrary implements AutoCloseable {
         if (slot == Slot.BODY) body = item;
         if (!leftHanded) return new Source(slot, styled(body, slot, item, style), false, key);
         Slot twin = slot.twin();
-        // among the renders, the 512-pixel twin in a mirror before any pixel art
-        if (style == Wardrobe.Style.RENDERED && entry(body, twin, item) != null) return new Source(twin, item, true, key);
-        Wardrobe.Style drawn = drawnIn(body, slot, item, style);
-        if (drawn != Wardrobe.Style.RENDERED && entry(body, slot, drawn.leftFolder(item)) != null) {
-            return new Source(slot, drawn.leftFolder(item), false, key);
+        if (entry(body, slot, style.leftFolder(item)) != null) {
+            return new Source(slot, style.leftFolder(item), false, key);
         }
         String folder = styled(body, twin, item, style);
         if (entry(body, twin, folder) != null) return new Source(twin, folder, true, key);
@@ -657,6 +658,8 @@ public final class SpriteLibrary implements AutoCloseable {
         if (e == null || e.variants() == null) return null;
         Map<String, String> choice = new HashMap<>();
         String own = wardrobe.colour(wornIn);
+        // (lips nobody has painted are the skin's colour, a little darker)
+        if (own == null && wornIn == Slot.MOUTH) own = Variants.NATURAL;
         if (own != null && wornIn != Slot.BODY) choice.put(Variants.OWN, own);
         String skin = wardrobe.skin();
         if (skin != null) choice.put(Variants.SKIN, skin);
@@ -810,7 +813,11 @@ public final class SpriteLibrary implements AutoCloseable {
             if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
             if (key.cut() != null) {
                 BufferedImage over = Images.read(key.cut());
-                if (over != null) img = SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
+                if (over != null) {
+                    img = key.keep()
+                            ? SheetImage.keepNear(img, over, profile.frameWidth(), profile.frameHeight())
+                            : SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
+                }
             }
             boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),

@@ -242,6 +242,9 @@ final class CardTable {
         float pw = cw * 0.74f, ph = pw * CardFace.TALL;
         float drawX = 34 + pw / 2, discardX = W - 34 - pw / 2, pileY = H - ph / 2 - 30;
         int inDraw = hero.deck().drawPile().size(), inDiscard = hero.deck().discardPile().size();
+        // (the piles and each card of the hand are things the gamepad's focus can rest on: A is a click on it)
+        ui.target(drawX - pw / 2, pileY - ph / 2, pw, ph, Ui.Kind.BUTTON);
+        ui.target(discardX - pw / 2, pileY - ph / 2, pw, ph, Ui.Kind.BUTTON);
         boolean overDraw = held < 0 && ui.hover(drawX - pw / 2, pileY - ph / 2, pw, ph);
         boolean overDiscard = held < 0 && ui.hover(discardX - pw / 2, pileY - ph / 2, pw, ph);
         if (inDraw == 0) slot(ui, drawX, pileY, pw, ph);
@@ -301,6 +304,9 @@ final class CardTable {
         float hw = Math.min(CardFace.BASE, cw * 1.62f), hh = hw * CardFace.TALL;
         float[] bx = new float[n];
         for (int i = 0; i < n; i++) bx[i] = W / 2 + (i - (n - 1) / 2f) * spacing;
+        for (int i = 0; i < n; i++) {
+            ui.target(bx[i] - cw / 2, baseY - ch / 2, i < n - 1 ? Math.max(8, spacing) : cw, ch, Ui.Kind.BUTTON);
+        }
 
         // the card the pointer is on: the one whose stretch of the fan it is over
         int over = -1;
@@ -362,7 +368,9 @@ final class CardTable {
                     + " while the draw pile has any; a reshuffle scroll deals a fresh hand.", W / 2, zy + zh / 2 + 6,
                     Theme.HINT);
         } else if (hot < 0 && flights.isEmpty()) {
-            String how = "Click a card to play it, or drag it up off the board  ·  " + in.label(Action.CARDS)
+            String how = in.usingPad() ? "D-pad or stick: choose a card  ·  A: play it  ·  X: put it back  ·  "
+                    + "LB / RB: hand, deck, perks  ·  B: back to the game"
+                    : "Click a card to play it, or drag it up off the board  ·  " + in.label(Action.CARDS)
                     + " or Esc: back to the game";
             float hy = baseY - ch / 2 - 44;
             float hwid = ui.small.width(how) + 28;
@@ -560,6 +568,7 @@ final class CardTable {
                 CardBook.Perk p = row.get(i);
                 float nx = x + 22 + i * (nw + 12), ny = top + r * rowH, nh = rowH - 14;
                 boolean have = hero.perks().contains(p.id()), can = hero.canTake(p.id());
+                ui.target(nx, ny, nw, nh, Ui.Kind.BUTTON);
                 boolean over = ui.hover(nx, ny, nw, nh);
                 if (over) hovered = p;
                 float[] edge = have ? Theme.OK : can ? Theme.ACCENT : Theme.BRASS_DARK;

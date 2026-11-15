@@ -110,6 +110,36 @@ public final class Store implements Target {
         this.health = kind.toughness();
     }
 
+    /** How many in a hundred of the things that break have a few coins in them. */
+    public static final int COINS_IN = 35;
+
+    /**
+     * Now and then something that breaks has a few coins in it: in its
+     * inventory, with whatever else it holds - there when she looks into
+     * it, spilled with the rest when she breaks it. The same ones every
+     * time the level is played (it goes by which object it is and where).
+     */
+    void hideCoins() {
+        if (!kind.breakable() || coinsHidden) return;
+        coinsHidden = true;
+        java.util.Random r = new java.util.Random(id * 0x9E3779B97F4A7C15L
+                ^ Double.doubleToLongBits(position.x() * 31 + position.z()));
+        if (r.nextInt(100) >= COINS_IN) return;
+        items.put(Item.of(Supplies.COINS), 2 + r.nextInt(6), false);
+    }
+
+    private boolean coinsHidden;
+
+    /** How many coins are in it. */
+    public int coins() {
+        int n = 0;
+        for (int i = 0; i < items.size(); i++) {
+            Item it = items.get(i);
+            if (it != null && it.def() == Supplies.COINS) n += items.amount(i);
+        }
+        return n;
+    }
+
     /** The level object it is (its building's, its chest's). */
     public int id() { return id; }
 

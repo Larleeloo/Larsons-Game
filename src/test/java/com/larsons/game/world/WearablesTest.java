@@ -37,7 +37,8 @@ class WearablesTest {
             assertNotNull(d.fallbackIcon().get(), d.id());
         }
         assertTrue(ItemDef.ALL.stream().noneMatch(ItemDef::isWearable), "ItemDef.ALL is the weapons");
-        assertEquals(61 + 32, Wearables.ALL.size(), "and the 32 tailored garments of the four peoples");
+        assertEquals(61 + 32 + 86, Wearables.ALL.size(),
+                "and the 32 tailored garments of the four peoples, and a dye of every palette colour the 14 are not");
         assertEquals(32, Wearables.tailored().size());
         assertEquals(Rarity.RARE, Item.parse("silver_necklace").rarity());
         assertEquals("Silver necklace", Item.parse("silver_necklace").name());
@@ -70,7 +71,10 @@ class WearablesTest {
                 "steel_leg_plating", "steel_gauntlets", "steel_helmet")) {
             assertEquals(Rarity.EPIC, w(id).wearable().rarity(), id);
         }
-        assertEquals(14, Wearables.ALL.stream().filter(d -> d.wearable().dye() != null).count());
+        assertEquals(14 + 86, Wearables.ALL.stream().filter(d -> d.wearable().dye() != null).count(),
+                "the 14 named dyes, and one of every other colour of the palette");
+        assertEquals(Wearables.PALETTE.size(), Wearables.ALL.stream().filter(d -> d.wearable().dye() != null).count(),
+                "a dye for each of the palette's fills");
         assertEquals(11, Wearables.ALL.stream().filter(d -> d.wearable().slots().contains(Slot.HAIR)).count());
         // where each piece of armour goes, and in which folder
         assertTrue(w("chainmail_shirt").wearable().puts(Slot.CHAINMAIL, "chainmail_shirt"));
@@ -119,7 +123,7 @@ class WearablesTest {
         assertEquals(4 + 4 + 1 + 1 + 1 + 1 + 1 + 4 + 1, rare.size(),
                 "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; the dyes, the makeup, the lipstick, the hair "
                         + "styles and the eyebrows one each; the iron armour; the Rare tailored garments, one drop");
-        assertTrue(rare.stream().anyMatch(d -> d.size() == 14), "the dyes");
+        assertTrue(rare.stream().anyMatch(d -> d.size() == 100), "the dyes: every colour of the palette");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 9), "the hair styles, less the starter's two");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 2 && d.get(0).id().startsWith("eyebrows_")));
         assertTrue(rare.stream().anyMatch(d -> d.size() == 3 && d.get(0).id().startsWith("makeup_")));
@@ -130,20 +134,22 @@ class WearablesTest {
         Loot loot = Wearables.addTo(new Loot());
         int drops = loot.drops(Rarity.RARE).size();
         Random random = new Random(7);
-        int n = 170_000, dyes = 0, weapons = 0;
-        int[] perDye = new int[Wearables.DYE_COLOURS.size()];
+        int n = 400_000, dyes = 0, weapons = 0;
+        java.util.Map<String, Integer> perDye = new java.util.HashMap<>();
         for (int i = 0; i < n; i++) {
             Item item = loot.pick(random, Rarity.RARE);
             String dye = item.def().isWearable() ? item.def().wearable().dye() : null;
             if (dye != null) {
                 dyes++;
-                perDye[Wearables.DYE_COLOURS.indexOf(dye)]++;
+                perDye.merge(dye, 1, Integer::sum);
             }
             if (!item.def().isWearable()) weapons++;
         }
-        assertEquals(1.0 / drops, dyes / (double) n, 0.006, "the fourteen dyes together are one drop");
+        assertEquals(1.0 / drops, dyes / (double) n, 0.006, "the hundred dyes together are one drop");
         assertEquals(4.0 / drops, weapons / (double) n, 0.008, "and the weapons are not drowned out");
-        for (int c : perDye) assertEquals(dyes / 14.0, c, dyes / 14.0 * 0.15, "every dye alike");
+        assertEquals(100, perDye.size(), "every dye comes up");
+        for (String c : Wearables.DYE_COLOURS) assertTrue(perDye.containsKey(c), c);
+        for (int c : perDye.values()) assertEquals(dyes / 100.0, c, dyes / 100.0 * 0.4, "every dye alike");
     }
 
     @Test

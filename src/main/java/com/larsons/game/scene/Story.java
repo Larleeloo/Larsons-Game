@@ -675,25 +675,102 @@ final class Story {
         else if (journal) drawJournal(ui);
     }
 
+    /** How near someone with a task, or a shop, has to be to be on the compass, metres. */
+    static final double NEAR = 90;
+
+    /**
+     * The places worth finding from where she stands, for the compass and
+     * the small map: where each mission she follows is to be done - its
+     * ring, whoever is to be talked to, whoever it is handed in to; the way
+     * out of here (and that some of what she follows lies beyond it);
+     * anyone near with a task to give, and the shops near.
+     */
+    List<MiniMap.Waypoint> waypoints() {
+        List<MiniMap.Waypoint> out = new ArrayList<>();
+        Vec3 me = world.player().ground();
+        Inventory inv = world.player().inventory();
+        for (Quest q : quests.all()) {
+            Quests.State st = quests.state(q);
+            if (st != Quests.State.ACTIVE && st != Quests.State.READY || !quests.tracked(q.id())) continue;
+            if (quests.canHandIn(q, inv)) {
+                Folk f = person(q.turnIn());
+                if (f != null) out.add(new MiniMap.Waypoint(f.position(), "question", q.title(), true));
+            } else if (q.kind() == Quest.Kind.TALK) {
+                Folk f = person(q.target());
+                if (f != null) out.add(new MiniMap.Waypoint(f.position(), "talk", q.title(), true));
+            } else if (q.radius() > 0) {
+                out.add(new MiniMap.Waypoint(q.at(), "quest", q.title(), true));
+            }
+        }
+        int away = quests.elsewhere().size();
+        for (Spot sp : world.spots()) {
+            if (!StoryTypes.WAY_OUT.equals(sp.kind()) || sp.gone()) continue;
+            out.add(new MiniMap.Waypoint(sp.position(), "wayout", away > 0
+                    ? "The way out (" + away + (away == 1 ? " mission" : " missions") + " elsewhere)"
+                    : "The way out", away > 0));
+        }
+        for (Folk f : world.folks().all()) {
+            if (f.role() != Folk.Role.PERSON || !"exclaim".equals(f.icon())) continue;
+            if (f.position().horizontalDistance(me) > NEAR) continue;
+            out.add(new MiniMap.Waypoint(f.position(), "exclaim", f.name() + " has a task", false));
+        }
+        for (Shop sh : world.shops()) {
+            if (sh.position().horizontalDistance(me) > NEAR) continue;
+            out.add(new MiniMap.Waypoint(sh.position(), "coins", sh.name(), false));
+        }
+        return out;
+    }
+
+    /** The person called {@code name} here, or null. */
+    private Folk person(String name) {
+        if (name == null || name.isBlank()) return null;
+        for (Folk f : world.folks().all()) {
+            if (f.role() == Folk.Role.PERSON && name.strip().equalsIgnoreCase(f.name())) return f;
+        }
+        return null;
+    }
+
     /** The quests under way, top right: each its title and what is still to do. */
     private void tracker(Ui ui) {
         List<Quest> list = quests.tracked();
-        if (list.isEmpty()) return;
-        float w = 300, x = ui.width() - w - 14, y = 96;
-        for (Quest q : list.subList(0, Math.min(4, list.size()))) {
+        List<Quests.Elsewhere> away = quests.elsewhere();
+        if (list.isEmpty() && away.isEmpty()) return;
+        float w = 300, x = ui.width() - w - 14, y = trackerTop;
+        int shown = 0;
+        for (Quest q : list) {
+            if (shown++ >= Quests.MOST_TRACKED) break;
             boolean ready = quests.state(q) == Quests.State.READY;
             String goal = ready ? "Done - go back to " + (q.turnIn().isBlank() ? "whoever asked" : q.turnIn())
                     : quests.goal(q);
-            float gh = ui.paragraphHeight(ui.small, goal, w - 44);
-            float h = 10 + ui.body.lineHeight() + gh + 8;
-            ui.plate(x, y, w, h, ready ? DONE : Theme.BRASS);
-            float[] uv = com.larsons.game.ui.CardArt.iconUv(ready ? "question" : "quest");
-            if (uv != null) ui.image(com.larsons.game.ui.CardArt.iconTexture(), x + 8, y + 9, 24, 24, uv[0], uv[1],
-                    uv[2], uv[3], new float[]{1, 1, 1, 1});
-            ui.text(ui.body, Ui.fit(ui.body, q.title(), w - 48), x + 38, y + 6, ready ? DONE : QUEST);
-            ui.paragraph(ui.small, goal, x + 38, y + 8 + ui.body.lineHeight(), w - 44, Theme.ITEM);
-            y += h + 6;
+            y += trackerPlate(ui, x, y, w, q.title(), goal, ready, false) + 6;
         }
+        // what she follows from other places: still on the list, and where it is to be done
+        for (Quests.Elsewhere e : away) {
+            if (shown++ >= Quests.MOST_TRACKED) break;
+            String goal = e.goal() + (e.place().isBlank() ? "" : "  (" + e.place() + ")");
+            y += trackerPlate(ui, x, y, w, e.title(), goal, e.state() == Quests.State.READY, true) + 6;
+        }
+    }
+
+    /** Where the followed missions' list starts, down from the top (under the small map when it is shown). */
+    private float trackerTop = 96;
+
+    void setTrackerTop(float y) {
+        trackerTop = y;
+    }
+
+    /** One followed mission's plate; how tall it is. */
+    static float trackerPlate(Ui ui, float x, float y, float w, String title, String goal, boolean ready,
+                              boolean away) {
+        float gh = ui.paragraphHeight(ui.small, goal, w - 44);
+        float h = 10 + ui.body.lineHeight() + gh + 8;
+        ui.plate(x, y, w, h, ready ? DONE : Theme.BRASS);
+        float[] uv = com.larsons.game.ui.CardArt.iconUv(ready ? "question" : "quest");
+        if (uv != null) ui.image(com.larsons.game.ui.CardArt.iconTexture(), x + 8, y + 9, 24, 24, uv[0], uv[1],
+                uv[2], uv[3], new float[]{1, 1, 1, away ? 0.7f : 1});
+        ui.text(ui.body, Ui.fit(ui.body, title, w - 48), x + 38, y + 6, ready ? DONE : QUEST);
+        ui.paragraph(ui.small, goal, x + 38, y + 8 + ui.body.lineHeight(), w - 44, away ? Theme.HINT : Theme.ITEM);
+        return h;
     }
 
     private void drawTalk(Ui ui) {

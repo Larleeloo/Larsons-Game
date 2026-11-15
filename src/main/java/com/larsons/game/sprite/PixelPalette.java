@@ -33,6 +33,24 @@ public final class PixelPalette {
     /** How much more a colour's hue and chroma count than its lightness when snapping. */
     static final double HUE_WEIGHT = 2.0;
 
+    /**
+     * The 100 fills as the art is drawn in them (the {@code fills} of the
+     * {@code pixel_palette.json} the sprites come with): what a colour can be
+     * picked from where no file has been read - the dyes there are, a skin, a
+     * head of hair ({@code world/Wearables}).
+     */
+    public static final int[] FILLS = {
+            0x804802, 0xffffff, 0x380f00, 0xedb251, 0xd6925a, 0xb8a28c, 0xb56a40, 0x439f9d, 0x220300, 0x4a0340,
+            0xb98043, 0x64412b, 0xfcdd9e, 0x832852, 0x601b17, 0x4e2507, 0xf1f1f8, 0x1a7961, 0x663203, 0xb8c0c5,
+            0x7ea644, 0x324661, 0x0e0000, 0xd1b2f5, 0xe9d3ef, 0x210d33, 0x918780, 0x7c3c24, 0x9d5e34, 0x4c0a09,
+            0x884d2d, 0x130e0f, 0x948bd1, 0x80562f, 0x5f6977, 0xfff0db, 0xa44f08, 0x360300, 0x6f2201, 0xe58538,
+            0x231c18, 0x020100, 0x3e3631, 0x665d56, 0x92592a, 0x4d1b02, 0x51001e, 0xfa3c28, 0xca1525, 0x92022c,
+            0xff9c8a, 0x722300, 0xd9740d, 0xae4d02, 0xffd7b5, 0xfb992c, 0x140b7d, 0x5d86fa, 0x302ae5, 0x0b61c5,
+            0x92b9ff, 0x0d9e44, 0x017647, 0x01412b, 0x75f676, 0x24c835, 0xf9c36d, 0x355316, 0x151506, 0x3ba440,
+            0xe6ffce, 0x7ee728, 0xd18806, 0x9a5e00, 0xfab33e, 0xffe0b7, 0x118952, 0xc3fec0, 0x55c77b, 0x8edb7a,
+            0x95015d, 0xff5175, 0xffbdc3, 0xe11a7f, 0xfd81a5, 0xbea777, 0x98774a, 0xe0be8f, 0xfeedc7, 0x1a0261,
+            0x251dd3, 0x4b52f4, 0x8995f6, 0x3711a4, 0xc2c4cd, 0x260820, 0xe750fb, 0x691398, 0xb722e7, 0xf4affd};
+
     private final int[] fills, lines;
     private final double[][] fillLab, lineLab;
 
@@ -86,6 +104,14 @@ public final class PixelPalette {
     public boolean contains(int rgb) {
         rgb &= 0xFFFFFF;
         for (int c : fills) if (c == rgb) return true;
+        for (int c : lines) if (c == rgb) return true;
+        return false;
+    }
+
+    /** Whether {@code rgb} is one of the line colours and not a fill. */
+    public boolean line(int rgb) {
+        rgb &= 0xFFFFFF;
+        for (int c : fills) if (c == rgb) return false;
         for (int c : lines) if (c == rgb) return true;
         return false;
     }
