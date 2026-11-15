@@ -156,7 +156,8 @@ public final class Window implements AutoCloseable {
                 }
             }
         }
-        if (!found) input.padState(null, null, null, dt);
+        if (!found && input.scriptedPad()) input.scriptPadState(dt);
+        else if (!found) input.padState(null, null, null, dt);
         double[] warp = input.takeWarp();
         if (warp != null) glfwSetCursorPos(handle, warp[0], warp[1]);
     }

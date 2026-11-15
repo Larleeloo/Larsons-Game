@@ -32,6 +32,8 @@ public final class Autopilot {
     private double waiting;
     /** Keys and buttons pressed by the script, released at the start of the next step. */
     private final java.util.List<Runnable> releases = new java.util.ArrayList<>();
+    /** Gamepad buttons the script tapped ({button, seconds until it is let go}). */
+    private final java.util.List<double[]> padTaps = new java.util.ArrayList<>();
 
     public Autopilot(String script) {
         if (script != null) {
@@ -60,6 +62,12 @@ public final class Autopilot {
     public void step(double dt, Game game) {
         releases.forEach(Runnable::run);
         releases.clear();
+        for (var it = padTaps.iterator(); it.hasNext(); ) {
+            double[] t = it.next();
+            if ((t[1] -= dt) > 0) continue;
+            game.window().input().scriptPad((int) t[0], false);
+            it.remove();
+        }
         if (waiting > 0) {
             waiting -= dt;
             if (waiting > 0) return;
@@ -88,6 +96,26 @@ public final class Autopilot {
                     var in = game.window().input();
                     in.keyEvent(code, true);
                     releases.add(() -> in.keyEvent(code, false));
+                    waiting = 1e-6;
+                    return;
+                }
+                // A gamepad's button, tapped: "pad a", "pad menu", "pad dpad_down" - or held and let
+                // go: "padhold ls_right", "padletgo ls_right" (a gamepad of the script's own).
+                case "pad" -> {
+                    int b = com.larsons.game.input.Pad.byKey(arg);
+                    var in = game.window().input();
+                    in.scriptPad(b, true);
+                    padTaps.add(new double[]{b, 0.09});
+                    waiting = 0.2;
+                    return;
+                }
+                case "padhold" -> {
+                    game.window().input().scriptPad(com.larsons.game.input.Pad.byKey(arg), true);
+                    waiting = 1e-6;
+                    return;
+                }
+                case "padletgo" -> {
+                    game.window().input().scriptPad(com.larsons.game.input.Pad.byKey(arg), false);
                     waiting = 1e-6;
                     return;
                 }

@@ -33,6 +33,13 @@ public final class Quests {
     public record Entry(String id, String title, String goal, String giver, String place, State state,
                         boolean tracked) {}
 
+    /**
+     * A mission followed that is not this level's: taken somewhere else, to
+     * be done or handed in there - shown under this level's own, so that
+     * what she follows is followed wherever she goes.
+     */
+    public record Elsewhere(String id, String title, String goal, String place, State state) {}
+
     /** The most missions followed at once (on the screen, their places ringed). */
     public static final int MOST_TRACKED = 4;
 
@@ -182,6 +189,39 @@ public final class Quests {
         for (Quest q : quests) {
             State s = state(q);
             if ((s == State.ACTIVE || s == State.READY) && tracked(q.id())) out.add(q);
+        }
+        return out;
+    }
+
+    /** The missions followed that are under way somewhere else (no quest of this level's): for the tracker. */
+    public List<Elsewhere> elsewhere() {
+        return elsewhere(store, quests);
+    }
+
+    /**
+     * The missions followed in {@code store} (a save's quests) that are
+     * under way and are none of {@code here} (null: wherever they are - the
+     * map's list).
+     */
+    public static List<Elsewhere> elsewhere(Map<String, Object> store, List<Quest> here) {
+        List<Elsewhere> out = new ArrayList<>();
+        if (store == null) return out;
+        for (Map.Entry<String, Object> e : store.entrySet()) {
+            if (!(e.getValue() instanceof Map<?, ?> m)) continue;
+            State s;
+            try {
+                s = State.valueOf(String.valueOf(m.get("state")).toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException x) {
+                continue;
+            }
+            if (s != State.ACTIVE && s != State.READY) continue;
+            if (m.get("tracked") instanceof Boolean b && !b) continue;
+            boolean mine = false;
+            if (here != null) for (Quest q : here) mine |= q.id().equals(e.getKey());
+            if (mine) continue;
+            String goal = s == State.READY ? "Done - go back to "
+                    + (text(m, "giver").isBlank() ? "whoever asked" : text(m, "giver")) : text(m, "goal");
+            out.add(new Elsewhere(e.getKey(), text(m, "title"), goal, text(m, "place"), s));
         }
         return out;
     }

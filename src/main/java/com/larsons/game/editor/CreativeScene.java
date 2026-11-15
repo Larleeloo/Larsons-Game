@@ -3262,13 +3262,32 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     y + 10, w));
             y += 44;
         }
-        if (nw.mode() == Weather.Mode.BIOME) {
+        if (nw.mode() == Weather.Mode.BIOME || nw.mode() == Weather.Mode.CUSTOM) {
             nw = nw.withOften(widgets.slider(ui, "w-often", "How often", wt.often(), 0, 1, "%.2f", x, y + 10, w));
             y += 44;
-            y += ui.paragraph(ui.small, "Each biome its own weather, in spells of a few minutes: snow over the "
+            nw = nw.withSpell(60 * widgets.slider(ui, "w-spell", "Each spell (min)", wt.spell() / 60,
+                    Weather.SHORTEST_SPELL / 60, Weather.LONGEST_SPELL / 60, "%.1f", x, y + 10, w));
+            y += 44;
+        }
+        if (nw.mode() == Weather.Mode.BIOME) {
+            y += ui.paragraph(ui.small, "Each biome its own weather, in spells: snow over the "
                     + "mountains and the crystal, sandstorms over the savannah and the waste, rain and thunder over "
                     + "the plains, the jungle and the shore, fog over the marsh and the river, wind anywhere.", x, y,
                     w, Theme.HINT) + 10;
+        }
+        if (nw.mode() == Weather.Mode.CUSTOM) {
+            // her own events: each weather, and how often it comes beside the others (0: never)
+            ui.text(ui.small, "The events, and how often each comes:", x, y, Theme.HINT);
+            y += 22;
+            for (Weather.Kind k : Weather.Kind.values()) {
+                if (k == Weather.Kind.CLEAR) continue;
+                nw = nw.withEvent(k, widgets.slider(ui, "w-event-" + k.key(), k.label(), wt.event(k), 0, 1, "%.2f",
+                        x, y + 10, w));
+                y += 40;
+            }
+            y += ui.paragraph(ui.small, "\"How often\" is how much of the time there is weather at all; a spell "
+                    + "of weather is one of these events, the likelier the further its slider is up. At 0 it "
+                    + "never comes.", x, y + 4, w, Theme.HINT) + 14;
         }
         if (!nw.equals(wt)) {
             level.setWeather(nw);
@@ -4387,7 +4406,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 level.setCover(Sky.Cover.byKey(argument.trim()));
                 dirty = true;
             }
-            // weathermode none|biome|fixed [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            // weathermode none|biome|fixed|custom [kind] [how heavy]; weathernow <kind> <how heavy>: see it at once
+            // weatherevent <kind> <how often 0-1>; weatherspell <seconds>; weatheroften <0-1>
             case "weathermode" -> {
                 Weather wt = level.weather().withMode(Weather.Mode.byKey(a[0]));
                 if (a.length > 1) wt = wt.withKind(Weather.Kind.byKey(a[1]));
@@ -4397,6 +4417,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             case "weathernow" -> view.world().weatherNow().set(Weather.Kind.byKey(a[0]),
                     a.length > 1 ? Double.parseDouble(a[1]) : 0.9);
+            case "weatherevent" -> {
+                Weather wt = level.weather().withEvent(Weather.Kind.byKey(a[0]), Double.parseDouble(a[1]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
+            case "weatherspell" -> {
+                Weather wt = level.weather().withSpell(Double.parseDouble(a[0]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
+            case "weatheroften" -> {
+                Weather wt = level.weather().withOften(Double.parseDouble(a[0]));
+                level.setWeather(wt);
+                view.world().setWeather(wt);
+            }
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "forge" -> {
                 // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |

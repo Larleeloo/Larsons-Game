@@ -542,6 +542,7 @@ final class InventoryPanel {
      * stack of the same, or swapping with what is there.
      */
     private void click(Inventory inv, int slot, boolean inStore, boolean shift) {
+        if (inStore && cursor == null && pocket(inv, slot)) return;
         if (shift && cursor == null) {
             if (store == null) quickMove(slot);
             else if (inStore) transfer(inv, slot, inventory(), true);
@@ -583,6 +584,7 @@ final class InventoryPanel {
     private boolean transfer(Inventory from, int slot, Inventory to, boolean toHer) {
         Item it = from.get(slot);
         if (it == null) return false;
+        if (toHer && pocket(from, slot)) return true;
         int n = from.amount(slot);
         int left = to.put(it, n, toHer);
         if (left == n) {
@@ -598,6 +600,21 @@ final class InventoryPanel {
         return true;
     }
 
+    /**
+     * Coins in slot {@code slot} of a store's {@code from}: into her purse,
+     * never a slot of hers. Whether there were coins there.
+     */
+    private boolean pocket(Inventory from, int slot) {
+        Item it = from.get(slot);
+        if (it == null || it.def() != com.larsons.game.world.Supplies.COINS) return false;
+        int n = from.amount(slot), before = world.player().coins();
+        from.take(slot);
+        world.pocket(n);
+        Sounds.play(SoundKeys.item(it.id(), "pickup"));
+        game.toast("+" + coins(world.player().coins() - before), COIN);
+        return true;
+    }
+
     /** "Take all": everything in the store into her inventory, as much as fits. */
     private void takeAll() {
         Inventory held = store.items(), inv = inventory();
@@ -605,6 +622,10 @@ final class InventoryPanel {
         for (int i = 0; i < held.size(); i++) {
             Item it = held.get(i);
             if (it == null) continue;
+            if (pocket(held, i)) {
+                any = true;
+                continue;
+            }
             int n = held.amount(i), left = inv.put(it, n, true);
             if (left == n) continue;
             if (left == 0) held.take(i);

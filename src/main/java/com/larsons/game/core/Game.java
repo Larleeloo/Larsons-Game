@@ -115,6 +115,7 @@ public final class Game implements AutoCloseable {
 
     public Game(Settings settings) {
         this.settings = settings;
+        com.larsons.game.ambient.Animals.setBirds(settings.birds);
         long t0 = System.nanoTime();
         window = new Window(TITLE, 1280, 720, settings.msaa, settings.vsync);
         pacer = new FramePacer(window, settings.fps, settings.vsync);

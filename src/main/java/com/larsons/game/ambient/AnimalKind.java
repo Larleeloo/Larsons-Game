@@ -299,6 +299,14 @@ public enum AnimalKind {
     }
 
     /** How many of its number are about at a time of day (0 night, 1 day): the insects by day only. */
+    /**
+     * Whether it is a bird: the water birds, the perching ones, those that
+     * walk, the hummingbird. (They are turned off - {@link Animals#setBirds}.)
+     */
+    public boolean bird() {
+        return gait == Gait.BIRD || gait == Gait.PERCH || gait == Gait.FOWL || this == HUMMINGBIRD;
+    }
+
     public double out(double day) {
         if (this == OWL) return CritterKind.smooth(0.4, 0.7, 1 - day);
         return flies() ? CritterKind.smooth(0.4, 0.7, day) : 1;
