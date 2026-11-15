@@ -247,16 +247,16 @@ public final class FolkTypes {
                         Prop.choice("body", "Body", EITHER, o -> bodies()),
                         Prop.choice("outfit", "Dressed", OWN, o -> Looks.Dress.keys()),
                         Prop.number("look", "Look (0: any)", 0, 0, 9999, 1),
-                        Prop.number("size", "Size (0: as her people come)", 0, 0, 1.3, 0.05),
+                        Prop.number("size", "Size (0: as their people come)", 0, 0, 1.3, 0.05),
                         Prop.choice("skin", "Skin", ANY, FolkTypes::skins),
                         Prop.choice("weapon", "Holds", "", FolkTypes::held),
                         Prop.number("roam", "Wanders within (m)", 0, 0, 30, 0.5),
                         Prop.text("greeting", "Says (| starts a new page)", "Well met, traveller."),
                         Prop.rows("topics", "Asked about", "", Rows.topics()),
                         Prop.rows("stock", "Sells", "", Rows.stock("Sells nothing")),
-                        Prop.toggle("buys", "Buys what she sells (half its worth)", false),
+                        Prop.toggle("buys", "Buys what they sell (half its worth)", false),
                         Prop.choice("home", "Lives in", AUTO, ObjectTypes::homes),
-                        Prop.rows("schedule", "Her day", Schedule.DEFAULT, Rows.schedule()),
+                        Prop.rows("schedule", "Their day", Schedule.DEFAULT, Rows.schedule()),
                         Prop.toggle("shelter", "Goes in out of storms", true)),
                 0.4, 1.8, 0x7FE8FF, false, (o, b) -> {
             People people = People.byKey(o.str("people", People.HUMAN.key()));
@@ -307,7 +307,7 @@ public final class FolkTypes {
                         Prop.number("every", "One every (s)", 6, 0.5, 120, 0.5),
                         Prop.number("height", "Height over the ground (m)", 16, 6, 60, 1),
                         Prop.number("radius", "Width (m)", 2.6, 1, 10, 0.2),
-                        Prop.number("range", "Opens when she is within (m)", 30, 0, 300, 1),
+                        Prop.number("range", "Opens when the player is within (m)", 30, 0, 300, 1),
                         Prop.choice("colour", "Their colour", ANY, o -> {
                             List<String> out = new ArrayList<>(List.of(ANY));
                             out.addAll(Serpent.Colour.keys());

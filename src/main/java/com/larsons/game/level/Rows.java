@@ -105,8 +105,8 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
                 Column.number("How many", 0.18f, "0", 0, 999, 1, v -> num(v) <= 0 ? "-" : v),
                 Column.number("Price", 0.2f, "0", 0, 100000, 5, v -> num(v) <= 0 ? "-" : v)),
                 "+ Add something to sell", empty, Rows::readStock, Rows::writeStock,
-                "How many: - never runs out. Price: - is what it is worth. Cards for her class are a few of "
-                        + "the shop cards of whatever class she plays.");
+                "How many: - never runs out. Price: - is what it is worth. Cards for the player's class are a few of "
+                        + "the shop cards of whatever class is played.");
     }
 
     static List<List<String>> readStock(String text) {
@@ -191,7 +191,7 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
     public static Rows topics() {
         return new Rows(List.of(Column.text("Asked about", 0.36f, "Work"),
                 Column.text("Answer (| new page)", 0.64f, "Ask at the smithy.")),
-                "+ Add a topic", "Nothing to be asked about: she only greets", Rows::readTopics, Rows::writeTopics);
+                "+ Add a topic", "Nothing to be asked about: they only greet", Rows::readTopics, Rows::writeTopics);
     }
 
     static List<List<String>> readTopics(String text) {
@@ -230,11 +230,11 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
                         (o, row) -> withCurrent(Schedule.Doing.keys(), row, 1), Rows::doingLabel),
                 Column.choice("Where", 0.42f, Schedule.POST, (o, row) -> withCurrent(ObjectTypes.dayPlaces(), row, 2),
                         ObjectTypes::dayPlaceLabel)),
-                "+ Add to her day", "Stands at her post all day", Rows::readSchedule, Rows::writeSchedule,
-                "Each holds from its time to the next. Work swings what she holds; Kneel, tend kneels at the "
-                        + "spot; Keep watch looks about; To and fro walks from her post to the place and back; "
-                        + "Go inside and Sleep take her in at the door, to be found inside. Places: her post, "
-                        + "her home, a named spot, a building.");
+                "+ Add to their day", "Stands at their post all day", Rows::readSchedule, Rows::writeSchedule,
+                "Each holds from its time to the next. Work swings what they hold; Kneel, tend kneels at the "
+                        + "spot; Keep watch looks about; To and fro walks from their post to the place and back; "
+                        + "Go inside and Sleep take them in at the door, to be found inside. Places: their post, "
+                        + "their home, a named spot, a building.");
     }
 
     static List<List<String>> readSchedule(String text) {
@@ -341,7 +341,7 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
     /** What {@code id} is called: "Health potion", "My blade (forged)", "Card: Fireball". */
     public static String itemLabel(String id) {
         if (id == null || id.isBlank()) return "(nothing)";
-        if (id.equals(CARDS)) return "Cards for her class";
+        if (id.equals(CARDS)) return "Cards for your class";
         if (id.startsWith("card:")) {
             Card c = null;
             try {

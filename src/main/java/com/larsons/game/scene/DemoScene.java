@@ -1085,7 +1085,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (campaign != null) {
                     toMap(s.bool("clears", true) && "exit".equals(campaign.clear()));
                 } else if (back != null) {
-                    game.toast("The way back to the map: in a playthrough she leaves here", Theme.HINT);
+                    game.toast("The way back to the map: in a playthrough you leave here", Theme.HINT);
                 } else {
                     game.switchTo("menu");
                 }
@@ -2525,6 +2525,28 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (best != null) goIn(best);
             }
             case "outside" -> goOut();
+            // beside the bed nearest her, in the place she is in: bed
+            case "bed" -> {
+                Building best = null;
+                for (Building b : world.buildings()) {
+                    if (!World.isBed(b.key()) || b.passage() != null) continue;
+                    if (best == null || b.position().horizontalDistance(p.ground())
+                            < best.position().horizontalDistance(p.ground())) best = b;
+                }
+                if (best == null) return false;
+                Vec3 at = null;
+                for (double r = 0.7; r <= 2.4 && at == null; r += 0.3) {
+                    for (int k = 0; k < 8 && at == null; k++) {
+                        Vec3 c = new Vec3(best.position().x() + r * Math.cos(k * Math.PI / 4), 0,
+                                best.position().z() + r * Math.sin(k * Math.PI / 4));
+                        if (best.blocks(c.x(), c.z(), 0.3)) continue;
+                        p.setPosition(c);
+                        if (world.reachableBed() == best) at = c;
+                    }
+                }
+                if (at == null) return false;
+                camera.snapTo(pivot());
+            }
             case "upstairs", "downstairs" -> {
                 boolean up = command.equals("upstairs");
                 Building best = null;

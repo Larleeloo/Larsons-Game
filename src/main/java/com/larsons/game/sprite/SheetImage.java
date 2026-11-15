@@ -296,6 +296,57 @@ public final class SheetImage {
         return new BufferedImage(icm, out, false, null);
     }
 
+    /**
+     * {@code sheet} with only what is near {@code near}'s pixels left (the
+     * same state from the same view: long hair in the water, kept to where a
+     * short cut has hair, so that none of it hangs through the chest): frame
+     * by frame, every pixel of it further than {@link #reach} pixels, in
+     * either direction, from the nearest drawn pixel of {@code near} is
+     * taken out. Both must be palette sheets of the same size; otherwise
+     * {@code sheet} is returned as it is. A new image; {@code sheet} is not
+     * changed. Pure; any thread.
+     */
+    public static BufferedImage keepNear(BufferedImage sheet, BufferedImage near, int frameW, int frameH) {
+        if (!(sheet.getColorModel() instanceof IndexColorModel icm)
+                || !(near.getColorModel() instanceof IndexColorModel ncm)
+                || sheet.getWidth() != near.getWidth() || sheet.getHeight() != near.getHeight()) {
+            return sheet;
+        }
+        int w = sheet.getWidth(), h = sheet.getHeight();
+        int[] size = frameSize(w, h, frameW, frameH);
+        int fw = size[0], fh = size[1];
+        int reach = reach(fw);
+        int[] mine = sheet.getRaster().getPixels(0, 0, w, h, (int[]) null);
+        int[] theirs = near.getRaster().getPixels(0, 0, w, h, (int[]) null);
+        int clear = transparentIndex(icm);
+        WritableRaster out = sheet.copyData(null);
+        for (int fy = 0; fy + fh <= h; fy += fh) {
+            for (int fx = 0; fx + fw <= w; fx += fw) {
+                for (int y = fy; y < fy + fh; y++) {
+                    for (int x = fx; x < fx + fw; x++) {
+                        if (!visible(icm, mine[y * w + x])) continue;
+                        boolean close = false;
+                        for (int ny = Math.max(fy, y - reach); ny <= Math.min(fy + fh - 1, y + reach) && !close; ny++) {
+                            for (int nx = Math.max(fx, x - reach); nx <= Math.min(fx + fw - 1, x + reach); nx++) {
+                                if (visible(ncm, theirs[ny * w + nx])) {
+                                    close = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!close) out.setSample(x, y, 0, clear);
+                    }
+                }
+            }
+        }
+        return new BufferedImage(icm, out, false, null);
+    }
+
+    /** How far from the other sheet's pixels {@link #keepNear} keeps a pixel: 3 in a 128-pixel frame, 1 in a 64. */
+    static int reach(int frameW) {
+        return Math.max(1, frameW * 3 / 128);
+    }
+
     /** Whether palette entry {@code i} is drawn (not transparent, nor the near-invisible empty-frame marker). */
     private static boolean visible(IndexColorModel cm, int i) {
         return i < cm.getMapSize() && cm.getAlpha(i) > 1;

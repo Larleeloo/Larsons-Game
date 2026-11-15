@@ -143,8 +143,9 @@ public final class LookEditor {
         return game.sprites().swatch(wardrobe.get(Slot.BODY), slot, wardrobe.get(slot), wardrobe.style(), option);
     }
 
-    private static String rowLabel(Slot slot) {
-        return slot == Slot.BODY ? "Skin" : slot == Slot.OTHER ? "Mantle" : slot.label();
+    private String rowLabel(Slot slot) {
+        return slot == Slot.BODY ? (fixed.contains(slot) ? "Skin" : "Body, skin") : slot == Slot.OTHER ? "Mantle"
+                : slot.label();
     }
 
     private static String readable(String s) {

@@ -12,6 +12,7 @@ import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
+import com.larsons.game.sprite.Variants;
 import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Medieval;
 import com.larsons.game.ui.Theme;
@@ -42,21 +43,21 @@ import java.util.Locale;
  * is offered. What is in her hands - the sword, the shield - is not the
  * wardrobe's: the hotbar puts it there ({@link #SLOTS}).
  *
- * <p>A style row switches the whole character between the 512-pixel renders
- * and the pixel art made of them ({@link Wardrobe.Style}); the items' versions
- * in a style are not listed as items of their own, and an item that is only
- * pixel art is drawn from its 128-pixel version among the renders (marked
- * "(pixel art)"). An item with a colour choice in the style (its {@code
- * variants.json}) shows a gem beside it: click the gem (or the layer's name)
- * and its colours are set out on the dye shelf - for the base body that is the
- * skin tone, which every item showing skin follows.
+ * <p>A style row switches the whole character between the sizes of the
+ * pixel art ({@link Wardrobe.Style}); the items' versions in a style are not
+ * listed as items of their own. An item with a colour choice in the style
+ * (its {@code variants.json}) shows a gem beside it: click the gem (or the
+ * layer's name) and its colours are set out on the dye shelf - its own few
+ * as gems, then every colour of the palette under them. For the base body
+ * that is the skin tone, which every item showing skin follows.
  *
  * <p>The colours are unlocked with dyes ({@link Wearables#colours}): a colour
  * not yet unlocked for the item is shown locked, and with a dye of it in her
  * bag, clicking it offers to use the dye up and unlock that colour on that
  * item for good ({@link Wearables#useDye}). The lips take every colour with
- * the lipstick, a metal wearable only its own (silver, gold); the skin tone
- * and the eyes' colour are free. A colour already applied stays.
+ * the lipstick, a metal wearable only its own (silver, gold); the skin tone,
+ * the eyes' colour and the hair's and the eyebrows' are free. A colour
+ * already applied stays.
  *
  * <p>A hand row makes the character left- or right-handed (Auto:
  * left-handed while the sword is in the left hand only).
@@ -220,9 +221,15 @@ final class WardrobePanel {
 
     /** "royal_blue" -> "Royal blue". */
     static String colourName(String option) {
-        if (option == null) return "Own colours";
-        String s = option.replace('_', ' ');
-        return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1);
+        return Wearables.colourName(option);
+    }
+
+    /** The colour {@code option} of {@code item} shows as (RGB; a palette colour is itself), or -1. */
+    private static int swatch(SpriteLibrary lib, String body, Slot slot, String item, Wardrobe.Style style,
+                              String option) {
+        if (option == null) return -1;
+        if (Variants.isCustom(option)) return Wearables.rgb(option);
+        return lib.swatch(body, slot, item, style, option);
     }
 
     /** How many dyes of {@code colour} she carries. */
@@ -336,7 +343,7 @@ final class WardrobePanel {
                 // the colour picked for it (its own colours: an empty bezel)
                 float gx = sx + colW - 10, gy = ry + knob / 2;
                 String picked = wardrobe.colour(slot);
-                int sw = picked == null ? -1 : lib.swatch(body, slot, current, style, picked);
+                int sw = swatch(lib, body, slot, current, style, picked);
                 m.gem(gx, gy, 10, sw, true);
                 if (focus == slot) ui.outline(gx - 12, gy - 12, 24, 24, 1, Medieval.GOLD);
                 if (ui.clicked(gx - 10, gy - 10, 20, 20)) focusOn(slot);
@@ -361,13 +368,25 @@ final class WardrobePanel {
         }
         m.carved(m.heading, "Colour · " + what + ": " + picked, x, dy, fOpts.isEmpty() ? Medieval.BRASS : Medieval.GOLD);
         float gy = dy + 36, r = 13, step = 2 * r + 9;
+        // its own options as gems (and "-": none picked), then every colour of the palette under them
+        List<Wearables.Colour> named = new ArrayList<>(), palette = new ArrayList<>();
+        List<Integer> shown = new ArrayList<>();
+        for (Wearables.Colour o : fOpts) {
+            if (Variants.isCustom(o.option())) continue;
+            named.add(o);
+            shown.add(swatch(lib, body, focus, fItem, style, o.option()));
+        }
+        for (Wearables.Colour o : fOpts) {
+            // (a palette colour that is one of the item's own options is set out once, as the gem)
+            if (Variants.isCustom(o.option()) && !shown.contains(Wearables.rgb(o.option()))) palette.add(o);
+        }
         if (!fOpts.isEmpty()) {
             if (m.knob("-", x, gy - 10, 20, wardrobe.colour(focus) != null)) wardrobe.setColour(focus, null);
-            for (int i = 0; i < fOpts.size(); i++) {
+            for (int i = 0; i < named.size(); i++) {
                 float gx = x + 40 + i * step;
                 if (gx + r > x + w) break;
-                Wearables.Colour o = fOpts.get(i);
-                int rgb = lib.swatch(body, focus, fItem, style, o.option());
+                Wearables.Colour o = named.get(i);
+                int rgb = swatch(lib, body, focus, fItem, style, o.option());
                 int carried = o.unlocked() ? 0 : dyes(player, o.option());
                 m.gem(gx, gy, r, rgb, o.unlocked() || carried > 0);
                 boolean on = o.option().equals(wardrobe.colour(focus)) || o.option().equals(offered);
@@ -387,7 +406,31 @@ final class WardrobePanel {
                 }
             }
         }
-        float ny = gy + r + 10;
+        float py = gy + r + 12;
+        int across = 25;
+        float pw = (float) Math.floor(Math.min(28, (w + 2) / across)), ph = 15;
+        for (int i = 0; i < palette.size(); i++) {
+            Wearables.Colour o = palette.get(i);
+            float px = x + (i % across) * pw, cy = py + (i / across) * (ph + 2), cw = pw - 2;
+            int rgb = Wearables.rgb(o.option());
+            int carried = o.unlocked() ? 0 : dyes(player, o.option());
+            ui.rect(px, cy, cw, ph, Medieval.INK);
+            ui.rect(px + 1, cy + 1, cw - 2, ph - 2, Theme.hex(rgb & 0xFFFFFF, 1f));
+            if (!o.unlocked()) {
+                ui.rect(px + 1, cy + 1, cw - 2, ph - 2, Theme.withAlpha(Medieval.INK, carried > 0 ? 0.25f : 0.55f));
+                if (carried > 0) m.bottle(px + cw / 2 - 3, cy + ph - 3, rgb);
+                else m.padlock(px + cw / 2, cy + ph / 2 + 1);
+            }
+            boolean on = o.option().equalsIgnoreCase(wardrobe.colour(focus)) || o.option().equals(offered);
+            if (on) ui.outline(px - 2, cy - 2, cw + 4, ph + 4, 2, Medieval.GOLD);
+            else if (ui.hover(px, cy, cw, ph)) ui.outline(px - 1, cy - 1, cw + 2, ph + 2, 1, Medieval.CREAM);
+            if (ui.clicked(px, cy, cw, ph)) {
+                offered = pick(wardrobe, player, focus, o);
+                if (o.unlocked()) Sounds.play(SoundKeys.ui("wear"));
+            }
+        }
+        int paletteRows = (palette.size() + across - 1) / across;
+        float ny = paletteRows == 0 ? gy + r + 10 : py + paletteRows * (ph + 2) + 4;
         if (offered != null) {
             String dye = colourName(offered);
             String on = focus == Slot.BODY ? "the skin" : current(focus, player);

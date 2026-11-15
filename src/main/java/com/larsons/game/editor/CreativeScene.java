@@ -1883,7 +1883,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
                     + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
-            case HORDE -> "The horde map's rules: her points, how the rounds grow, which Risen come · Place → Zombies: "
+            case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
@@ -2031,11 +2031,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 "barricade") + ", " + things(level.ofType(HordeTypes.WALL_BUY).size(), "weapon board") + ", "
                 + things(level.ofType(HordeTypes.BOX).size(), "mystery box") + " placed.", x, y, w, Theme.HINT) + 4;
         if (spawns == 0) {
-            y += ui.paragraph(ui.small, "With no Risen spawn placed, they rise in a ring round her.", x, y, w,
+            y += ui.paragraph(ui.small, "With no Risen spawn placed, they rise in a ring round the player.", x, y, w,
                     Theme.WARNING) + 4;
         }
         if (level.spawn() == null) {
-            y += ui.paragraph(ui.small, "Place a player spawn (Markers) where she starts.", x, y, w, Theme.WARNING) + 4;
+            y += ui.paragraph(ui.small, "Place a player spawn (Markers) where the player starts.", x, y, w, Theme.WARNING) + 4;
         }
     }
 
@@ -2597,7 +2597,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 x, y, w);
         y += 44;
         ui.paragraph(ui.small, "Flatten brings the ground to that height; Ctrl+click takes it from the ground. "
-                + "Steeper than 45° is rock she cannot walk up - put vines on it (Place, Terrain) to climb it. "
+                + "Steeper than 45° is rock nobody can walk up - put vines on it (Place, Terrain) to climb it. "
                 + "The edge of the level stays at 0, where it meets the ground beyond.", x, y, w, Theme.HINT);
     }
 
@@ -2734,8 +2734,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         ui.paragraph(ui.small, "Sculpt a hollow (3, Lower), then fill it. The brush paints water level at the depth "
                 + "above where you press; turn \"Lies level\" off for a stream down a slope, and \"Flows\" makes it "
-                + "run the way the brush moves. The sea fills everything below its level, out to the horizon. She "
-                + "wades in the shallows and swims where it is deeper than "
+                + "run the way the brush moves. The sea fills everything below its level, out to the horizon. The "
+                + "player wades in the shallows and swims where it is deeper than "
                 + String.format(java.util.Locale.ROOT, "%.1f", com.larsons.game.world.Player.SWIM_DEPTH) + " m.",
                 x, y, w, Theme.HINT);
     }

@@ -108,6 +108,8 @@ final class InventoryPanel {
     private final Game game;
     private final World world;
     private boolean open;
+    /** Just opened: on the gamepad, the focus starts on the first slot of the bag. */
+    private boolean fresh;
     private Item cursor;
     private int cursorAmount;
     private int cursorFrom = -1;
@@ -175,6 +177,7 @@ final class InventoryPanel {
     void show() {
         if (open) return;
         open = true;
+        fresh = true;
         Sounds.play(SoundKeys.ui("inventory_open"));
     }
 
@@ -384,6 +387,16 @@ final class InventoryPanel {
         sortButtons(ui, inv, px, py, pw, ph);
 
         List<Spot> spots = spots(inv.size(), px, py, pw, ph);
+        if (fresh) {
+            fresh = false;
+            if (ui.input().usingPad()) {
+                for (Spot s : spots) {
+                    if (Inventory.isHotbar(s.slot())) continue;
+                    ui.input().warp(s.x(), s.y());
+                    break;
+                }
+            }
+        }
         hovered = -1;
         hoveredStore = -1;
         for (Spot s : spots) {
@@ -541,7 +554,9 @@ final class InventoryPanel {
                 + "E, I or Esc: close"
                 : "Click: pick up / put down · Right-click: eat, or a weapon's tiers · Shift-click: to / from the hotbar · "
                 + "Click outside: drop · J: cards · I or Esc: close";
-        ui.textCentered(ui.small, help, ui.width() / 2f, py + ph + 10, Theme.HINT);
+        // (under the panel, and never off the bottom of the window)
+        ui.textCentered(ui.small, Ui.fit(ui.small, help, ui.width() - 24), ui.width() / 2f,
+                Math.min(py + ph + 10, ui.height() - ui.small.lineHeight() - 3), Theme.HINT);
     }
 
     /** A panel's background: the picture, or a plain dark panel (with the hotbar's band on hers). */

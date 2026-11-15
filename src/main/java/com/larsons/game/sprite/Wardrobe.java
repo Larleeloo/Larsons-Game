@@ -193,6 +193,23 @@ public final class Wardrobe {
         return null;
     }
 
+    /** Long hair, and the short cut it is gathered to while swimming ({@link #keptTo}). */
+    private static final Map<String, String> GATHERED = Map.of(
+            "long_waves", "bob", "braids", "bob", "curls", "bob", "beanie_long", "beanie_short");
+
+    /**
+     * The item whose sheet {@code slot}'s layer is kept near in {@code
+     * state}, or null: swimming a stroke - flat on the water, head up - long
+     * hair, which hangs straight down from the head, would hang through the
+     * chest and out under it; it is kept to where a short cut has hair
+     * ({@link SheetImage#keepNear}), gathered at the head.
+     */
+    public String keptTo(Slot slot, AnimState state) {
+        if (slot != Slot.HAIR || state != AnimState.SWIM) return null;
+        String hair = items.get(Slot.HAIR);
+        return hair == null ? null : GATHERED.get(hair);
+    }
+
     public Style style() { return style; }
 
     public void setStyle(Style style) {

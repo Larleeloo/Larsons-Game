@@ -70,6 +70,8 @@ public final class Portrait {
     private boolean turning = true, face, mirrored;
     private double zoom = 1, time, turnTimer, dragged;
     private boolean dragging;
+    /** A state to play in place of the pose's (a script's: any state at all), or null. */
+    private AnimState override;
 
     public Portrait(Game game) {
         this.game = game;
@@ -165,8 +167,8 @@ public final class Portrait {
         SpriteLibrary lib = game.sprites();
         SpriteView view = new SpriteView(elevation, facing, elevation.renderAngle());
         Stance stance = holding != null ? holding : Stance.SWORD;
-        AnimState state = state(stance);
-        boolean empty = holding == null && !pose.armed;
+        AnimState state = override != null ? override : state(stance);
+        boolean empty = override != null ? override.stance() == Stance.FREE : holding == null && !pose.armed;
         // what is in the hands for this pose: the class's own weapon is the stance's; a sword (and a shield) is the wardrobe's
         String right = wardrobe.get(Slot.CARRY_RIGHT), left = wardrobe.get(Slot.CARRY_LEFT);
         boolean sword = !empty && (stance == Stance.SWORD || stance == Stance.BLADE);
@@ -306,12 +308,14 @@ public final class Portrait {
 
     private void pose(int index) {
         pose = Pose.values()[index];
+        override = null;
         time = 0;
     }
 
     /**
      * Script commands: {@code face on|off}, {@code zoom n}, {@code turn
-     * on|off|<facing>}, {@code height side|middle|top}, {@code pose <name>}.
+     * on|off|<facing>}, {@code height side|middle|top}, {@code pose <name>},
+     * {@code state <key>} (any state there is, by its key: "swim").
      */
     public boolean command(String command, String argument) {
         String a = argument == null ? "" : argument.trim().toLowerCase(Locale.ROOT);
@@ -327,6 +331,10 @@ public final class Portrait {
             }
             case "height" -> {
                 for (Elevation e : Elevation.values()) if (e.key().equals(a)) elevation = e;
+            }
+            case "state" -> {
+                override = AnimState.byKey(a);
+                time = 0;
             }
             case "pose" -> {
                 for (Pose p : Pose.values()) {

@@ -123,42 +123,58 @@ public final class SpriteLibrary implements AutoCloseable {
      * ({@link Variants#recolored}), so every colour of a sheet is one texture.
      * A sheet worn under another may be cut by it ({@code cut}: that one's
      * file, or null) - what pokes out from under it is taken out as it loads
-     * ({@link SheetImage#cutUnder}).
+     * ({@link SheetImage#cutUnder}). With {@code keep} it is the other way
+     * round: only what of the sheet is near that one's pixels remains
+     * ({@link SheetImage#keepNear}: long hair in the water, kept to the head).
      */
-    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor, Path cut) {
+    public record Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor, Path cut,
+                           boolean keep) {
 
         public Resolved(Path file, boolean mirrored, SpriteProfile profile) {
-            this(file, mirrored, profile, null, null);
+            this(file, mirrored, profile, null, null, false);
         }
 
         public Resolved(Path file, boolean mirrored, SpriteProfile profile, Variants.Recolor recolor) {
-            this(file, mirrored, profile, recolor, null);
+            this(file, mirrored, profile, recolor, null, false);
         }
 
         /** What the library keeps it under: the file (whatever its colours), and what cuts it. */
         public Key key() {
-            return new Key(file, cut);
+            return new Key(file, cut, keep);
         }
 
         public Resolved withRecolor(Variants.Recolor r) {
-            return new Resolved(file, mirrored, profile, r, cut);
+            return new Resolved(file, mirrored, profile, r, cut, keep);
         }
 
         /** This sheet with what pokes out from under {@code over}'s sheet taken out (null: as it is). */
         public Resolved cutBy(Path over) {
-            return new Resolved(file, mirrored, profile, recolor, over);
+            return new Resolved(file, mirrored, profile, recolor, over, false);
+        }
+
+        /** This sheet with only what is near {@code near}'s pixels left (null: as it is). */
+        public Resolved keptNear(Path near) {
+            return new Resolved(file, mirrored, profile, recolor, near, near != null);
         }
 
         public Resolved flipped() {
-            return new Resolved(file, !mirrored, profile, recolor, cut);
+            return new Resolved(file, !mirrored, profile, recolor, cut, keep);
         }
     }
 
-    /** A decoded sheet's identity: one file, and the file of the sheet it is cut by (null: none). */
-    public record Key(Path file, Path cut) {
+    /**
+     * A decoded sheet's identity: one file, the file of the sheet it is cut
+     * by (null: none), and whether that one cuts it or is what it is kept
+     * near ({@link Resolved}).
+     */
+    public record Key(Path file, Path cut, boolean keep) {
 
         public Key(Path file) {
-            this(file, null);
+            this(file, null, false);
+        }
+
+        public Key(Path file, Path cut) {
+            this(file, cut, false);
         }
     }
 
@@ -797,7 +813,11 @@ public final class SpriteLibrary implements AutoCloseable {
             if (img == null) return new Decoded(key, epoch, null, null, "not an image ImageIO can read");
             if (key.cut() != null) {
                 BufferedImage over = Images.read(key.cut());
-                if (over != null) img = SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
+                if (over != null) {
+                    img = key.keep()
+                            ? SheetImage.keepNear(img, over, profile.frameWidth(), profile.frameHeight())
+                            : SheetImage.cutUnder(img, over, profile.frameWidth(), profile.frameHeight());
+                }
             }
             boolean pixelArt = profile.pixelArt();
             SheetImage layout = SheetImage.decode(img, profile.frameWidth(), profile.frameHeight(),

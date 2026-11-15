@@ -31,7 +31,8 @@ import java.util.Set;
  *   Uncommon  belt, gloves, sheath, laced shirt, wool mantle,
  *             chainmail shirt, chainmail pants
  *   Rare      laced dress, silver wrist band, silver necklace, silver hoops,
- *             the 14 dyes, makeup (noir, rose, plum), lipstick, the hair
+ *             the dyes (the 14 named ones and one of every other colour
+ *             of the palette), makeup (noir, rose, plum), lipstick, the hair
  *             styles, the eyebrows (long waves, side part and arched owned
  *             by default),
  *             the iron armour

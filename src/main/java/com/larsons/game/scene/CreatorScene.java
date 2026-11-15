@@ -161,12 +161,19 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
     private static void features(SpriteLibrary lib, Wardrobe w, People people) {
         String body = w.get(Slot.BODY);
         w.set(Slot.EARS, people.ears().get(0));
-        for (Slot s : List.of(Slot.EYES, Slot.NOSE, Slot.MOUTH)) {
+        // a plain face to begin with (the first there is, where the usual one has no sprites)
+        List<String> usual = List.of("hazel", "straight", "full");
+        List<Slot> face = List.of(Slot.EYES, Slot.NOSE, Slot.MOUTH);
+        for (int i = 0; i < face.size(); i++) {
+            Slot s = face.get(i);
             if (w.get(s) != null) continue;
+            String first = null;
             for (String item : lib.items(body, s)) {
-                w.set(s, Wardrobe.Style.base(item));
-                break;
+                String base = Wardrobe.Style.base(item);
+                if (first == null) first = base;
+                if (base.equals(usual.get(i))) first = base;
             }
+            if (first != null) w.set(s, first);
         }
         w.set(Slot.HORNS, people.horns() ? People.HORNS : null);
         w.set(Slot.TAIL, people.tail() ? People.TAIL : null);

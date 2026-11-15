@@ -437,7 +437,7 @@ The damage dice, blows landing, arrows and bolts striking, spells, poison, block
 
 CREATURES
 ---------
-The training dummies and the flying dummies - struck, knocked down, back up, diving at her.
+The training dummies and the flying dummies - struck, knocked down, back up, diving at you.
 
   combat/attack_dummy/hit.mp3                    Training dummy: struck                           combat/attack_dummy/hit
   combat/attack_dummy/fall.mp3                   Training dummy: knocked down                     combat/attack_dummy/fall
@@ -537,9 +537,9 @@ The training dummies and the flying dummies - struck, knocked down, back up, div
   creatures/buffalo/low.mp3                      Buffalo: lowing                                  creature/buffalo/low
   creatures/buffalo/bellow.mp3                   Buffalo: bellowing, hit                          creature/buffalo/bellow
   creatures/buffalo/snort.mp3                    Buffalo: snorting before it charges              creature/buffalo/snort
-  foes/alert.mp3                                 A foe noticing her                               foes/alert
+  foes/alert.mp3                                 A foe noticing you                               foes/alert
   foes/fall.mp3                                  A foe falling                                    foes/fall
-  foes/risen_groan.mp3                           The Risen: a groan as one notices her            foes/risen_groan
+  foes/risen_groan.mp3                           The Risen: a groan as one notices you            foes/risen_groan
   foes/risen_fall.mp3                            The Risen: one falling                           foes/risen_fall
   foes/vernees_hiss.mp3                          A Vérnees: its hiss before it strikes            foes/vernees_hiss
   foes/vernees_fall.mp3                          A Vérnees: falling out of the sky                foes/vernees_fall
@@ -564,7 +564,7 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   world/loot_mythic.mp3                          Loot: a Mythic find                              world/loot_mythic
   world/forage_pick.mp3                          Picking from a bush                              world/forage_pick
   world/door_open.mp3                            A door opening (going in or out)                 world/door_open
-  world/door_close.mp3                           A door shutting behind her                       world/door_close
+  world/door_close.mp3                           A door shutting behind you                       world/door_close
   world/stairs.mp3                               Going up or down the stairs                      world/stairs
   world/saddle_on.mp3                            Saddling a horse                                 world/saddle_on
   world/mount.mp3                                Getting up on a horse                            world/mount
@@ -583,7 +583,7 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   items/scroll_read.mp3                          A scroll read                                    item/scroll_read
   items/egg_hatch.mp3                            A spawner egg hatching                           item/egg_hatch
   items/storm.mp3                                A storm scroll's storm                           item/storm
-  items/return.mp3                               A scroll of return: back where she came in       item/return
+  items/return.mp3                               A scroll of return: back where you came in       item/return
   items/horn_fill.mp3                            The drinking horn filled                         item/horn_fill
   items/horn_drink.mp3                           Drinking from the horn                           item/horn_drink
   items/crystal_ball.mp3                         Looking into the crystal ball                    item/crystal_ball

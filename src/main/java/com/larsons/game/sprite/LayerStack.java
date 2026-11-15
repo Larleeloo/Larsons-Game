@@ -238,6 +238,12 @@ public final class LayerStack {
                         lib.source(bodyItem, cutBy, wardrobe.get(cutBy), wardrobe.style(), left), state, elev, facing);
                 if (over != null && over.mirrored() == file.mirrored()) file = file.cutBy(over.file());
             }
+            String near = wardrobe.keptTo(slot, state);
+            if (file != null && near != null) {
+                SpriteLibrary.Resolved to = lib.resolve(
+                        lib.source(bodyItem, slot, near, wardrobe.style(), left), state, elev, facing);
+                if (to != null && to.mirrored() == file.mirrored()) file = file.keptNear(to.file());
+            }
             SheetTexture sheet = null;
             if (file != null) {
                 sheet = lib.sheet(file);

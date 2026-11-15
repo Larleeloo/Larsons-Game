@@ -401,7 +401,7 @@ public final class OverworldEditor implements Scene, Autopilot.Scriptable {
         Overworld.Node n = map.node(selected);
         if (n == null) {
             ui.paragraph(ui.small, "Click an empty tile to place a destination; click one to choose it, drag it to move "
-                    + "it.\n\nEach destination loads a level saved in Creative Mode when she goes in, at the level's "
+                    + "it.\n\nEach destination loads a level saved in Creative Mode when the player goes in, at the level's "
                     + "spawn.", x, y, w, Theme.HINT);
             return;
         }
