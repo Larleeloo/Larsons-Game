@@ -33,7 +33,7 @@ CLASSES = {
                    about="Armour and melee: damage taken down, wards, stronger swings."),
     "warrior": dict(name="Warrior", colour="#d84a32", pointer="axe",
                     about="Raw melee: fury, cleaving extra dice, life drawn from blows."),
-    "warlock": dict(name="Warlock", colour="#8a3cc8", pointer="gloved_hand",
+    "warlock": dict(name="Warlock", colour="#8a3cc8", pointer="staff",
                     about="Dark spells: hexes, drained souls, poison, health traded for mana."),
     "druid": dict(name="Druid", colour="#4aa040", pointer="leafy_branch",
                   about="Nature: regrowth, thorns, entangling roots, foes turned into beasts."),

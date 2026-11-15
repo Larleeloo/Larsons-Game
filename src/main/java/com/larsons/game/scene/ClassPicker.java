@@ -10,17 +10,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Choosing her class: the nine of them as tiles, three by three - each its
+ * Choosing a class: the nine of them as tiles, three by three - each its
  * name in its colour, what it is about, and its starting deck ("4 Cast, 2
  * Bind, Transfigure, Healing Spell") - at the start of a game, and again from
- * Pause → Class (a new class starts her deck afresh).
+ * Pause → Class (a new class starts the deck afresh).
  */
 final class ClassPicker {
 
     private ClassPicker() {}
 
     /**
-     * The tiles in {@code (x, y, w, h)}, {@code now} (her class, or null)
+     * The tiles in {@code (x, y, w, h)}, {@code now} (the class chosen, or null)
      * marked; returns the id of the one clicked, or null.
      */
     static String draw(Ui ui, Pointers pointers, String now, float x, float y, float w, float h) {
@@ -39,9 +39,11 @@ final class ClassPicker {
             ui.outline(tx, ty, tw, th, mine || hot ? 2 : 1, mine ? Theme.ACCENT : hot ? rgb : Theme.PANEL_EDGE);
             if (pointers != null) pointers.drawIcon(ui, c.pointer(), tx + tw - 44, ty + 8, 36);
             ui.text(ui.large, c.name(), tx + 16, ty + 8, rgb);
-            float py = ty + 8 + ui.large.lineHeight() + 2;
-            py += ui.paragraph(ui.small, c.about(), tx + 16, py, tw - 70, Theme.HINT) + 2;
-            ui.paragraph(ui.small, "Deck: " + deck(book, c), tx + 16, py, tw - 26, Theme.ITEM);
+            // (a narrow tile's words run under its icon, the whole width of it; the deck in small print)
+            boolean narrow = tw < 320;
+            float py = ty + 8 + ui.large.lineHeight() + (narrow ? 8 : 2);
+            py += ui.paragraph(ui.small, c.about(), tx + 16, py, narrow ? tw - 26 : tw - 70, Theme.HINT) + 2;
+            ui.paragraph(narrow ? ui.tiny : ui.small, "Deck: " + deck(book, c), tx + 16, py, tw - 26, Theme.ITEM);
             if (mine) ui.text(ui.small, "your class", tx + tw - 8 - ui.small.width("your class"), ty + th - 22,
                     Theme.ACCENT);
             if (ui.clicked(tx, ty, tw, th)) picked = c.id();

@@ -116,6 +116,8 @@ public final class Game implements AutoCloseable {
     public Game(Settings settings) {
         this.settings = settings;
         com.larsons.game.ambient.Animals.setBirds(settings.birds);
+        // (a colour of one's own - any skin, any dye - is shaded in the art's 128 colours)
+        com.larsons.game.sprite.Variants.setPalette(com.larsons.game.sprite.PixelPalette.load(settings.spritesDir()));
         long t0 = System.nanoTime();
         window = new Window(TITLE, 1280, 720, settings.msaa, settings.vsync);
         pacer = new FramePacer(window, settings.fps, settings.vsync);
@@ -541,7 +543,9 @@ public final class Game implements AutoCloseable {
 
             if (!booting) {
                 ui.drawFocus();
-                pointers.apply(window, settings.pointer, settings.heroClass,
+                // (a playthrough's own class, not the demo's)
+                com.larsons.game.save.SaveGame playing = com.larsons.game.save.Saves.active();
+                pointers.apply(window, settings.pointer, playing != null ? playing.heroClass() : settings.heroClass,
                         settings.dynamicPointer ? ui.pointerHint() : "", in.mouseDown(0), in.padFocusing() && !in.padPointer());
             }
             takeShot(!autopilot.active());
@@ -892,6 +896,22 @@ public final class Game implements AutoCloseable {
     public ScenerySprites scenerySprites() { return scenerySprites; }
 
     public Wardrobe wardrobe() { return wardrobe; }
+
+    /**
+     * A new playthrough is beginning: nothing left on from any other. What a
+     * playthrough is - who she is, what she carries, the day and the hour,
+     * her missions, the map, what she has seen of each place, the tips she
+     * has been given - is all in its save, which starts empty; this puts
+     * back what is kept outside it: the debug code (every cosmetic unlocked)
+     * goes off.
+     */
+    public void freshPlaythrough() {
+        if (settings.debugTools || com.larsons.game.world.Wearables.everything()) {
+            settings.debugTools = false;
+            com.larsons.game.world.Wearables.setEverything(false);
+            settings.save();
+        }
+    }
 
     public ImportPanel importer() { return importer; }
 

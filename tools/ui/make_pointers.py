@@ -1,7 +1,7 @@
 """
 The mouse pointers of Larson's Game, one for each class, as 32-pixel pixel
 art in the art's 128-colour palette: a wand for the Mage, a lute for the
-Bard, a sword for the Knight, an axe for the Warrior, a gloved hand for the
+Bard, a sword for the Knight, an axe for the Warrior, a staff for the
 Warlock, a leafy branch for the Druid, a dagger for the Rogue, an arrow for
 the Ranger and a holy symbol - a golden sun-cross on its rod - for the
 Cleric. Each points up and to the left, its tip the pointer's hot spot.
@@ -41,8 +41,6 @@ MATS = {
     "leather": ((60, 30, 14), (102, 56, 26), (146, 90, 50)),
     "crystal": ((40, 70, 190), (93, 134, 250), (200, 226, 255)),
     "glow": ((180, 200, 255), (230, 240, 255), (255, 255, 255)),
-    "glove": ((40, 14, 56), (82, 34, 108), (132, 70, 170)),
-    "glove_dark": ((30, 10, 42), (62, 24, 84), (100, 50, 132)),
     "rune": ((150, 60, 220), (210, 120, 255), (250, 210, 255)),
     "leaf": ((20, 80, 24), (52, 140, 46), (130, 200, 80)),
     "red": ((110, 16, 20), (196, 36, 44), (240, 110, 100)),
@@ -171,16 +169,16 @@ def axe(c):
     c.capsule((26, 26), (29, 29), 3.2, "leather")
 
 
-def gloved_hand(c):
-    # a pointing hand in a dark glove: the index finger up and to the left, the other
-    # fingers curled under it, the thumb over it, the cuff of the gauntlet behind
-    c.poly([(19, 23), (23, 19), (30, 26), (26, 30)], "leather")
-    c.poly([(10, 14), (14, 10), (22, 15), (24, 21), (21, 24), (15, 22)], "glove")
-    for k in range(3):
-        c.capsule((9 + 2.2 * k, 16 + 1.0 * k), (13 + 2.2 * k, 21 + 1.0 * k), 2.6, "glove_dark")
-    c.capsule((15, 9), (19, 6.5), 2.6, "glove_dark")
-    c.capsule((2, 2), (12, 12), 3.4, "glove")
-    c.disc((18, 17), 1.8, "rune")
+def staff(c):
+    # a warlock's staff: a dark shaft shod in gold, and at its head a violet stone held in a
+    # golden claw - the claw's point the tip
+    c.capsule((9, 9), (28, 28), 2.8, "dark_wood")
+    c.capsule((18.5, 18.5), (19.5, 19.5), 3.4, "gold")
+    c.capsule((28, 28), (29, 29), 3.2, "gold")
+    c.poly([(1, 1), (6.5, 1.8), (11.5, 5.5), (12.5, 10), (10, 12.5), (5.5, 11.5), (1.8, 6.5)], "gold")
+    c.disc((7, 7), 3.9, "rune")
+    c.disc((5.8, 5.8), 1.2, "glow")
+    c.capsule((11, 11), (12, 12), 3.4, "gold")
 
 
 def leafy_branch(c):
@@ -217,7 +215,7 @@ def holy_symbol(c):
     c.disc((28, 28), 2.0, "gold")
 
 
-POINTERS = {"wand": wand, "lute": lute, "sword": sword, "axe": axe, "gloved_hand": gloved_hand,
+POINTERS = {"wand": wand, "lute": lute, "sword": sword, "axe": axe, "staff": staff,
             "leafy_branch": leafy_branch, "dagger": dagger, "arrow": arrow, "holy_symbol": holy_symbol}
 
 

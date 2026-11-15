@@ -349,7 +349,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         this.level = level;
         this.back = back;
         this.pause = new PauseMenu(game, world);
-        this.tips = new Tips(game.settings());
+        this.tips = new Tips(game.settings(), campaign != null ? campaign.save().tips() : null);
         this.inventory = new InventoryPanel(game, world);
         this.story = new Story(game, world, inventory, campaign != null ? campaign.save().quests() : null,
                 campaign != null ? campaign.placeName() : level.name());

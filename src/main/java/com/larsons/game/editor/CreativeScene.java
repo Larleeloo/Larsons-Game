@@ -179,6 +179,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * for as it is placed, or a tint - and what it is picking them for.
      */
     private ColourPick colourPick;
+    /** The person or foe whose look is being made in the look dialog, the look so far, and the dialog's parts; or null. */
+    private LevelObject lookTarget;
+    private com.larsons.game.sprite.Wardrobe lookMade;
+    private com.larsons.game.scene.LookEditor lookEditor;
+    private com.larsons.game.scene.Portrait lookPortrait;
 
     /** The colour picker: {@code target}'s prop {@code key}, one colour or ({@code multi}) a herd's several. */
     private record ColourPick(LevelObject target, String key, boolean multi, String title,
@@ -538,6 +543,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_ESCAPE)) {
             in.consumeKey(GLFW_KEY_ESCAPE);
             if (colourPick != null) colourPick = null;
+            else if (lookTarget != null) lookTarget = null;
             else if (!selection.isEmpty()) selection.clear();
             else if (pointer) setPointer(false);
             else leave();
@@ -1476,6 +1482,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             rightPanel(ui);
             help(ui);
             if (colourPick != null) colourDialog(ui);
+            if (lookTarget != null) lookDialog(ui);
             if (boxing) {
                 Input in = ui.input();
                 float x0 = (float) Math.min(boxX, in.mouseX()), y0 = (float) Math.min(boxY, in.mouseY());
@@ -1659,7 +1666,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The rectangles the panels take up, as drawn: the pointer over one is not over the world. */
     private boolean overUi(double mx, double my) {
         Ui ui = game.ui();
-        if (colourPick != null || widgets.dropped()) return true;
+        if (colourPick != null || lookTarget != null || widgets.dropped()) return true;
         if (my < TOP_H || my > ui.height() - HELP_H) return true;
         if (mx < LEFT_W + 8) return true;
         return rightPanelShown() && mx > ui.width() - RIGHT_W - 8;
@@ -3767,6 +3774,70 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += used;
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
+        // someone who is dressed: their whole look can be made by hand
+        if (o != template && FolkTypes.lookNow(o) != null) {
+            boolean made = FolkTypes.look(o) != null;
+            y += 6;
+            ui.text(ui.small, made ? "Look: made by hand" : "Look: as it comes", x, y + 6, made ? Theme.ACCENT : Theme.ITEM);
+            y += 26;
+            float bw = (w - 6) / 2;
+            if (ui.button("Edit look…", x, y, bw, 30)) openLook(o);
+            if (ui.button("As it comes", x + bw + 6, y, bw, 30, false, made)) {
+                edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
+            }
+        }
+    }
+
+    /** Open the look dialog on {@code o}: its look as it stands, to be changed layer by layer. */
+    private void openLook(LevelObject o) {
+        lookTarget = o;
+        lookMade = FolkTypes.lookNow(o);
+        if (lookEditor == null) {
+            lookEditor = new com.larsons.game.scene.LookEditor(game);
+            lookEditor.setEverything(true);
+            lookPortrait = new com.larsons.game.scene.Portrait(game);
+        }
+        lookPortrait.setFace(false);
+        lookPortrait.setZoom(1);
+    }
+
+    /**
+     * The look dialog, over everything: every layer of a person or a foe -
+     * the body, the skin, the face, the hair, each thing worn and its colour,
+     * from everything there are sprites for and every colour of the palette -
+     * and the character beside it, to turn, zoom in on or see close up. What
+     * is changed is kept on the object ({@link FolkTypes#WARDROBE}) and then
+     * stands for its body, its skin and its dress; "As it comes" takes it off.
+     */
+    private void lookDialog(Ui ui) {
+        LevelObject o = lookTarget;
+        if (level.byId(o.id()) == null || lookMade == null) {
+            lookTarget = null;                 // (taken away under the dialog: undo)
+            return;
+        }
+        ui.scrim();
+        float w = Math.min(1160, ui.width() - 40), h = Math.min(660, ui.height() - 40);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
+        ui.panel(x, y, w, h);
+        String name = o.str("name", "").isBlank() ? typeLabel(o) : o.str("name", "");
+        ui.text(ui.large, Ui.fit(ui.large, "Look: " + name, w - 300), x + 24, y + 14, Theme.TITLE);
+        ui.rect(x + 20, y + 56, w - 40, 1, Theme.PANEL_EDGE);
+        float bx = x + 20, by = y + 66, bw = w - 40, bh = h - 66 - 58;
+        float pw = Math.min(320, bw * 0.32f), cw = bw - pw - 24;
+        if (lookEditor.draw(ui, bx, by, cw, bh, lookMade, null)) {
+            var json = lookMade.toJson();
+            edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));
+        }
+        double size = o.num("size", 0) > 0 ? o.num("size", 0) : 1;
+        lookPortrait.draw(ui, 0.016, bx + cw + 24, by, pw, bh, lookMade, size, Math.max(1.3, size), null);
+        float fy = y + h - 48;
+        if (ui.button("Done", x + w - 24 - 160, fy, 160, 36)) lookTarget = null;
+        if (ui.button("As it comes", x + 24, fy, 180, 36, false, FolkTypes.look(o) != null)) {
+            edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
+            lookMade = FolkTypes.lookNow(o);
+        }
+        ui.text(ui.small, "Everything there are sprites for, in any colour. It is kept with the level.", x + 220,
+                fy + 9, Theme.ITEM_DISABLED);
     }
 
     /**
@@ -4102,6 +4173,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     private static String shownChoice(String key, String option) {
         if (key.equals("passage")) return Building.Passage.label(option);
+        if (key.equals("skin") && com.larsons.game.sprite.Variants.isCustom(option)) {
+            return com.larsons.game.world.Wearables.colourName(option);
+        }
         switch (key) {
             case "home" -> {
                 if (option.equals(FolkTypes.AUTO)) return "Nearest house";
@@ -4267,6 +4341,25 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 if (o == null) return false;
                 selection.add(o);
                 if (!pointer) setTool(Tool.SELECT);
+            }
+            case "wardrobe" -> {
+                // wardrobe: the look dialog on the one selected; wardrobe <slot> <item|none|same> [colour]: wear
+                // it in the dialog; wardrobe done: close it
+                if (a.length > 0 && a[0].equals("done")) {
+                    lookTarget = null;
+                } else if (a.length == 0) {
+                    if (selection.size() != 1 || FolkTypes.lookNow(selection.get(0)) == null) return false;
+                    openLook(selection.get(0));
+                } else if (lookTarget != null) {
+                    com.larsons.game.sprite.Slot slot = com.larsons.game.sprite.Slot.byKey(a[0]);
+                    if (slot == null) return false;
+                    if (a.length > 1 && !a[1].equals("same")) lookMade.set(slot, a[1].equals("none") ? null : a[1]);
+                    if (a.length > 2) lookMade.setColour(slot, a[2].equals("none") ? null : a[2]);
+                    lookEditor.focusOn(slot);
+                    var json = lookMade.toJson();
+                    LevelObject o = lookTarget;
+                    edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));
+                }
             }
             case "delete" -> deleteSelection();
             case "savetemplate" -> {

@@ -265,6 +265,20 @@ public final class Wardrobe {
         return w;
     }
 
+    /**
+     * Wear what {@code other} wears, in its colours, its style and its hand -
+     * but keep what is in the hands (the carried slots are the weapons').
+     */
+    public void become(Wardrobe other) {
+        for (Slot s : Slot.values()) {
+            if (s.carried()) continue;
+            set(s, other.get(s));
+            setColour(s, other.colour(s));
+        }
+        style = other.style;
+        hand = other.hand;
+    }
+
     public Map<String, Object> toJson() {
         Map<String, Object> out = new LinkedHashMap<>();
         for (Map.Entry<Slot, String> e : items.entrySet()) out.put(e.getKey().key(), e.getValue());

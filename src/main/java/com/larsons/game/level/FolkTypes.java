@@ -191,7 +191,32 @@ public final class FolkTypes {
         String dress = o.str("outfit", OWN);
         return new Folks.Spec(o.str("body", EITHER), o.str("weapon", OWN), o.num("size", 0),
                 Math.round(o.num("look", 0)), o.str("name", ""), ANY.equals(skin) ? null : skin, hostile,
-                Looks.Dress.byKey(dress));
+                Looks.Dress.byKey(dress), look(o));
+    }
+
+    /** The prop a look made in the editor is kept in: a wardrobe, as it is written ({@code Wardrobe#toJson}). */
+    public static final String WARDROBE = "wardrobe";
+
+    /** The look made for {@code o} in the editor, or null: it comes as its body, its dress and its seed make it. */
+    @SuppressWarnings("unchecked")
+    public static com.larsons.game.sprite.Wardrobe look(LevelObject o) {
+        return o.props().get(WARDROBE) instanceof Map<?, ?> m
+                ? com.larsons.game.sprite.Wardrobe.fromJson((Map<String, Object>) m) : null;
+    }
+
+    /**
+     * How {@code o} - a person, or a foe that is dressed - looks as the level
+     * stands: the look made for it, or the one its props draw; null for
+     * anything else (a creature of its own sprites has nothing to dress).
+     */
+    public static com.larsons.game.sprite.Wardrobe lookNow(LevelObject o) {
+        if (o.type().equals(PERSON)) {
+            return Folks.personLook(o.id(), People.byKey(o.str("people", People.HUMAN.key())), spec(o, false));
+        }
+        if (o.type().equals(FOE)) {
+            return Folks.foeLook(o.id(), Breed.byKey(o.str("breed", Breed.BANDIT.key())), spec(o, true));
+        }
+        return null;
     }
 
     static void registerAll() {

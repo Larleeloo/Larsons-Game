@@ -71,6 +71,8 @@ public final class SaveGame {
     private int day = 1;
     /** What of each place she has seen, for its small map: the place, and its cells ({@code scene/MiniMap}). */
     private final Map<String, String> seen = new LinkedHashMap<>();
+    /** The tips this playthrough has given ({@code scene/Tips}): each comes once in it. */
+    private final java.util.Set<String> tips = new java.util.LinkedHashSet<>();
 
     /** A slot of her inventory: what is in it and how many. */
     public record Stack(int at, String item, int amount) {}
@@ -183,6 +185,9 @@ public final class SaveGame {
     /** What of each place she has seen ({@code "map/place"} to its small map's cells). */
     public Map<String, String> seen() { return seen; }
 
+    /** The tips this playthrough has given: a new one gives them all again. */
+    public java.util.Set<String> tips() { return tips; }
+
     // --- her, to and from the world ----------------------------------------------------
 
     /** Write {@code p} down as she is: what she carries, her purse, her health, her cards. */
@@ -264,6 +269,7 @@ public final class SaveGame {
         j.put("hour", hour);
         j.put("day", (double) day);
         j.put("seen", new LinkedHashMap<String, Object>(seen));
+        j.put("tips", new java.util.ArrayList<Object>(tips));
         return j;
     }
 
@@ -311,6 +317,7 @@ public final class SaveGame {
         s.hour = Json.num(j, "hour", -1);
         if (s.hour >= 24 || Double.isNaN(s.hour)) s.hour = -1;
         s.day = Math.max(1, (int) Json.num(j, "day", 1));
+        if (j.get("tips") instanceof java.util.List<?> tp) for (Object o : tp) s.tips.add(String.valueOf(o));
         if (j.get("seen") instanceof Map<?, ?> sn) {
             for (Map.Entry<?, ?> e : sn.entrySet()) s.seen.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
         }

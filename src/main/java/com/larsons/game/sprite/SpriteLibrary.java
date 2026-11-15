@@ -642,6 +642,8 @@ public final class SpriteLibrary implements AutoCloseable {
         if (e == null || e.variants() == null) return null;
         Map<String, String> choice = new HashMap<>();
         String own = wardrobe.colour(wornIn);
+        // (lips nobody has painted are the skin's colour, a little darker)
+        if (own == null && wornIn == Slot.MOUTH) own = Variants.NATURAL;
         if (own != null && wornIn != Slot.BODY) choice.put(Variants.OWN, own);
         String skin = wardrobe.skin();
         if (skin != null) choice.put(Variants.SKIN, skin);

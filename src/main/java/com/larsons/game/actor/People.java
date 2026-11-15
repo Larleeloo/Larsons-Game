@@ -5,8 +5,9 @@ import java.util.Locale;
 
 /**
  * The peoples of the moon: who a character can be of - the player's own, the
- * people she meets and the foes she fights. Each has its skin tones (the
- * body's colour options, {@code variants.json}), its ears, how tall its folk
+ * people she meets and the foes she fights. Each has its usual skin tones
+ * (the body's colour options, {@code variants.json}, or a colour of the
+ * palette as {@code #rrggbb}; a character can be given any), its ears, how tall its folk
  * stand beside a human, and whether it grows horns and a tail.
  *
  * <ul>
@@ -25,7 +26,7 @@ import java.util.Locale;
 public enum People {
 
     HUMAN("human", "Human", "The townsfolk of the main lands: farmers, smiths and soldiers.",
-            List.of("copper", "honey_blonde", "platinum", "auburn", "brown", "black"), List.of("round"),
+            List.of("copper", "honey_blonde", "platinum", "auburn", "brown", Tones.DEEP_BROWN), List.of("round"),
             0.9, 1.1, false, false, true),
     DRURINEAN("drurinean", "Drurinean", "Tall, long-eared scholars: magic users and scientists in elegant clothes.",
             List.of("platinum", "honey_blonde", "pink", "violet_ombre"), List.of("elven"),
@@ -42,6 +43,14 @@ public enum People {
     RISEN("risen", "Risen", "The dead of the horde.",
             List.of("mint", "green_ombre", "platinum", "emerald"), List.of("round", "pointed"),
             0.85, 1.15, false, false, false);
+
+    /** The darkest of the humans' usual skin tones: a deep, warm brown of the palette. */
+    public static final String DEEP_BROWN = Tones.DEEP_BROWN;
+
+    /** (An enum's constants cannot name its own static fields: the tones they share are kept here.) */
+    private static final class Tones {
+        static final String DEEP_BROWN = "#4e2507";
+    }
 
     /** The horns and the tail a Khorigale wears: the items of the {@code horns} and {@code tail} layers. */
     public static final String HORNS = "khorigale_horns", TAIL = "khorigale_tail";
