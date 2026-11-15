@@ -351,8 +351,6 @@ public final class MainMenuScene implements Scene {
         }
 
         float fy = ui.height() - 96;
-        ui.paragraph(ui.small, "Drop sprite sheets (or a folder of them) on this window to add "
-                + "them to assets/sprites/.", x, fy, 420, Theme.HINT);
         ui.text(ui.small, "GPU: " + game.window().gpu().describe(), x, fy + 44,
                 game.window().gpu().software() ? Theme.WARNING : Theme.ITEM_DISABLED);
         ui.end();

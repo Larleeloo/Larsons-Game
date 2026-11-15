@@ -51,7 +51,6 @@ public final class Wardrobe {
      * still {@code sword}), so a style is one switch for the whole character.
      */
     public enum Style {
-        RENDERED("rendered", "", "512 px"),
         PIXEL_128("px128", "_px128", "Pixel 128"),
         PIXEL_64("px64", "_px64", "Pixel 64");
 
@@ -77,6 +76,7 @@ public final class Wardrobe {
             return item + suffix + LEFT_SUFFIX;
         }
 
+        /** The style called {@code key}; null for one there is none of (the 512-pixel renders are gone). */
         public static Style byKey(String key) {
             for (Style s : values()) if (s.key.equalsIgnoreCase(key)) return s;
             return null;
@@ -139,7 +139,7 @@ public final class Wardrobe {
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
     /** The colours dyes have unlocked: {@code "<slot>/<item>"} to its colour options. */
     private final Map<String, Set<String>> unlocked = new TreeMap<>();
-    private Style style = Style.RENDERED;
+    private Style style = Style.PIXEL_128;
     private Hand hand = Hand.AUTO;
 
     public String get(Slot slot) {
@@ -196,7 +196,7 @@ public final class Wardrobe {
     public Style style() { return style; }
 
     public void setStyle(Style style) {
-        this.style = style == null ? Style.RENDERED : style;
+        this.style = style == null ? Style.PIXEL_128 : style;
     }
 
     /**
@@ -268,7 +268,7 @@ public final class Wardrobe {
     public Map<String, Object> toJson() {
         Map<String, Object> out = new LinkedHashMap<>();
         for (Map.Entry<Slot, String> e : items.entrySet()) out.put(e.getKey().key(), e.getValue());
-        if (style != Style.RENDERED) out.put("style", style.key());
+        out.put("style", style.key());
         if (hand != Hand.AUTO) out.put("hand", hand.key());
         if (!colours.isEmpty()) {
             Map<String, Object> c = new LinkedHashMap<>();

@@ -306,8 +306,7 @@ final class WardrobePanel {
             boolean missing = current != null && at < 0;
             String folder = current == null ? null : lib.styled(body, slot, current, style);
             boolean hasArt = current == null || lib.entry(body, slot, folder) != null;
-            // an item that is only pixel art is drawn from it among the renders
-            boolean asPixels = hasArt && current != null && style == Wardrobe.Style.RENDERED && !current.equals(folder);
+            boolean asPixels = false;
 
             String name = slot == Slot.BODY ? "Base body · skin" : slot.label();
             if (ui.clicked(sx, sy, colW, 14)) focusOn(slot);

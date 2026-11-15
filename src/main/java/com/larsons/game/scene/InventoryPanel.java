@@ -387,6 +387,8 @@ final class InventoryPanel {
         hovered = -1;
         hoveredStore = -1;
         for (Spot s : spots) {
+            // (each slot is something the gamepad's focus can rest on: A is a click on it, X a right-click)
+            ui.target(s.x() - s.r() * 0.5f, s.y() - s.r() * 0.5f, s.r(), s.r(), Ui.Kind.BUTTON);
             boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
             if (hot) hovered = s.slot();
             boolean sel = s.slot() == inv.selected();
@@ -405,6 +407,7 @@ final class InventoryPanel {
             ui.textCentered(ui.small, held.count() + " / " + held.size(), qx + qw / 2, qy + qh * 0.035f + 30,
                     Theme.ITEM_DISABLED);
             for (Spot s : storeSpots(held.size(), qx, qy, qw, qh)) {
+                ui.target(s.x() - s.r() * 0.5f, s.y() - s.r() * 0.5f, s.r(), s.r(), Ui.Kind.BUTTON);
                 boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
                 if (hot) hoveredStore = s.slot();
                 slot(ui, s.x(), s.y(), s.r(), held.get(s.slot()), held.amount(s.slot()), hot, false);
@@ -513,7 +516,25 @@ final class InventoryPanel {
             icon(ui, cursor, (float) in.mouseX(), (float) in.mouseY(), r, 1f, true);
             count(ui, cursorAmount, (float) in.mouseX(), (float) in.mouseY(), r);
         }
-        String help = shop != null
+        boolean pad = in.usingPad();
+        // on the gamepad Y drops what is on the pointer (there is no "outside" to click)
+        if (pad && cursor != null && in.padPressed(com.larsons.game.input.Pad.Y)) {
+            Item d = world.dropItem(cursor, cursorAmount);
+            if (d != null) {
+                Sounds.play(SoundKeys.item(d.id(), "drop"));
+                game.saveWardrobe();
+                game.toast("Dropped " + (cursorAmount > 1 ? cursorAmount + " " : "") + d.fullName(), Theme.HINT);
+            }
+            cursor = null;
+            cursorAmount = 0;
+            cursorFrom = -1;
+            cursorInStore = false;
+        }
+        String help = pad ? (shop != null ? "A on its button: buy · X on an item of yours: sell one · B: close"
+                : store != null ? "A: pick up / put down · X: move between them · Y: drop what you hold · B: close"
+                : "A: pick up / put down · X: eat, a weapon's tiers, or to / from the hotbar · Y: drop what you hold · "
+                + "LB / RB: more · B: close")
+                : shop != null
                 ? "Buy: its button · Right-click or Shift-click an item of yours: sell one · E, I or Esc: close"
                 : store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "

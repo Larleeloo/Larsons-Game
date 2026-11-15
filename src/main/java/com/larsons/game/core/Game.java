@@ -770,6 +770,8 @@ public final class Game implements AutoCloseable {
     /** Files dropped on the window (or by a script): the drop target's if it takes them, else the importer's. */
     public void drop(List<Path> files) {
         if (dropTarget != null && dropTarget.test(files)) return;
+        // (not on the main menu or the new game screens: sheets are imported from Pause → Import sprite sheets)
+        if (scene instanceof MainMenuScene || scene instanceof com.larsons.game.scene.CreatorScene) return;
         if (SpritePack.isPacked(settings.spritesDir())) {
             // a shared copy reads its sheets out of assets/sprites.pack, which is not written to
             toast("This copy of the game keeps its sprite sheets in " + SpritePack.FILE

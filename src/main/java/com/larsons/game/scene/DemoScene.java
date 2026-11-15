@@ -661,7 +661,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             back.run();
             return;
         }
-        if (in.pressed(Action.INVENTORY)) {
+        // (the gamepad's own inventory button shuts it again, though a menu is up then)
+        if (in.pressed(Action.INVENTORY) || inventory.open() && in.padPressed(Action.INVENTORY)) {
             table.close();
             inventory.toggle();
         }

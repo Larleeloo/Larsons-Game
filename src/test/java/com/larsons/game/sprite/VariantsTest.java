@@ -121,8 +121,8 @@ class VariantsTest {
         w.set(Slot.SHIRT, "tunic");
         assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", w.style()));
         assertEquals(0x1020a0, lib.swatch(Slot.SHIRT, "tunic", w.style(), "royal_blue"));
-        assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.RENDERED),
-                "no 512-pixel version: the rendered style draws the 128-pixel one, in its colours");
+        assertEquals(List.of("royal_blue", "black"), lib.colourOptions(Slot.SHIRT, "tunic", Wardrobe.Style.PIXEL_64),
+                "no 64-pixel version: that style draws the 128-pixel one, in its colours");
         SpriteLibrary.Source src = lib.source(Slot.SHIRT, "tunic", w.style(), false);
         assertNull(lib.recolor(src, Slot.SHIRT, w));
         w.setColour(Slot.SHIRT, "black");
@@ -133,10 +133,9 @@ class VariantsTest {
 
     @Test
     void aLeftHandedCharacterUsesLeftHandedArtOrTheTwinMirrored() throws Exception {
-        palettePng("carry_right/sword/attack_side_e.png");
-        palettePng("carry_right/sword/attack_side_w.png");
         palettePng("carry_left/sword_px128_lh/attack_side_e.png");
         palettePng("carry_right/sword_px128/attack_side_e.png");
+        palettePng("carry_right/sword_px128/attack_side_w.png");
         palettePng("carry_left/sword_px128/attack_side_e.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         assertEquals(List.of(), lib.items(Slot.CARRY_LEFT).stream().filter(i -> !Wardrobe.Style.isVersion(i)).toList(),
@@ -144,10 +143,9 @@ class VariantsTest {
         // pixel art: the left-handed version, as it is
         SpriteLibrary.Source px = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_128, true);
         assertEquals(new SpriteLibrary.Source(Slot.CARRY_LEFT, "sword_px128_lh", false), px);
-        // the renders have none: the right hand's sword, from the other side, mirrored (not
-        // the pixel art, although the left hand has some)
-        SpriteLibrary.Source r = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.RENDERED, true);
-        assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword", true), r);
+        // the 64-pixel art has no left-handed version: the right hand's sword, from the other side, mirrored
+        SpriteLibrary.Source r = lib.source(Slot.CARRY_LEFT, "sword", Wardrobe.Style.PIXEL_64, true);
+        assertEquals(new SpriteLibrary.Source(Slot.CARRY_RIGHT, "sword_px128", true), r);
         SpriteLibrary.Resolved east = lib.resolve(r, AnimState.ATTACK, Elevation.SIDE, Facing.EAST);
         assertTrue(east.mirrored());
         assertTrue(east.file().endsWith("attack_side_w.png"), "seen from the east: the west view, mirrored");

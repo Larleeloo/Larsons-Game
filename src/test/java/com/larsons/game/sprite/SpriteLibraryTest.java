@@ -240,22 +240,23 @@ class SpriteLibraryTest {
         png("body/hero/walk_side_e.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
         assertEquals("cap_px64", lib.styled(Slot.HAT, "cap", Wardrobe.Style.PIXEL_64));
-        assertEquals("cap", lib.styled(Slot.HAT, "cap", Wardrobe.Style.RENDERED));
+        assertEquals("cap", lib.styled(Slot.HAT, "cap", Wardrobe.Style.PIXEL_128), "no 128-pixel cap: the cap as it is");
         assertEquals("hero", lib.styled(Slot.BODY, "hero", Wardrobe.Style.PIXEL_64),
                 "no 64-pixel hero: the hero as it is");
         assertNull(lib.styled(Slot.BODY, null, Wardrobe.Style.PIXEL_64));
     }
 
     @Test
-    void anItemThatIsOnlyPixelArtIsDrawnFromItsBiggerVersionInTheRenderedStyle() throws Exception {
+    void anItemWithNoSmallerVersionIsDrawnFromIts128PixelOne() throws Exception {
         png("hat/beanie_px128/walk_side_e.png");
-        png("hat/beanie_px64/walk_side_e.png");
         png("hat/beanie_px128_lh/walk_side_e.png");
+        png("hat/hood_px128/walk_side_e.png");
+        png("hat/hood_px64/walk_side_e.png");
         lib = new SpriteLibrary(root, 1L << 30, 1.0);
-        assertEquals("beanie_px128", lib.styled(Slot.HAT, "beanie", Wardrobe.Style.RENDERED));
-        assertEquals("beanie_px64", lib.styled(Slot.HAT, "beanie", Wardrobe.Style.PIXEL_64));
+        assertEquals("beanie_px128", lib.styled(Slot.HAT, "beanie", Wardrobe.Style.PIXEL_64));
+        assertEquals("hood_px64", lib.styled(Slot.HAT, "hood", Wardrobe.Style.PIXEL_64));
         assertEquals(new SpriteLibrary.Source(Slot.HAT, "beanie_px128_lh", false),
-                lib.source(Slot.HAT, "beanie", Wardrobe.Style.RENDERED, true));
+                lib.source(Slot.HAT, "beanie", Wardrobe.Style.PIXEL_128, true));
     }
 
     @Test

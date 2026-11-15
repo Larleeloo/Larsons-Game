@@ -61,7 +61,7 @@ class SpriteProfileTest {
         assertEquals("red_cap", back.get(Slot.HAT));
         assertTrue(back.wearing(Slot.CARRY_RIGHT, "sword"));
         assertNull(back.get(Slot.BODY));
-        assertEquals(Wardrobe.Style.RENDERED, back.style());
+        assertEquals(Wardrobe.Style.PIXEL_128, back.style());
     }
 
     @Test
