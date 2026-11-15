@@ -127,9 +127,8 @@ The sword alone - no shield in either hand - has states of its own,
 spin attack and parry): the first version of the sword stance's moves, the
 free arm down, where the second version holds the shield up. Their sheets
 are the archived first version's, under the new names, in every item's
-folder but the shields'. Where a set has none (the 512-pixel one), the sword
-and shield's stand in. The 512-pixel rendered sheets were not made again: they keep
-their one (first) version, which both modes draw. The two
+folder but the shields'. Where a set has none, the sword
+and shield's stand in. The two
 versions of an item share its palette labels (the new sheets are drawn
 pinned to the old ones), so one `variants.json` colours both.
 
@@ -298,8 +297,13 @@ recolouring is swapping those palette entries, so one set of sheets draws every
 colour. Labels in no channel (teeth, a brass buckle) never change. `default` is
 the choice the sheets were drawn in (no entry: the item's own colours), and
 `swatch` the colour a wardrobe shows for an option. A colour can also be any
-`#rrggbb` (in `config/wardrobe.json`, a demo script or a cutscene): the
-channel's labels are then shaded like its first option, round that colour.
+`#rrggbb` - the wardrobe, the new game's pages and the editor's look dialog
+offer the palette's hundred fills (`world/Wearables.PALETTE`) under an item's
+own options: the channel's labels are then shaded like its first option, round
+that colour, and each shade is snapped back to the nearest of the 128 colours
+(a line's among the lines, a fill's among the fills), so the art stays in the
+palette. A mouth with no colour picked is drawn `natural`: its lips the skin's
+own colour, a little darker.
 
 The swap happens on the GPU. A palette PNG of pixel art is uploaded once, as
 its palette indices, and each layer is drawn through a palette of its own - the
@@ -339,24 +343,23 @@ draw order. Without an `_lh` version the game mirrors the twin itself.
 
 ## Importing
 
-Drag files or folders from your file manager onto the game window (main menu or
-demo). The importer shows what it recognised, guesses the layer from the folder
+Drag files or folders from your file manager onto the game window, in a level
+or the editor (not the main menu). The importer shows what it recognised, guesses the layer from the folder
 you dropped (`hat/red_cap/` → `hat`, item `red_cap`), lets you change both, and
 saves canonical sheets into this folder — in the repository, ready to commit.
 With *Wear it after importing* ticked the character puts it on straight away.
 
 ## Memory
 
-A complete 512-pixel item is several gigabytes of pixels, so sheets load on
+A character's layers in every state and view are a great many sheets, so they load on
 demand (only the views the camera is looking at), decode on background threads,
 and are evicted least-recently-used past a video-memory budget of 1.5 GB. Two
 things keep that budget from filling up:
 
 - **The empty part of a frame costs nothing.** As it loads, a sheet is cropped
   to the box its frames actually cover (plus a thin transparent border), and
-  put back in its place in the frame when it is drawn. An earring rendered in
-  the body's 512-pixel frame takes a few kilobytes a frame instead of a
-  megabyte.
+  put back in its place in the frame when it is drawn. An earring drawn in
+  the body's frame takes a few bytes a frame instead of the whole frame's.
 - **Loading ahead only into spare room.** What the character may need next —
   this view's other states, the neighbouring directions — is loaded ahead only
   while the budget has room for it, and never pushes anything out. With a lot of
@@ -427,11 +430,9 @@ holdouts were cut against.
   `profile.json` and a `variants.json` (see [Colours](#colours)). They are
   cel-shaded palette PNGs with one-pixel line art, all in one palette of 128
   colours.
-- **512-pixel renders** (`<item>/`, no `profile.json`): the first outfit's
-  items, marked ● below. They were rendered before the pixel art's round of
-  fixes (the briefs' cut, the mantle - still the short one there, cut against
-  the long waves and the sun hat - the shield, the knees, the sword's
-  clearance) and have the arched brows painted on the body.
+The 512-pixel renders the pixel art was first drawn from are no longer in the
+game: every item is its 128- and 64-pixel pixel art (● below marks the first
+outfit's items, the ones that had them).
 
 | Layer | Item | |
 |---|---|---|
@@ -547,21 +548,20 @@ one go with a `config/wardrobe.json` beside the game:
 
 Leave the sword out to find it in the demo and pick it up (E).
 
-**Styles.** Pick a **style** in Pause → Wardrobe - *512 px*, *Pixel 128* or
+**Styles.** Pick a **style** in Pause → Wardrobe - *Pixel 128* or
 *Pixel 64* - to draw every worn item from its version in that style: an item
-without one is drawn as it is, and in *512 px* an item that is only pixel art
-is drawn from its 128-pixel version. The items keep their names, so the lists
-show each item once. In `config/wardrobe.json` it is `"style": "px128"` or
-`"px64"` (leave it out for the renders), `"hand": "left"` / `"right"` (leave it
-out for the hand the sword is in) and `"colours"` by layer; in a demo script
+without a 64-pixel version is drawn from its 128-pixel one. The items keep
+their names, so the lists show each item once. In `config/wardrobe.json` it is
+`"style": "px128"` or `"px64"`, `"hand": "left"` / `"right"` (leave it
+out for the hand the sword is in) and `"colours"` by layer - an option's name
+(`"royal_blue"`) or any colour of the palette as `"#rrggbb"`; in a demo script
 `style px64`, `hand left`, `wear hat beanie` and `colour hair royal_blue`. How
 the pixel art is made is step 14 of the 3D-Modeling README.
 
 The first outfit fits the default budget at full size. With every layer's
 sheets for the view on screen loaded, plus that view's other five states and
 the two neighbouring directions, the HUD's Sprites line settles at "162 sheets
-resident (422 MB) · 0 loading"; as whole 512-pixel frames the same sheets would
-be about 4.9 GB (see [Memory](#memory)).
+resident (422 MB) · 0 loading" (see [Memory](#memory)).
 
 ### His sheets (`assets/sprites_masculine/`)
 
@@ -572,8 +572,7 @@ onto him and her scripts run on his rig. He is 1.80 m tall at the same
 scale, so he stands a little taller in the same frame. Every item in the
 table above is there under the same name - the laced dress, the bralette,
 the makeup and the long hair styles too - as pixel art only (`_px128`,
-`_px64` and their `_lh`; in the *512 px* style his items are drawn from
-their 128-pixel versions), in the same states and frame counts (a carried
+`_px64` and their `_lh`), in the same states and frame counts (a carried
 item in its stance's), cut
 against the same outfit, in the same palette and with the same colour
 options. His close-ups are in `assets/closeups_masculine/`. Wear him with

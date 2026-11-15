@@ -15,7 +15,7 @@ package com.larsons.game.sprite;
  * Stance#FREE}): nothing carried is drawn; the dash and the roll with whatever
  * she holds ({@link Stance#ALL}). A state can name a {@link
  * #fallback()} - the state shown instead where a character has no sheets for
- * it (a 512-pixel rendered set made before it existed, the generated stand-in
+ * it (an imported set made before it existed, the generated stand-in
  * body) - and every chain of fallbacks ends in one of the first six.
  *
  * <p>{@link #defaultFrames()} is only used by the procedural fallback

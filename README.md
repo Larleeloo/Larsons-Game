@@ -138,24 +138,63 @@ training yard: dummies, every weapon, a chest, the highlands), *Settings* and
 ### A playthrough
 
 <p align="center">
-  <img src="docs/screenshots/play-creator.png" width="49%" alt="The character creator: her wardrobe, layer by layer, with her standing in it">
+  <img src="docs/screenshots/play-creator.png" width="49%" alt="A new game's Look page: the wardrobe layer by layer, every colour of the palette, and your character in the picture beside it">
   <img src="docs/screenshots/play-brasswick.png" width="49%" alt="Brasswick's market">
 </p>
 
-- **The character creator** (`scene/CreatorScene`): *Who* - her name, her
-  people (Human, Drurinean, Half Drurinean or Khorigale), her body, skin and
-  height (0.7 to 1.3 of the usual) - *Look* (face, hair, the clothes she
-  sets out in), *Class* (the nine, each with its deck and first weapon) and
-  *Begin*.
+- **A new game** (`scene/CreatorScene`) is four pages in one layout - **Who**,
+  **Look**, **Class** and **Begin** - with their tabs along the top, so any
+  page is one click (or **LB** / **RB**) from any other, and **Back** and
+  **Next** at the foot. *Who*: your name, **Your People** (Human, Drurinean,
+  Half Drurinean or Khorigale), body, skin - your people's usual tones or
+  **any colour of the palette** - and height (0.7 to 1.3 of the usual).
+  *Look*: face, hair, horns and tail and each one's colour (every hair
+  colour is open from the start), and the clothes you set out in: a laced
+  shirt, **brown trousers** and boots. *Class*: the nine, each with its
+  deck and first weapon. *Begin*: the summary, and off you go.
+- **The portrait** beside every page (`scene/Portrait`) is your character in
+  a frame fitted to them: **turn** them (the arrows, a drag, or let them
+  spin), look from level, above or the top, **zoom** in with the wheel or
+  **+**, switch to a **close-up of the face** at rest to see the features,
+  and step through poses - standing, walking, the attacks, parry, guard,
+  shield bash - with the class's weapon in hand (a sword and shield until a
+  class is picked, and for any move the class's weapon has none of, such as
+  a staff's shield bash or a lone sword's guard).
+- **Every playthrough starts clean**: its own purse, bag, cards, missions,
+  map, clock, tips and what has been seen of each level; nothing of another
+  playthrough, and the debug code off.
 - **The map** (`scene/OverworldScene`) is walked like a platform game's: the
   move keys or the stick take the road that sets off that way, a click walks
   her to a place, **Use**, **Jump** or **Enter** goes in. The roads on from a
   place open once it is **cleared** - by reaching it, by its way out, by
-  felling its foes or finishing its quest, as the map says.
+  felling its foes or finishing its quest, as the map says. The places a
+  mission you follow is to be done at are **marked**. **Esc** (or **View** /
+  **Menu**) opens the map's menu: back to the map, save and quit, settings,
+  and **Reset the map** - every place uncleared, its chests full again, and
+  you back at the start.
 - **Saving** is automatic (`save/SaveGame`): her place on the map when she
   arrives somewhere, and all of her - what she carries, her purse and pouch,
-  class, cards, level, missions, the doors opened and the chests emptied -
+  class, cards, level, missions, the doors opened and the chests emptied,
+  **the hour and the day**, and what she has seen of each level's map -
   when she comes back from a level. Three slots, `config/saves/`.
+
+### Finding your way
+
+<p align="center">
+  <img src="docs/screenshots/minimap-compass.png" width="70%" alt="A level with the compass along the top, a mission's mark on it, and the small map in the corner showing only where you have walked">
+</p>
+
+- **The small map** in the top corner (`scene/MiniMap`) draws the level as
+  you **discover** it: the ground, water, roads and buildings within sight of
+  where you have been, dark everywhere else. What you have seen is kept with
+  the playthrough, level by level. Under it, the day and the hour.
+- **The compass** along the top (`scene/Compass`) turns with the camera - N,
+  NE, E ... - and carries a mark for each **waypoint near you**: the missions
+  you follow (with how far), people with work for you, shops, doors and the
+  way out.
+- **Missions you follow stay followed** from level to level: one taken in a
+  village is still listed, with where it is to be done, in the next town,
+  and its place is marked on the map between them.
 
 ### How to play, and tips
 
@@ -211,7 +250,16 @@ choice and text field with the d-pad or the left stick; **A** presses, **B**
 goes back, **LB** / **RB** change tabs, the right stick and the triggers
 scroll, a focused slider turns with left and right, and text is typed on an
 on-screen keyboard. Where a screen wants a pointer - the map, the editor's
-view - the left stick moves one (**L3** switches it by hand).
+view - the left stick moves one (**L3** switches it by hand). The button
+that opened a menu does not shut it again until it is let go and pressed
+once more, so the pause menu and the map's menu stay up.
+
+**The inventory and the cards** are worked the same way: the focus rests on
+a slot - **A** takes up and puts down, **X** is the right click (eat, a
+weapon's tiers, to or from the hotbar), **Y** drops what is held, **View**
+or **B** shuts it - and on a card of the hand: **A** plays it, **LB** /
+**RB** turn to the deck and the perks, **B** goes back to the game. The new
+game's pages, the wardrobe and every colour grid work from the d-pad too.
 
 A few more for looking at the art: **[ ]** play each animation in place,
 **Backspace** stops, **, .** turn her, **T** turntable, **O** the automatic
@@ -234,7 +282,7 @@ or the **Settings** button, and saves as it changes (`config/settings.json`):
   renderer is.
 - **Game**: the HUD and the missions on it, tutorial tips, picking up by
   walking over (and how near), the camera's height, walls indoors and out,
-  scenery, animations.
+  scenery, animations, and **birds** (off unless switched on here).
 - **Pointer**: her class's pointer, any class's, a picture of your own or the
   system's, and whether it changes with what it is over - a hand over
   buttons, a speech mark over someone to talk to, a sword over a foe, a key
@@ -436,8 +484,10 @@ slot, its name and its beam. A **loot chest** throws out 3 to 7 items, one
 Rare or better, each landing in a beam of its rarity's colour - **once**:
 emptied, it stays empty (a playthrough remembers it). **Barrels, crates, pots
 and storage chests** hold things to take and put in (**E**), and shatter into
-pieces when struck, spilling what they held. Items turn in the air over their
-shadows, drawn from 128-pixel sprites in their tier's colours.
+pieces when struck, spilling what they held. About **one in three** has a few
+coins in it - among what it holds, to be seen by looking in - and the rest
+have none. Items turn in the air over their shadows, drawn from 128-pixel
+sprites in their tier's colours.
 
 ### The wardrobe
 
@@ -448,10 +498,13 @@ shadows, drawn from 128-pixel sprites in their tier's colours.
 What she wears is **items** - clothes, armour (chainmail, iron and steel),
 jewellery, hair styles, makeup, dyes - found in chests and shops and put on in
 **Pause → Wardrobe**, an oak armoire with her in its mirror, turning through
-every view and state. **Dyes** unlock a colour on an item for good (fourteen,
-from royal blue to green ombre); armour hides what it covers. Two bodies,
-feminine and masculine, wear every item; three drawing styles - 512-pixel
-renders, 128- or 64-pixel pixel art.
+every view and state. Every layer takes its own few colours **and any of the
+palette's hundred**, set out in a grid under them. **Dyes** unlock a colour
+on an item for good - the fourteen named ones, from royal blue to green
+ombre, and one for every other colour of the palette; the skin, the eyes,
+the hair and the eyebrows are free. Lips nobody has painted are the skin's
+own colour, a little darker. Armour hides what it covers. Two bodies,
+feminine and masculine, wear every item, in 128- or 64-pixel pixel art.
 
 ## People, their days, and missions
 
@@ -462,7 +515,8 @@ renders, 128- or 64-pixel pixel art.
 
 **Talking**: **E** by someone. They greet her, and she chooses what to ask
 about; someone with a mark over their head has work for her. Shopkeepers
-sell; some buy.
+sell; some buy. Everyone's look - body, skin, face, hair, every thing worn
+and its colour - is drawn from their seed, or **made by hand** in the editor.
 
 **Their days** (`actor/Schedule`): everyone keeps a day, hour by hour - each
 part of it *what* (stand, work, kneel and tend, keep watch, stroll, walk to
@@ -554,9 +608,14 @@ same place in the sky; the sun goes round it, so it is a thin crescent by day
 and **full at midnight**, lighting the night. The light goes gold, rose and
 blue through the day; clouds, stars, an aurora, mist and light rays come and
 go; lanterns, candles, fires and crystals light the dark. A day is 24 minutes
-(**N** to time-lapse). **Weather** - rain, thunderstorms with lightning,
-snow, fog, wind, sandstorms - comes and goes by biome, or is set for a level.
-A level can be **inside** (a hall, a dungeon) or a **cave**, with no sky.
+(**N** to time-lapse), and **the hour goes with you**: night in one level is
+night in the next, and the days are counted. **A bed** (or a bedroll, a cot,
+a hammock) after dark: **E** to sleep until morning, health whole again -
+not with foes near. **Weather** - rain, thunderstorms with lightning, snow,
+fog, wind, sandstorms - comes and goes by biome, is set for a level, or is
+the level's **own events**: which kinds come and how often each, how much of
+the time there is weather at all, and how long a spell lasts. A level can be
+**inside** (a hall, a dungeon) or a **cave**, with no sky.
 
 ### Life
 
@@ -571,7 +630,8 @@ sheep, pigs, dogs, foxes, cats, rabbits, squirrels, deer, ducks, geese,
 swans, butterflies, bees, iguanas and fourteen birds from robins to peacocks
 - each drawn from 24 views, with a **nature**: tame, calm, skittish,
 friendly, defensive or hostile. They live where a level places them, or as
-many as its **Life** page asks for: none come by themselves.
+many as its **Life** page asks for: none come by themselves. **Birds are
+off** at every hour of the day unless **Settings → Game → Birds** is on.
 
 ### Buildings
 
@@ -765,7 +825,7 @@ played, what you are about to place standing under the pointer.
 | **4 Paint** | sixteen grounds - and roads of cobbles, flagstones, brick and packed earth - and the **biome** brush |
 | **5 Scatter** | plants, trees and rocks: one, a mix, a biome's, or a brush of your own |
 | **6 Sky** | the sky's colours, the fog, **beyond the edge** (the country round the level in 3D: its theme, near land, far reach, density, hills, haze), distant backgrounds round the horizon, open sky, inside or a cave |
-| **7 Time** | the hour it starts at, the day's length, the planet, clouds, stars, aurora, mist, light rays, and the weather |
+| **7 Time** | the hour it starts at, the day's length, the planet, clouds, stars, aurora, mist, light rays, and the weather: none, fixed, by biome, or **your own events** (how often each kind comes, how much of the time, how long a spell) |
 | **8 Level** | name, size (64 m to 2048 m), the walls in the way, the music |
 | **9 Water** | ponds, streams, swamp, crystal water, the sea |
 | **0 Life** | how many critters and of each animal |
@@ -790,6 +850,10 @@ comes back.
   if they sell, **where they live** (the nearest house, none, or a building
   picked) and **their day**: a row for each part of it - from what time, what
   they do, and where.
+- **A person's or a dressed foe's look** is theirs to make: **Edit look…**
+  opens every layer - body and skin, face, hair, horns and tail, each thing
+  worn - with its colours (any of the palette) beside them standing in the
+  portrait; *As it comes* goes back to the look their seed draws.
 - **A quest** has its title, **who gives it** (picked from the level's
   people), what to do, **what or whom** (picked: a breed, a person, an item),
   how many, within how far, what they say asking for it, while it is not done
@@ -893,13 +957,18 @@ assets/sprites/objects/<object>/               the chests, dummies, critters, an
   item; right- and left-handed.
 - **Loading** is on demand on worker threads within a video-memory budget,
   and a layer change shows only once every layer of it is ready.
+- **Long hair in the water**: swimming a stroke - flat, head up - long hair
+  would hang through the chest, so its layer is kept to where a short cut
+  has hair (`SheetImage.keepNear`), gathered at the head.
 - **Close-ups** of the same items play the **cutscenes**
   (`assets/cutscenes/`, `assets/closeups/`), so your own character - in
   whatever she wears - can be in them.
 
 **Importing**: drag sheets, a folder of them, or Blender's numbered frames
-onto the game window; the importer guesses the layer and name, stitches
-frames into sheets and writes them into `assets/sprites/`, ready to commit.
+onto the game window while in a level or the editor (**Pause → Import sprite
+sheets**; not the main menu); the importer guesses the layer and name,
+stitches frames into sheets and writes them into `assets/sprites/`, ready to
+commit.
 
 ### Where it comes from
 
@@ -990,9 +1059,12 @@ dist/         the shared copy's launchers and HOW TO PLAY.txt
 sprite contract, the library and importer, palettes and tiers, the player's
 moves, falls, climbing and swimming, combat and the dice, the foes' ways and
 sight, the folk's days, the inventory, purse and pouch, loot and chests,
-cards, quests and missions, shops and the editor's rows, levels saved and read
-back, undo, the buildings and their insides, the weather and the day, the
-sounds and the music, saving and the map, and what lies round a level (its
+cards, quests and missions (and following them from level to level), shops
+and the editor's rows, levels saved and read back, undo, the buildings and
+their insides, the weather and its own events, the day, beds, the small map
+and the compass, the gamepad in menus, the palette's colours and dyes, looks
+made by hand, the sounds and the music, saving and the map, and what lies
+round a level (its
 settings saved and read back, the ground carried on past the edge without a
 seam, every theme, London's streets going on).
 
@@ -1005,7 +1077,11 @@ xvfb-run ./gradlew run -Dlarsons.start=play:oakhollow \
 ```
 
 Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
-`click`, `press` / `release`, `move`, `scroll`, `drop`, `quit`. In the game:
+`click`, `press` / `release`, `move`, `scroll`, `drop`, `pad` / `padhold` /
+`padletgo` (a gamepad's buttons: `pad a`, `pad dpad_down`, `pad view`),
+`quit`. On the new game's pages: `page`, `name`, `people`, `class`, `skin`,
+`colour`, `turn`, `zoom`, `face`, `pose`, `begin`. On the map: `go`, `enter`,
+`mapmenu`, `resetmap`. In the game: `bed`,
 `teleport`, `goto`, `time`, `timelapse`, `weather`, `give`, `coins`, `hero`,
 `wear`, `colour`, `style`, `stance`, `attack`, `heavy`, `spin`, `parry`,
 `block`, `dash`, `roll`, `jump`, `crouch`, `lock`, `pickup`, `chest`,

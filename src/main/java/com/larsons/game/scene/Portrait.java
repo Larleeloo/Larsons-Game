@@ -46,7 +46,7 @@ public final class Portrait {
     private static final String FACE_CLIP = "listen";
 
     /** A pose the figure can be played in. */
-    private enum Pose {
+    enum Pose {
         STAND("Standing", false), WALK("Walking", false), RUN("Running", false), JUMP("Jumping", false),
         ATTACK("Attack", true), SPIN("Spin attack", true), PARRY("Parry", true), BLOCK("Guard", true),
         BASH("Shield bash", true), LAUGH("Laughing", false), SURPRISE("Surprised", false);
@@ -167,7 +167,14 @@ public final class Portrait {
         SpriteLibrary lib = game.sprites();
         SpriteView view = new SpriteView(elevation, facing, elevation.renderAngle());
         Stance stance = holding != null ? holding : Stance.SWORD;
-        AnimState state = override != null ? override : state(stance);
+        AnimState state = override;
+        if (state == null) {
+            state = state(pose, holding, stance);
+            if (state == null) {   // a move this weapon has none of: the sword and shield's, with them in hand
+                stance = Stance.SWORD;
+                state = state(pose, holding, stance);
+            }
+        }
         boolean empty = override != null ? override.stance() == Stance.FREE : holding == null && !pose.armed;
         // what is in the hands for this pose: the class's own weapon is the stance's; a sword (and a shield) is the wardrobe's
         String right = wardrobe.get(Slot.CARRY_RIGHT), left = wardrobe.get(Slot.CARRY_LEFT);
@@ -206,7 +213,18 @@ public final class Portrait {
         LayerStack.drawFlat(ui.batch(), r, x + w / 2, (float) footY, ppm);
     }
 
-    private AnimState state(Stance stance) {
+    /**
+     * The state {@code pose} plays with {@code holding} in hand (null:
+     * nothing, but a sword and a shield in the armed poses). A move that
+     * weapon has none of - a lone sword's guard, a bow's shield bash - is the
+     * sword and shield's, so no pose is ever without its sprites.
+     */
+    static AnimState state(Pose pose, Stance holding) {
+        AnimState state = state(pose, holding, holding != null ? holding : Stance.SWORD);
+        return state != null ? state : state(pose, holding, Stance.SWORD);
+    }
+
+    private static AnimState state(Pose pose, Stance holding, Stance stance) {
         return switch (pose) {
             case STAND -> holding == null ? AnimState.IDLE : stance.idle(false);
             case WALK -> holding == null ? AnimState.WALK : stance.moving(Stance.Pace.WALK, false);

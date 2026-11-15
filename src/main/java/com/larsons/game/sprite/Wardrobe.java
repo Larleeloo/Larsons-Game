@@ -24,8 +24,8 @@ import java.util.TreeSet;
  * slot means that layer is not drawn at all — cosmetics without sheets are
  * left blank, as the design asks.
  *
- * <p>The wardrobe also has a {@link Style}: the whole character drawn from the
- * 512-pixel renders, or from the pixel art made of them; a colour per slot
+ * <p>The wardrobe also has a {@link Style}: the whole character drawn in the
+ * 128-pixel pixel art or the 64-pixel; a colour per slot
  * (an option of the item's {@code variants.json} - the body's colour is the
  * skin tone of every layer); and a {@link Hand}: right- or left-handed, or
  * whichever hand the sword is in.
