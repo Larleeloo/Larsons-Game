@@ -397,6 +397,11 @@ nothing, she is knocked out and back at the start.
   <img src="docs/screenshots/forge-dice.png" width="49%" alt="A forged sword's three blue d8s over her head: Mystic and Venom under them">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/armour-dice-landed.png" width="49%" alt="A blow on the torso: her Epic steel chestplate's two d10s above the hotbar, fully blocked, 20 against 14">
+  <img src="docs/screenshots/armour-dice-all.png" width="49%" alt="With every piece rolling: helmet, chestplate, gauntlets and leg plating each roll two d10s against a blow of 30">
+</p>
+
 ## Foes
 
 <p align="center">
@@ -506,6 +511,10 @@ sprites in their tier's colours.
 
 <p align="center">
   <img src="docs/screenshots/wardrobe.png" width="70%" alt="The wardrobe: an oak armoire with its doors open, shelves of what she owns to wear, colour gems, and her in a gilded mirror">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/wearables-lineup.png" width="90%" alt="Six outfits of the new wearables on both bodies: a great helm and scale mail; a top hat, monocle and frock coat; a wizard's hat and robe; goggles, a corset, a pleated skirt and clockwork wings; a hood, leather jerkin and backpack; a crown, masquerade mask and choker">
 </p>
 
 What she wears is **items** - clothes, armour (leather, chainmail, scale,

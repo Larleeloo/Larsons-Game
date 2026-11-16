@@ -343,7 +343,10 @@ public final class CombatHud {
         boolean landed = t >= ARMOUR_TUMBLE + Math.max(0, count(roll) - 1) * STAGGER + LAND;
         String summary = landed ? roll.summary() : roll.armoured() ? "Rolling armour..." : roll.summary();
         int sumRgb = !landed ? 0xE8E0C8 : roll.full() ? ARMOUR_RGB : roll.armoured() ? 0xFFFFFF : ARMOUR_HURT_RGB;
-        String title = (p.armourRules().everyPiece() ? "Struck (every piece rolls)" : "Struck: " + roll.at().key());
+        boolean everyPiece = false;
+        for (Armour.Block b : roll.blocks()) everyPiece |= b.piece().at() != roll.at();
+        String title = everyPiece || (p.armourRules().everyPiece() && roll.blocks().size() > 1)
+                ? "Struck (every piece rolls)" : "Struck: " + roll.at().key();
         float sumY = bottom - ui.body.lineHeight();
         float top = roll.armoured() ? sumY - 6 - ui.label.lineHeight() - 2 - size - ui.small.lineHeight() - 2
                 : sumY;
