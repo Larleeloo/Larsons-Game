@@ -30,16 +30,16 @@ class ArmourLayersTest {
         // feminine_model_sprites.py's SLOTS
         List<String> blender = List.of("body", "underwear", "bra", "shoes", "pants", "chainmail_legs", "leg_plating",
                 "shirt", "chainmail", "chestplate", "belt", "necklace", "gloves", "wristwear", "wristwear_left",
-                "sheath", "ears", "earrings", "nose", "eyes", "eyebrows", "makeup", "mouth", "hair", "hat", "horns",
+                "sheath", "ears", "earrings", "nose", "eyes", "eyebrows", "makeup", "mouth", "hair", "eyewear", "hat", "horns",
                 "other", "tail", "carry_left", "carry_right");
         assertEquals(blender, Arrays.stream(Slot.values()).map(Slot::key).toList());
-        assertEquals(30, Slot.values().length);
+        assertEquals(31, Slot.values().length);
         assertEquals("Mail leggings", Slot.CHAINMAIL_LEGS.label());
         assertEquals("Leg plating", Slot.LEG_PLATING.label());
         assertEquals("Mail shirt", Slot.CHAINMAIL.label());
         assertEquals(Slot.CHESTPLATE, Slot.byKey("chestplate"));
         assertEquals(Slot.CHAINMAIL, Slot.CHAINMAIL.twin());
-        assertEquals(30, LayerStack.drawOrder(false, Elevation.SIDE, Facing.EAST).length);
+        assertEquals(31, LayerStack.drawOrder(false, Elevation.SIDE, Facing.EAST).length);
     }
 
     @Test

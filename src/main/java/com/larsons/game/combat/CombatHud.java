@@ -10,6 +10,7 @@ import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.OrbitCamera;
 import com.larsons.game.world.Ammo;
+import com.larsons.game.world.Armour;
 import com.larsons.game.world.Buffs;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
@@ -35,6 +36,9 @@ import java.util.List;
  *   <li>a dummy's or a flier's <b>health</b> over it once it has been hit;</li>
  *   <li>the <b>lock-on</b>'s reticle round what she is locked on to, its name
  *       and health under it ({@link #drawLock});</li>
+ *   <li>her <b>armour</b>'s dice just above the hotbar when a blow lands
+ *       on her: where it struck, each piece there rolling its dice, what
+ *       they blocked between them ({@link #drawArmour});</li>
  *   <li>her <b>mana</b>, beside the hotbar, and on its other side how soon
  *       she can make a <b>heavy attack</b> again; over them her own
  *       <b>health</b> and her <b>stamina</b> ({@link #drawVitals}).</li>
@@ -307,6 +311,119 @@ public final class CombatHud {
         String label = ready ? "Heavy (" + key + ") ready" : "Heavy (" + key + ") in " + (int) Math.ceil(wait) + " s";
         ui.textShadowed(ui.label, label, x + w - ui.label.width(label) - 2, y - ui.label.lineHeight() - 4,
                 CombatColours.rgba(ready ? HEAVY_LIGHT : 0xFFFFFF, 1f));
+    }
+
+    /** How long her armour's roll shows: tumbling, then landed and read, then fading - seconds. */
+    public static final double ARMOUR_TUMBLE = 0.42, ARMOUR_HOLD = 2.4, ARMOUR_FADE = 0.45;
+    /** How big an armour die is, in points: smaller than a swing's. */
+    public static final float ARMOUR_DIE = 40;
+    /** "Fully blocked!": a steel blue; a blow that got through, in the hurt's red. */
+    static final int ARMOUR_RGB = 0xA8C8E8, ARMOUR_HURT_RGB = 0xFF8A6E;
+
+    /**
+     * Her armour's last roll, just above the hotbar (whose slots' middle is
+     * {@code cy}) and over the name of what she holds: where the blow struck,
+     * each piece there with its dice tumbling and coming up one after another,
+     * what each blocked over it, and under them all what they blocked between
+     * them and what got through - for a few seconds after each blow
+     * ({@link Player#armourRoll}). A blow where she wears no armour says so.
+     * Nothing while she wears no armour at all ({@code scale}: device pixels
+     * to a point, which picks the dice's sheets).
+     */
+    public void drawArmour(Ui ui, Player p, float cy, float scale) {
+        Armour.Roll roll = p.armourRoll();
+        double t = p.armourAge();
+        double hold = roll == null ? 0 : roll.armoured() ? ARMOUR_HOLD : ARMOUR_HOLD * 0.6;
+        if (roll == null || t > hold + ARMOUR_FADE) return;
+        float fade = (float) Math.max(0, Math.min(1, Math.min(t / 0.08, (hold + ARMOUR_FADE - t) / ARMOUR_FADE)));
+        float cx = ui.width() / 2f, size = ARMOUR_DIE, gap = 2, groupGap = 18;
+        String px = scale * size / DIE >= 1.5f ? "_px128" : "_px64";
+        float bottom = cy - 28 - 52;                     // over the held item's name
+        // what they came to: under the dice
+        boolean landed = t >= ARMOUR_TUMBLE + Math.max(0, count(roll) - 1) * STAGGER + LAND;
+        String summary = landed ? roll.summary() : roll.armoured() ? "Rolling armour..." : roll.summary();
+        int sumRgb = !landed ? 0xE8E0C8 : roll.full() ? ARMOUR_RGB : roll.armoured() ? 0xFFFFFF : ARMOUR_HURT_RGB;
+        boolean everyPiece = false;
+        for (Armour.Block b : roll.blocks()) everyPiece |= b.piece().at() != roll.at();
+        String title = everyPiece || (p.armourRules().everyPiece() && roll.blocks().size() > 1)
+                ? "Struck (every piece rolls)" : "Struck: " + roll.at().key();
+        float sumY = bottom - ui.body.lineHeight();
+        float top = roll.armoured() ? sumY - 6 - ui.label.lineHeight() - 2 - size - ui.small.lineHeight() - 2
+                : sumY;
+        float titleY = top - ui.small.lineHeight() - 2;
+        // a plate behind it all, so it reads over the world
+        float plateW = Math.max(ui.body.width(summary), ui.small.width(title)) + 28;
+        List<float[]> groups = new ArrayList<>();
+        float rowW = 0;
+        for (Armour.Block b : roll.blocks()) {
+            List<Slot> sl = slots(b.roll());
+            float dw = width(sl, size, gap);
+            String label = b.piece().item().name();
+            float w = Math.max(dw, ui.label.width(label));
+            groups.add(new float[]{w, dw});
+            rowW += w + (rowW > 0 ? groupGap : 0);
+        }
+        plateW = Math.max(plateW, rowW + 28);
+        ui.rect(cx - plateW / 2, titleY - 6, plateW, bottom - titleY + 6, Theme.withAlpha(Theme.PANEL, 0.62f * fade));
+        ui.textShadowed(ui.small, title, cx - ui.small.width(title) / 2, titleY, Theme.withAlpha(Theme.HINT, fade));
+        // each piece's dice in a group, its name under it and, once landed, what it blocked over it
+        float gx = cx - rowW / 2;
+        int die = 0;
+        for (int g = 0; g < roll.blocks().size(); g++) {
+            Armour.Block b = roll.blocks().get(g);
+            float w = groups.get(g)[0], dw = groups.get(g)[1];
+            var item = b.piece().item();
+            int[] palette = CombatColours.diePalette(item.rarity(), item.ring(),
+                    item.forged() == null ? -1 : item.forged().diceRgb());
+            float y0 = top + ui.small.lineHeight() + 2;
+            float x = gx + (w - dw) / 2;
+            boolean groupUp = true;
+            DiceRoll r = b.roll();
+            for (Slot sl : slots(r)) {
+                float sw = sl.width(size);
+                if (sl.glyph()) {
+                    glyph(ui, sl.op(), x, y0, sw, size, fade);
+                    x += sw + gap;
+                    continue;
+                }
+                double landAt = ARMOUR_TUMBLE + die * STAGGER;
+                String[] face = face(r.sidesOf(sl.die()), r.face(sl.die()), sl.half());
+                SheetTexture sheet;
+                int frame;
+                float y = y0;
+                int j = die * 2 + sl.half();
+                if (t < landAt) {
+                    groupUp = false;
+                    sheet = fx.sheet(face[0] + px, "roll");
+                    frame = (int) Math.floor((t + j * 0.137) * 24);
+                    y -= (float) Math.abs(Math.sin((t + j * 0.37) * 9)) * 5;
+                } else {
+                    sheet = fx.sheet(face[0] + px, face[1]);
+                    frame = (int) Math.min(7, Math.floor((t - landAt) * 24));
+                    if (t - landAt < LAND) groupUp = false;
+                }
+                if (sheet != null) image(ui.batch(), sheet, frame, palette, x, y, size, fade);
+                x += sw + gap;
+                if (sl.half() == 0) die++;
+            }
+            if (groupUp) {
+                String n = String.valueOf(b.blocked());
+                float[] c = CombatColours.rgba(item.rarity() == Rarity.COMMON ? 0xFFFFFF : item.rarity().rgb(), fade);
+                ui.textShadowed(ui.small, n, gx + w / 2 - ui.small.width(n) / 2, top, c);
+            }
+            String label = item.name();
+            ui.textShadowed(ui.label, label, gx + w / 2 - ui.label.width(label) / 2, y0 + size + 2,
+                    Theme.withAlpha(item.rarity().colour(1f), fade));
+            gx += w + groupGap;
+        }
+        ui.textShadowed(ui.body, summary, cx - ui.body.width(summary) / 2, sumY, CombatColours.rgba(sumRgb, fade));
+    }
+
+    /** How many dice a roll's pieces throw between them. */
+    private static int count(Armour.Roll roll) {
+        int n = 0;
+        for (Armour.Block b : roll.blocks()) n += b.roll().count();
+        return n;
     }
 
     private static final int LOCK_RGB = 0xFFD27A, HEALTH_RGB = 0xE0503C, HEALTH_LIGHT = 0xFF8A6E;

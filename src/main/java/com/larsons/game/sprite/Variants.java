@@ -79,10 +79,45 @@ public final class Variants {
 
     private final Map<String, Channel> channels;
     private final Map<String, String> defaults;
+    /** How many colour labels the art has (6 a material), or -1 when the file does not say. */
+    private final int labels;
+    private int[] fixed;
 
     Variants(Map<String, Channel> channels, Map<String, String> defaults) {
+        this(channels, defaults, -1);
+    }
+
+    Variants(Map<String, Channel> channels, Map<String, String> defaults, int labels) {
         this.channels = channels;
         this.defaults = defaults;
+        this.labels = labels;
+    }
+
+    /** How many colour labels the art has (six to a material), or -1 when the file does not say. */
+    public int labels() {
+        return labels;
+    }
+
+    /**
+     * The art's materials no channel colours - a helmet's steel, a boot's
+     * sole: the ones a tier, a tint or the Forge recolours on what is worn.
+     * Empty when the file does not say how many labels there are.
+     */
+    public int[] fixedMaterials() {
+        if (fixed != null) return fixed;
+        List<Integer> out = new ArrayList<>();
+        int materials = labels < 0 ? 0 : labels / 6;
+        for (int m = 0; m < materials; m++) {
+            boolean taken = false;
+            for (Channel c : channels.values()) {
+                for (int l : c.labels()) taken |= l / 6 == m;
+            }
+            if (!taken) out.add(m);
+        }
+        int[] f = new int[out.size()];
+        for (int i = 0; i < f.length; i++) f[i] = out.get(i);
+        fixed = f;
+        return f;
     }
 
     /** Read {@code dir/variants.json}, or {@code null} if there is none (or it cannot be read). */
@@ -130,7 +165,8 @@ public final class Variants {
         Map<String, String> defaults = new TreeMap<>();
         Map<String, Object> def = Json.obj(json, "default");
         if (def != null) for (Map.Entry<String, Object> e : def.entrySet()) defaults.put(e.getKey(), String.valueOf(e.getValue()));
-        return new Variants(Collections.unmodifiableMap(channels), Collections.unmodifiableMap(defaults));
+        return new Variants(Collections.unmodifiableMap(channels), Collections.unmodifiableMap(defaults),
+                (int) Json.num(json, "labels", -1));
     }
 
     private static int hex(String s) {

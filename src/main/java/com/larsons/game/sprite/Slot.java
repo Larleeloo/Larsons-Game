@@ -20,6 +20,9 @@ package com.larsons.game.sprite;
  * would otherwise be drawn over it, so a few layers are left out while it is
  * worn ({@link Wardrobe#hidden}).
  *
+ * <p>Eyewear - goggles, a monocle, an eyepatch, a masquerade mask - goes over
+ * the face and the hair and under the hat, so a great helm hides it.
+ *
  * <p>The enum order <em>is</em> the draw order, with one exception: the cape
  * ({@link #OTHER}) hangs behind her, so it draws first when she faces the
  * camera and just under the hair otherwise (see
@@ -52,6 +55,7 @@ public enum Slot {
     MAKEUP("makeup", "Makeup"),
     MOUTH("mouth", "Mouth"),
     HAIR("hair", "Hair"),
+    EYEWEAR("eyewear", "Eyewear"),
     HAT("hat", "Hat"),
     HORNS("horns", "Horns"),
     OTHER("other", "Other"),

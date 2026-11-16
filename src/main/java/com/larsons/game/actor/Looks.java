@@ -124,7 +124,11 @@ public final class Looks {
                 if (r.nextBoolean()) wear(w, r, "starweave_mantle");
                 if (r.nextInt(3) == 0) wear(w, r, "observatory_gloves");
                 if (r.nextInt(4) == 0) wear(w, r, "astronomers_cap");
+                else if (r.nextInt(5) == 0) wear(w, r, "circlet", "wizard_hat");
                 if (r.nextBoolean()) metal(w, Slot.NECKLACE, "gold_pendant", r.nextBoolean() ? "silver" : "gold");
+                else if (r.nextInt(3) == 0) metal(w, Slot.NECKLACE, "amulet", r.nextBoolean() ? "silver" : "gold");
+                if (r.nextInt(6) == 0) wear(w, r, "monocle", "masquerade_mask");
+                if (r.nextInt(4) == 0) wear(w, r, "drop_earrings", "gem_studs");
             }
             case WORKSHOP -> {
                 wear(w, r, "tinkers_shirt");
@@ -133,7 +137,12 @@ public final class Looks {
                 wear(w, r, "brass_buckle_belt");
                 if (r.nextBoolean()) wear(w, r, "engineers_gloves");
                 if (r.nextInt(3) == 0) wear(w, r, "boilermans_cap");
+                else if (r.nextInt(3) == 0) wear(w, r, "top_hat");
                 if (r.nextInt(3) == 0) wear(w, r, "soot_mantle");
+                else if (r.nextInt(5) == 0) wear(w, r, "leather_backpack");
+                if (r.nextInt(3) == 0) wear(w, r, "brass_goggles");
+                if (r.nextInt(4) == 0) wear(w, r, "gear_cuff");
+                if (r.nextInt(5) == 0) wear(w, r, "waistcoat");
             }
             case TOWN -> {
                 if (dressed) wear(w, r, "festival_dress", "market_dress");
@@ -144,16 +153,20 @@ public final class Looks {
                 wear(w, r, "mud_boots", "bog_boots");
                 if (r.nextInt(3) == 0) wear(w, r, "foresters_hat", "sunbleached_hat");
                 if (r.nextInt(4) == 0) wear(w, r, "foresters_mantle");
-                if (r.nextBoolean()) wear(w, r, "rope_belt", "brass_buckle_belt");
+                if (r.nextBoolean()) wear(w, r, "rope_belt", "brass_buckle_belt", "sash");
+                if (r.nextInt(5) == 0) wear(w, r, "scarf", "choker");
+                if (r.nextInt(6) == 0) wear(w, r, "tricorn", "hood", "flower_crown");
             }
             case GUARD -> {
                 wear(w, r, "guards_shirt");
                 wear(w, r, "oilcloth_trousers");
                 wear(w, r, "bog_boots");
                 w.set(Slot.CHAINMAIL, "chainmail_shirt");
-                w.set(Slot.HAT, "iron_helmet");
+                if (r.nextInt(3) == 0) wear(w, r, "kettle_hat", "chain_coif");
+                else w.set(Slot.HAT, "iron_helmet");
                 w.set(Slot.HAIR, "crew_cut");
                 wear(w, r, "brass_buckle_belt");
+                if (r.nextInt(3) == 0) wear(w, r, "leather_bracers");
             }
             case ARMOURED -> {
                 boolean steel = r.nextInt(3) == 0;
@@ -164,10 +177,13 @@ public final class Looks {
                 if (r.nextBoolean()) w.set(Slot.LEG_PLATING, m + "_leg_plating");
                 w.set(Slot.GLOVES, m + "_gauntlets");
                 if (r.nextInt(3) != 0) {
-                    w.set(Slot.HAT, m + "_helmet");
+                    if (r.nextInt(4) == 0) wear(w, r, "great_helm", "horned_helm");
+                    else w.set(Slot.HAT, m + "_helmet");
                     w.set(Slot.HAIR, "crew_cut");
                 }
-                wear(w, r, "bog_boots");
+                if (r.nextInt(3) == 0) wear(w, r, "gorget");
+                if (r.nextInt(3) == 0) wear(w, r, "sabatons");
+                else wear(w, r, "bog_boots");
             }
             case RAGGED -> {
                 if (dressed) wear(w, r, "grave_shroud");
@@ -178,6 +194,8 @@ public final class Looks {
                 if (r.nextBoolean()) wear(w, r, "bog_boots");
                 if (r.nextInt(3) == 0) wear(w, r, "tattered_mantle");
                 if (r.nextInt(5) == 0) wear(w, r, "plague_cap");
+                else if (r.nextInt(6) == 0) wear(w, r, "hood");
+                if (r.nextInt(8) == 0) wear(w, r, "eyepatch");
             }
             default -> {
                 if (dressed) wear(w, r, "market_dress");
@@ -189,6 +207,9 @@ public final class Looks {
                 if (r.nextInt(3) == 0) wear(w, r, "sunbleached_hat");
                 if (r.nextInt(3) == 0) wear(w, r, "herders_mantle");
                 if (r.nextBoolean()) wear(w, r, "rope_belt");
+                if (r.nextInt(4) == 0) wear(w, r, "leather_jerkin", "gambeson");
+                if (r.nextInt(5) == 0) wear(w, r, "fingerless_gloves", "leather_bracers");
+                if (r.nextInt(6) == 0) wear(w, r, "leather_cap", "hood");
             }
         }
         // a beanie goes over its own hair
@@ -201,7 +222,7 @@ public final class Looks {
         return from.get(r.nextInt(from.size()));
     }
 
-    /** Put one of the tailored garments {@code ids} on {@code w}, in its colour. */
+    /** Put one of the tailored garments (or other wearables) {@code ids} on {@code w}, in its colour. */
     private static void wear(Wardrobe w, Random r, String... ids) {
         ItemDef d = Wearables.byId(ids[r.nextInt(ids.length)]);
         if (d == null || !d.isWearable()) return;

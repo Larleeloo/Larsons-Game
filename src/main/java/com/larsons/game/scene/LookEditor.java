@@ -39,7 +39,7 @@ public final class LookEditor {
     /** The layers in the order a face and an outfit are thought of: the skin, the head, then the clothes outward. */
     public static final List<Slot> ORDER = List.of(Slot.BODY, Slot.HAIR, Slot.EYEBROWS, Slot.EYES, Slot.NOSE,
             Slot.MOUTH, Slot.EARS, Slot.MAKEUP, Slot.HORNS, Slot.TAIL, Slot.SHIRT, Slot.PANTS, Slot.SHOES,
-            Slot.UNDERWEAR, Slot.BRA, Slot.HAT, Slot.OTHER, Slot.BELT, Slot.GLOVES, Slot.NECKLACE, Slot.EARRINGS,
+            Slot.UNDERWEAR, Slot.BRA, Slot.HAT, Slot.EYEWEAR, Slot.OTHER, Slot.BELT, Slot.GLOVES, Slot.NECKLACE, Slot.EARRINGS,
             Slot.WRISTWEAR, Slot.WRISTWEAR_LEFT, Slot.SHEATH, Slot.CHAINMAIL, Slot.CHAINMAIL_LEGS, Slot.CHESTPLATE,
             Slot.LEG_PLATING);
 

@@ -88,7 +88,8 @@ public final class Wearables {
      * The families that drop as one ({@link Loot#add(List)}): so many dyes and
      * hair styles would otherwise drown out everything else of their rarity.
      */
-    public static final String DYE = "dye", HAIR_STYLE = "hair_style", EYEBROWS = "eyebrows", MAKEUP = "makeup";
+    public static final String DYE = "dye", PALETTE_DYE = "palette_dye", HAIR_STYLE = "hair_style",
+            EYEBROWS = "eyebrows", MAKEUP = "makeup";
 
     /** The layers that are not items: every folder found for the body is offered, colours and all. */
     public static final Set<Slot> FREE = Collections.unmodifiableSet(
@@ -112,6 +113,28 @@ public final class Wearables {
      */
     public static final List<ItemDef> OWNED_BY_DEFAULT = List.of(UNDERWEAR, BRA, LONG_WAVES, SIDE_PART,
             ARCHED_EYEBROWS);
+
+    /**
+     * How many drops of their rarity the dyes' two families count as in a
+     * chest ({@link Loot#add(List, int)}): the 14 named dyes (Uncommon) and
+     * the rest of the palette's (Rare) each come up as often as this many
+     * other things of their rarity - and a chest gives a dye or two besides
+     * ({@link #randomDye}), a breakable now and then one ({@link
+     * Store#DYES_IN}), a foe felled now and then one, and a shop sells some
+     * ({@link Shop}'s {@code dyes x4}).
+     */
+    public static final int DYE_CHANCES = 6;
+
+    /**
+     * A dye drawn at random: one of the 14 named ones seven times in ten,
+     * else one of the rest of the palette's.
+     */
+    public static ItemDef randomDye(java.util.Random random) {
+        if (random.nextInt(10) < 7) return byId("dye_" + DYE_COLOURS.get(random.nextInt(DYE_COLOURS.size())));
+        List<ItemDef> rest = new ArrayList<>();
+        for (ItemDef d : ALL) if (PALETTE_DYE.equals(d.wearable().family())) rest.add(d);
+        return rest.isEmpty() ? byId("dye_" + DYE_COLOURS.get(0)) : rest.get(random.nextInt(rest.size()));
+    }
 
     /** The pickups a wearable is drawn as (3D-Modeling's {@code items/item_spin_sprites.py}): their folders under {@code items/}. */
     public static final String HANGER = "wearable_hanger", SHIELD = "armour_shield", BOTTLE = "dye_bottle";
@@ -153,6 +176,7 @@ public final class Wearables {
         out.add(worn("baggy_shirt", "Baggy shirt", Rarity.COMMON, Slot.SHIRT, "plaid_flannel"));
         out.add(worn("straw_sun_hat", "Straw sun hat", Rarity.COMMON, Slot.HAT, "straw_sun_hat"));
         out.add(worn("beanie", "Beanie", Rarity.COMMON, Slot.HAT, "beanie"));
+        outfits(out, Rarity.COMMON);
         // Uncommon
         out.add(worn("belt", "Belt", Rarity.UNCOMMON, Slot.BELT, "leather_belt"));
         out.add(worn("gloves", "Gloves", Rarity.UNCOMMON, Slot.GLOVES, "black_leather"));
@@ -162,20 +186,23 @@ public final class Wearables {
         out.add(worn("wool_mantle", "Wool mantle", Rarity.UNCOMMON, Slot.OTHER, "wool_mantle"));
         out.add(worn("chainmail_shirt", "Chainmail shirt", Rarity.UNCOMMON, Slot.CHAINMAIL, "chainmail_shirt"));
         out.add(worn("chainmail_pants", "Chainmail pants", Rarity.UNCOMMON, Slot.CHAINMAIL_LEGS, "chainmail_pants"));
+        outfits(out, Rarity.UNCOMMON);
+        // the 14 named dyes: Uncommon, so they turn up often (the rest of the palette's are Rare)
+        for (String c : DYE_COLOURS) {
+            out.add(def("dye_" + c, readable(c) + " dye", new Wearable(Rarity.UNCOMMON, List.of(), List.of(), null, c,
+                    DYE)));
+        }
         // Rare
         out.add(worn("laced_dress", "Laced dress", Rarity.RARE, Slot.SHIRT, "laced_dress"));
         out.add(metal("silver_wrist_band", "Silver wrist band", Rarity.RARE, "silver", "gold_bangle",
                 Slot.WRISTWEAR, Slot.WRISTWEAR_LEFT));
         out.add(metal("silver_necklace", "Silver necklace", Rarity.RARE, "silver", "gold_pendant", Slot.NECKLACE));
         out.add(metal("silver_hoops", "Silver hoops", Rarity.RARE, "silver", "gold_hoops", Slot.EARRINGS));
-        for (String c : DYE_COLOURS) {
-            out.add(def("dye_" + c, readable(c) + " dye", new Wearable(Rarity.RARE, List.of(), List.of(), null, c, DYE)));
-        }
-        // a dye of every other colour of the palette (the 14 above are 14 of its fills)
+        // a dye of every other colour of the palette (the 14 named ones are 14 of its fills)
         for (String c : PALETTE) {
             if (DYE_RGB.containsValue(rgb(c))) continue;
             out.add(def("dye_" + c.substring(1), PALETTE_NAMES.get(c) + " dye",
-                    new Wearable(Rarity.RARE, List.of(), List.of(), null, c, DYE)));
+                    new Wearable(Rarity.RARE, List.of(), List.of(), null, c, PALETTE_DYE)));
         }
         for (String look : List.of("noir", "rose", "plum")) {
             out.add(def("makeup_" + look, readable(look) + " makeup",
@@ -189,14 +216,130 @@ public final class Wearables {
             out.add(brows.equals("arched") ? ARCHED_EYEBROWS : eyebrows(brows));
         }
         armour(out, "iron", Rarity.RARE);
+        outfits(out, Rarity.RARE);
         // Epic
         out.add(metal("gold_wrist_band", "Gold wrist band", Rarity.EPIC, "gold", "gold_bangle",
                 Slot.WRISTWEAR, Slot.WRISTWEAR_LEFT));
         out.add(metal("gold_necklace", "Gold necklace", Rarity.EPIC, "gold", "gold_pendant", Slot.NECKLACE));
         out.add(metal("gold_hoops", "Gold hoops", Rarity.EPIC, "gold", "gold_hoops", Slot.EARRINGS));
         armour(out, "steel", Rarity.EPIC);
+        outfits(out, Rarity.EPIC);
+        outfits(out, Rarity.LEGENDARY);
         tailored(out);
         return List.copyOf(out);
+    }
+
+    /**
+     * One of the clothes, armour and jewellery of 3D-Modeling's {@code
+     * *_model_outfits.py}: its id and name, how rare, where it goes and its
+     * folder there - and, for one drawn from another's art, the look it is
+     * worn in ({@link #TINTS}: a bronze helmet is the iron helmet in bronze).
+     */
+    private record Outfit(String id, String name, Rarity rarity, String folder, String look, List<Slot> slots) {}
+
+    private static Outfit o(String id, String name, Rarity rarity, String folder, Slot... slots) {
+        return new Outfit(id, name, rarity, folder, null, List.of(slots));
+    }
+
+    private static Outfit o(String id, String name, Rarity rarity, String folder, String look, Slot... slots) {
+        return new Outfit(id, name, rarity, folder, look, List.of(slots));
+    }
+
+    /**
+     * The looks a piece drawn from another's art is worn in, with no colour of
+     * its own to change ({@code variants.json} has none for its metal): the
+     * colour its metal or leather is tinted, as the forge tints a part (RGB).
+     */
+    public static final Map<String, Integer> TINTS = Map.of(
+            "bronze", 0xC08040, "gilded", 0xF9C36D, "blackened", 0x3E3631, "silvered", 0xD8DCE4);
+
+    /**
+     * The 54 new wearables: 43 pieces of their own (a new eyewear slot among
+     * them), and 11 more drawn from theirs and the old armour's art in another
+     * metal. The armour among them rolls dice to block a blow ({@link Armour}).
+     */
+    private static List<Outfit> outfitTable() {
+        return List.of(
+            // hats and helms
+            o("great_helm", "Great helm", Rarity.EPIC, "great_helm", Slot.HAT),
+            o("kettle_hat", "Kettle hat", Rarity.UNCOMMON, "kettle_hat", Slot.HAT),
+            o("horned_helm", "Horned helm", Rarity.RARE, "horned_helm", Slot.HAT),
+            o("chain_coif", "Chain coif", Rarity.UNCOMMON, "chain_coif", Slot.HAT),
+            o("leather_cap", "Leather cap", Rarity.COMMON, "leather_cap", Slot.HAT),
+            o("wizard_hat", "Wizard's hat", Rarity.UNCOMMON, "wizard_hat", Slot.HAT),
+            o("top_hat", "Top hat", Rarity.UNCOMMON, "top_hat", Slot.HAT),
+            o("tricorn", "Tricorn", Rarity.UNCOMMON, "tricorn", Slot.HAT),
+            o("hood", "Hood", Rarity.COMMON, "hood", Slot.HAT),
+            o("crown", "Crown", Rarity.EPIC, "crown", Slot.HAT),
+            o("circlet", "Circlet", Rarity.RARE, "circlet", Slot.HAT),
+            o("flower_crown", "Flower crown", Rarity.COMMON, "flower_crown", Slot.HAT),
+            // eyewear
+            o("brass_goggles", "Brass goggles", Rarity.RARE, "brass_goggles", Slot.EYEWEAR),
+            o("eyepatch", "Eyepatch", Rarity.COMMON, "eyepatch", Slot.EYEWEAR),
+            o("masquerade_mask", "Masquerade mask", Rarity.RARE, "masquerade_mask", Slot.EYEWEAR),
+            o("monocle", "Monocle", Rarity.RARE, "monocle", Slot.EYEWEAR),
+            // round the neck, and the ears
+            o("gorget", "Steel gorget", Rarity.RARE, "gorget", Slot.NECKLACE),
+            o("silver_amulet", "Silver amulet", Rarity.RARE, "amulet", "silver", Slot.NECKLACE),
+            o("gold_amulet", "Gold amulet", Rarity.EPIC, "amulet", "gold", Slot.NECKLACE),
+            o("choker", "Cameo choker", Rarity.UNCOMMON, "choker", Slot.NECKLACE),
+            o("scarf", "Striped scarf", Rarity.COMMON, "scarf", Slot.NECKLACE),
+            o("gem_studs", "Gem studs", Rarity.RARE, "gem_studs", Slot.EARRINGS),
+            o("drop_earrings", "Drop earrings", Rarity.RARE, "drop_earrings", Slot.EARRINGS),
+            // the body
+            o("gambeson", "Gambeson", Rarity.UNCOMMON, "gambeson", Slot.SHIRT),
+            o("waistcoat", "Waistcoat", Rarity.UNCOMMON, "waistcoat", Slot.SHIRT),
+            o("robe", "Robe", Rarity.UNCOMMON, "robe", Slot.SHIRT),
+            o("frock_coat", "Frock coat", Rarity.RARE, "frock_coat", Slot.SHIRT),
+            o("breeches", "Breeches", Rarity.COMMON, "breeches", Slot.PANTS),
+            o("pleated_skirt", "Pleated skirt", Rarity.COMMON, "pleated_skirt", Slot.PANTS),
+            o("riding_boots", "Riding boots", Rarity.UNCOMMON, "riding_boots", Slot.SHOES),
+            o("sandals", "Sandals", Rarity.COMMON, "sandals", Slot.SHOES),
+            o("sabatons", "Sabatons", Rarity.RARE, "sabatons", Slot.SHOES),
+            o("fingerless_gloves", "Fingerless gloves", Rarity.COMMON, "fingerless_gloves", Slot.GLOVES),
+            o("leather_bracers", "Leather bracers", Rarity.UNCOMMON, "leather_bracers", Slot.WRISTWEAR,
+                    Slot.WRISTWEAR_LEFT),
+            o("gear_cuff", "Gear cuff", Rarity.RARE, "gear_cuff", Slot.WRISTWEAR, Slot.WRISTWEAR_LEFT),
+            o("corset", "Corset", Rarity.UNCOMMON, "corset", Slot.BELT),
+            o("sash", "Silk sash", Rarity.COMMON, "sash", Slot.BELT),
+            o("pouch_belt", "Pouch belt", Rarity.UNCOMMON, "pouch_belt", Slot.BELT),
+            o("scale_mail", "Scale mail", Rarity.RARE, "scale_mail", Slot.CHAINMAIL),
+            o("leather_jerkin", "Leather jerkin", Rarity.UNCOMMON, "leather_jerkin", Slot.CHESTPLATE),
+            o("leather_greaves", "Leather greaves", Rarity.UNCOMMON, "leather_greaves", Slot.LEG_PLATING),
+            o("leather_backpack", "Leather backpack", Rarity.UNCOMMON, "backpack", Slot.OTHER),
+            o("clockwork_wings", "Clockwork wings", Rarity.EPIC, "clockwork_wings", Slot.OTHER),
+            // the same art in another metal
+            o("bronze_helmet", "Bronze helmet", Rarity.UNCOMMON, "iron_helmet", "bronze", Slot.HAT),
+            o("bronze_chestplate", "Bronze chestplate", Rarity.UNCOMMON, "iron_chestplate", "bronze", Slot.CHESTPLATE),
+            o("bronze_leg_plating", "Bronze leg plating", Rarity.UNCOMMON, "iron_leg_plating", "bronze",
+                    Slot.LEG_PLATING),
+            o("bronze_gauntlets", "Bronze gauntlets", Rarity.UNCOMMON, "iron_gauntlets", "bronze", Slot.GLOVES),
+            o("bronze_kettle_hat", "Bronze kettle hat", Rarity.COMMON, "kettle_hat", "bronze", Slot.HAT),
+            o("silvered_monocle", "Silvered monocle", Rarity.UNCOMMON, "monocle", "silvered", Slot.EYEWEAR),
+            o("blackened_jerkin", "Blackened jerkin", Rarity.RARE, "leather_jerkin", "blackened", Slot.CHESTPLATE),
+            o("blackened_sabatons", "Blackened sabatons", Rarity.EPIC, "sabatons", "blackened", Slot.SHOES),
+            o("gilded_scale_mail", "Gilded scale mail", Rarity.EPIC, "scale_mail", "gilded", Slot.CHAINMAIL),
+            o("gilded_great_helm", "Gilded great helm", Rarity.LEGENDARY, "great_helm", "gilded", Slot.HAT),
+            o("gilded_wings", "Gilded clockwork wings", Rarity.LEGENDARY, "clockwork_wings", "gilded", Slot.OTHER));
+    }
+
+    /** The new wearables of {@code rarity} ({@code outfitTable}). */
+    private static void outfits(List<ItemDef> out, Rarity rarity) {
+        for (Outfit f : outfitTable()) {      // (a method: ALL is made before the class's later fields)
+            if (f.rarity() != rarity) continue;
+            out.add(def(f.id(), f.name(), new Wearable(f.rarity(), f.slots(), List.of(f.folder()), f.look(), null,
+                    null)));
+        }
+    }
+
+    /** How many wearables {@code outfitTable} added (54). */
+    public static int outfitCount() {
+        return outfitTable().size();
+    }
+
+    /** Whether {@code colour} worn in a slot is a tint of {@link #TINTS} (a bronze helmet's), not a colour option. */
+    public static boolean tint(String colour) {
+        return colour != null && TINTS.containsKey(colour);
     }
 
     /** The tailored clothes, people by people. */
@@ -422,18 +565,13 @@ public final class Wearables {
         return d != null && colour.equals(d.wearable().dye()) ? d : null;
     }
 
-    /** Whether {@code d} is armour: chainmail, plate, gauntlets or a helmet (drawn as the shield). */
+    /**
+     * Whether {@code d} is armour - chainmail, plate, gauntlets, a helmet, a
+     * gambeson, sabatons, bracers ({@link Armour#sides}) - which rolls dice to
+     * block a blow and is drawn as the shield.
+     */
     public static boolean armour(ItemDef d) {
-        if (d == null || !d.isWearable()) return false;
-        for (Slot s : d.wearable().slots()) {
-            if (s == Slot.CHAINMAIL || s == Slot.CHAINMAIL_LEGS || s == Slot.CHESTPLATE || s == Slot.LEG_PLATING) {
-                return true;
-            }
-        }
-        for (String f : d.wearable().folders()) {
-            if (Wardrobe.GAUNTLETS.contains(f) || f.endsWith("_helmet")) return true;
-        }
-        return false;
+        return Armour.sides(d) > 0;
     }
 
     /**
@@ -491,13 +629,20 @@ public final class Wearables {
 
     /** The wearable {@code folder} worn in {@code slot} in {@code colour} is, or null (a folder no item puts there). */
     public static ItemDef wornAs(Slot slot, String folder, String colour) {
+        // (the one of that colour first: a bronze helmet is the iron helmet's folder, in bronze)
+        if (colour != null) {
+            for (ItemDef d : ALL) if (colour.equals(d.wearable().colour()) && d.wearable().puts(slot, folder)) return d;
+        }
         for (ItemDef d : ALL) if (d.wearable().wornAs(slot, folder, colour)) return d;
         return null;
     }
 
     /** Whether {@code folder} in {@code slot} is a metal's: its colour is the item's, never picked. */
     public static boolean metal(Slot slot, String folder) {
-        for (ItemDef d : ALL) if (d.wearable().colour() != null && d.wearable().puts(slot, folder)) return true;
+        for (ItemDef d : ALL) {
+            String c = d.wearable().colour();
+            if (c != null && !tint(c) && d.wearable().puts(slot, folder)) return true;
+        }
         return false;
     }
 
@@ -603,6 +748,7 @@ public final class Wearables {
      */
     public static Loot addTo(Loot loot) {
         List<String> families = new ArrayList<>();
+        // (the dyes are given more chances than one: they turn up often)
         for (ItemDef d : ALL) {
             if (OWNED_BY_DEFAULT.contains(d)) continue;
             String family = d.wearable().family();
@@ -614,7 +760,7 @@ public final class Wearables {
                 for (ItemDef m : ALL) {
                     if (family.equals(m.wearable().family()) && !OWNED_BY_DEFAULT.contains(m)) members.add(Item.of(m));
                 }
-                loot.add(members);
+                loot.add(members, family.equals(DYE) || family.equals(PALETTE_DYE) ? DYE_CHANCES : 1);
             }
         }
         return loot;

@@ -120,7 +120,10 @@ class LootTest {
         c.toggle(null);
         w.tick(0.01);
         List<World.GroundItem> lot = List.copyOf(w.items());
-        assertTrue(lot.size() >= Loot.MIN && lot.size() <= Loot.MAX);
+        // the lot, and coins, a supply and a dye or two
+        assertTrue(lot.size() >= Loot.MIN + 3 && lot.size() <= Loot.MAX + 4, "" + lot.size());
+        assertTrue(lot.stream().anyMatch(g -> g.item.def().isWearable() && g.item.def().wearable().dye() != null),
+                "a dye at least");
         assertTrue(lot.stream().allMatch(World.GroundItem::beam), "every one in a beam of light");
         assertTrue(lot.stream().noneMatch(g -> g.out(w.time())), "still in the chest");
         assertNull(w.reachable(), "nothing to pick up while they are in the air");

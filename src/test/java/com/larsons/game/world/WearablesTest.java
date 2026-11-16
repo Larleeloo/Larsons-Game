@@ -37,8 +37,10 @@ class WearablesTest {
             assertNotNull(d.fallbackIcon().get(), d.id());
         }
         assertTrue(ItemDef.ALL.stream().noneMatch(ItemDef::isWearable), "ItemDef.ALL is the weapons");
-        assertEquals(61 + 32 + 86, Wearables.ALL.size(),
-                "and the 32 tailored garments of the four peoples, and a dye of every palette colour the 14 are not");
+        assertEquals(61 + 32 + 86 + 54, Wearables.ALL.size(),
+                "and the 32 tailored garments of the four peoples, a dye of every palette colour the 14 are not, "
+                        + "and the 54 clothes, armour and jewellery of the outfits");
+        assertEquals(54, Wearables.outfitCount());
         assertEquals(32, Wearables.tailored().size());
         assertEquals(Rarity.RARE, Item.parse("silver_necklace").rarity());
         assertEquals("Silver necklace", Item.parse("silver_necklace").name());
@@ -62,7 +64,10 @@ class WearablesTest {
                 "chainmail_pants")) {
             assertEquals(Rarity.UNCOMMON, w(id).wearable().rarity(), id);
         }
-        for (String id : List.of("laced_dress", "silver_wrist_band", "silver_necklace", "silver_hoops", "dye_mint",
+        assertEquals(Rarity.UNCOMMON, w("dye_mint").wearable().rarity(), "the 14 named dyes are Uncommon: common");
+        assertEquals(86, Wearables.ALL.stream().filter(d -> Wearables.PALETTE_DYE.equals(d.wearable().family())
+                && d.wearable().rarity() == Rarity.RARE).count(), "the rest of the palette's are Rare");
+        for (String id : List.of("laced_dress", "silver_wrist_band", "silver_necklace", "silver_hoops",
                 "makeup_plum", "lipstick", "hair_braids", "eyebrows_thin", "iron_chestplate", "iron_leg_plating",
                 "iron_gauntlets", "iron_helmet")) {
             assertEquals(Rarity.RARE, w(id).wearable().rarity(), id);
@@ -100,7 +105,9 @@ class WearablesTest {
         assertTrue(loot.pool(Rarity.COMMON).contains(Item.of(w("straw_sun_hat"))));
         assertTrue(loot.pool(Rarity.UNCOMMON).contains(Item.of(w("chainmail_shirt"))));
         assertTrue(loot.pool(Rarity.RARE).contains(Item.of(w("iron_gauntlets"))));
-        assertTrue(loot.pool(Rarity.RARE).contains(Item.of(w("dye_royal_blue"))));
+        assertTrue(loot.pool(Rarity.UNCOMMON).contains(Item.of(w("dye_royal_blue"))));
+        assertTrue(loot.pool(Rarity.RARE).contains(Item.of(w("horned_helm"))));
+        assertTrue(loot.pool(Rarity.LEGENDARY).contains(Item.of(w("gilded_great_helm"))));
         assertTrue(loot.pool(Rarity.EPIC).contains(Item.of(w("steel_helmet"))));
         assertTrue(loot.pool(Rarity.EPIC).contains(Item.of(w("gold_hoops"))));
         for (Rarity r : Rarity.values()) {
@@ -115,15 +122,18 @@ class WearablesTest {
         }
         // weapons as before: a Basic one of all eight but the wand, and eight Mythic
         assertEquals(7, new Loot().pool(Rarity.COMMON).size());
-        assertEquals(5 + 13, loot.pool(Rarity.COMMON).size() - 7,
-                "and the five Common wearables and the thirteen Common tailored garments");
+        assertEquals(5 + 13 + 11, loot.pool(Rarity.COMMON).size() - 7,
+                "and the five Common wearables, the thirteen Common tailored garments and the eleven Common outfits");
         assertEquals(8, loot.pool(Rarity.MYTHIC).size());
         // each family is one drop
         List<List<Item>> rare = loot.drops(Rarity.RARE);
-        assertEquals(4 + 4 + 1 + 1 + 1 + 1 + 1 + 4 + 1, rare.size(),
-                "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; the dyes, the makeup, the lipstick, the hair "
-                        + "styles and the eyebrows one each; the iron armour; the Rare tailored garments, one drop");
-        assertTrue(rare.stream().anyMatch(d -> d.size() == 100), "the dyes: every colour of the palette");
+        assertEquals(4 + 4 + Wearables.DYE_CHANCES + 1 + 1 + 1 + 1 + 4 + 1 + 14, rare.size(),
+                "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; "
+                        + "the palette's dyes, as many chances as DYE_CHANCES; the makeup, the lipstick, the hair "
+                        + "styles and the eyebrows one each; the iron armour; the Rare tailored garments, one drop; "
+                        + "the fourteen Rare outfits");
+        assertTrue(rare.stream().anyMatch(d -> d.size() == 86), "the dyes: every other colour of the palette");
+        assertTrue(loot.drops(Rarity.UNCOMMON).stream().anyMatch(d -> d.size() == 14), "the 14 named dyes");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 9), "the hair styles, less the starter's two");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 2 && d.get(0).id().startsWith("eyebrows_")));
         assertTrue(rare.stream().anyMatch(d -> d.size() == 3 && d.get(0).id().startsWith("makeup_")));
@@ -145,11 +155,18 @@ class WearablesTest {
             }
             if (!item.def().isWearable()) weapons++;
         }
-        assertEquals(1.0 / drops, dyes / (double) n, 0.006, "the hundred dyes together are one drop");
+        assertEquals(Wearables.DYE_CHANCES / (double) drops, dyes / (double) n, 0.008,
+                "the palette's 86 dyes together come up as often as DYE_CHANCES drops: dyes are common");
         assertEquals(4.0 / drops, weapons / (double) n, 0.008, "and the weapons are not drowned out");
-        assertEquals(100, perDye.size(), "every dye comes up");
-        for (String c : Wearables.DYE_COLOURS) assertTrue(perDye.containsKey(c), c);
-        for (int c : perDye.values()) assertEquals(dyes / 100.0, c, dyes / 100.0 * 0.4, "every dye alike");
+        assertEquals(86, perDye.size(), "every dye comes up");
+        for (int c : perDye.values()) assertEquals(dyes / 86.0, c, dyes / 86.0 * 0.4, "every dye alike");
+        // the 14 named ones: Uncommon, as often as DYE_CHANCES of the Uncommon drops
+        int named = 0, un = loot.drops(Rarity.UNCOMMON).size();
+        for (int i = 0; i < n; i++) {
+            Item item = loot.pick(random, Rarity.UNCOMMON);
+            if (item.def().isWearable() && item.def().wearable().dye() != null) named++;
+        }
+        assertEquals(Wearables.DYE_CHANCES / (double) un, named / (double) n, 0.008);
     }
 
     @Test

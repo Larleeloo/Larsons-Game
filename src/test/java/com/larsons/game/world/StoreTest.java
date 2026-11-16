@@ -141,12 +141,18 @@ class StoreTest {
     @Test
     void whatBreaksOnlySometimesHasCoinsAndThenAmongWhatItHolds() {
         World w = new World(new Wardrobe());
-        int with = 0, n = 600;
+        int with = 0, dyed = 0, n = 600;
         for (int i = 0; i < n; i++) {
             Store.Kind kind = i % 2 == 0 ? Store.Kind.BARREL : Store.Kind.POT;
             Store s = w.addStore(new Store(100 + i, kind, new Vec3(i * 3, 0, 5), 0));
+            int dyes = 0;
+            for (Item it : s.items()) {
+                if (it != null && it.def().isWearable() && it.def().wearable().dye() != null) dyes++;
+            }
+            assertTrue(dyes <= 1, "a dye now and then, one at most");
+            dyed += dyes;
             if (s.coins() == 0) {
-                assertEquals(0, s.items().count(), "nothing in it at all");
+                assertEquals(dyes, s.items().count(), "nothing in it but a dye, if that");
                 continue;
             }
             with++;
@@ -157,6 +163,7 @@ class StoreTest {
             assertEquals(s.coins(), again.coins());
         }
         assertEquals(Store.COINS_IN / 100.0, with / (double) n, 0.07, "about one in three");
+        assertEquals(Store.DYES_IN / 100.0, dyed / (double) n, 0.07, "and about one in five a dye");
         // a rack does not break: never
         for (int i = 0; i < 60; i++) {
             assertEquals(0, w.addStore(new Store(900 + i, Store.Kind.RACK, new Vec3(i, 0, -9), 0)).coins());
@@ -165,8 +172,9 @@ class StoreTest {
         Store rich = null, poor = null;
         for (Store s : w.stores()) {
             if (s.kind() != Store.Kind.BARREL) continue;
-            if (s.coins() > 0 && rich == null) rich = s;
-            if (s.coins() == 0 && poor == null) poor = s;
+            // (ones with no dye in them: the coins alone)
+            if (s.coins() > 0 && s.items().count() == 1 && rich == null) rich = s;
+            if (s.coins() == 0 && s.items().count() == 0 && poor == null) poor = s;
         }
         assertNotNull(rich);
         assertNotNull(poor);

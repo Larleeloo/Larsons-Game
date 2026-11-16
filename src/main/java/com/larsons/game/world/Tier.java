@@ -87,12 +87,59 @@ public enum Tier {
 
     /** {@code item}'s row of the chart, or null for an item with no tiers. */
     public static Row row(String item) {
-        return CHART.get(item);
+        Row r = CHART.get(item);
+        return r != null ? r : item == null ? null : ArmourRows.ROWS.get(item);
+    }
+
+    /**
+     * The armour's tiers ({@link Armour}): every piece climbs from the rarity
+     * it is found as to Mythic - Reinforced, Riveted, Tempered, Perfect,
+     * Mythic - each tier up a rarity, so more dice to block with. Upgraded
+     * with ingots like a weapon ({@link Upgrades}); the lowest tier is the
+     * piece as it is found, named as it is ("Iron helmet", "Tempered iron
+     * helmet").
+     */
+    public static Map<String, Row> armour() {
+        return ArmourRows.ROWS;
+    }
+
+    /** What a tier is called on armour: Reinforced, Riveted, Tempered, Perfect, Mythic (Basic: as it is). */
+    public static String armourLabel(Tier t) {
+        return switch (t) {
+            case BASIC -> "Plain";
+            case SHARPER -> "Reinforced";
+            case MAGIC, CRAFTED -> "Riveted";
+            case HONED, CRYSTAL -> "Tempered";
+            case PERFECT -> "Perfect";
+            case MYTHIC -> "Mythic";
+        };
+    }
+
+    /** The armour's rows, made the first time they are asked for (the wearables are made first). */
+    private static final class ArmourRows {
+        static final Map<String, Row> ROWS = make();
+
+        private static Map<String, Row> make() {
+            Tier[] climb = {BASIC, SHARPER, CRAFTED, HONED, PERFECT, MYTHIC};
+            Map<String, Row> out = new LinkedHashMap<>();
+            for (ItemDef d : Wearables.ALL) {
+                if (Armour.sides(d) <= 0) continue;
+                Map<Tier, String> names = new LinkedHashMap<>();
+                Rarity from = d.wearable().rarity();
+                String low = d.name().substring(0, 1).toLowerCase(java.util.Locale.ROOT) + d.name().substring(1);
+                for (Tier t : climb) {
+                    if (t.rarity.ordinal() < from.ordinal()) continue;
+                    names.put(t, names.isEmpty() ? d.name() : armourLabel(t) + " " + low);
+                }
+                out.put(d.id(), new Row(d.id(), java.util.Collections.unmodifiableMap(names)));
+            }
+            return java.util.Collections.unmodifiableMap(out);
+        }
     }
 
     /** What {@code item} is called in {@code tier} ("Perfect Bow"), or null when it has no such tier. */
     public static String name(String item, Tier tier) {
-        Row r = CHART.get(item);
+        Row r = row(item);
         return r == null || tier == null ? null : r.names().get(tier);
     }
 

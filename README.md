@@ -49,7 +49,8 @@ which the game's real places are made.
   the weapon's rarity - **eight weapons**, each with its own stance and moves,
   heavy and spin attacks, jump attacks, blocks, parries, a dash and a combat
   roll, a lock-on, sneak attacks, ammunition that wears out, upgrade tiers,
-  and weapons of your own made in the Forge.
+  weapons of your own made in the Forge - and **armour that rolls dice** to
+  block every blow.
 - **Foes that think**: Bortzal, Drurineans, Khorigale, bandits, the Risen,
   the Vérnees serpents from the sky, boar and buffalo. They see only what is
   in their sight, find their way round walls and cliffs, and search where
@@ -72,7 +73,7 @@ which the game's real places are made.
   editor.
 - **Polish**: one settings menu over every screen (F10), full controller
   support with a focus that moves between every button, a pointer that changes
-  with what it is over, a 19-chapter How to play and first-time tips, colour
+  with what it is over, a 20-chapter How to play and first-time tips, colour
   grading down to two colours, a sound for everything (and any of them
   swapped for your own), medieval covers for music, 120 frames a second.
 
@@ -373,6 +374,18 @@ left-handed.
   name, rarity, colours part by part, dice - how many of a **d4, d6, d8, d10,
   d%, d12 or d20**, and up to four more groups that **add, subtract,
   multiply, divide or scale** the total - and any of the three borders.
+- **Armour rolls to block** (`world/Armour`): a blow lands on her **head,
+  torso, arms, legs or feet** (torso most often), and what she wears there
+  rolls its dice **just above the hotbar** - leather and padding a **d4**,
+  chainmail, bronze and scale a **d6** to **d8**, iron a **d8**, steel a
+  **d10**, the gilded great helm a **d12** - one die for Common to Rare, two
+  for Epic and Legendary, three for Mythic. The total comes off the blow;
+  roll as much as it and **"Armour held!"**. Armour has **tiers** too
+  (Plain, Reinforced, Riveted, Tempered, Perfect, Mythic: each a rarity up,
+  and darker, harder metal), upgraded with ingots like a weapon, and the
+  Forge makes armour of its own. `assets/combat/combat.json`'s `armour`
+  sets the dice per rarity, how often each place is struck, a minimum blow,
+  and `everyPieceRolls` - every piece she wears rolling at once.
 
 Felling a training dummy is practice: the demo's three straw dummies, two
 **flying dummies** that dive at her, and dummies on the highlands to shoot
@@ -382,6 +395,11 @@ nothing, she is knocked out and back at the start.
 <p align="center">
   <img src="docs/screenshots/dodge.png" width="49%" alt="The dash and the combat roll">
   <img src="docs/screenshots/forge-dice.png" width="49%" alt="A forged sword's three blue d8s over her head: Mystic and Venom under them">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/armour-dice-landed.png" width="49%" alt="A blow on the torso: her Epic steel chestplate's two d10s above the hotbar, fully blocked, 20 against 14">
+  <img src="docs/screenshots/armour-dice-all.png" width="49%" alt="With every piece rolling: helmet, chestplate, gauntlets and leg plating each roll two d10s against a blow of 30">
 </p>
 
 ## Foes
@@ -495,14 +513,30 @@ sprites in their tier's colours.
   <img src="docs/screenshots/wardrobe.png" width="70%" alt="The wardrobe: an oak armoire with its doors open, shelves of what she owns to wear, colour gems, and her in a gilded mirror">
 </p>
 
-What she wears is **items** - clothes, armour (chainmail, iron and steel),
-jewellery, hair styles, makeup, dyes - found in chests and shops and put on in
-**Pause → Wardrobe**, an oak armoire with her in its mirror, turning through
-every view and state. Every layer takes its own few colours **and any of the
-palette's hundred**, set out in a grid under them. **Dyes** unlock a colour
-on an item for good - the fourteen named ones, from royal blue to green
-ombre, and one for every other colour of the palette; the skin, the eyes,
-the hair and the eyebrows are free. Lips nobody has painted are the skin's
+<p align="center">
+  <img src="docs/screenshots/wearables-lineup.png" width="90%" alt="Six outfits of the new wearables on both bodies: a great helm and scale mail; a top hat, monocle and frock coat; a wizard's hat and robe; goggles, a corset, a pleated skirt and clockwork wings; a hood, leather jerkin and backpack; a crown, masquerade mask and choker">
+</p>
+
+What she wears is **items** - clothes, armour (leather, chainmail, scale,
+bronze, iron and steel), jewellery, hair styles, makeup, dyes - found in
+chests and shops and put on in **Pause → Wardrobe**, an oak armoire with her
+in its mirror, turning through every view and state. Among them, **54 added
+for both bodies** (`world/Wearables` `outfitTable`): great helms, kettle
+hats, horned helms, coifs, a wizard's hat, top hats, tricorns, hoods,
+crowns, circlets and flower crowns; brass goggles, an eyepatch, a masquerade
+mask and a monocle in a new **eyewear** slot; gorgets, amulets, cameo
+chokers, scarves and earrings; gambesons, waistcoats, robes, frock coats,
+breeches, pleated skirts, riding boots, sandals, sabatons and fingerless
+gloves; bracers, brass gear cuffs, corsets, sashes and pouch belts; scale
+mail, a leather jerkin and greaves, a backpack and clockwork wings - and
+pieces in **bronze, gilded, blackened and silvered** metal. Every layer
+takes its own few colours **and any of the palette's hundred**, set out in a
+grid under them. **Dyes** unlock a colour on an item for good - the fourteen
+named ones, from royal blue to green ombre, and one for every other colour
+of the palette; the skin, the eyes, the hair and the eyebrows are free. Dyes
+are **common** now: six times as likely in a loot pool, one or two more in
+every chest, one felled foe in four drops one, about one breakable in five hides
+one, and every shop has a few on its shelves. Lips nobody has painted are the skin's
 own colour, a little darker. Armour hides what it covers. Two bodies,
 feminine and masculine, wear every item, in 128- or 64-pixel pixel art.
 
@@ -877,8 +911,9 @@ furnish and play-test from inside.
   <img src="docs/screenshots/creative-forge.png" width="70%" alt="The Forge: a weapon of your own, its colours, dice and effects">
 </p>
 
-The **Forge** makes weapons of your own: a name, which of the eight it is
-(its look, stance and moves), its rarity, its colours part by part (a sword's
+The **Forge** makes weapons - and armour - of your own: a name, which of the
+eight weapons or which piece of armour it is made from (its look, stance and
+moves; for armour, where it is worn and what it rolls to block), its rarity, its colours part by part (a sword's
 blade, fittings and handle; the dice), its dice and their operators, its
 effects, how long its ammunition lasts, and its upgrade tiers (each a name,
 rarity, dice, colours, its price in ingots, or a mystery shown as ???). Saved
@@ -1088,7 +1123,8 @@ Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
 `surround` (the country round the level: `surround pines height=1.5 seed=4`),
 `fog`,
 `store`, `shop`, `door`, `enter`, `outside`, `say` / `endtalk`, `journal`,
-`station`, `summon`, `animal`, `health`, `fall`, `climb`, `round` (the
+`station`, `summon`, `animal`, `health`, `struck` (a blow on her
+that her armour rolls against: `struck 12 torso`, `struck 20 all`), `fall`, `climb`, `round` (the
 horde's), and more. In the editor: `tool`, `entry`, `place`, `select`,
 `selectid`, `set`, `look`, `sculpt`, `paint`, `biome`, `water`, `sky`, `surround`,
 `backdrop`, `life`, `forge`, `save`, `undo`, `playtest`. Their full forms are

@@ -16,6 +16,10 @@ import java.util.List;
  * set. Right-click a weapon in the inventory to see every tier and upgrade it.
  * The top tier of a chart weapon (its Mythic) is a mystery until it is
  * reached.
+ *
+ * <p>Armour climbs the same way ({@link Tier#armour}): each tier up a rarity,
+ * so more dice to block a blow with ({@link Armour}) - a forged piece its own
+ * tiers, as the Forge made them.
  */
 public final class Upgrades {
 
@@ -46,14 +50,25 @@ public final class Upgrades {
 
     /** Every tier of {@code item}'s, lowest first ({@code tuning}: the dice a chart weapon of each rarity rolls). */
     public static List<Step> path(Item item, java.util.function.ToIntFunction<Rarity> dice, int sides) {
+        return path(item, dice, sides, Armour.Rules.defaults());
+    }
+
+    /**
+     * Every tier of {@code item}'s, lowest first: a weapon's dice as {@code
+     * dice} and {@code sides} say, a piece of armour's as {@code armour} does
+     * (and no ammunition: its {@link Step#ammoEvery} is 0).
+     */
+    public static List<Step> path(Item item, java.util.function.ToIntFunction<Rarity> dice, int sides,
+                                  Armour.Rules armour) {
         List<Step> out = new ArrayList<>();
+        boolean worn = item != null && Armour.sides(item.def()) > 0;
         if (item == null) return out;
         Forged f = item.forged();
         if (f != null) {
             for (int n = 0; n < f.tiers(); n++) {
                 Forged at = f.at(n);
                 boolean mystery = n > 0 && at.tier().mystery();
-                out.add(new Step(at.name(), at.rarity(), at.diceText(), at.ammoEvery(),
+                out.add(new Step(at.name(), at.rarity(), at.diceText(), worn ? 0 : at.ammoEvery(),
                         n == 0 ? 0 : at.tier().cost(), mystery, n <= f.level(), n == f.level()));
             }
             return out;
@@ -65,9 +80,10 @@ public final class Upgrades {
         for (int n = 0; n < tiers.size(); n++) {
             Tier t = tiers.get(n);
             Item at = new Item(item.def(), t, null, item.border());
-            out.add(new Step(at.name(), t.rarity(), dice.applyAsInt(t.rarity()) + Forged.die(sides),
-                    Ammo.every(at), n == 0 ? 0 : cost(t.rarity()), n == tiers.size() - 1 && n > now,
-                    n <= now, n == now));
+            String rolls = worn ? armour.dice(t.rarity()) + Forged.die(Armour.sides(item.def()))
+                    : dice.applyAsInt(t.rarity()) + Forged.die(sides);
+            out.add(new Step(at.name(), t.rarity(), rolls, worn ? 0 : Ammo.every(at),
+                    n == 0 ? 0 : cost(t.rarity()), n == tiers.size() - 1 && n > now, n <= now, n == now));
         }
         return out;
     }

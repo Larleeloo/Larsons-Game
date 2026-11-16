@@ -233,8 +233,46 @@ public final class ItemSprites implements AutoCloseable {
         return tiers.forged(base, id, tiers.carried(id), tints);
     }
 
+    /** What armour's looks call the parts of a piece worn ({@code tiers.json}'s {@code armour}). */
+    public static final String ARMOUR = "armour";
+    /** The parts a piece of armour can be coloured by: all of it, its main metal or leather, its trim, the rest. */
+    public static final java.util.List<String> ARMOUR_PARTS = java.util.List.of(TierLook.ALL, "main", "trim", "detail");
+
+    /**
+     * A worn piece's parts, from the materials of its art no colour channel
+     * takes ({@code fixed}, first to last): {@code main} the first, {@code
+     * trim} the second, {@code detail} the rest - and {@code all} of them.
+     */
+    public static Map<String, int[]> wornParts(int[] fixed) {
+        Map<String, int[]> out = new java.util.LinkedHashMap<>();
+        if (fixed == null || fixed.length == 0) return out;
+        out.put("main", new int[]{fixed[0]});
+        if (fixed.length > 1) out.put("trim", new int[]{fixed[1]});
+        if (fixed.length > 2) out.put("detail", java.util.Arrays.copyOfRange(fixed, 2, fixed.length));
+        return out;
+    }
+
+    /**
+     * A worn layer of {@code folder} (palette {@code base}, its uncoloured
+     * materials {@code fixed}) in the look of the piece worn: tinted {@code
+     * tint} (RGB; -1: not) - a bronze helmet is the iron one in bronze - then
+     * in armour {@code tier}'s look ({@code tiers.json}'s {@code armour};
+     * null: none), then a forged piece's colours ({@code forged}: part to RGB;
+     * null or empty: none). {@code base} itself when nothing changes.
+     */
+    public int[] worn(int[] base, String folder, int[] fixed, int tint, String tier, Map<String, Integer> forged) {
+        if (base == null || fixed == null || fixed.length == 0) return base;
+        Map<String, int[]> parts = wornParts(fixed);
+        int[] p = base;
+        if (tint >= 0) p = tiers.forged(p, "worn:" + folder, parts, Map.of(TierLook.ALL, tint & 0xFFFFFF));
+        if (tier != null) p = tiers.palette(p, ARMOUR, tier, parts);
+        if (forged != null && !forged.isEmpty()) p = tiers.forged(p, "worn:" + folder, parts, forged);
+        return p;
+    }
+
     /** The parts of weapon {@code id} a forged one can colour: its in-hand sheets' (and {@code all}). */
     public java.util.List<String> parts(String id) {
+        if (com.larsons.game.world.Armour.sides(com.larsons.game.world.ItemDef.byId(id)) > 0) return ARMOUR_PARTS;
         java.util.List<String> out = new java.util.ArrayList<>();
         out.add(TierLook.ALL);
         Map<String, int[]> c = tiers.carried(id);
