@@ -50,7 +50,7 @@ final class SidePanels {
         frame(ui, x, y, w, h, "Upgrades");
         ui.textCentered(ui.body, item.fullName(), x + w / 2, y + 52, item.rarity().colour(1f));
         var tuning = world.combat().tuning();
-        List<Upgrades.Step> path = Upgrades.path(item, tuning::dice, tuning.sides);
+        List<Upgrades.Step> path = Upgrades.path(item, tuning::dice, tuning.sides, tuning.armour);
         float rowH = Math.min(58, (h - 210) / Math.max(1, path.size()));
         float ry = y + 86;
         for (int i = 0; i < path.size(); i++) {
@@ -63,6 +63,7 @@ final class SidePanels {
             float[] c = hidden ? Theme.ITEM_DISABLED : s.rarity().colour(1f);
             ui.text(ui.body, (i + 1) + ".  " + name, rx + 8, ry + 4, c);
             String line = hidden ? "A mystery until it is reached"
+                    : s.ammoEvery() <= 0 ? s.rarity().label() + " · blocks with " + s.dice()
                     : s.rarity().label() + " · rolls " + s.dice() + " · ammunition lasts " + s.ammoEvery();
             ui.text(ui.small, line, rx + 8, ry + 4 + ui.body.lineHeight() + 1,
                     hidden ? Theme.ITEM_DISABLED : Theme.withAlpha(Theme.HINT, s.reached() ? 1f : 0.75f));

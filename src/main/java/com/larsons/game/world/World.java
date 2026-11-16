@@ -460,6 +460,7 @@ public final class World {
     /** A world whose player carries an inventory of {@code slots} slots. */
     public World(Wardrobe wardrobe, int slots) {
         player = new Player(wardrobe, slots);
+        player.useArmourRules(() -> combat.tuning().armour);
         player.setAimUp(() -> combat.aimsUp(this));
         player.setTops(tops);
         equipSelected();                // nothing carried yet: her hands are empty
@@ -846,8 +847,7 @@ public final class World {
             case STRUCK -> {
                 double thorns = player.buffs().plus(Buffs.Kind.THORNS);
                 if (thorns > 0 && e.damage() > 0 && f.alive()) f.hurt(e.damage() * thorns, player.ground(), true);
-                combat.say("-" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
-                combat.sound("combat/player_hurt", at);
+                hurtSaid("", e.damage(), at);
             }
             case BLOCKED -> {
                 combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
@@ -883,6 +883,10 @@ public final class World {
         int coins = 1 + r.nextInt(Math.max(1, b.xp() / 4));
         spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
         Item w = f.weapon();
+        if (r.nextInt(4) == 0) {
+            ItemDef dye = Wearables.randomDye(r);
+            if (dye != null) spawn(Item.of(dye), new Vec3(at.x() - 0.35, 0, at.z() - 0.25));
+        }
         if (w != null && r.nextInt(6) == 0) spawn(w, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
         else if (r.nextInt(5) == 0) {
             Item drop = loot.pick(r, Rarity.roll(r));
@@ -1042,10 +1046,8 @@ public final class World {
                 combat.say("!", 0xFFD27A, sp.position(), sp.height() + 0.3, false);
                 combat.sound("foes/vernees_hiss", sp.position());
             }
-            case STRUCK -> {
-                combat.say("Bitten! -" + Combat.format(sp.damage()), HURT_RGB, at, 2.1, false);
-                combat.sound("combat/player_hurt", at);
-            }
+            case STRUCK -> hurtSaid("Bitten! ", player.armourRoll() != null && player.armourAge() < 0.05
+                    ? player.armourRoll().taken() : sp.damage(), at);
             case BLOCKED -> {
                 combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
                 combat.sound("combat/block", at);
@@ -1086,11 +1088,33 @@ public final class World {
             return;
         }
         double dealt = her.blocking() ? Math.round(hit.damage() / 2) : hit.damage();
-        double took = player.hurt(dealt);
+        double took = player.struck(dealt);
+        if (took <= 0 && player.armourHeld()) {
+            hurtSaid("", 0, at);
+            return;
+        }
         combat.say((her.blocking() ? "Blocked -" : "-") + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at,
                 2.1, her.blocking());
         combat.sound(her.blocking() ? "combat/block" : "combat/player_hurt", at);
     }
+
+    /**
+     * What a blow that got to her did, said over her and heard: what it
+     * took ({@code what} before it: "Bitten! -6"), or "Armour!" when her
+     * armour's dice held it off entirely.
+     */
+    private void hurtSaid(String what, double took, Vec3 at) {
+        if (took <= 0 && player.armourRoll() != null && player.armourAge() < 0.05 && player.armourRoll().full()) {
+            combat.say(what + "Armour held!", ARMOUR_RGB, at, 2.1, false);
+            combat.sound("combat/block", at);
+            return;
+        }
+        combat.say(what + "-" + Combat.format(took), HURT_RGB, at, 2.1, false);
+        combat.sound("combat/player_hurt", at);
+    }
+
+    /** "Armour held!": a steel blue. */
+    static final int ARMOUR_RGB = 0xA8C8E8;
 
     /** The solid scenery by {@value #CELL} m square, for the animals to go round quickly. */
     private final Map<Long, List<Scenery.Placed>> solidCells = new java.util.HashMap<>();
@@ -1604,7 +1628,7 @@ public final class World {
             }
 
             @Override
-            public double hurt(double damage) { return player.hurt(damage); }
+            public double hurt(double damage) { return player.struck(damage); }
 
             @Override
             public boolean down() { return player.health() <= 0; }
@@ -1623,8 +1647,7 @@ public final class World {
             case STRUCK -> {
                 double thorns = player.buffs().plus(Buffs.Kind.THORNS);
                 if (thorns > 0 && e.damage() > 0 && a.alive()) a.hurt(e.damage() * thorns, player.ground(), true);
-                combat.say(struck(a.kind()) + " -" + Combat.format(e.damage()), HURT_RGB, at, 2.1, false);
-                combat.sound("combat/player_hurt", at);
+                hurtSaid(struck(a.kind()) + " ", e.damage(), at);
             }
             case BLOCKED -> {
                 combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
@@ -1763,10 +1786,8 @@ public final class World {
         Vec3 at = player.ground();
         switch (o) {
             case WARNED -> combat.say("!", 0xFFD27A, f.position(), FlyingDummy.HEIGHT + 0.3, false);
-            case STRUCK -> {
-                combat.say("Swooped! -" + Combat.format(FlyingDummy.SWOOP_DAMAGE), HURT_RGB, at, 2.1, false);
-                combat.sound("combat/player_hurt", at);
-            }
+            case STRUCK -> hurtSaid("Swooped! ", player.armourRoll() != null && player.armourAge() < 0.05
+                    ? player.armourRoll().taken() : FlyingDummy.SWOOP_DAMAGE, at);
             case BLOCKED -> {
                 combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
                 combat.sound("combat/block", at);
@@ -1833,6 +1854,7 @@ public final class World {
                     combat.lock(null);
                 }
                 case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
+                case ARMOUR_HELD -> { }        // (said where the blow came from: hurtSaid)
             }
         }
     }
@@ -1863,6 +1885,13 @@ public final class World {
                 : Supplies.AMMO.get(extra.nextInt(Supplies.AMMO.size()));
         lot.add(Item.of(supply));
         amounts.add(Supplies.isAmmo(supply) ? 2 + extra.nextInt(3) : 1);
+        // and a dye or two: dyes are common
+        for (int d = extra.nextInt(2) == 0 ? 2 : 1; d > 0; d--) {
+            ItemDef dye = Wearables.randomDye(extra);
+            if (dye == null) continue;
+            lot.add(Item.of(dye));
+            amounts.add(1);
+        }
         Vec3 lid = c.position().add(0, 0.55, 0);
         int n = lot.size();
         for (int i = 0; i < n; i++) {

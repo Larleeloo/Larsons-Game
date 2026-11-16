@@ -68,6 +68,16 @@ public final class CombatTuning {
     /** A training dummy's health, and how long it lies knocked over before it springs back up. */
     public final double dummyHealth, dummyDownSeconds;
 
+    /**
+     * How armour blocks a blow ({@link com.larsons.game.world.Armour}): the
+     * dice a piece of each rarity rolls ({@code armour.perRarity}), how often
+     * a blow lands on each place ({@code armour.locations}: head, torso, arms,
+     * legs, feet), whether every piece rolls at every blow wherever it lands
+     * ({@code armour.everyPieceRolls}) and the least a blow still does
+     * ({@code armour.minDamage}).
+     */
+    public final com.larsons.game.world.Armour.Rules armour;
+
     private CombatTuning(Map<String, Object> json) {
         Map<String, Object> d = Json.obj(json, "dice");
         sides = Math.max(2, Math.min(20, (int) Json.num(d, "sides", 20)));   // the dice are drawn with 20 faces
@@ -102,6 +112,25 @@ public final class CombatTuning {
         Map<String, Object> t = Json.obj(json, "dummy");
         dummyHealth = Math.max(1, Json.num(t, "health", 100));
         dummyDownSeconds = Math.max(0, Json.num(t, "downSeconds", 6));
+
+        armour = armour(Json.obj(json, "armour"));
+    }
+
+    private static com.larsons.game.world.Armour.Rules armour(Map<String, Object> a) {
+        var standard = com.larsons.game.world.Armour.Rules.defaults();
+        Map<String, Object> per = Json.obj(a, "perRarity");
+        Map<Rarity, Integer> dice = new EnumMap<>(Rarity.class);
+        for (Rarity r : Rarity.values()) {
+            dice.put(r, Math.max(1, Math.min(10, (int) Json.num(per, r.key(), standard.dice(r)))));
+        }
+        Map<String, Object> at = Json.obj(a, "locations");
+        Map<com.larsons.game.world.Armour.Location, Integer> weights =
+                new EnumMap<>(com.larsons.game.world.Armour.Location.class);
+        for (var l : com.larsons.game.world.Armour.Location.values()) {
+            weights.put(l, Math.max(0, (int) Json.num(at, l.key(), l.weight())));
+        }
+        boolean every = a != null && Boolean.TRUE.equals(a.get("everyPieceRolls"));
+        return new com.larsons.game.world.Armour.Rules(dice, weights, every, Math.max(0, Json.num(a, "minDamage", 0)));
     }
 
     /** Every number at its default. */

@@ -112,9 +112,11 @@ public final class Store implements Target {
 
     /** How many in a hundred of the things that break have a few coins in them. */
     public static final int COINS_IN = 35;
+    /** How many in a hundred of the things that break have a dye in them. */
+    public static final int DYES_IN = 22;
 
     /**
-     * Now and then something that breaks has a few coins in it: in its
+     * Now and then something that breaks has a few coins in it, or a dye: in its
      * inventory, with whatever else it holds - there when she looks into
      * it, spilled with the rest when she breaks it. The same ones every
      * time the level is played (it goes by which object it is and where).
@@ -124,8 +126,12 @@ public final class Store implements Target {
         coinsHidden = true;
         java.util.Random r = new java.util.Random(id * 0x9E3779B97F4A7C15L
                 ^ Double.doubleToLongBits(position.x() * 31 + position.z()));
-        if (r.nextInt(100) >= COINS_IN) return;
-        items.put(Item.of(Supplies.COINS), 2 + r.nextInt(6), false);
+        boolean coins = r.nextInt(100) < COINS_IN;
+        int coinCount = 2 + r.nextInt(6);
+        boolean dye = r.nextInt(100) < DYES_IN;
+        ItemDef which = Wearables.randomDye(r);
+        if (coins) items.put(Item.of(Supplies.COINS), coinCount, false);
+        if (dye && which != null) items.put(Item.of(which), 1, false);
     }
 
     private boolean coinsHidden;

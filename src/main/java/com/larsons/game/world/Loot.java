@@ -27,7 +27,9 @@ import java.util.Random;
  * <p>A <b>family</b> - the fourteen dyes, the hair styles - is added as one
  * drop ({@link #add(List)}): it is as likely as any other drop of its rarity,
  * and when it comes up, one of its members is, any one as likely as another.
- * So many dyes do not drown out the weapons.
+ * So many dyes do not drown out the weapons - though the dyes' families are
+ * given more chances than one ({@link #add(List, int)}: {@link
+ * Wearables#DYE_CHANCES}), so a dye turns up often.
  */
 public final class Loot {
 
@@ -56,16 +58,34 @@ public final class Loot {
 
     /** Add a family as one drop of its rarity (the first member's; borders are rolled). */
     public Loot add(List<Item> family) {
+        return add(family, 1);
+    }
+
+    /**
+     * Add a family as {@code chances} drops of its rarity: as likely to come
+     * up as that many of its other drops together (the dyes: {@link
+     * Wearables#DYE_CHANCES}).
+     */
+    public Loot add(List<Item> family, int chances) {
         List<Item> members = new ArrayList<>();
         for (Item item : family) members.add(item.withBorder(null));
-        if (!members.isEmpty()) pool.get(members.get(0).rarity()).add(List.copyOf(members));
+        if (members.isEmpty()) return this;
+        List<Item> drop = List.copyOf(members);
+        for (int i = 0; i < Math.max(1, chances); i++) pool.get(members.get(0).rarity()).add(drop);
         return this;
     }
 
     /** Every item that drops as {@code rarity}, a family's members each. */
     public List<Item> pool(Rarity rarity) {
         List<Item> out = new ArrayList<>();
-        for (List<Item> drop : pool.get(rarity)) out.addAll(drop);
+        List<List<Item>> seen = new ArrayList<>();
+        for (List<Item> drop : pool.get(rarity)) {
+            boolean again = false;
+            for (List<Item> s : seen) again |= s == drop;      // (a family given more chances is in it once)
+            if (again) continue;
+            seen.add(drop);
+            out.addAll(drop);
+        }
         return Collections.unmodifiableList(out);
     }
 

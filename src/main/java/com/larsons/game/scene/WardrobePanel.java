@@ -17,6 +17,8 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.ui.Medieval;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
+import com.larsons.game.world.Armour;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Player;
@@ -106,17 +108,23 @@ final class WardrobePanel {
      * and the wearable that is (null for a free layer's folder, or a folder
      * no wearable puts there).
      */
-    record Option(String item, ItemDef wearable) {
+    record Option(String item, ItemDef wearable, Forged forged) {
 
-        /** What the row says: the wearable's name ("Silver wrist band"), else the folder's. */
+        Option(String item, ItemDef wearable) {
+            this(item, wearable, null);
+        }
+
+        /** What the row says: the wearable's name ("Silver wrist band"), a forged piece's, else the folder's. */
         String label(Slot slot) {
+            if (forged != null) return forged.name() + " (forged)";
             if (item == null || wearable == null) return WardrobePanel.label(slot, item);
             List<String> folders = wearable.wearable().folders();
             return folders.size() == 1 ? wearable.name() : wearable.name() + " (" + item.replace('_', ' ') + ")";
         }
 
-        /** The colour it is always worn in (a metal's), or null. */
+        /** The colour it is always worn in (a metal's, a tint's, a forged piece's look), or null. */
         String colour() {
+            if (forged != null) return Armour.forgedLook(forged);
             return wearable == null ? null : wearable.wearable().colour();
         }
     }
@@ -156,10 +164,23 @@ final class WardrobePanel {
                 if (!out.contains(o)) out.add(o);
             }
         }
+        // armour forged in the Forge: each piece its own choice, in its own colours
+        for (Item i : player.inventory()) {
+            if (i == null || i.forged() == null || !i.def().isWearable() || !i.def().wearable().slots().contains(slot)) {
+                continue;
+            }
+            Forged f = i.forged().at(0);
+            boolean listed = false;
+            for (Option o : out) listed |= o.forged() != null && o.forged().id().equals(f.id());
+            if (!listed) out.add(new Option(i.def().wearable().folders().get(0), i.def(), f));
+        }
         // what she wears and no longer owns stays on until it is taken off
         String worn = wardrobe.get(slot);
         if (worn != null && current(out, slot, wardrobe) < 0) {
-            out.add(new Option(worn, Wearables.wornAs(slot, worn, wardrobe.colour(slot))));
+            String forgedId = Armour.forgedId(wardrobe.colour(slot));
+            Forged f = forgedId == null ? null : Forged.byId(forgedId);
+            out.add(f != null ? new Option(worn, f.def(), f)
+                    : new Option(worn, Wearables.wornAs(slot, worn, forgedId != null ? null : wardrobe.colour(slot))));
         }
         return out;
     }
@@ -167,9 +188,15 @@ final class WardrobePanel {
     /** Which of {@code options} is worn in {@code slot}: its folder, in its colour if it has one; or -1. */
     static int current(List<Option> options, Slot slot, Wardrobe wardrobe) {
         String item = wardrobe.get(slot), colour = wardrobe.colour(slot);
+        // (the one in that very look first: a bronze helmet is the iron helmet's folder, in bronze)
         for (int i = 0; i < options.size(); i++) {
             Option o = options.get(i);
-            if (java.util.Objects.equals(o.item(), item) && (o.colour() == null || o.colour().equals(colour))) return i;
+            if (java.util.Objects.equals(o.item(), item) && o.colour() != null && o.colour().equals(colour)) return i;
+        }
+        boolean look = Armour.look(colour);
+        for (int i = 0; i < options.size(); i++) {
+            Option o = options.get(i);
+            if (java.util.Objects.equals(o.item(), item) && o.colour() == null && !look) return i;
         }
         return -1;
     }
@@ -182,7 +209,9 @@ final class WardrobePanel {
         String was = wardrobe.get(slot);
         wardrobe.set(slot, option.item());
         if (option.colour() != null) wardrobe.setColour(slot, option.colour());
-        else if (was != null && Wearables.metal(slot, was)) wardrobe.setColour(slot, null);
+        else if (was != null && (Wearables.metal(slot, was) || Armour.look(wardrobe.colour(slot)))) {
+            wardrobe.setColour(slot, null);
+        }
     }
 
     /**
@@ -495,7 +524,9 @@ final class WardrobePanel {
         SpriteView view = new SpriteView(elevation, facing, elevation.renderAngle());
         double duration = LayerStack.duration(lib, wardrobe, state, view);
         double t = state.loops() ? time : time % (duration + 0.4);
-        LayerStack.Result r = LayerStack.resolve(lib, wardrobe, state, t, view, previewMemory);
+        LayerStack.Result r = com.larsons.game.world.WorldRenderer.inLooks(
+                LayerStack.resolve(lib, wardrobe, state, t, view, previewMemory), wardrobe, player.inventory(),
+                game.items(), lib);
         float ppm = (float) Math.min((gh - 40) / r.framing().frameWorldHeight(),
                 (gw - 10) / r.framing().frameWorldSize());
         double[] anchor = r.framing().anchor(elevation);

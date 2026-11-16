@@ -1713,6 +1713,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 combatHud.drawVitals(ui, world.player(), hotbar - 34);
                 combatHud.drawStealth(ui, world, hotbar - 34);
                 combatHud.drawSupplies(ui, world, hotbar - 34);
+                combatHud.drawArmour(ui, world.player(), hotbar - 34, w.scale());
                 combatHud.drawBuffs(ui, world.player(), 16, 120);
             }
             if (!inventory.open() && hudShown) corner(ui);

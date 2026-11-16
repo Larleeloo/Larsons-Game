@@ -303,6 +303,8 @@ public final class Player {
             LET_GO,
             /** Hurt by something ({@code amount}). */
             HURT,
+            /** A blow held off entirely by her armour ({@code amount}: what its dice came to). */
+            ARMOUR_HELD,
             /** Her health ran out. */
             KNOCKED_OUT,
             /** Up in the saddle. */
@@ -431,6 +433,12 @@ public final class Player {
 
     /** What the cards she has played are doing for her. */
     private final Buffs buffs = new Buffs();
+    /** combat.json's armour rules (the world's), and the dice her armour rolls with. */
+    private java.util.function.Supplier<Armour.Rules> armourRules = Armour.Rules::defaults;
+    private java.util.Random armourDice = new java.util.Random();
+    /** Her armour's last roll against a blow, and how long ago it was (seconds); null before the first. */
+    private Armour.Roll armourRoll;
+    private double armourAge = Double.MAX_VALUE;
     /** The coins in her purse. */
     private int coins;
     /** Her class, her cards, her experience and perks. */
@@ -462,6 +470,7 @@ public final class Player {
         stamina = Math.min(MAX_STAMINA, stamina + buffs.plus(Buffs.Kind.REGEN_STAMINA) * dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
+        if (armourAge < Double.MAX_VALUE) armourAge += dt;
         if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
         if (sinceHurt >= HEALTH_DELAY && health > 0) health = Math.min(MAX_HEALTH, health + HEALTH_REGEN * dt);
         if (wall == null && sinceTired >= STAMINA_DELAY) stamina = Math.min(MAX_STAMINA, stamina + STAMINA_REGEN * dt);
@@ -1827,6 +1836,57 @@ public final class Player {
      */
     public double hurt(double damage) {
         if (damage <= 0 || health <= 0) return 0;
+        return wound(damage);
+    }
+
+    /**
+     * Take a blow of {@code damage} - a foe's swing, an arrow, a bite, a
+     * dive: where it lands her armour there rolls its dice to block it
+     * ({@link Armour#roll}), and what gets through hurts her ({@link #hurt}).
+     * With no armour on at all it is {@link #hurt} as it is. Returns what was
+     * taken; the roll is kept for the HUD ({@link #armourRoll}).
+     */
+    public double struck(double damage) {
+        if (damage <= 0 || health <= 0) return 0;
+        List<Armour.Piece> pieces = Armour.worn(wardrobe, inventory);
+        if (pieces.isEmpty()) return hurt(damage);
+        Armour.Roll roll = Armour.roll(damage, pieces, armourRules.get(), armourDice);
+        armourRoll = roll;
+        armourAge = 0;
+        if (roll.taken() <= 0) {
+            events.add(new Event(Event.Kind.ARMOUR_HELD, roll.blocked()));
+            return 0;
+        }
+        return hurt(roll.taken());
+    }
+
+    /** Where combat.json's armour rules come from (the world's combat tuning). */
+    public void useArmourRules(java.util.function.Supplier<Armour.Rules> rules) {
+        armourRules = rules == null ? Armour.Rules::defaults : rules;
+    }
+
+    /** The armour rules in use. */
+    public Armour.Rules armourRules() {
+        return armourRules.get();
+    }
+
+    /** The dice her armour rolls with (tests: a seeded one). */
+    public void useArmourDice(java.util.Random random) {
+        armourDice = random == null ? new java.util.Random() : random;
+    }
+
+    /** Her armour's last roll against a blow, or null before the first. */
+    public Armour.Roll armourRoll() { return armourRoll; }
+
+    /** Seconds since her armour last rolled ({@link Double#MAX_VALUE}: never). */
+    public double armourAge() { return armourAge; }
+
+    /** Whether the blow just taken was held off by her armour entirely (for what is said over her). */
+    public boolean armourHeld() {
+        return armourRoll != null && armourAge < 1e-9 && armourRoll.full();
+    }
+
+    private double wound(double damage) {
         damage = buffs.soak(damage * buffs.times(Buffs.Kind.DEFENSE));
         if (damage <= 0) return 0;
         double took = Math.min(health, damage);

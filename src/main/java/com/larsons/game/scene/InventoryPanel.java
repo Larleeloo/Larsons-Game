@@ -1060,11 +1060,15 @@ final class InventoryPanel {
         String rarity = item.def().isFood() ? item.def().food().kind() + " - " + item.rarity().label()
                 : forged != null ? item.rarity().label() + " - forged " + item.def().name().toLowerCase(Locale.ROOT)
                         + ", rolls " + forged.notation()
-                : item.rarity().label() + (item.tier() == null ? "" : " - " + item.tier().label() + " tier");
+                : item.rarity().label() + (item.tier() == null ? ""
+                        : " - " + (com.larsons.game.world.Armour.sides(item.def()) > 0
+                        ? com.larsons.game.world.Tier.armourLabel(item.tier()) : item.tier().label()) + " tier");
         Border border = item.border();
         String effect = item.def().edible() ? "Eat: " + item.def().food().effect()
                 : item.def().isFood() ? "An ingredient, for the crafting to come"
                 : item.def().isTack() ? "Saddles a horse: walk up to one and press E"
+                : com.larsons.game.world.Armour.sides(item.def()) > 0
+                        ? com.larsons.game.world.Armour.describe(item, world.player().armourRules())
                 : forged != null ? (forged.effects().isEmpty() ? null : effects(forged))
                 : border == null ? null : border.label() + " border: " + border.effect();
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));

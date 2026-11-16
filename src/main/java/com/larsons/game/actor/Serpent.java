@@ -325,10 +325,10 @@ public final class Serpent implements Target {
             return Outcome.PARRIED;
         }
         if (p.stance().block() != null && p.state() == p.stance().block()) {
-            p.hurt(Math.round(damage / 2));
+            p.struck(Math.round(damage / 2));
             return Outcome.BLOCKED;
         }
-        p.hurt(damage);
+        p.struck(damage);
         double thorns = p.buffs().plus(com.larsons.game.world.Buffs.Kind.THORNS);
         if (thorns > 0) hurt(damage * thorns, p.feet(), true);
         return Outcome.STRUCK;

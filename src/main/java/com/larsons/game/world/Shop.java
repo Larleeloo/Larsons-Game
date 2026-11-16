@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
  *   card:mage_fireball @60, cards x4
  * </pre>
  *
+ * "dyes x4" is four dyes, chosen once for the shop, three of each on the shelf.
  * "x20" is how many it has (none written: it never runs out - a card, one);
  * "@3" its price in coins (none written: what it is {@linkplain #worth
  * worth}, a card its own price). "cards x4" is four of the shop cards of
@@ -34,7 +35,7 @@ public final class Shop {
 
     /** What it sells when nothing is written. */
     public static final String DEFAULT_STOCK = "whetstone, iron wedges, mace studs, small crystal, large crystal, "
-            + "arrow bundle, bolt bundle, upgrade ingot x6, reshuffle scroll x4, cards x3";
+            + "arrow bundle, bolt bundle, upgrade ingot x6, reshuffle scroll x4, dyes x4, cards x3";
 
     /** How far from its counter's front she can reach it, metres. */
     public static final double REACH = 1.7;
@@ -135,6 +136,21 @@ public final class Shop {
             }
             if (s.equals("cards") || s.equals("card")) {
                 cards += count < 0 ? 3 : count;
+                continue;
+            }
+            if (s.equals("dyes") || s.equals("dye")) {
+                // so many dyes, the same ones every time: chosen from the shop's own number
+                Random r = new Random(id * 131L + 17);
+                int n = Math.min(14, count < 0 ? 4 : count);
+                List<ItemDef> chosen = new ArrayList<>();
+                for (int tries = 0; chosen.size() < n && tries < 200; tries++) {
+                    ItemDef d = Wearables.randomDye(r);
+                    if (d != null && !chosen.contains(d)) chosen.add(d);
+                }
+                for (ItemDef d : chosen) {
+                    Item dye = Item.of(d);
+                    items.add(new Offer(dye, null, price >= 0 ? price : worth(dye), 3));
+                }
                 continue;
             }
             if (s.startsWith("card:")) {
@@ -258,6 +274,8 @@ public final class Shop {
         if (d == Supplies.RESHUFFLE_SCROLL) return 25;
         if (d == Supplies.LARGE_CRYSTAL) return 6;
         if (d == Supplies.COINS) return 1;
+        // a dye: cheap, a named one cheaper than one of the rest of the palette's
+        if (d.isWearable() && d.wearable().dye() != null) return d.wearable().rarity() == Rarity.UNCOMMON ? 12 : 20;
         if (Supplies.isAmmo(d)) return 3;
         if (d.isFood()) {
             // a picking, a cut, a hide: a coin or two, more the rarer it is

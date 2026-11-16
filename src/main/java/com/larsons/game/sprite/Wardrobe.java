@@ -133,7 +133,9 @@ public final class Wardrobe {
     /** The gloves that are gauntlets: worn, nothing is drawn on the wrists. */
     public static final Set<String> GAUNTLETS = Set.of("iron_gauntlets", "steel_gauntlets");
     /** The shirts that are dresses: under a mail shirt the skirt still shows ({@link #cutBy}). */
-    public static final Set<String> DRESSES = Set.of("laced_dress");
+    public static final Set<String> DRESSES = Set.of("laced_dress", "robe", "frock_coat");
+    /** The necklaces that lie on the chest, under a chestplate; a gorget, a choker or a scarf goes over it. */
+    public static final Set<String> LOW_NECKLACES = Set.of("gold_pendant", "amulet");
 
     private final EnumMap<Slot, String> items = new EnumMap<>(Slot.class);
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
@@ -161,7 +163,7 @@ public final class Wardrobe {
 
     /**
      * Whether {@code slot}'s layer is left out because what is worn covers
-     * it: the wrists under gauntlets, the necklace under a chestplate, the
+     * it: the wrists under gauntlets, a pendant or an amulet under a chestplate, the
      * underwear and the pants under mail leggings, the bra and a shirt (not a
      * dress) under a mail shirt. What is in the slot stays in the wardrobe -
      * it shows again once the armour comes off.
@@ -172,7 +174,7 @@ public final class Wardrobe {
                 String gloves = items.get(Slot.GLOVES);
                 yield gloves != null && GAUNTLETS.contains(gloves);
             }
-            case NECKLACE -> items.containsKey(Slot.CHESTPLATE);
+            case NECKLACE -> items.containsKey(Slot.CHESTPLATE) && LOW_NECKLACES.contains(items.get(Slot.NECKLACE));
             case UNDERWEAR, PANTS -> items.containsKey(Slot.CHAINMAIL_LEGS);
             case BRA -> items.containsKey(Slot.CHAINMAIL);
             case SHIRT -> items.containsKey(Slot.CHAINMAIL) && !DRESSES.contains(items.get(Slot.SHIRT));

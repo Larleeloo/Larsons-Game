@@ -2201,7 +2201,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * assets/forge/} for every level, and placed from Place → Items.
      */
     private void forgePanel(Ui ui, float x, float y, float w) {
-        y = heading(ui, "Forge a weapon", x, y);
+        y = heading(ui, "Forge a weapon or armour", x, y);
         List<Forged> all = Forged.all();
         List<String> names = new ArrayList<>();
         names.add("A new weapon");
@@ -2216,7 +2216,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             forgeColour = 0;
         }
         y += 36;
-        String[] pages = {"Weapon", "Dice & ammo", "Tiers (" + forging.tiers() + ")"};
+        boolean armour = com.larsons.game.world.Armour.sides(forging.def()) > 0;
+        String[] pages = {armour ? "Armour" : "Weapon", armour ? "Dice" : "Dice & ammo",
+                "Tiers (" + forging.tiers() + ")"};
         float pw = (w - 8) / 3;
         for (int i = 0; i < pages.length; i++) {
             if (ui.button(pages[i], x + i * (pw + 4), y, pw, 28, forgePage == i, true)) forgePage = i;
@@ -2233,15 +2235,18 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
         if (!name.strip().equals(forging.name()) && !name.isBlank()) forging = forging.withName(name);
         y += 36;
+        // what it is made from: a weapon, or a piece of armour (whose dice block a blow instead)
+        List<ItemDef> made = forgeBases();
         List<String> bases = new ArrayList<>();
         int bi = 0;
-        for (int i = 0; i < ItemDef.ALL.size(); i++) {
-            bases.add(ItemDef.ALL.get(i).name());
-            if (ItemDef.ALL.get(i).id().equals(forging.base())) bi = i;
+        for (int i = 0; i < made.size(); i++) {
+            ItemDef d = made.get(i);
+            bases.add(com.larsons.game.world.Armour.sides(d) > 0 ? d.name() + " (armour)" : d.name());
+            if (d.id().equals(forging.base())) bi = i;
         }
-        int b = widgets.choice(ui, "Weapon", bases, bi, x, y, w, 0.36f);
+        int b = widgets.choice(ui, "Made from", bases, bi, x, y, w, 0.36f);
         if (b != bi) {
-            forging = forging.withBase(ItemDef.ALL.get(b).id());
+            forging = forging.withBase(made.get(b).id());
             forgeColour = 0;
         }
         y += 36;
@@ -2299,6 +2304,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += 34;
 
         forgeButtons(ui, x, y, w);
+    }
+
+    /**
+     * What the Forge makes things from: the weapons, then every piece of
+     * armour ({@link com.larsons.game.world.Armour}) - a forged piece is worn
+     * like the piece, rolls its own dice to block a blow and climbs its own
+     * upgrade tiers.
+     */
+    static List<ItemDef> forgeBases() {
+        List<ItemDef> out = new ArrayList<>(ItemDef.ALL);
+        for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
+            if (com.larsons.game.world.Armour.sides(d) > 0) out.add(d);
+        }
+        return out;
     }
 
     /** The Forge's Save, Place it and Delete buttons, at {@code y}. */

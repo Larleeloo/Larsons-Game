@@ -666,6 +666,18 @@ public final class SpriteLibrary implements AutoCloseable {
         return e.variants().recolor(choice);
     }
 
+    /**
+     * The materials of {@code item} worn in {@code slot} on {@code body} that
+     * no colour channel takes ({@link Variants#fixedMaterials}): what armour's
+     * tiers, tints and forging recolour. Empty when it has no {@code
+     * variants.json} or the file does not say.
+     */
+    public int[] fixedMaterials(String body, Slot slot, String item, Wardrobe.Style style) {
+        Entry e = entry(body, slot, styled(body, slot, item, style));
+        if (e == null || e.variants() == null) return new int[0];
+        return e.variants().fixedMaterials();
+    }
+
     /** The colour options the item worn in {@code slot} has for its own colour, in this style (may be empty). */
     public List<String> colourOptions(Slot slot, String item, Wardrobe.Style style) {
         return colourOptions(null, slot, item, style);

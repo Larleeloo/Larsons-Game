@@ -280,10 +280,10 @@ public final class FlyingDummy implements Target {
             return Outcome.PARRIED;
         }
         if (p.stance().block() != null && p.state() == p.stance().block()) {
-            p.hurt(Math.round(SWOOP_DAMAGE / 2));
+            p.struck(Math.round(SWOOP_DAMAGE / 2));
             return Outcome.BLOCKED;
         }
-        p.hurt(SWOOP_DAMAGE);
+        p.struck(SWOOP_DAMAGE);
         // a card's thorns: some of the blow dealt back
         double thorns = p.buffs().plus(com.larsons.game.world.Buffs.Kind.THORNS);
         if (thorns > 0) hurt(SWOOP_DAMAGE * thorns, p.feet(), true);

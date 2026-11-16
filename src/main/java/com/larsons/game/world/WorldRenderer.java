@@ -399,8 +399,9 @@ public final class WorldRenderer implements AutoCloseable {
             pivot = steed.position().add(0, horse == null ? 1.05 : horse.profile().pivotHeight(), 0);
         }
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
-        playerStack = inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view, p.memory(),
-                p.handsEmpty(), p.stance()), world.wielded(), items);
+        playerStack = inLooks(inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view,
+                p.memory(), p.handsEmpty(), p.stance()), world.wielded(), items), p.wardrobe(), p.inventory(), items,
+                sprites);
         LayerStack.Result stack = playerStack;
         Runnable her = () -> {
             batch.depthAnchor(p.ground());
@@ -674,8 +675,9 @@ public final class WorldRenderer implements AutoCloseable {
                 }
             } else {
                 SpriteView fv = SpriteView.of(eye, at.add(0, 0.9 * size, 0), f.heading(), camera.yaw());
-                LayerStack.Result fr = inTier(LayerStack.resolve(sprites, f.wardrobe(), f.state(), f.stateTime(), fv,
-                        f.memory(), false, f.stance()), f.weapon(), items);
+                LayerStack.Result fr = inLooks(inTier(LayerStack.resolve(sprites, f.wardrobe(), f.state(),
+                        f.stateTime(), fv, f.memory(), false, f.stance()), f.weapon(), items), f.wardrobe(), null,
+                        items, sprites);
                 layers = fr.layers();
                 framing = fr.framing();
                 elevation = fr.view().elevation();
@@ -1156,6 +1158,55 @@ public final class WorldRenderer implements AutoCloseable {
             if (!isCarried(l, id) || l.palette() == null) continue;
             int[] p = wielded.forged() != null ? items.carriedForged(l.palette(), id, wielded.forged().tints())
                     : items.carriedPalette(l.palette(), id, tier);
+            if (p == l.palette()) continue;
+            if (layers == null) layers = new ArrayList<>(stack.layers());
+            layers.set(i, l.withPalette(p));
+        }
+        if (layers == null) return stack;
+        return new LayerStack.Result(List.copyOf(layers), stack.framing(), stack.view(), stack.state(),
+                stack.asked(), stack.frame(), stack.frames(), stack.fps(), stack.fallbackBody(), stack.loading());
+    }
+
+    /**
+     * {@code stack} with what is worn in its looks: a piece drawn from
+     * another's art in its tint (a bronze helmet is the iron helmet in
+     * bronze), armour upgraded in its tier's look (a Tempered helmet's steel
+     * blued, a Perfect one gold), a forged piece in its own colours - as the
+     * items in {@code inventory} say (null: as found, the folk's). Only the
+     * materials no colour channel takes are recoloured: a dyed gambeson keeps
+     * its dye. The stack itself when nothing changes.
+     */
+    public static LayerStack.Result inLooks(LayerStack.Result stack, Wardrobe wardrobe, Inventory inventory,
+                                            ItemSprites items, SpriteLibrary sprites) {
+        if (stack == null || wardrobe == null || items == null || sprites == null) return stack;
+        List<LayerStack.Layer> layers = null;
+        for (int i = 0; i < stack.layers().size(); i++) {
+            LayerStack.Layer l = stack.layers().get(i);
+            Slot slot = l.slot();
+            if (slot == Slot.BODY || slot.carried() || l.palette() == null || l.item() == null) continue;
+            String colour = wardrobe.colour(slot);
+            boolean armourSlot = Armour.location(slot) != null;
+            if (!armourSlot && !Wearables.tint(colour)) continue;
+            int tint = Wearables.tint(colour) ? Wearables.TINTS.get(colour) : -1;
+            String tier = null;
+            Map<String, Integer> forged = null;
+            if (armourSlot) {
+                Item it = Armour.item(wardrobe, inventory, slot);
+                if (it != null && Armour.sides(it.def()) > 0) {
+                    String base = it.def().wearable().colour();
+                    if (Wearables.tint(base)) tint = Wearables.TINTS.get(base);
+                    if (it.forged() != null) {
+                        forged = it.forged().tints();
+                    } else if (it.tier() != null) {
+                        Tier.Row row = Tier.row(it.def().id());
+                        if (row != null && row.lowest() != it.tier()) tier = it.tier().key();
+                    }
+                }
+            }
+            if (tint < 0 && tier == null && (forged == null || forged.isEmpty())) continue;
+            int[] fixed = sprites.fixedMaterials(wardrobe.get(Slot.BODY), slot, Wardrobe.Style.base(l.item()),
+                    wardrobe.style());
+            int[] p = items.worn(l.palette(), l.item(), fixed, tint, tier, forged);
             if (p == l.palette()) continue;
             if (layers == null) layers = new ArrayList<>(stack.layers());
             layers.set(i, l.withPalette(p));

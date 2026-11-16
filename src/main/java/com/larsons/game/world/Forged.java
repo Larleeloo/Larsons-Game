@@ -134,7 +134,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     public Forged {
         name = name == null || name.isBlank() ? "Forged weapon" : name.strip();
         ItemDef d = ItemDef.byId(base);
-        if (d == null || !ItemDef.ALL.contains(d)) base = ItemDef.SWORD.id();
+        if (d == null || !ItemDef.ALL.contains(d) && Armour.sides(d) <= 0) base = ItemDef.SWORD.id();
         if (rarity == null) rarity = Rarity.EPIC;
         Map<String, Integer> t = new LinkedHashMap<>();
         if (tints != null) {
