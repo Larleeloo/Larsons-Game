@@ -2453,6 +2453,18 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         : Double.parseDouble(a));
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
+            // struck <damage> [head|torso|arms|legs|feet|all]: a blow on her there (all: every piece rolls),
+            // her armour rolling to block it over the hotbar
+            case "struck" -> {
+                String[] a = argument.trim().split("\\s+");
+                com.larsons.game.world.Armour.Rules rules = p.armourRules();
+                if (a.length > 1) {
+                    rules = a[1].equals("all") ? rules.everyPiece(true)
+                            : rules.only(com.larsons.game.world.Armour.Location.byKey(a[1]));
+                }
+                double took = p.struck(Double.parseDouble(a[0]), rules);
+                world.hurtSaid("", took, p.ground());
+            }
             // round <n>: the horde game's round n begins now
             case "round" -> {
                 if (horde != null) horde.skipTo(Integer.parseInt(argument.trim()));

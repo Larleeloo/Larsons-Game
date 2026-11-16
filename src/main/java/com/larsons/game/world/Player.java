@@ -1847,10 +1847,15 @@ public final class Player {
      * taken; the roll is kept for the HUD ({@link #armourRoll}).
      */
     public double struck(double damage) {
+        return struck(damage, armourRules.get());
+    }
+
+    /** {@link #struck(double)} under {@code rules} (the script's {@code struck}: a blow on one place). */
+    public double struck(double damage, Armour.Rules rules) {
         if (damage <= 0 || health <= 0) return 0;
         List<Armour.Piece> pieces = Armour.worn(wardrobe, inventory);
         if (pieces.isEmpty()) return hurt(damage);
-        Armour.Roll roll = Armour.roll(damage, pieces, armourRules.get(), armourDice);
+        Armour.Roll roll = Armour.roll(damage, pieces, rules, armourDice);
         armourRoll = roll;
         armourAge = 0;
         if (roll.taken() <= 0) {

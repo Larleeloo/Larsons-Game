@@ -1114,7 +1114,8 @@ Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
 `surround` (the country round the level: `surround pines height=1.5 seed=4`),
 `fog`,
 `store`, `shop`, `door`, `enter`, `outside`, `say` / `endtalk`, `journal`,
-`station`, `summon`, `animal`, `health`, `fall`, `climb`, `round` (the
+`station`, `summon`, `animal`, `health`, `struck` (a blow on her
+that her armour rolls against: `struck 12 torso`, `struck 20 all`), `fall`, `climb`, `round` (the
 horde's), and more. In the editor: `tool`, `entry`, `place`, `select`,
 `selectid`, `set`, `look`, `sculpt`, `paint`, `biome`, `water`, `sky`, `surround`,
 `backdrop`, `life`, `forge`, `save`, `undo`, `playtest`. Their full forms are

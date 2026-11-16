@@ -141,6 +141,19 @@ public final class Armour {
             return new Rules(d, w, false, 0);
         }
 
+        /** These rules with every blow landing at {@code at} (null: as they were). */
+        public Rules only(Location at) {
+            if (at == null) return this;
+            Map<Location, Integer> w = new EnumMap<>(Location.class);
+            for (Location l : Location.values()) w.put(l, l == at ? 1 : 0);
+            return new Rules(dice, w, everyPiece, minDamage);
+        }
+
+        /** These rules with every piece rolling at every blow, or not. */
+        public Rules everyPiece(boolean on) {
+            return new Rules(dice, weights, on, minDamage);
+        }
+
         /** How many dice a piece of {@code rarity} rolls. */
         public int dice(Rarity rarity) {
             return Math.max(1, dice.getOrDefault(rarity == null ? Rarity.COMMON : rarity, 1));

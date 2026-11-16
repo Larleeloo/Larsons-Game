@@ -1103,7 +1103,7 @@ public final class World {
      * took ({@code what} before it: "Bitten! -6"), or "Armour!" when her
      * armour's dice held it off entirely.
      */
-    private void hurtSaid(String what, double took, Vec3 at) {
+    public void hurtSaid(String what, double took, Vec3 at) {
         if (took <= 0 && player.armourRoll() != null && player.armourAge() < 0.05 && player.armourRoll().full()) {
             combat.say(what + "Armour held!", ARMOUR_RGB, at, 2.1, false);
             combat.sound("combat/block", at);
