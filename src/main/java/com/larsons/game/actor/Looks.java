@@ -139,7 +139,7 @@ public final class Looks {
                 if (r.nextInt(3) == 0) wear(w, r, "boilermans_cap");
                 else if (r.nextInt(3) == 0) wear(w, r, "top_hat");
                 if (r.nextInt(3) == 0) wear(w, r, "soot_mantle");
-                else if (r.nextInt(5) == 0) wear(w, r, "backpack");
+                else if (r.nextInt(5) == 0) wear(w, r, "leather_backpack");
                 if (r.nextInt(3) == 0) wear(w, r, "brass_goggles");
                 if (r.nextInt(4) == 0) wear(w, r, "gear_cuff");
                 if (r.nextInt(5) == 0) wear(w, r, "waistcoat");

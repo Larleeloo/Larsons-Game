@@ -258,7 +258,8 @@ public final class Wearables {
      * them), and 11 more drawn from theirs and the old armour's art in another
      * metal. The armour among them rolls dice to block a blow ({@link Armour}).
      */
-    private static final List<Outfit> OUTFITS = List.of(
+    private static List<Outfit> outfitTable() {
+        return List.of(
             // hats and helms
             o("great_helm", "Great helm", Rarity.EPIC, "great_helm", Slot.HAT),
             o("kettle_hat", "Kettle hat", Rarity.UNCOMMON, "kettle_hat", Slot.HAT),
@@ -305,7 +306,7 @@ public final class Wearables {
             o("scale_mail", "Scale mail", Rarity.RARE, "scale_mail", Slot.CHAINMAIL),
             o("leather_jerkin", "Leather jerkin", Rarity.UNCOMMON, "leather_jerkin", Slot.CHESTPLATE),
             o("leather_greaves", "Leather greaves", Rarity.UNCOMMON, "leather_greaves", Slot.LEG_PLATING),
-            o("backpack", "Backpack", Rarity.UNCOMMON, "backpack", Slot.OTHER),
+            o("leather_backpack", "Leather backpack", Rarity.UNCOMMON, "backpack", Slot.OTHER),
             o("clockwork_wings", "Clockwork wings", Rarity.EPIC, "clockwork_wings", Slot.OTHER),
             // the same art in another metal
             o("bronze_helmet", "Bronze helmet", Rarity.UNCOMMON, "iron_helmet", "bronze", Slot.HAT),
@@ -320,19 +321,20 @@ public final class Wearables {
             o("gilded_scale_mail", "Gilded scale mail", Rarity.EPIC, "scale_mail", "gilded", Slot.CHAINMAIL),
             o("gilded_great_helm", "Gilded great helm", Rarity.LEGENDARY, "great_helm", "gilded", Slot.HAT),
             o("gilded_wings", "Gilded clockwork wings", Rarity.LEGENDARY, "clockwork_wings", "gilded", Slot.OTHER));
+    }
 
-    /** The new wearables of {@code rarity} ({@link #OUTFITS}). */
+    /** The new wearables of {@code rarity} ({@code outfitTable}). */
     private static void outfits(List<ItemDef> out, Rarity rarity) {
-        for (Outfit f : OUTFITS) {
+        for (Outfit f : outfitTable()) {      // (a method: ALL is made before the class's later fields)
             if (f.rarity() != rarity) continue;
             out.add(def(f.id(), f.name(), new Wearable(f.rarity(), f.slots(), List.of(f.folder()), f.look(), null,
                     null)));
         }
     }
 
-    /** How many wearables {@link #OUTFITS} added (54). */
+    /** How many wearables {@code outfitTable} added (54). */
     public static int outfitCount() {
-        return OUTFITS.size();
+        return outfitTable().size();
     }
 
     /** Whether {@code colour} worn in a slot is a tint of {@link #TINTS} (a bronze helmet's), not a colour option. */

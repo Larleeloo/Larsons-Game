@@ -100,6 +100,18 @@ final class HowToPlay {
                             "Forged weapons have tiers. Right-click one in the inventory to see them all, and "
                                     + "upgrade it with upgrade ingots. A tier marked ??? is a mystery until it is "
                                     + "reached.")),
+            new Chapter("Armour and the wardrobe", "steel_helmet",
+                    List.of(Action.INVENTORY),
+                    List.of("Armour rolls dice to block. A blow lands on your head, torso, arms, legs or feet, and "
+                                    + "what you wear there rolls just above the hotbar: leather a d4, chainmail a "
+                                    + "d6, iron a d8, steel a d10, and two or three dice when it is Epic or rarer. "
+                                    + "Its total comes off the blow; roll as much as the blow and \"Armour held!\".",
+                            "Armour has tiers like a weapon: Plain, Reinforced, Riveted, Tempered, Perfect and "
+                                    + "Mythic, each a rarity up and darker, harder metal. Right-click a piece in the "
+                                    + "inventory to see them and upgrade it with upgrade ingots.",
+                            "Pause, then Wardrobe, dresses you: hats, eyewear, jewellery, clothes and armour, each "
+                                    + "in its own colours. Dyes turn up everywhere - in chests, in shops, in "
+                                    + "barrels and on felled foes - and each unlocks a colour for good.")),
             new Chapter("Inventory and pouch", "satchel",
                     List.of(Action.INVENTORY, Action.USE, Action.DROP, Action.HOTBAR_1, Action.HOTBAR_5),
                     List.of("{INVENTORY} opens the inventory. Click an item to take it up and a slot to put it "
