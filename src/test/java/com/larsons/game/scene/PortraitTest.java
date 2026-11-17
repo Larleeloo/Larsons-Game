@@ -37,6 +37,7 @@ class PortraitTest {
         assertEquals(AnimState.BLADE_ATTACK, Portrait.state(Portrait.Pose.ATTACK, Stance.BLADE));
         // and with nothing carried, the armed poses are the sword and shield's
         assertEquals(AnimState.SHIELD_READY, Portrait.state(Portrait.Pose.BLOCK, null));
-        assertEquals(AnimState.IDLE, Portrait.state(Portrait.Pose.STAND, null));
+        // (standing with nothing in hand: at rest, as anyone stands empty-handed)
+        assertEquals(AnimState.REST, Portrait.state(Portrait.Pose.STAND, null));
     }
 }

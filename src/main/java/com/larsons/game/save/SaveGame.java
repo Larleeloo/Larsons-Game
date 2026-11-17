@@ -63,6 +63,8 @@ public final class SaveGame {
     private final Map<String, Integer> pouch = new LinkedHashMap<>();
     private double health = Player.MAX_HEALTH;
     private String map = "", node = "";
+    /** Where she stood on each map she has been on (a map's id to its destination's), to go back to it there. */
+    private final Map<String, String> places = new LinkedHashMap<>();
     private final Set<String> cleared = new LinkedHashSet<>();
     private Map<String, Object> quests = new LinkedHashMap<>();
     private final Map<String, String> flags = new LinkedHashMap<>();
@@ -151,6 +153,17 @@ public final class SaveGame {
     public void setPlace(String map, String node) {
         this.map = map == null ? "" : map;
         this.node = node == null ? "" : node;
+        if (!this.map.isEmpty()) places.put(this.map, this.node);
+    }
+
+    /** Where she last stood on map {@code mapId} ("" : she has not been there, its start). */
+    public String nodeOn(String mapId) {
+        return places.getOrDefault(mapId == null ? "" : mapId, "");
+    }
+
+    /** Take her to map {@code mapId}: where she last stood on it, or its start. */
+    public void goToMap(String mapId) {
+        setPlace(mapId, nodeOn(mapId));
     }
 
     /** The destinations she has cleared (ids, of whatever map). */
@@ -263,6 +276,7 @@ public final class SaveGame {
         j.put("health", health);
         j.put("map", map);
         j.put("node", node);
+        if (!places.isEmpty()) j.put("places", new LinkedHashMap<String, Object>(places));
         j.put("cleared", new ArrayList<Object>(cleared));
         j.put("quests", quests);
         j.put("flags", new LinkedHashMap<String, Object>(flags));
@@ -312,6 +326,10 @@ public final class SaveGame {
         s.health = Json.num(j, "health", Player.MAX_HEALTH);
         s.map = Json.str(j, "map", "");
         s.node = Json.str(j, "node", "");
+        if (j.get("places") instanceof Map<?, ?> pl) {
+            for (Map.Entry<?, ?> e : pl.entrySet()) s.places.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+        }
+        if (!s.map.isEmpty()) s.places.put(s.map, s.node);
         if (j.get("cleared") instanceof List<?> c) for (Object o : c) s.cleared.add(String.valueOf(o));
         if (j.get("quests") instanceof Map<?, ?> q) s.quests = new LinkedHashMap<>((Map<String, Object>) q);
         s.hour = Json.num(j, "hour", -1);

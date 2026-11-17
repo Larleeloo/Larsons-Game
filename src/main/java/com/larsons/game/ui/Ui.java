@@ -127,6 +127,7 @@ public final class Ui implements AutoCloseable {
 
     /** Start drawing UI on top of whatever is on screen. */
     public void begin() {
+        targetsOff = false;
         glDisable(GL_DEPTH_TEST);
         glDepthMask(false);
         glEnable(GL_BLEND);
@@ -622,7 +623,7 @@ public final class Ui implements AutoCloseable {
      * as big as the screen, are not.
      */
     public void target(float x, float y, float w, float h, Kind kind) {
-        if (turned || w <= 2 || h <= 2 || input().muted()) return;
+        if (turned || targetsOff || w <= 2 || h <= 2 || input().muted()) return;
         if (w > window.width() * 0.6f && h > window.height() * 0.6f) return;
         float[] t = targets.isEmpty() ? null : targets.get(targets.size() - 1);
         if (t != null && t[0] == x && t[1] == y && t[2] == w && t[3] == h) {
@@ -631,6 +632,18 @@ public final class Ui implements AutoCloseable {
         }
         targets.add(new float[]{x, y, w, h, clipW < 0 ? 0 : clipX, clipW < 0 ? 0 : clipY,
                 clipW < 0 ? window.width() : clipW, clipW < 0 ? window.height() : clipH, kind.ordinal()});
+    }
+
+    /** Whether what is drawn now can take the gamepad's focus ({@link #targetsOff}). */
+    private boolean targetsOff;
+
+    /**
+     * Off: what is drawn from now on cannot take the gamepad's focus - all
+     * but a list dropped down over it, say, so the focus stays in the list.
+     * On again before the frame ends.
+     */
+    public void targetsOff(boolean off) {
+        targetsOff = off;
     }
 
     /** The screen wants a free pointer for the gamepad's stick this frame (the editor's view, a map). */

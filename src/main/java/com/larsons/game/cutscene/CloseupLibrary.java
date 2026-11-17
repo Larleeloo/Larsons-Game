@@ -42,33 +42,51 @@ import java.util.stream.Stream;
  * this one, {@code assets/closeups_<body>/} ({@code closeups_masculine/}),
  * with every item drawn close up on that body; the body a character wears
  * picks the folder its items are found in.
+ *
+ * <p>The wardrobe's close-ups ({@code assets/wardrobe_closeups/}) are kept
+ * the same way but from every side: {@code rest_side_s.png}, {@code
+ * rest_side_se.png} ... - the sprites' "at rest", waist up, all the way
+ * round. A library made {@link #allViews() of every view} knows each sheet
+ * by its clip and its view together ({@code "rest_side_ne"}).
  */
 public final class CloseupLibrary {
 
     /** The one view the close-ups are rendered from. */
     public static final String VIEW = "side_se";
     private static final Pattern SHEET = Pattern.compile("([a-z0-9]+(?:_[a-z0-9]+)*)_" + VIEW + "\\.png");
+    /** A sheet of any side: {@code <clip>_side_<direction>.png}. */
+    private static final Pattern ANY_VIEW = Pattern.compile("([a-z0-9]+(?:_[a-z0-9]+)*_side_[a-z]+)\\.png");
 
     /** One item folder: its clips' sheets, framing and colours. */
     public record Entry(Slot slot, String folder, SpriteProfile profile, Map<String, Path> clips,
                         Variants variants) {}
 
     private final Path root;
+    private final boolean allViews;
     /** Every folder's index (the default's under ""), and which folder each body is in. */
     private volatile Map<String, Map<Slot, Map<String, Entry>>> roots = Map.of();
     private volatile Map<String, String> bodyRoot = Map.of();
 
     public CloseupLibrary(Path root) {
+        this(root, false);
+    }
+
+    /** The close-ups under {@code root}; {@code allViews}: of every side, each sheet known by clip and view. */
+    public CloseupLibrary(Path root, boolean allViews) {
         this.root = root;
+        this.allViews = allViews;
         rescan();
     }
 
     public Path root() { return root; }
 
+    /** Whether its sheets are of every side ({@code "rest_side_ne"}), not only the conversations' one. */
+    public boolean allViews() { return allViews; }
+
     /** Re-read the folder and every body's folder beside it (file names only). */
     public synchronized void rescan() {
         Map<String, Map<Slot, Map<String, Entry>>> next = new java.util.LinkedHashMap<>();
-        next.put(SpriteLibrary.DEFAULT_ROOT, scanRoot(root));
+        next.put(SpriteLibrary.DEFAULT_ROOT, scanRoot(root, allViews));
         Path parent = root.toAbsolutePath().getParent();
         String prefix = root.getFileName() + "_";
         if (parent != null && Files.isDirectory(parent)) {
@@ -76,7 +94,7 @@ public final class CloseupLibrary {
                 for (Path d : dirs.filter(Files::isDirectory).sorted().toList()) {
                     String name = d.getFileName().toString();
                     if (name.startsWith(prefix) && name.length() > prefix.length()) {
-                        next.put(name.substring(prefix.length()), scanRoot(d));
+                        next.put(name.substring(prefix.length()), scanRoot(d, allViews));
                     }
                 }
             } catch (IOException e) {
@@ -95,7 +113,7 @@ public final class CloseupLibrary {
         bodyRoot = Collections.unmodifiableMap(bodies);
     }
 
-    private static Map<Slot, Map<String, Entry>> scanRoot(Path base) {
+    private static Map<Slot, Map<String, Entry>> scanRoot(Path base, boolean allViews) {
         Map<Slot, Map<String, Entry>> next = new EnumMap<>(Slot.class);
         for (Slot slot : Slot.values()) {
             Map<String, Entry> items = new TreeMap<>();
@@ -103,7 +121,7 @@ public final class CloseupLibrary {
             if (Files.isDirectory(dir)) {
                 try (Stream<Path> dirs = Files.list(dir)) {
                     for (Path d : dirs.filter(Files::isDirectory).sorted().toList()) {
-                        Entry e = scan(slot, d);
+                        Entry e = scan(slot, d, allViews);
                         if (!e.clips().isEmpty()) items.put(e.folder(), e);
                     }
                 } catch (IOException e) {
@@ -127,11 +145,11 @@ public final class CloseupLibrary {
         return i == null ? Map.of() : i;
     }
 
-    private static Entry scan(Slot slot, Path dir) {
+    private static Entry scan(Slot slot, Path dir, boolean allViews) {
         Map<String, Path> clips = new TreeMap<>();
         try (Stream<Path> files = Files.list(dir)) {
             for (Path f : files.sorted().toList()) {
-                Matcher m = SHEET.matcher(f.getFileName().toString());
+                Matcher m = (allViews ? ANY_VIEW : SHEET).matcher(f.getFileName().toString());
                 if (m.matches()) clips.put(m.group(1), f);
             }
         } catch (IOException e) {

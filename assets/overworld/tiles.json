@@ -106,5 +106,32 @@
   "cleared",
   "locked",
   "here"
+ ],
+ "marker": 48,
+ "markers": [
+  "city",
+  "hamlet",
+  "fort",
+  "keep",
+  "watchtower",
+  "lighthouse",
+  "farm",
+  "mill",
+  "lumber_camp",
+  "docks",
+  "bridge",
+  "inn",
+  "temple",
+  "standing_stone",
+  "grove",
+  "cavern",
+  "mine_shaft",
+  "barrow",
+  "ruined_tower",
+  "lair",
+  "camp_tents",
+  "gateway",
+  "workshop_gears",
+  "landmark"
  ]
 }

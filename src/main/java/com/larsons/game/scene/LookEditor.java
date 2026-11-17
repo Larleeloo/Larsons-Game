@@ -112,6 +112,14 @@ public final class LookEditor {
                 out.add(new WardrobePanel.Option(folder, Wearables.tailoredColour(d) != null ? null : d));
             }
         }
+        // the armour made in the Forge: each piece its own choice, in its own colours
+        for (com.larsons.game.world.Forged f : com.larsons.game.world.Forged.all()) {
+            ItemDef d = f.def();
+            if (d == null || !d.isWearable() || !d.wearable().slots().contains(slot)) continue;
+            String folder = d.wearable().folders().get(0);
+            if (lib.entry(body, slot, lib.styled(body, slot, folder, wardrobe.style())) == null) continue;
+            out.add(new WardrobePanel.Option(folder, d, f.at(0)));
+        }
         String worn = wardrobe.get(slot);
         if (worn != null && WardrobePanel.current(out, slot, wardrobe) < 0) {
             out.add(new WardrobePanel.Option(worn, null));

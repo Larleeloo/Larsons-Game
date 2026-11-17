@@ -182,8 +182,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The person or foe whose look is being made in the look dialog, the look so far, and the dialog's parts; or null. */
     private LevelObject lookTarget;
     private com.larsons.game.sprite.Wardrobe lookMade;
-    private com.larsons.game.scene.LookEditor lookEditor;
-    private com.larsons.game.scene.Portrait lookPortrait;
+    private com.larsons.game.scene.WardrobePanel lookWardrobe;
+    // what a foe or a person fights as, worked out again only when its props change
+    private String statsKey, statsShown;
 
     /** The colour picker: {@code target}'s prop {@code key}, one colour or ({@code multi}) a herd's several. */
     private record ColourPick(LevelObject target, String key, boolean multi, String title,
@@ -543,8 +544,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (in.pressed(GLFW_KEY_ESCAPE)) {
             in.consumeKey(GLFW_KEY_ESCAPE);
             if (colourPick != null) colourPick = null;
-            else if (lookTarget != null) lookTarget = null;
-            else if (!selection.isEmpty()) selection.clear();
+            else if (lookTarget != null) {
+                if (!lookWardrobe.back()) lookTarget = null;
+            } else if (!selection.isEmpty()) selection.clear();
             else if (pointer) setPointer(false);
             else leave();
             return;
@@ -3700,8 +3702,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             wallsFollow = widgets.toggle(ui, "Walls follow", wallsFollow, x, y, w);
             y += r;
         }
+        boolean folk = FolkTypes.folk(o);
         for (ObjectType.Prop p : type.props()) {
+            if (folk && p.key().equals("look")) {
+                // (where the look's number was: the wardrobe, or a look rolled at random)
+                y += folkLook(ui, o, x, y, w);
+                continue;
+            }
             if (!ObjectTypes.applies(o, p)) continue;
+            if (folk && p.key().equals(FolkTypes.STATS.get(0))) {
+                y += 6;
+                ui.text(ui.body, "Fighting", x, y, Theme.TITLE);
+                ui.rect(x, y + 24, w, 1, Theme.PANEL_EDGE);
+                y += 32;
+            }
             Object v = p.value(o);
             double used = r;
             switch (p.kind()) {
@@ -3793,40 +3807,71 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += used;
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
-        // someone who is dressed: their whole look can be made by hand
-        if (o != template && FolkTypes.lookNow(o) != null) {
-            boolean made = FolkTypes.look(o) != null;
-            y += 6;
-            ui.text(ui.small, made ? "Look: made by hand" : "Look: as it comes", x, y + 6, made ? Theme.ACCENT : Theme.ITEM);
-            y += 26;
-            float bw = (w - 6) / 2;
-            if (ui.button("Edit look…", x, y, bw, 30)) openLook(o);
-            if (ui.button("As it comes", x + bw + 6, y, bw, 30, false, made)) {
-                edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
+        if (folk) {
+            // what it fights as, its kind's with the changes above
+            String key = o.type() + o.id() + o.props();
+            if (!key.equals(statsKey)) {
+                statsKey = key;
+                statsShown = FolkTypes.statsLine(o);
+            }
+            if (statsShown != null) {
+                y += 6;
+                y += ui.paragraph(ui.small, (o == template ? "As it comes: " : "Fights as: ") + statsShown, x, y, w,
+                        Theme.ITEM_DISABLED) + 4;
             }
         }
     }
 
-    /** Open the look dialog on {@code o}: its look as it stands, to be changed layer by layer. */
+    /**
+     * A foe's or a person's look, where its props have it: for one who is
+     * dressed, "Wardrobe…" - every layer, from everything there is - and "As
+     * it comes"; for any of them, "Another look", rolled at random (a
+     * creature: its outfit and skin). The height it took.
+     */
+    private float folkLook(Ui ui, LevelObject o, float x, float y, float w) {
+        boolean dressed = o != template && FolkTypes.dressed(o) && FolkTypes.lookNow(o) != null;
+        boolean made = FolkTypes.look(o) != null;
+        float y0 = y;
+        ui.text(ui.small, made ? "Look: dressed by hand" : "Look: as it comes" + (o.num("look", 0) > 0
+                ? " (look " + Math.round(o.num("look", 0)) + ")" : ""), x, y + 6, made ? Theme.ACCENT : Theme.ITEM);
+        y += 26;
+        if (dressed) {
+            if (ui.button("Wardrobe…", x, y, w, 32, false, true)) openLook(o);
+            y += 38;
+        }
+        float bw = (w - 6) / 2;
+        if (ui.button("Another look", x, y, dressed ? bw : w, 30, false, !made)) {
+            long roll = 1 + new java.util.Random().nextInt(9999);
+            edit(o, "Another look", () -> o.set("look", (double) roll));
+        }
+        if (dressed && ui.button("As it comes", x + bw + 6, y, bw, 30, false, made || o.num("look", 0) > 0)) {
+            edit(o, "Look", () -> {
+                o.set(FolkTypes.WARDROBE, null);
+                o.set("look", 0.0);
+            });
+        }
+        y += 36;
+        return y - y0 + 4;
+    }
+
+    /** Open the wardrobe on {@code o}: its look as it stands, to be changed layer by layer. */
     private void openLook(LevelObject o) {
         lookTarget = o;
         lookMade = FolkTypes.lookNow(o);
-        if (lookEditor == null) {
-            lookEditor = new com.larsons.game.scene.LookEditor(game);
-            lookEditor.setEverything(true);
-            lookPortrait = new com.larsons.game.scene.Portrait(game);
+        if (lookWardrobe == null) {
+            lookWardrobe = new com.larsons.game.scene.WardrobePanel(game);
+            lookWardrobe.setDoneLabel("Done");
         }
-        lookPortrait.setFace(false);
-        lookPortrait.setZoom(1);
     }
 
     /**
-     * The look dialog, over everything: every layer of a person or a foe -
-     * the body, the skin, the face, the hair, each thing worn and its colour,
-     * from everything there are sprites for and every colour of the palette -
-     * and the character beside it, to turn, zoom in on or see close up. What
-     * is changed is kept on the object ({@link FolkTypes#WARDROBE}) and then
-     * stands for its body, its skin and its dress; "As it comes" takes it off.
+     * The wardrobe, over everything, dressing a person or a foe: the same
+     * armoire as the player's ({@link com.larsons.game.scene.WardrobePanel})
+     * - its Looks (horns and tail too), Clothing and Armour, each layer a list
+     * to drop down - but offering everything there are sprites for, in every
+     * colour, and the armour made in the Forge. What is changed is kept on the
+     * object ({@link FolkTypes#WARDROBE}), one undo step each, and then stands
+     * for its body, its skin and its dress; "As it comes" takes it off.
      */
     private void lookDialog(Ui ui) {
         LevelObject o = lookTarget;
@@ -3835,28 +3880,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             return;
         }
         ui.scrim();
-        float w = Math.min(1160, ui.width() - 40), h = Math.min(660, ui.height() - 40);
-        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
-        ui.panel(x, y, w, h);
+        float w = Math.min(1200, ui.width() - 40), h = Math.min(740, ui.height() - 30);
+        float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2, foot = 48;
         String name = o.str("name", "").isBlank() ? typeLabel(o) : o.str("name", "");
-        ui.text(ui.large, Ui.fit(ui.large, "Look: " + name, w - 300), x + 24, y + 14, Theme.TITLE);
-        ui.rect(x + 20, y + 56, w - 40, 1, Theme.PANEL_EDGE);
-        float bx = x + 20, by = y + 66, bw = w - 40, bh = h - 66 - 58;
-        float pw = Math.min(320, bw * 0.32f), cw = bw - pw - 24;
-        if (lookEditor.draw(ui, bx, by, cw, bh, lookMade, null)) {
+        boolean done = lookWardrobe.drawLook(ui, 0.016, x, y, w, h - foot, lookMade, name);
+        if (lookWardrobe.takeChanged()) {
             var json = lookMade.toJson();
             edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));
         }
-        double size = o.num("size", 0) > 0 ? o.num("size", 0) : 1;
-        lookPortrait.draw(ui, 0.016, bx + cw + 24, by, pw, bh, lookMade, size, Math.max(1.3, size), null);
-        float fy = y + h - 48;
-        if (ui.button("Done", x + w - 24 - 160, fy, 160, 36)) lookTarget = null;
-        if (ui.button("As it comes", x + 24, fy, 180, 36, false, FolkTypes.look(o) != null)) {
+        if (done) lookTarget = null;
+        float fy = y + h - foot + 10;
+        ui.panel(x, fy - 4, w, foot - 6);
+        if (ui.button("As it comes", x + 8, fy, 180, 30, false, FolkTypes.look(o) != null)) {
             edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, null));
             lookMade = FolkTypes.lookNow(o);
         }
-        ui.text(ui.small, "Everything there are sprites for, in any colour. It is kept with the level.", x + 220,
-                fy + 9, Theme.ITEM_DISABLED);
+        ui.text(ui.small, Ui.fit(ui.small, "Everything there are sprites for, in any colour, and the Forge's armour. "
+                + "Kept with the level; Ctrl+Z undoes.", w - 220), x + 200, fy + 7, Theme.ITEM_DISABLED);
     }
 
     /**
@@ -4374,7 +4414,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     if (slot == null) return false;
                     if (a.length > 1 && !a[1].equals("same")) lookMade.set(slot, a[1].equals("none") ? null : a[1]);
                     if (a.length > 2) lookMade.setColour(slot, a[2].equals("none") ? null : a[2]);
-                    lookEditor.focusOn(slot);
                     var json = lookMade.toJson();
                     LevelObject o = lookTarget;
                     edit(o, "Look", () -> o.set(FolkTypes.WARDROBE, json));

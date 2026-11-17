@@ -15,8 +15,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_9;
  *
  * <p>In the game only the num-pad's digits count (the number row is the
  * hotbar's), and any other num-pad digit starts the code over. On the main
- * menu the number row counts too, and the same code opens the Dev tab
- * ({@code MainMenuScene}).
+ * menu the same code is entered on the Play tab's Codes page, where it turns
+ * dev mode on ({@code MainMenuScene}); {@link #anyDigit} reads its keys.
  */
 final class DebugCode {
 

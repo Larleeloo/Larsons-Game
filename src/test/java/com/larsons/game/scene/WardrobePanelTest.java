@@ -143,7 +143,7 @@ class WardrobePanelTest {
                 "once off, only if she owns it");
         // a folder no item puts there is listed by its folder
         wr.set(Slot.HAT, "party_hat");
-        assertEquals(List.of("None", "party_hat"), labels(Slot.HAT));
+        assertEquals(List.of("None", "Party hat"), labels(Slot.HAT));
     }
 
     private long pinkDyes() {

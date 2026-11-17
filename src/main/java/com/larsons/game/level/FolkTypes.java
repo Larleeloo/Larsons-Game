@@ -13,6 +13,7 @@ import com.larsons.game.level.ObjectType.Category;
 import com.larsons.game.level.ObjectType.Prop;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.story.Quest;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.World;
 
@@ -47,16 +48,102 @@ public final class FolkTypes {
     static List<String> held(LevelObject o) {
         List<String> out = new ArrayList<>(List.of(""));
         for (ItemDef d : ItemDef.ALL) if (d.carrySlot() != null) out.add(d.id());
+        out.addAll(forgedWeapons());
         String cur = o == null ? "" : o.str("weapon", "");
         if (!out.contains(cur)) out.add(cur);
         return out;
     }
 
     /** The weapons a foe can be handed: its kind's own, none, or any there is. */
-    static List<String> weapons() {
+    public static List<String> weapons() {
         List<String> out = new ArrayList<>(List.of(OWN, NONE));
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
+        out.addAll(forgedWeapons());
         return out;
+    }
+
+    /** The weapons made in the Forge ({@link Forged}), as items name them: {@code forged:<id>}. */
+    static List<String> forgedWeapons() {
+        List<String> out = new ArrayList<>();
+        for (Forged f : Forged.all()) {
+            ItemDef d = f.def();
+            if (d != null && d.carrySlot() != null && !d.isWearable()) out.add(f.key());
+        }
+        return out;
+    }
+
+    /** Whether {@code o} is a foe or a person. */
+    public static boolean folk(LevelObject o) {
+        return o.type().equals(FOE) || o.type().equals(PERSON);
+    }
+
+    /** Whether {@code o} is a foe or a person who is dressed (not a creature drawn in sheets of its own). */
+    public static boolean dressed(LevelObject o) {
+        if (o.type().equals(PERSON)) return true;
+        if (!o.type().equals(FOE)) return false;
+        Breed b = Breed.byKey(o.str("breed", Breed.BANDIT.key()));
+        return b != null && !b.risen() && !b.creature();
+    }
+
+    /** The props that are its fighting: what each changes of its kind's ({@link #stats}). */
+    public static final List<String> STATS = List.of("health", "damage", "pace", "speed", "sight", "guard", "xp",
+            "armour");
+
+    /** Change {@code f}'s fighting from its kind's as {@code o}'s props say: its health, its blows, its pace ... */
+    public static Folk stats(Folk f, LevelObject o) {
+        double times = o.num("health", 1);
+        if (times != 1) f.tougher(times);
+        if (o.num("damage", 1) != 1) f.hitting(o.num("damage", 1));
+        if (o.num("pace", 1) != 1) f.pacing(o.num("pace", 1));
+        if (o.num("speed", 1) != 1) f.quicker(o.num("speed", 1));
+        f.seeing(o.num("sight", 0));
+        if (o.num("guard", 1) != 1) f.guarding(o.num("guard", 1));
+        if (o.num("xp", 1) != 1) f.worth(o.num("xp", 1));
+        f.armoured(o.bool("armour", false));
+        return f;
+    }
+
+    /**
+     * What {@code o} - a foe or a person - fights as, as the level stands:
+     * "60 health · 8 a blow, every 1.6 s · walks 1.5 m/s, runs 3.8 · sees
+     * 16 m · guards 30% · 25 experience" (a size left to chance: the middle of
+     * its kind's); null for anything else.
+     */
+    public static String statsLine(LevelObject o) {
+        boolean foe = o.type().equals(FOE);
+        if (!foe && !o.type().equals(PERSON)) return null;
+        Folks scratch = new Folks();
+        Folk f;
+        Breed breed = null;
+        if (foe) {
+            breed = Breed.byKey(o.str("breed", Breed.BANDIT.key()));
+            if (breed == null) return null;
+            Folks.Spec s = spec(o, true);
+            if (s.size() <= 0) s = s.size((breed.smallest() + breed.tallest()) / 2);
+            f = scratch.spawn(o.id(), breed, Vec3.ZERO, 0, s);
+        } else {
+            People people = People.byKey(o.str("people", People.HUMAN.key()));
+            Folks.Spec s = spec(o, false);
+            String held = o.str("weapon", "").strip();
+            f = scratch.person(o.id(), people == null ? People.HUMAN : people, Vec3.ZERO, 0,
+                    s.weapon(held.isEmpty() ? NONE : held.toLowerCase(java.util.Locale.ROOT).replace(' ', '_')));
+        }
+        stats(f, o);
+        StringBuilder out = new StringBuilder();
+        out.append(Math.round(f.maxHealth())).append(" health · ").append(Math.round(f.blowDamage()))
+                .append(" a blow, every ").append(String.format(java.util.Locale.ROOT, "%.1f", f.attackEvery()))
+                .append(" s · walks ").append(String.format(java.util.Locale.ROOT, "%.1f", f.walkSpeed()))
+                .append(" m/s, runs ").append(String.format(java.util.Locale.ROOT, "%.1f", f.runSpeed()));
+        if (foe) {
+            out.append(" · sees ").append(Math.round(f.sight())).append(" m · guards ")
+                    .append(Math.round(f.guardChance() * 100)).append("% · ")
+                    .append(Math.round(breed.xp() * Math.max(0.6, f.size()) * f.xpTimes())).append(" experience");
+        }
+        if (f.armoured()) {
+            int pieces = f.wardrobe() == null ? 0 : com.larsons.game.world.Armour.worn(f.wardrobe(), null).size();
+            out.append(" · armour blocks (").append(pieces).append(pieces == 1 ? " piece)" : " pieces)");
+        }
+        return out.toString();
     }
 
     static List<String> bodies() {
@@ -231,14 +318,20 @@ public final class FolkTypes {
                         Prop.number("look", "Look (0: any)", 0, 0, 9999, 1),
                         Prop.number("roam", "Roams within (m)", 4, 0, 60, 0.5),
                         Prop.toggle("hostile", "Fights on sight", true),
-                        Prop.number("health", "Health × ", 1, 0.1, 20, 0.1)),
+                        Prop.number("health", "Health × ", 1, 0.1, 20, 0.1),
+                        Prop.number("damage", "Damage × ", 1, 0.1, 20, 0.1),
+                        Prop.number("pace", "Attack speed × ", 1, 0.25, 4, 0.05),
+                        Prop.number("speed", "Move speed × ", 1, 0.25, 3, 0.05),
+                        Prop.number("sight", "Sees within (m) (0: as its kind)", 0, 0, 80, 1),
+                        Prop.number("guard", "Guard × ", 1, 0, 5, 0.1),
+                        Prop.number("xp", "Experience × ", 1, 0, 10, 0.1),
+                        Prop.toggle("armour", "Its armour blocks (rolls dice)", false)),
                 0.45, 1.8, 0xE0503A, false, (o, b) -> {
             Breed breed = Breed.byKey(o.str("breed", Breed.BANDIT.key()));
             if (breed == null) return;
             Folk f = b.world().folks().spawn(o.id(), breed, b.onGround(o), o.yaw(), spec(o, o.bool("hostile", true)));
             f.roaming(o.num("roam", 4)).with(o.props());
-            double times = o.num("health", 1);
-            if (times != 1) f.tougher(times);
+            stats(f, o);
         }));
 
         ObjectTypes.register(new ObjectType(PERSON, "Person", Category.STORY,
@@ -257,7 +350,12 @@ public final class FolkTypes {
                         Prop.toggle("buys", "Buys what they sell (half its worth)", false),
                         Prop.choice("home", "Lives in", AUTO, ObjectTypes::homes),
                         Prop.rows("schedule", "Their day", Schedule.DEFAULT, Rows.schedule()),
-                        Prop.toggle("shelter", "Goes in out of storms", true)),
+                        Prop.toggle("shelter", "Goes in out of storms", true),
+                        Prop.number("health", "Health × ", 1, 0.1, 20, 0.1),
+                        Prop.number("damage", "Damage × (struck, they fight back)", 1, 0.1, 20, 0.1),
+                        Prop.number("pace", "Attack speed × ", 1, 0.25, 4, 0.05),
+                        Prop.number("speed", "Move speed × ", 1, 0.25, 3, 0.05),
+                        Prop.toggle("armour", "Their armour blocks (rolls dice)", false)),
                 0.4, 1.8, 0x7FE8FF, false, (o, b) -> {
             People people = People.byKey(o.str("people", People.HUMAN.key()));
             if (people == null) people = People.HUMAN;
@@ -266,6 +364,7 @@ public final class FolkTypes {
             Folk f = b.world().folks().person(o.id(), people, b.onGround(o), o.yaw(),
                     s.weapon(held.isEmpty() ? NONE : held.toLowerCase(java.util.Locale.ROOT).replace(' ', '_')));
             f.roaming(o.num("roam", 0)).with(o.props());
+            stats(f, o);
             f.keeping(Schedule.parse(o.str("schedule", Schedule.DEFAULT))).sheltering(o.bool("shelter", true));
             // (where her day takes her: once every building and spot of the level is up)
             b.later(() -> placeDay(f, o, b.world()));

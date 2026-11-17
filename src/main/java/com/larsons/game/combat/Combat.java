@@ -369,6 +369,8 @@ public final class Combat {
 
     /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green; ammunition's, a steel grey. */
     public static final int CARD_RGB = 0xC8A8FF, SNEAK_RGB = 0x9FD8A0, AMMO_RGB = 0xB8C0CC;
+    /** What a foe's armour blocked: steel. */
+    public static final int ARMOUR_RGB = 0xA9B4C2;
 
     /** Which blows a move's are, for the cards that help only some. */
     static Buffs.Only what(Move move) {
@@ -794,9 +796,16 @@ public final class Combat {
      */
     private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
         boolean was = t.alive();
+        // armour it wears that blocks (a foe the editor armoured) rolls its dice first
+        double rolled = d, through = t.armour(d);
+        if (through < d) d = Math.max(0, Math.round(through));
         t.hurt(d, from, true);
         if (was && !t.alive() && world != null) world.felled(t);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
+        if (d < rolled) {
+            popups.add(new Popup(format(rolled - d) + " blocked", ARMOUR_RGB, t.position(), t.height() + 0.55, now,
+                    true));
+        }
         if (world != null && t.living()) cards(s, t, d, from);
         if (s.has(Border.VENOM) && d > 0) {
             int ticks = (int) Math.round(Border.VENOM_SECONDS);

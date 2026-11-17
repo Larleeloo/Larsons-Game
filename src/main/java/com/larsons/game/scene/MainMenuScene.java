@@ -40,16 +40,21 @@ import static org.lwjgl.glfw.GLFW.*;
  *       the best round reached on it, to play. With the Dev tab unlocked, a
  *       new horde map, and each to edit, copy or delete: the horde editor
  *       ({@link CreativeScene#horde}).</li>
- *   <li><b>Cutscene</b> - the main menu's cutscene ({@code
- *       assets/cutscenes/menu.cut}) plays behind it, over and over: your
- *       character talking with Bryn, in close-up layers; "Watch from the
- *       start" plays it full screen, once through.</li>
- *   <li><b>Dev</b> - only once the dev code has been typed here, 1 0 2 5
- *       (the number row or the num-pad; typed again, the tab goes): Creative
- *       Mode. A new level - empty, or the demo copied - and every level
- *       saved in {@code assets/levels/}, each to edit, play, copy or delete.
- *       It stays open between runs ({@code Settings.devUnlocked}).</li>
+ *   <li><b>Cutscene</b> - in dev mode only: the main menu's cutscene
+ *       ({@code assets/cutscenes/menu.cut}) plays behind it, over and over:
+ *       your character talking with Bryn, in close-up layers; "Watch from
+ *       the start" plays it full screen, once through.</li>
+ *   <li><b>Dev</b> - in dev mode only: Creative Mode. A new level - empty,
+ *       or the demo copied - and every level saved in {@code
+ *       assets/levels/}, each to edit, play, copy or delete; the world map
+ *       and horde map editors.</li>
  * </ul>
+ *
+ * <p>Dev mode is turned on on the Play tab's <b>Codes</b> page: the dev code
+ * 1 0 2 5, typed (the number row or the num-pad) or tapped on its keypad
+ * (the gamepad's way), shows the Dev and Cutscene tabs and unlocks every
+ * cosmetic; the same page turns it off. It stays on between runs ({@code
+ * Settings.devUnlocked}).
  *
  * <p>Left and right (or Q and E) change tab; up, down and Enter choose.
  *
@@ -82,10 +87,9 @@ public final class MainMenuScene implements Scene {
     private final OrbitCamera camera = new OrbitCamera(0.5, Math.toRadians(22), 5.2);
     private final MenuList menu = new MenuList();
     private final CutsceneStage stage;
-    private final DebugCode devCode = new DebugCode();
     private final HowToPlay how;
     private Cutscene cutscene;
-    private double turn, time;
+    private double time;
     /** The tab last shown: the menu opens on it again (coming back from the editor, on the Dev tab). */
     private static Tab lastTab = Tab.PLAY;
     private Tab tab = Tab.PLAY;
@@ -101,8 +105,8 @@ public final class MainMenuScene implements Scene {
         world.setTerrain(game.terrain());
         world.setGround(game.demoScenery().ground());
         world.setScenery(game.scenery());
-        world.player().preview(AnimState.IDLE);
-        if (lastTab != Tab.DEV || game.settings().devUnlocked) tab = lastTab;
+        world.player().preview(AnimState.REST);
+        if (lastTab != Tab.DEV && lastTab != Tab.CUTSCENE || game.settings().devUnlocked) tab = lastTab;
         this.stage = new CutsceneStage(game.sprites(), game.closeups());
         this.how = new HowToPlay(game);
         how.offer("Practise in the training yard");
@@ -205,10 +209,13 @@ public final class MainMenuScene implements Scene {
         return "Creative Mode: " + saved + (cutscene != null ? ", the cutscene" : "");
     }
 
-    /** The tabs shown: the Dev tab only once it has been unlocked. */
+    /** The tabs shown: the Cutscene and Dev tabs only in dev mode. */
     List<Tab> tabs() {
-        List<Tab> out = new ArrayList<>(List.of(Tab.PLAY, Tab.HORDE, Tab.CUTSCENE));
-        if (game.settings().devUnlocked) out.add(Tab.DEV);
+        List<Tab> out = new ArrayList<>(List.of(Tab.PLAY, Tab.HORDE));
+        if (game.settings().devUnlocked) {
+            out.add(Tab.CUTSCENE);
+            out.add(Tab.DEV);
+        }
         return out;
     }
 
@@ -227,9 +234,17 @@ public final class MainMenuScene implements Scene {
         time += dt;
         Input in = game.window().input();
         if (!game.importer().visible()) {
-            for (int key = GLFW_KEY_0; key <= GLFW_KEY_KP_9; key++) {
-                int d = DebugCode.anyDigit(key);
-                if (d >= 0 && in.pressed(key) && devCode.type(d, time)) toggleDev();
+            if (tab == Tab.PLAY && playPage == PlayPage.CODES) {
+                // the Codes page: digits typed go in its box, Backspace takes one off, Enter tries it
+                for (int key = GLFW_KEY_0; key <= GLFW_KEY_KP_9; key++) {
+                    int d = DebugCode.anyDigit(key);
+                    if (d >= 0 && in.pressed(key)) typeDigit(d);
+                }
+                if (in.repeated(GLFW_KEY_BACKSPACE) && !code.isEmpty()) code = code.substring(0, code.length() - 1);
+                if (in.pressed(GLFW_KEY_ENTER) || in.pressed(GLFW_KEY_KP_ENTER)) {
+                    in.consumeKey(GLFW_KEY_ENTER);
+                    tryCode();
+                }
             }
             List<Tab> tabs = tabs();
             int at = Math.max(0, tabs.indexOf(tab));
@@ -256,15 +271,40 @@ public final class MainMenuScene implements Scene {
         }
         world.setScenery(game.scenery());
         world.tick(dt);
-        turn += dt;
-        if (turn > 1.1) {
-            turn = 0;
-            world.player().turnSteps(1);
-        }
+        pose(dt);
         world.player().update(dt, com.larsons.game.world.Player.Intent.NONE,
                 s -> s.defaultFrames() / 30.0);
-        camera.rotate(dt * 0.12, 0);
+        camera.rotate(dt * 0.05, 0);
         camera.update(dt, follow());
+    }
+
+    /** The weapons' stances she now and then stands in on the menu, between spells at rest. */
+    private static final AnimState[] WEAPON_IDLES = {AnimState.BLADE_IDLE, AnimState.STAFF_IDLE, AnimState.BOW_IDLE,
+            AnimState.MACE_IDLE, AnimState.DAGGER_IDLE, AnimState.WAND_IDLE, AnimState.AXE_IDLE, AnimState.IDLE,
+            AnimState.CROSSBOW_IDLE};
+    private final java.util.Random poses = new java.util.Random();
+    private double poseLeft = 16;
+    private int poseCount;
+    private AnimState lastWeapon;
+
+    /**
+     * Her stance on the menu: at rest, empty-handed, most of the time - and
+     * now and then one weapon's or another's - turning a step to one side or
+     * the other as she changes (not round and round).
+     */
+    private void pose(double dt) {
+        poseLeft -= dt;
+        if (poseLeft > 0) return;
+        poseCount++;
+        boolean rest = poseCount % 2 == 0;
+        AnimState next = AnimState.REST;
+        if (!rest) {
+            do next = WEAPON_IDLES[poses.nextInt(WEAPON_IDLES.length)]; while (next == lastWeapon);
+            lastWeapon = next;
+        }
+        world.player().preview(next);
+        if (poses.nextInt(3) > 0) world.player().turnSteps(poses.nextBoolean() ? 1 : -1);
+        poseLeft = rest ? 14 + poses.nextDouble() * 8 : 7 + poses.nextDouble() * 4;
     }
 
     private void show(Tab t) {
@@ -276,18 +316,118 @@ public final class MainMenuScene implements Scene {
         if (t == Tab.HORDE) refreshHordes();
     }
 
-    /** The dev code was typed: the Dev tab shown (and gone to) - or, typed again, hidden. */
-    private void toggleDev() {
+    /**
+     * Dev mode on or off: the Dev and Cutscene tabs shown and every cosmetic
+     * unlocked - or hidden and locked again (what was unlocked by dyes stays).
+     */
+    private void setDev(boolean on) {
         var s = game.settings();
-        s.devUnlocked = !s.devUnlocked;
+        s.devUnlocked = on;
+        s.debugTools = false;
+        com.larsons.game.world.Wearables.setEverything(on);
         s.save();
-        Sounds.play(SoundKeys.ui("secret"));
-        if (s.devUnlocked) {
-            show(Tab.DEV);
-            game.toast("Dev tab unlocked: Creative Mode (type 1025 again to hide it)", Theme.ACCENT);
+        Sounds.play(SoundKeys.ui(on ? "secret" : "back"));
+        if (on) {
+            game.toast("Dev mode on: the Dev and Cutscene tabs, and every cosmetic unlocked", Theme.ACCENT);
         } else {
-            if (tab == Tab.DEV) show(Tab.PLAY);
-            game.toast("Dev tab hidden", Theme.HINT);
+            if (tab == Tab.DEV || tab == Tab.CUTSCENE) show(Tab.PLAY);
+            game.toast("Dev mode off", Theme.HINT);
+        }
+    }
+
+    // --- the Codes page ------------------------------------------------------------------
+
+    /** What has been typed on the Codes page, what it said of the last code tried and when. */
+    private String code = "", codeSaid = "";
+    private double codeAt = -10;
+    /** The longest code there is. */
+    static final int CODE_LENGTH = 8;
+
+    private void typeDigit(int d) {
+        if (code.length() < CODE_LENGTH) {
+            code += d;
+            Sounds.play(SoundKeys.ui("click"));
+        }
+    }
+
+    /** Try what has been typed: the dev code turns dev mode on (or, on already, says so). */
+    private void tryCode() {
+        String typed = code;
+        code = "";
+        codeAt = time;
+        if (typed.equals(DEV_CODE)) {
+            if (game.settings().devUnlocked) {
+                codeSaid = "Dev mode is already on.";
+                Sounds.play(SoundKeys.ui("click"));
+            } else {
+                setDev(true);
+                codeSaid = "Dev mode on: the Dev and Cutscene tabs are along the top, every cosmetic yours.";
+            }
+        } else {
+            codeSaid = typed.isEmpty() ? "Type a code first." : "Nothing happens.";
+            Sounds.play(SoundKeys.ui("error"));
+        }
+    }
+
+    /** The dev code: dev mode (the Dev and Cutscene tabs, every cosmetic). */
+    static final String DEV_CODE = "1025";
+
+    /**
+     * The Codes page: a box the code goes in - typed on the number row or the
+     * num-pad, or tapped on the keypad under it (the gamepad's way) - Enter to
+     * try it; and, in dev mode, what it has unlocked and the way to turn it off.
+     */
+    private void codesPage(Ui ui, float x, float y) {
+        boolean dev = game.settings().devUnlocked;
+        ui.text(ui.large, "Codes", x, y, Theme.TITLE);
+        ui.paragraph(ui.small, "Secret codes, for those who know them. Type one on the number keys or tap it on the "
+                + "keypad, then Enter.", x, y + 40, 420, Theme.HINT);
+        float by = y + 88, bw = 300, bh = 44;
+        // the box: what has been typed, a dot for each digit still to come
+        ui.plate(x - 6, by - 6, bw + 12, bh + 12, Theme.BRASS_DARK);
+        ui.rect(x, by, bw, bh, Theme.withAlpha(Theme.SOOT, 0.85f));
+        StringBuilder shown = new StringBuilder();
+        for (int i = 0; i < Math.max(4, code.length()); i++) {
+            if (i > 0) shown.append(' ');
+            shown.append(i < code.length() ? code.charAt(i) : '·');
+        }
+        boolean blink = (int) (time * 2) % 2 == 0;
+        ui.textCentered(ui.large, shown + (blink && code.length() < CODE_LENGTH ? "_" : " "), x + bw / 2,
+                by + (bh - ui.large.lineHeight()) / 2, code.isEmpty() ? Theme.ITEM_DISABLED : Theme.TITLE);
+        // the keypad: 1-9, then clear, 0, enter
+        float ky = by + bh + 14, kw = (bw - 12) / 3, kh = 36;
+        String[] keys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "Enter"};
+        for (int i = 0; i < keys.length; i++) {
+            float kx = x + (i % 3) * (kw + 6), kyy = ky + (i / 3) * (kh + 6);
+            String k = keys[i];
+            boolean enter = k.equals("Enter");
+            if (ui.button(k, kx, kyy, kw, kh, enter, true)) {
+                if (enter) tryCode();
+                else if (k.equals("Clear")) code = "";
+                else typeDigit(k.charAt(0) - '0');
+            }
+        }
+        // what the last code did - or, in dev mode, what it has unlocked
+        float ny = ky + 4 * (kh + 6) + 4;
+        boolean said = !codeSaid.isEmpty() && time - codeAt < 8;
+        float fy = ny;
+        if (said) {
+            boolean bad = codeSaid.startsWith("Nothing") || codeSaid.startsWith("Type");
+            fy += ui.paragraph(ui.small, codeSaid, x, ny, 420, bad ? Theme.WARNING : Theme.OK) + 8;
+        } else if (dev) {
+            fy += ui.paragraph(ui.small, "Dev mode is on: the Dev and Cutscene tabs are along the top, and every "
+                    + "cosmetic is unlocked.", x, ny, 420, Theme.ACCENT) + 8;
+        }
+        boolean back = ui.button("Back", x, fy, 140, 38);
+        if (dev && ui.button("Turn dev mode off", x + 150, fy, 220, 38)) {
+            setDev(false);
+            codeSaid = "Dev mode off.";
+            codeAt = time;
+        }
+        if (back || ui.input().pressed(GLFW_KEY_ESCAPE)) {
+            ui.input().consumeKey(GLFW_KEY_ESCAPE);
+            playPage = PlayPage.MAIN;
+            code = "";
         }
     }
 
@@ -402,19 +542,63 @@ public final class MainMenuScene implements Scene {
         ui.rect(x, y + 44, Math.max(300, tx - x - 8), 1, Theme.PANEL_EDGE);
     }
 
-    /** The Play tab's pages: its list, the slots to begin a new game in, the slots to load, how to play. */
-    private enum PlayPage { MAIN, NEW, LOAD, HOW }
+    /** The Play tab's pages: its list, the slots to begin a new game in, the slots to load, how to play, codes. */
+    private enum PlayPage { MAIN, NEW, LOAD, HOW, CODES }
 
     private PlayPage playPage = PlayPage.MAIN;
     private final SaveGame[] slots = new SaveGame[Saves.SLOTS];
     private int sureSlot = -1;
     private double sureAt;
 
+    /** The world maps there are, and the one each slot is to be played on (a new game's: {@link #newMap}). */
+    private List<com.larsons.game.overworld.Overworld.Saved> worldMaps = List.of();
+    private final String[] slotMap = new String[Saves.SLOTS];
+    private String newMap = "";
+
     private void refreshSlots() {
-        for (int i = 0; i < Saves.SLOTS; i++) slots[i] = Saves.peek(i);
+        for (int i = 0; i < Saves.SLOTS; i++) {
+            slots[i] = Saves.peek(i);
+            slotMap[i] = slots[i] == null ? "" : slots[i].map();
+        }
+        worldMaps = com.larsons.game.overworld.Overworld.list(game.settings().assets);
+        String usual = com.larsons.game.overworld.Overworld.campaignStart(game.settings().assets);
+        if (newMap.isEmpty() || worldMaps.stream().noneMatch(m -> m.id().equals(newMap))) newMap = usual;
+    }
+
+    /** What world map {@code id} is called ("Main story: The Brass Vale"; a missing one: its id). */
+    private String mapName(String id) {
+        for (var m : worldMaps) if (m.id().equals(id)) return m.shown();
+        return id == null || id.isBlank() ? "the usual map" : id + " (missing)";
+    }
+
+    /** The world map after (or before) {@code id} in the list. */
+    private String nextMap(String id, int step) {
+        if (worldMaps.isEmpty()) return id;
+        int at = 0;
+        for (int i = 0; i < worldMaps.size(); i++) if (worldMaps.get(i).id().equals(id)) at = i;
+        return worldMaps.get(Math.floorMod(at + step, worldMaps.size())).id();
+    }
+
+    /** "<  Main story: The Brass Vale  >": a world map to step through; returns the one now chosen. */
+    private String mapPicker(Ui ui, String id, float x, float y, float w, float h) {
+        return mapPicker(ui, id, x, y, w, h, Theme.TITLE);
+    }
+
+    private String mapPicker(Ui ui, String id, float x, float y, float w, float h, float[] colour) {
+        boolean many = worldMaps.size() > 1;
+        float aw = Math.min(36, h + 6);
+        if (ui.button("<", x, y, aw, h, false, many)) id = nextMap(id, -1);
+        ui.plate(x + aw + 4, y, w - 2 * aw - 8, h, Theme.BRASS_DARK);
+        ui.textCentered(ui.small, Ui.fit(ui.small, mapName(id), w - 2 * aw - 16), x + w / 2, y + (h - 16) / 2, colour);
+        if (ui.button(">", x + w - aw, y, aw, h, false, many)) id = nextMap(id, 1);
+        return id;
     }
 
     private void playTab(Ui ui, float x, float y) {
+        if (playPage == PlayPage.CODES) {
+            codesPage(ui, x, y);
+            return;
+        }
         if (playPage != PlayPage.MAIN) {
             slotsPage(ui, x, y);
             return;
@@ -429,9 +613,12 @@ public final class MainMenuScene implements Scene {
         if (latest >= 0) items.add("Load Game");
         items.add("How to play");
         items.add("Demo");
+        items.add("Codes");
         items.add("Settings");
         items.add("Quit");
-        int chosen = quitting ? -1 : menu.show(ui, items.toArray(String[]::new), x, y, 300, 50, 10);
+        // (eight of them - a saved game to go on with, the Codes - are a little shorter, to fit a 720-high window)
+        float itemH = Math.max(40, Math.min(50, (ui.height() - y - 24) / items.size() - 10));
+        int chosen = quitting ? -1 : menu.show(ui, items.toArray(String[]::new), x, y, 300, itemH, 10);
         if (latest >= 0) {
             SaveGame s = slots[latest];
             ui.text(ui.small, s.name() + " · " + describe(s), x + 314, y + 18, Theme.HINT);
@@ -451,6 +638,10 @@ public final class MainMenuScene implements Scene {
                 how.open();
             }
             case "Demo" -> game.switchTo("demo");
+            case "Codes" -> {
+                playPage = PlayPage.CODES;
+                code = "";
+            }
             case "Settings" -> game.openSettings();
             case "Quit" -> quitting = true;
             default -> { }
@@ -467,7 +658,14 @@ public final class MainMenuScene implements Scene {
     private void slotsPage(Ui ui, float x, float y) {
         boolean fresh = playPage == PlayPage.NEW;
         ui.text(ui.large, fresh ? "New game: choose a slot" : "Load a game", x, y, Theme.TITLE);
-        float ry = y + 44, rw = 430, rh = 84;
+        // (a saved game's row holds the world map it is played on as well)
+        float ry = y + 44, rw = 430, rh = fresh ? 84 : 92;
+        if (fresh) {
+            // which world map the new playthrough sets out on: the main story's, or one made in the map editor
+            ui.text(ui.small, "World map", x, ry + 8, Theme.ACCENT);
+            newMap = mapPicker(ui, newMap, x + 90, ry, rw - 90, 32);
+            ry += 44;
+        }
         if (sureSlot >= 0 && time - sureAt > CONFIRM) sureSlot = -1;
         for (int i = 0; i < Saves.SLOTS; i++) {
             SaveGame s = slots[i];
@@ -477,27 +675,35 @@ public final class MainMenuScene implements Scene {
             if (s == null) {
                 ui.text(ui.body, "Empty", x + 6, ry + 28, Theme.ITEM_DISABLED);
                 if (fresh && ui.button("Start here", bx, ry + 22, 100, 38)) create(i);
+            } else if (!fresh) {
+                // its world map along the top (another can be chosen: she goes where she last was on
+                // it), then its name and how far it has come, Load and Delete beside them
+                if (!worldMaps.isEmpty()) {
+                    boolean changed = !slotMap[i].equals(s.map());
+                    slotMap[i] = mapPicker(ui, slotMap[i], x + 70, ry + 4, rw - 76, 24,
+                            changed ? Theme.ACCENT : Theme.TITLE);
+                }
+                ui.text(ui.body, Ui.fit(ui.body, s.name(), rw - 124), x + 6, ry + 34, Theme.TITLE);
+                ui.text(ui.small, Ui.fit(ui.small, describe(s), rw - 124), x + 6, ry + 64, Theme.HINT);
+                boolean sure = sureSlot == i;
+                if (ui.button("Load", bx, ry + 32, 100, 28)) load(i);
+                if (ui.button(sure ? "Sure?" : "Delete", bx, ry + 62, 100, 26, sure, true)) {
+                    if (sure) {
+                        Saves.delete(i);
+                        refreshSlots();
+                        sureSlot = -1;
+                        game.toast("Deleted slot " + (i + 1), Theme.HINT);
+                    } else {
+                        confirm(i);
+                    }
+                }
             } else {
                 ui.text(ui.body, Ui.fit(ui.body, s.name(), rw - 230), x + 6, ry + 26, Theme.TITLE);
                 ui.text(ui.small, describe(s), x + 6, ry + 54, Theme.HINT);
                 boolean sure = sureSlot == i;
-                if (fresh) {
-                    if (ui.button(sure ? "Sure?" : "Overwrite", bx, ry + 22, 100, 38, sure, true)) {
-                        if (sure) create(i);
-                        else confirm(i);
-                    }
-                } else {
-                    if (ui.button("Load", bx, ry + 6, 100, 34)) load(i);
-                    if (ui.button(sure ? "Sure?" : "Delete", bx, ry + 44, 100, 32, sure, true)) {
-                        if (sure) {
-                            Saves.delete(i);
-                            refreshSlots();
-                            sureSlot = -1;
-                            game.toast("Deleted slot " + (i + 1), Theme.HINT);
-                        } else {
-                            confirm(i);
-                        }
-                    }
+                if (ui.button(sure ? "Sure?" : "Overwrite", bx, ry + 22, 100, 38, sure, true)) {
+                    if (sure) create(i);
+                    else confirm(i);
                 }
             }
             ry += rh + 10;
@@ -510,9 +716,9 @@ public final class MainMenuScene implements Scene {
         sureAt = time;
     }
 
-    /** Begin a new game in {@code slot}: the character creator. */
+    /** Begin a new game in {@code slot}: the character creator, for the world map chosen. */
     private void create(int slot) {
-        game.switchTo(new CreatorScene(game, slot));
+        game.switchTo(new CreatorScene(game, slot, newMap));
     }
 
     /** Take up the playthrough in {@code slot}: its map, where she was. */
@@ -523,6 +729,9 @@ public final class MainMenuScene implements Scene {
             refreshSlots();
             return;
         }
+        // another world map chosen for it: she goes to where she last stood on that one (or its start)
+        String chosen = slotMap[slot];
+        if (chosen != null && !chosen.isBlank() && !chosen.equals(s.map())) s.goToMap(chosen);
         Saves.play(s, slot);
         game.switchTo(new OverworldScene(game, s));
     }

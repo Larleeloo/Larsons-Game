@@ -980,7 +980,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     private void toggleDebug() {
         var s = game.settings();
         s.debugTools = !s.debugTools;
-        Wearables.setEverything(s.debugTools);
+        Wearables.setEverything(s.debugTools || s.devUnlocked);
         Sounds.play(SoundKeys.ui("secret"));
         game.toast(s.debugTools ? "Debug on: every cosmetic unlocked · Pause menu → Clear the ground"
                 : "Debug off", Theme.ACCENT);

@@ -209,7 +209,11 @@ public enum AnimState {
     // breaststroke on the surface, and under the water
     SWIM_IDLE("swim_idle", "Tread water", true, 32, Stance.FREE, 0, "idle"),
     SWIM("swim", "Swim", true, 28, Stance.FREE, 1.2, "swim_idle"),
-    SWIM_UNDER("swim_under", "Swim under water", true, 32, Stance.FREE, 1.0, "swim");
+    SWIM_UNDER("swim_under", "Swim under water", true, 32, Stance.FREE, 1.0, "swim"),
+    // --- at rest, empty hands (feminine_model_moves.py author_rest): standing easy, the
+    // weight shifting from one foot to the other, a breath, a look about - the main menu's,
+    // the map's, the wardrobe's, and any townsfolk's who hold nothing
+    REST("rest", "At rest", true, 90, Stance.FREE, 0, "idle");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

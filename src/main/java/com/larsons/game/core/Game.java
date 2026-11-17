@@ -115,6 +115,8 @@ public final class Game implements AutoCloseable {
 
     public Game(Settings settings) {
         this.settings = settings;
+        // dev mode (the main menu's Codes, 1025): every cosmetic stays unlocked from run to run
+        if (settings.devUnlocked) com.larsons.game.world.Wearables.setEverything(true);
         com.larsons.game.ambient.Animals.setBirds(settings.birds);
         // (a colour of one's own - any skin, any dye - is shaded in the art's 128 colours)
         com.larsons.game.sprite.Variants.setPalette(com.larsons.game.sprite.PixelPalette.load(settings.spritesDir()));
@@ -873,6 +875,20 @@ public final class Game implements AutoCloseable {
     /** The cutscene close-ups (assets/closeups/), drawn through {@link #sprites()}. */
     public CloseupLibrary closeups() { return closeups; }
 
+    private CloseupLibrary wardrobeCloseups;
+
+    /**
+     * The wardrobe's close-ups (assets/wardrobe_closeups/): every item waist
+     * up, at rest, from all eight sides - read the first time the wardrobe's
+     * close-up is shown.
+     */
+    public CloseupLibrary wardrobeCloseups() {
+        if (wardrobeCloseups == null) {
+            wardrobeCloseups = new CloseupLibrary(settings.assets.resolve("wardrobe_closeups"), true);
+        }
+        return wardrobeCloseups;
+    }
+
     /** The main menu's cutscene script. */
     public java.nio.file.Path menuCutscene() { return settings.assets.resolve("cutscenes").resolve("menu.cut"); }
 
@@ -903,9 +919,11 @@ public final class Game implements AutoCloseable {
      * her missions, the map, what she has seen of each place, the tips she
      * has been given - is all in its save, which starts empty; this puts
      * back what is kept outside it: the debug code (every cosmetic unlocked)
-     * goes off.
+     * goes off - unless dev mode is on (the main menu's Codes), which keeps
+     * every cosmetic unlocked until it is turned off.
      */
     public void freshPlaythrough() {
+        if (settings.devUnlocked) return;           // (dev mode keeps everything unlocked, on purpose)
         if (settings.debugTools || com.larsons.game.world.Wearables.everything()) {
             settings.debugTools = false;
             com.larsons.game.world.Wearables.setEverything(false);

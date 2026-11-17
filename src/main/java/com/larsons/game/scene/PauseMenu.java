@@ -196,6 +196,8 @@ final class PauseMenu {
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         if (page == Page.WARDROBE) {
             // the wardrobe draws its own armoire, title and Back button and all
+            // (Esc, or the gamepad's B, shuts a list dropped down or the close-up first)
+            if (escape && wardrobe.back()) escape = false;
             boolean done = wardrobe.draw(ui, dt, x, y, w, h, player);
             if (done || escape) back(escape);
             return;

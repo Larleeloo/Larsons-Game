@@ -242,4 +242,20 @@ class SaveGameTest {
         assertTrue(fresh.hour() < 0);
         assertTrue(SaveGame.parse(new LinkedHashMap<>()).hour() < 0, "an old save: the level's own hour");
     }
+
+    @Test
+    void sheIsRememberedOnEveryMapSheHasBeenOn() {
+        SaveGame s = new SaveGame();
+        s.setPlace("brass_vale", "brasswick");
+        s.setPlace("my_land", "harbour");
+        assertEquals("brasswick", s.nodeOn("brass_vale"));
+        assertEquals("", s.nodeOn("elsewhere"));
+        SaveGame back = SaveGame.parse(s.json());
+        assertEquals("my_land", back.map());
+        back.goToMap("brass_vale");
+        assertEquals("brass_vale", back.map());
+        assertEquals("brasswick", back.node(), "back where she left it");
+        back.goToMap("elsewhere");
+        assertEquals("", back.node(), "a map she has not been on: its start");
+    }
 }
