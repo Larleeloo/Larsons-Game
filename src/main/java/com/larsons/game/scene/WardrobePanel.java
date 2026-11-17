@@ -1045,7 +1045,9 @@ public final class WardrobePanel {
         }
         int frames = Integer.MAX_VALUE;
         for (Drawn d : layers) frames = Math.min(frames, Math.max(1, d.sheet().frameCount()));
-        int frame = (int) (time * AnimState.DEFAULT_FPS) % frames;
+        // (drawn every other frame of the rest: played so a loop lasts as long as the rest's)
+        double fps = frames * AnimState.DEFAULT_FPS / (double) Math.max(1, AnimState.REST.defaultFrames());
+        int frame = (int) (time * fps) % frames;
         float size = Math.min(w, h * 1.05f);
         float fx = x + w / 2 - size / 2, fy = y + h / 2 - size * 0.5f;
         for (Drawn d : layers) {

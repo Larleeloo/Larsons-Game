@@ -69,6 +69,11 @@ python3 tools/sprites/make_khorigale.py --state fish_cast    # one state's
 python3 tools/sprites/make_khorigale.py --preview out.png --state walk --skin emerald
 ```
 
+The horns are drawn on the close-ups too (`assets/closeups*/`, the cutscenes';
+`assets/wardrobe_closeups*/`, the wardrobe's), from where the close-ups' crew
+cut puts her head: `python3 tools/sprites/make_khorigale.py --closeups`. The
+tail hangs below their frame.
+
 They are worn by being a Khorigale (`actor/People`), not from the Wardrobe.
 
 ### Bodies

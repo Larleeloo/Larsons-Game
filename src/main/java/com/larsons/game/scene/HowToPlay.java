@@ -109,9 +109,15 @@ final class HowToPlay {
                             "Armour has tiers like a weapon: Plain, Reinforced, Riveted, Tempered, Perfect and "
                                     + "Mythic, each a rarity up and darker, harder metal. Right-click a piece in the "
                                     + "inventory to see them and upgrade it with upgrade ingots.",
-                            "Pause, then Wardrobe, dresses you: hats, eyewear, jewellery, clothes and armour, each "
-                                    + "in its own colours. Dyes turn up everywhere - in chests, in shops, in "
-                                    + "barrels and on felled foes - and each unlocks a colour for good.")),
+                            "Pause, then Wardrobe, dresses you. Its three tabs (LB and RB) are Looks, Clothing and "
+                                    + "Armour - the armour plated in iron, each piece with the die it rolls. Every "
+                                    + "layer is a list to drop down; on a controller, left and right step through "
+                                    + "it without opening it. \"Clothes under it\" shows what you wear under the "
+                                    + "armour.",
+                            "Close up, in the mirror, brings your face and shoulders near, breathing and glancing "
+                                    + "about, from any side: turn it with the arrows. Dyes turn up everywhere - in "
+                                    + "chests, in shops, in barrels and on felled foes - and each unlocks a colour "
+                                    + "for good.")),
             new Chapter("Inventory and pouch", "satchel",
                     List.of(Action.INVENTORY, Action.USE, Action.DROP, Action.HOTBAR_1, Action.HOTBAR_5),
                     List.of("{INVENTORY} opens the inventory. Click an item to take it up and a slot to put it "
@@ -200,7 +206,9 @@ final class HowToPlay {
             new Chapter("The map and saving", null,
                     List.of(Action.USE, Action.JUMP, Action.PAUSE),
                     List.of("New Game opens the character creator: who you are, how you look, and your class. "
-                                    + "Then the map of the Brass Vale.",
+                                    + "Then the map of the Brass Vale - or another world map, picked on the New "
+                                    + "Game page. Load Game can take a save onto another map; each map remembers "
+                                    + "where you stood on it.",
                             "On the map, {MOVE} takes the road that sets off that way, or click a place to walk "
                                     + "there. {USE} goes in. Roads on from a place open once it is cleared: by "
                                     + "reaching it, by finding its way out, by felling its foes, or by finishing "
@@ -221,15 +229,18 @@ final class HowToPlay {
                                     + "kaboom, carpenter.")),
             new Chapter("Creative Mode", "upgrade_ingot",
                     List.of(),
-                    List.of("Type 1 0 2 5 on the main menu and the Dev tab opens: Creative Mode, where the game's "
+                    List.of("Enter 1 0 2 5 on Play, Codes and the Dev tab opens: Creative Mode, where the game's "
                                     + "levels are built. Place the land, buildings, furniture, people, foes, animals, "
                                     + "chests, shops, quests and doors; play a level from where you stand; and save "
                                     + "it for the map.",
                             "Ctrl+F searches everything there is to place. Click something placed to change it: its "
                                     + "numbers have sliders and boxes to type in, a shop's stock and a quest's "
-                                    + "reward are rows to pick from, and a person's day is set hour by hour.",
+                                    + "reward are rows to pick from, and a person's day is set hour by hour. People "
+                                    + "and foes are dressed in the wardrobe, hold forged weapons, and have their "
+                                    + "health, damage and speed set.",
                             "The Forge makes weapons of your own: their look, colours, dice, effects and tiers. The "
-                                    + "map editor draws the overworld, and the horde editor the horde maps.")),
+                                    + "map editor draws world maps - on its tiles or a picture of your own, with "
+                                    + "marks and roads, Ctrl+Z to undo - and the horde editor the horde maps.")),
             new Chapter("Settings and controls", null,
                     List.of(Action.SETTINGS, Action.FULLSCREEN, Action.PAUSE),
                     List.of("{SETTINGS} opens the settings from anywhere, and so does the Settings button: the "

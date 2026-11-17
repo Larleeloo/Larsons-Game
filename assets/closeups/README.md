@@ -32,7 +32,8 @@ assets/closeups/<layer>/<item>_px128/variants.json        the item's colours
   `surprise` 60.
 - **Layers.** Every item of the layers that can show in the frame: body, bra,
   shirt, necklace, gloves, both wrists, ears, earrings, nose, eyes, eyebrows,
-  makeup, mouth, hair, hat and the cape (`other`). Shoes, trousers, belts and
+  makeup, mouth, hair, hat and the cape (`other`), and the Khorigale's horns
+  (drawn by `tools/sprites/make_khorigale.py --closeups`, not rendered). Shoes, trousers, belts and
   scabbards are below the frame, and a conversation puts away what the hands
   carry. Each layer is cut against the same outfit as the game sprites, so
   stacked in the game's draw order they line up whatever is worn.

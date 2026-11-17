@@ -123,6 +123,7 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/swim_idle.mp3                  feminine tread water (held)                      player/feminine/swim_idle
   player/feminine/swim.mp3                       feminine swim (held)                             player/feminine/swim
   player/feminine/swim_under.mp3                 feminine swim under water (held)                 player/feminine/swim_under
+  player/feminine/rest.mp3                       feminine at rest (held)                          player/feminine/rest
   player/feminine/footstep_grass.mp3             feminine footstep on grass                       player/feminine/footstep_grass
   player/feminine/footstep_dirt.mp3              feminine footstep on a dirt path                 player/feminine/footstep_dirt
   player/feminine/footstep_gravel.mp3            feminine footstep on gravel                      player/feminine/footstep_gravel
@@ -220,6 +221,7 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/swim_idle.mp3                 masculine tread water (held)                     player/masculine/swim_idle
   player/masculine/swim.mp3                      masculine swim (held)                            player/masculine/swim
   player/masculine/swim_under.mp3                masculine swim under water (held)                player/masculine/swim_under
+  player/masculine/rest.mp3                      masculine at rest (held)                         player/masculine/rest
   player/masculine/footstep_grass.mp3            masculine footstep on grass                      player/masculine/footstep_grass
   player/masculine/footstep_dirt.mp3             masculine footstep on a dirt path                player/masculine/footstep_dirt
   player/masculine/footstep_gravel.mp3           masculine footstep on gravel                     player/masculine/footstep_gravel

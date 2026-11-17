@@ -129,12 +129,31 @@ itself, the file to ask for with a bug report.
   <img src="docs/screenshots/how-to-play.png" width="49%" alt="How to play: the chapters down the left, the page on parchment with its keys drawn as they are set">
 </p>
 
-The main menu is tabs - **Play**, **Horde**, **Cutscene**, and **Dev** (shown
-once **1 0 2 5** is typed on the menu; typed again, it hides) - over your own
-character in the meadow, with "Dream On" playing for lute, harp and recorder.
-**Play** has *Continue*, *New Game*, *Load Game*, **How to play**, *Demo* (the
-training yard: dummies, every weapon, a chest, the highlands), *Settings* and
-*Quit*. **Settings** sits at the top right of every screen.
+The main menu is tabs - **Play** and **Horde**, and in dev mode **Cutscene**
+and **Dev** - over your own character in the meadow, with "Dream On" playing
+for lute, harp and recorder. Your character **stands at ease** with empty
+hands, weight on one leg then the other, breathing, glancing off to the side
+(the new *at rest* stance, `AnimState.REST`), and now and then takes up a
+weapon's ready stance - the blade, the staff, the bow, the mace, the dagger,
+the wand, the axe, the crossbow - for a few seconds before setting it down,
+turning a little as they go. **Play** has *Continue*, *New Game*, *Load Game*,
+**How to play**, *Demo* (the training yard: dummies, every weapon, a chest,
+the highlands), **Codes**, *Settings* and *Quit*. **Settings** sits at the top
+right of every screen.
+
+**Codes** is where the dev code goes: type **1 0 2 5** (the number row or the
+num-pad) or tap it on the page's keypad with the gamepad, then **Enter**.
+Dev mode shows the **Dev** tab (Creative Mode, the world map and horde map
+editors) and the **Cutscene** tab, and **unlocks every cosmetic** - every
+hairstyle, garment, piece of armour and colour - in the wardrobe; the same
+page turns it off. It is remembered between runs (`devUnlocked` in
+`config/settings.json`). Without the code the cutscene is not offered at all.
+
+**World maps** are picked per save slot. *New Game* asks which world map the
+playthrough is on - **Main story: the Brass Vale** first, then every map made
+in the map editor - and *Load Game* has a picker beside each slot to take
+that playthrough onto another map; each map remembers where she stood on it,
+so going back puts her where she left off.
 
 ### A playthrough
 
@@ -283,12 +302,13 @@ or the **Settings** button, and saves as it changes (`config/settings.json`):
   renderer is.
 - **Game**: the HUD and the missions on it, tutorial tips, picking up by
   walking over (and how near), the camera's height, walls indoors and out,
-  scenery, animations, and **birds** (off unless switched on here).
+  scenery and animations.
 - **Pointer**: her class's pointer, any class's, a picture of your own or the
   system's, and whether it changes with what it is over - a hand over
   buttons, a speech mark over someone to talk to, a sword over a foe, a key
   over a lock, a coin over a shop, a beam over loot.
-- **Sounds**, **Controls** and **Colours**: below.
+- **Sounds** (with the **birds** switch: off unless switched on here),
+  **Controls** and **Colours**: below.
 
 **F11** (or Alt+Enter) switches between the window and full screen anywhere,
 and the choice is kept for the next start.
@@ -520,7 +540,28 @@ sprites in their tier's colours.
 What she wears is **items** - clothes, armour (leather, chainmail, scale,
 bronze, iron and steel), jewellery, hair styles, makeup, dyes - found in
 chests and shops and put on in **Pause → Wardrobe**, an oak armoire with her
-in its mirror, turning through every view and state. Among them, **54 added
+in its mirror, turning through every view and state.
+
+- **Three sections**, a tab each (**LB** / **RB** on the gamepad): **Looks**
+  (body and skin, hair, eyes, eyebrows, ears, nose, mouth, makeup),
+  **Clothing**, and **Armour** - plated in iron, rivets and a little shield
+  on its tab, so it is never mistaken for the clothes: helmet, gorget,
+  gambeson or jerkin, mail shirt, chestplate, gauntlets, both bracers, mail
+  leggings, leg plating and sabatons, each with the die it rolls to block.
+  Its header has **Clothes under it: shown / hidden** - armour hides what it
+  covers unless this is on (kept with her look, `underShown`).
+- **Every layer is a dropdown**: click it (or **A**) and the list hangs under
+  it, with each item's rarity dot and an armour piece's die; the d-pad moves
+  between the lists, **left / right** step through a list's choices without
+  opening it, **A** picks, **B** shuts it.
+- **Close up** in the mirror brings her face and shoulders near, **at rest
+  and moving** (her breathing, a glance, a blink), from **every one of the
+  eight sides** - the mirror's arrows turn her, *Spin* walks her round
+  (`assets/wardrobe_closeups/`, drawn from the same models as the sprites).
+- **Whole** shows all of her again, in any state, from any of the three
+  heights.
+
+Among them, **54 added
 for both bodies** (`world/Wearables` `outfitTable`): great helms, kettle
 hats, horned helms, coifs, a wizard's hat, top hats, tricorns, hoods,
 crowns, circlets and flower crowns; brass goggles, an eyepatch, a masquerade
@@ -665,7 +706,7 @@ swans, butterflies, bees, iguanas and fourteen birds from robins to peacocks
 - each drawn from 24 views, with a **nature**: tame, calm, skittish,
 friendly, defensive or hostile. They live where a level places them, or as
 many as its **Life** page asks for: none come by themselves. **Birds are
-off** at every hour of the day unless **Settings → Game → Birds** is on.
+off** at every hour of the day unless **Settings → Sounds → Birds** is on.
 
 ### Buildings
 
@@ -884,10 +925,23 @@ comes back.
   if they sell, **where they live** (the nearest house, none, or a building
   picked) and **their day**: a row for each part of it - from what time, what
   they do, and where.
-- **A person's or a dressed foe's look** is theirs to make: **Edit look…**
-  opens every layer - body and skin, face, hair, horns and tail, each thing
-  worn - with its colours (any of the palette) beside them standing in the
-  portrait; *As it comes* goes back to the look their seed draws.
+- **A person's or a dressed foe's look** is made in **the wardrobe**:
+  **Wardrobe…** opens the same armoire as the player's - Looks (with horns
+  and tail), Clothing and Armour, every layer a dropdown, the mirror and its
+  close-up - offering **everything there is art for, in every colour, and
+  the armour made in the Forge**. *Another look* rolls one at random, *As it
+  comes* goes back to the look their kind draws; there is no look number to
+  slide any more.
+- **Their fighting** is theirs to set too, under **Fighting**: health,
+  damage, attack speed and move speed (each times their kind's), and for a
+  foe how far it sees, how often it guards and the experience it is worth.
+  **Its armour blocks** makes the armour they wear roll its dice against
+  your blows, as yours does (what it stopped rises in steel grey). The line
+  under it says what they fight as now: "60 health · 8 a blow, every 1.6 s
+  · walks 1.5 m/s ...".
+- **Forged weapons** are in a foe's *Weapon* and a person's *Holds* lists
+  (`forged:<id>`): held in the hand in their colours, hitting as their dice
+  roll.
 - **A quest** has its title, **who gives it** (picked from the level's
   people), what to do, **what or whom** (picked: a breed, a person, an item),
   how many, within how far, what they say asking for it, while it is not done
@@ -928,10 +982,34 @@ shops and on horde boards like any weapon (`forged:<id>`).
 </p>
 
 **The map editor** (`editor/OverworldEditor`) paints the overworld's
-fourteen terrains, places destinations - a name, an icon, **the level it
+fourteen terrains, places destinations - a name, a mark, **the level it
 loads**, what clears it, whether its roads are open from the start, another
 map it leads to - draws the roads between them, and sets where a new game
-starts; *Try it* walks the map. **The horde editor** is Creative Mode with a
+starts; *Try it* walks the map. It works like the level editor:
+
+- **Ctrl+Z / Ctrl+Y** (or Ctrl+Shift+Z) undo and redo, with buttons too; a
+  drag is one step.
+- Tools **1 Terrain**, **2 Destinations**, **3 Roads**, **4 Map**. Terrain
+  has brushes of 1, 3, 5 and 9 tiles, **Box** and **Fill**, Shift+click for a
+  straight line, **Q** or Alt+click to pick up a terrain, **G** for the grid.
+  Destinations: the arrow keys nudge the one selected, **Ctrl+C / Ctrl+V /
+  Ctrl+D** copy, paste and duplicate it, **Delete** takes it away.
+- **A picture of your own** (**Map → Picture**): pick a PNG or JPG, or drop
+  it on the window, and it becomes the map's ground - copied into
+  `assets/overworld/backgrounds/`, fitted to the map, with the tiles hidden
+  or shown over it. Destinations and roads are placed on the picture.
+- **Marks in the style of a painted fantasy map**: city, hamlet, fort, keep,
+  watchtower, lighthouse, farm, mill, lumber camp, docks, bridge, inn,
+  temple, standing stone, grove, cavern, mine shaft, barrow, ruined tower,
+  lair, camp, gateway, workshop and landmark (`assets/overworld/markers.png`),
+  filled once a place is open and hollow while it is locked, with a tick
+  once cleared. *All as marks* turns a whole map's old icons into marks.
+- **Roads** in four looks - dotted, ink, dashed, a track - and *Bend
+  smoothly* curves them through their turns.
+- **The main story's map is kept apart** (`assets/overworld/story/`) and is
+  **read-only** in the editor: *Make a copy* to change it. Maps made in the
+  editor are `assets/overworld/maps/`; *Chosen first for a new game* marks
+  which one *New Game* offers first. **The horde editor** is Creative Mode with a
 **Zombies** shelf - Risen spawns (which kind, from which round, behind which
 gate), barricades, weapon boards, the mystery box, gates - and the map's
 rules: starting points, how the rounds grow, how many at once, lives, her

@@ -55,7 +55,7 @@ public final class FolkTypes {
     }
 
     /** The weapons a foe can be handed: its kind's own, none, or any there is. */
-    static List<String> weapons() {
+    public static List<String> weapons() {
         List<String> out = new ArrayList<>(List.of(OWN, NONE));
         for (ItemDef d : ItemDef.ALL) out.add(d.id());
         out.addAll(forgedWeapons());
@@ -90,7 +90,7 @@ public final class FolkTypes {
             "armour");
 
     /** Change {@code f}'s fighting from its kind's as {@code o}'s props say: its health, its blows, its pace ... */
-    static Folk stats(Folk f, LevelObject o) {
+    public static Folk stats(Folk f, LevelObject o) {
         double times = o.num("health", 1);
         if (times != 1) f.tougher(times);
         if (o.num("damage", 1) != 1) f.hitting(o.num("damage", 1));

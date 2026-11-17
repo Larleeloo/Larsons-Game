@@ -4,6 +4,7 @@ The Khorigale's horns and tail, drawn straight onto sprite sheets.
 
     python3 tools/sprites/make_khorigale.py                 # every sheet: both bodies, both sizes
     python3 tools/sprites/make_khorigale.py --preview out.png --state walk --skin emerald
+    python3 tools/sprites/make_khorigale.py --closeups      # the horns on the close-ups (cutscenes', wardrobe's)
 
 The other layers are rendered from the Blender models; these two are small
 enough to be drawn by rule, frame by frame, on what is already rendered:
@@ -273,9 +274,9 @@ def poses(sheets, fw, direction):
     return out
 
 
-def draw_horns(fw, pose, elevation, big):
-    """One frame's horns: a cell of palette indices."""
-    scale = fw / 128.0
+def draw_horns(fw, pose, elevation, big, zoom=1.0):
+    """One frame's horns: a cell of palette indices (zoom: a close-up's frame, nearer than a sprite's)."""
+    scale = fw / 128.0 * zoom
     radius = 5.0 * scale
     cell = np.zeros((fw, fw), dtype=np.uint8)
     hx, hy = pose.head[elevation]
@@ -443,11 +444,55 @@ def folders(root, style):
     for d in (horns, tail):
         d.mkdir(parents=True, exist_ok=True)
         (d / "profile.json").write_text(json.dumps(profile))
-    (horns / "variants.json").write_text(json.dumps({
-        "version": 1, "labels": 4, "default": {"own": "bone"},
-        "channels": {"own": {"labels": [0, 1, 2, 3], "options": HORN_COLOURS,
-                             "swatch": {k: v[2] for k, v in HORN_COLOURS.items()}}}}, separators=(",", ":")))
+    (horns / "variants.json").write_text(json.dumps(horn_variants(), separators=(",", ":")))
     (tail / "variants.json").write_text((root / "ears" / f"pointed_{style}" / "variants.json").read_text())
+
+
+# the close-ups the horns are drawn on too (the head is all that matters there:
+# the tail hangs below the frame)
+CLOSEUPS = ["closeups", "closeups_masculine", "wardrobe_closeups", "wardrobe_closeups_masculine"]
+SPRITE_FRAME = 2.4                 # metres a sprite's frame is wide (a close-up's profile says its own)
+
+
+def closeup_horns(root):
+    """The horns on one folder of close-ups: from the side only, on the crew cut's head, in each clip."""
+    made = 0
+    for style, fw in STYLES.items():
+        hair = root / "hair" / f"crew_cut_{style}"
+        if not (hair / "profile.json").exists():
+            continue
+        profile = json.loads((hair / "profile.json").read_text())
+        zoom = SPRITE_FRAME / float(profile.get("frameWorldSize", SPRITE_FRAME))
+        radius = 5.0 * fw / 128.0 * zoom
+        out = root / "horns" / f"{HORNS}_{style}"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "profile.json").write_text(json.dumps(profile))
+        (out / "variants.json").write_text(json.dumps(horn_variants(), separators=(",", ":")))
+        horn_pal = [rgb(c) for c in HORN_COLOURS["bone"]]
+        for sheet in sorted(hair.glob("*_side_*.png")):
+            direction = sheet.stem.rsplit("_", 1)[1]
+            cs, rows, cols = cells(sheet, fw)
+            shown = [i for i in range(len(cs)) if (cs[i] > 1).any()]
+            frames = shown[-1] + 1 if shown else 0
+            horns = []
+            was = (fw / 2, fw / 2)
+            for i in range(rows * cols):
+                if i >= frames:
+                    horns.append(np.zeros((fw, fw), dtype=np.uint8))
+                    continue
+                p = Pose()
+                p.yaw = math.radians(DIRECTIONS[direction])        # (at rest or talking: she stands upright)
+                p.head["side"] = was = head_at(cs[i], radius, False, was)
+                horns.append(draw_horns(fw, p, "side", fw >= 128, zoom))
+            save(sheet_of(horns, rows, cols, fw, frames), horn_pal, out / sheet.name)
+            made += 1
+    return made
+
+
+def horn_variants():
+    return {"version": 1, "labels": 4, "default": {"own": "bone"},
+            "channels": {"own": {"labels": [0, 1, 2, 3], "options": HORN_COLOURS,
+                                 "swatch": {k: v[2] for k, v in HORN_COLOURS.items()}}}}
 
 
 def check_colours():
@@ -528,8 +573,14 @@ def main():
     ap.add_argument("--skin", default="emerald")
     ap.add_argument("--zoom", type=int, default=3)
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--closeups", action="store_true", help="only the horns on the close-ups (assets/*closeups*/)")
     args = ap.parse_args()
     check_colours()
+    if args.closeups:
+        for name in CLOSEUPS:
+            if (ASSETS / name).is_dir():
+                print(f"{name}: {closeup_horns(ASSETS / name)} sheets", flush=True)
+        return
     if args.preview:
         preview(args.preview, args.body or "feminine", args.style or "px128", args.state or "idle",
                 args.frame, args.skin, args.zoom)

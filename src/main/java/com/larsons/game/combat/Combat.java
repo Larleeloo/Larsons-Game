@@ -797,8 +797,8 @@ public final class Combat {
     private void strike(Strike s, Target t, double d, Vec3 from, boolean melee) {
         boolean was = t.alive();
         // armour it wears that blocks (a foe the editor armoured) rolls its dice first
-        double rolled = d;
-        d = Math.max(0, Math.round(t.armour(d)));
+        double rolled = d, through = t.armour(d);
+        if (through < d) d = Math.max(0, Math.round(through));
         t.hurt(d, from, true);
         if (was && !t.alive() && world != null) world.felled(t);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
