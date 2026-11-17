@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 The first map of the main lands - the Brass Vale - written to
-assets/overworld/maps/brass_vale.json, with assets/overworld/campaign.json
+assets/overworld/story/brass_vale.json, with assets/overworld/campaign.json
 naming it as the map a new game starts on.
 
     python3 tools/overworld/make_main_lands.py
@@ -191,7 +191,7 @@ def main():
                   for (i, n, k, x, y, lv, cl, op, ab) in NODES],
         "paths": [dict({"from": a, "to": b}, via=[list(v) for v in via]) for (a, b, via) in WAYS],
     }
-    folder = os.path.join(ROOT, "assets", "overworld", "maps")
+    folder = os.path.join(ROOT, "assets", "overworld", "story")
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, "brass_vale.json"), "w") as f:
         json.dump(out, f, indent=1)

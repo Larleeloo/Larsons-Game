@@ -771,7 +771,7 @@ none.
 
 ### The Brass Vale
 
-The game's first lands (`assets/overworld/maps/brass_vale.json`): **Oakhollow**
+The game's first lands (`assets/overworld/story/brass_vale.json`): **Oakhollow**
 (home), **Miller's Crossing**, **Brasswick** (the market town), the
 **Whispering Wood**, **Fisher's Rest**, **Copperpit Mine**, the **Drurin
 Observatory**, the **Khorigale Camp**, the **Sallow Marsh**, the **Old

@@ -129,9 +129,10 @@ public final class Settings {
      */
     public boolean debugTools;
     /**
-     * The main menu's Dev tab - Creative Mode, the levels - is shown: typed
-     * open with the dev code on the main menu (1 0 2 5), and kept open
-     * between runs until it is typed again.
+     * Dev mode: the main menu's Dev tab (Creative Mode, the levels, the map
+     * and horde editors) and its Cutscene tab are shown, and every cosmetic
+     * is unlocked - turned on with the dev code (1 0 2 5) on the main menu's
+     * Codes page, and kept between runs until it is turned off there.
      */
     public boolean devUnlocked;
     /**

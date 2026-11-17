@@ -1,6 +1,7 @@
 package com.larsons.game.actor;
 
 import com.larsons.game.combat.Combat;
+import com.larsons.game.combat.DiceRoll;
 import com.larsons.game.combat.Move;
 import com.larsons.game.combat.Target;
 import com.larsons.game.math.Vec3;
@@ -10,8 +11,11 @@ import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteView;
 import com.larsons.game.sprite.Stance;
 import com.larsons.game.sprite.Wardrobe;
+import com.larsons.game.world.Armour;
+import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -123,7 +127,7 @@ public final class Folk implements Target {
         this.health = this.maxHealth = breed == null ? 50 : breed.health();
         if (wardrobe != null) {
             stance = Stance.ofWardrobe(wardrobe);
-            state = stance.idle(false);
+            state = Stance.carriesShield(wardrobe) ? stance.idle(false) : AnimState.REST;
         }
     }
 
@@ -215,6 +219,92 @@ public final class Folk implements Target {
         maxHealth = Math.max(1, Math.round(maxHealth * times));
         health = maxHealth;
         return this;
+    }
+
+    // what the editor changed of its kind's: how hard it hits, how quickly it swings, the experience it is worth,
+    // whether the armour it wears rolls its dice to block
+    private double hitsTimes = 1, paceTimes = 1, xpTimes = 1;
+    private boolean armoured;
+    private final java.util.Random armourDice = new java.util.Random();
+    private Armour.Roll armourRoll;
+
+    /** Its blows {@code times} as hard as its kind's (a forged weapon's dice: so many times what they roll). */
+    public Folk hitting(double times) {
+        hitsTimes = Math.max(0.05, times);
+        tune();
+        return this;
+    }
+
+    /** It swings and shoots {@code times} as often as its kind. */
+    public Folk pacing(double times) {
+        paceTimes = Math.max(0.1, times);
+        tune();
+        return this;
+    }
+
+    /** It walks and runs {@code times} as fast as it would. */
+    public Folk quicker(double times) {
+        double t = Math.max(0.1, times);
+        walk *= t;
+        run *= t;
+        return this;
+    }
+
+    /** It sees her from {@code metres} away (its kind's: 0 leaves it). */
+    public Folk seeing(double metres) {
+        if (metres > 0) sight = metres;
+        return this;
+    }
+
+    /** How likely it is to put its guard up after a swing, times its kind's (held under 95 in 100). */
+    public Folk guarding(double times) {
+        guard = Math.max(0, Math.min(0.95, guard * Math.max(0, times)));
+        return this;
+    }
+
+    /** It is worth {@code times} the experience of its kind, felled. */
+    public Folk worth(double times) {
+        xpTimes = Math.max(0, times);
+        return this;
+    }
+
+    public double xpTimes() { return xpTimes; }
+
+    /** Whether the armour it wears rolls its dice to block her blows, as hers does ({@link Armour}). */
+    public Folk armoured(boolean on) {
+        armoured = on;
+        return this;
+    }
+
+    public boolean armoured() { return armoured; }
+
+    /** Its walking and running speeds, metres a second. */
+    public double walkSpeed() { return walk; }
+
+    public double runSpeed() { return run; }
+
+    /** How far it sees her from, in metres. */
+    public double sight() { return sight; }
+
+    /** What one of its blows does now (a forged weapon's: what its dice roll on average). */
+    public double blowDamage() { return damage; }
+
+    /** How many seconds it waits between swings. */
+    public double attackEvery() { return every; }
+
+    public double guardChance() { return guard; }
+
+    /** What its armour rolled against the last blow it took, or null (none worn, or it does not block). */
+    public Armour.Roll armourRoll() { return armourRoll; }
+
+    @Override
+    public double armour(double damage) {
+        armourRoll = null;
+        if (!armoured || wardrobe == null || damage <= 0) return damage;
+        List<Armour.Piece> pieces = Armour.worn(wardrobe, null);
+        if (pieces.isEmpty()) return damage;
+        armourRoll = Armour.roll(damage, pieces, Armour.Rules.defaults(), armourDice);
+        return armourRoll.taken();
     }
 
     /** The icon over its head ({@code assets/cards/icons.png}), or null: none. */
@@ -311,8 +401,17 @@ public final class Folk implements Target {
             keep = 10;
             slow = 1.3;
         }
-        damage = Math.max(1, Math.round(base * dmg * size));
-        every = wait * slow;
+        Forged forged = weapon == null ? null : weapon.forged();
+        if (forged != null) {
+            // a forged weapon hits as its dice roll, on average (the same rolls each time: it is the same weapon)
+            java.util.Random r = new java.util.Random(forged.key().hashCode());
+            double sum = 0;
+            for (int i = 0; i < 64; i++) sum += DiceRoll.roll(forged.dice(), forged.sides(), forged.extra(), r).total();
+            damage = Math.max(1, Math.round(sum / 64 * size * hitsTimes));
+        } else {
+            damage = Math.max(1, Math.round(base * dmg * size * hitsTimes));
+        }
+        every = wait * slow / paceTimes;
         reach *= 0.7 + 0.3 * size;
     }
 
@@ -575,7 +674,9 @@ public final class Folk implements Target {
             case GUARD -> orElse(stance.block(), orElse(stance.parry(), stance.idle(crouched)));
             case SPIT -> AnimState.EMOTE_ANGRY;
             case LAUGH -> AnimState.EMOTE_LAUGH;
-            default -> stance.idle(crouched);
+            // standing about with nothing in its hands: at rest, not braced as if a sword were in them
+            default -> !crouched && weapon == null && !Stance.carriesShield(wardrobe) ? AnimState.REST
+                    : stance.idle(crouched);
         };
         if (s != state || changed) stateTime = 0;
         state = s;

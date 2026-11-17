@@ -35,7 +35,16 @@ import java.util.stream.Stream;
  * </ul>
  *
  * Maps are made in the overworld editor (main menu, Dev) and kept in {@code
- * assets/overworld/maps/<id>.json}:
+ * assets/overworld/maps/<id>.json}. The <b>main story</b>'s map is the
+ * game's own, kept apart in {@code assets/overworld/story/}: the editor
+ * shows it but will not change or delete it (a copy of it can be made and
+ * changed instead), so the story can always be played.
+ *
+ * <p>A map can lie over a picture of one's own instead of (or as well as)
+ * its tiles - a PNG kept in {@code assets/overworld/backgrounds/}, stretched
+ * over the whole map - with its destinations and roads put on the picture;
+ * and its destinations can be the painted icons or the plain marks of an
+ * old map ({@link #MARKERS}: filled once found, hollow till then).
  *
  * <pre>
  * {"name": "The Main Lands", "width": 40, "height": 24, "start": "harbour",
@@ -63,7 +72,34 @@ public final class Overworld {
     /** The kinds of destination, in the order of {@code icons.png}; after them come its marks. */
     public static final List<String> KINDS = List.of("town", "village", "castle", "camp", "cave", "tower", "port",
             "ruins", "mine", "workshop", "shrine", "arena", "crypt", "portal");
-    /** The marks' places in {@code icons.png}. */
+    /**
+     * The plain map marks a destination can be instead, in the order of
+     * {@code markers.png} ({@code tools/overworld/make_markers.py}): flat
+     * silhouettes, as on a traveller's map - filled once she can get there,
+     * hollow while she cannot.
+     */
+    public static final List<String> MARKERS = List.of("city", "hamlet", "fort", "keep", "watchtower", "lighthouse",
+            "farm", "mill", "lumber_camp", "docks", "bridge", "inn", "temple", "standing_stone", "grove", "cavern",
+            "mine_shaft", "barrow", "ruined_tower", "lair", "camp_tents", "gateway", "workshop_gears", "landmark");
+    /** What each mark is called in the editor. */
+    public static String markerName(String kind) {
+        String k = kind.replace('_', ' ');
+        return switch (kind) {
+            case "workshop_gears" -> "steam works";
+            case "camp_tents" -> "tents";
+            case "mine_shaft" -> "mine shaft";
+            default -> k;
+        };
+    }
+
+    /** Whether {@code kind} is a destination's kind at all: an icon or a mark. */
+    public static boolean isKind(String kind) {
+        return KINDS.contains(kind) || MARKERS.contains(kind);
+    }
+
+    /** The ways a road can be drawn. */
+    public static final List<String> ROAD_STYLES = List.of("dotted", "ink", "dashed", "track");
+
     /**
      * What clears a destination: going there at all, reaching its level's
      * way out, felling every foe in its level, or finishing a quest.
@@ -72,8 +108,8 @@ public final class Overworld {
 
     public static final int ICON_CLEARED = KINDS.size(), ICON_LOCKED = KINDS.size() + 1, ICON_HERE = KINDS.size() + 2;
 
-    public static final int SMALLEST = 12, WIDEST = 96, TALLEST = 64;
-    public static final String FOLDER = "overworld", MAPS = "maps";
+    public static final int SMALLEST = 12, WIDEST = 160, TALLEST = 120;
+    public static final String FOLDER = "overworld", MAPS = "maps", STORY = "story", BACKGROUNDS = "backgrounds";
 
     /** A destination. */
     public static final class Node {
@@ -91,9 +127,27 @@ public final class Overworld {
             this.y = y;
         }
 
-        /** Its icon's place in {@code icons.png}. */
+        /** Its icon's place in {@code icons.png} (a mark: the town's). */
         public int icon() {
             return Math.max(0, KINDS.indexOf(kind));
+        }
+
+        /** Its mark's place in {@code markers.png}; -1: it is drawn as an icon. */
+        public int marker() {
+            return MARKERS.indexOf(kind);
+        }
+
+        /** A copy of it, called {@code id}, at {@code (x, y)}. */
+        public Node copy(String id, int x, int y) {
+            Node n = new Node(id, name, x, y);
+            n.kind = kind;
+            n.level = level;
+            n.about = about;
+            n.clear = clear;
+            n.quest = quest;
+            n.toMap = toMap;
+            n.open = open;
+            return n;
         }
 
         /** Whether choosing it loads a level. */
@@ -131,6 +185,17 @@ public final class Overworld {
     private String start = "";
     /** The music that plays over it: a song's id, "shuffle" or "none" ({@code audio/Songs}). */
     private String music = "shuffle";
+    /** The picture it lies over (a file of {@code backgrounds/}), "" for none; whether its tiles show too. */
+    private String background = "";
+    private boolean tilesShown = true;
+    /** How its roads are drawn ({@link #ROAD_STYLES}), and whether they bend smoothly through their bends. */
+    private String roadStyle = "dotted";
+    private boolean smoothRoads;
+
+    /** Whether this is the main story's own map (read from {@code story/}): never changed by the editor. */
+    private boolean story;
+
+    public boolean story() { return story; }
 
     public Overworld(String name, int width, int height) {
         this.name = name;
@@ -155,6 +220,27 @@ public final class Overworld {
     public void setMusic(String m) {
         music = m == null || m.isBlank() ? "shuffle" : m;
     }
+
+    public String background() { return background; }
+
+    public void setBackground(String file) {
+        background = file == null ? "" : file.strip();
+    }
+
+    /** Whether its terrain tiles are drawn (always, with no picture under it). */
+    public boolean tilesShown() { return tilesShown || background.isEmpty(); }
+
+    public void setTilesShown(boolean on) { tilesShown = on; }
+
+    public String roadStyle() { return roadStyle; }
+
+    public void setRoadStyle(String s) {
+        roadStyle = ROAD_STYLES.contains(s) ? s : "dotted";
+    }
+
+    public boolean smoothRoads() { return smoothRoads; }
+
+    public void setSmoothRoads(boolean on) { smoothRoads = on; }
 
     public int width() { return width; }
 
@@ -246,14 +332,73 @@ public final class Overworld {
 
     /** A new destination at a tile, called {@code name}: its id made from its name, unlike any other's. */
     public Node add(String name, int x, int y) {
+        Node n = new Node(freeNodeId(name), name, x, y);
+        nodes.add(n);
+        if (nodes.size() == 1) start = n.id;
+        return n;
+    }
+
+    /** A copy of {@code n} at {@code (x, y)}, with an id of its own ("... 2"). */
+    public Node addCopy(Node n, int x, int y) {
+        Node c = n.copy(freeNodeId(n.name), x, y);
+        nodes.add(c);
+        if (nodes.size() == 1) start = c.id;
+        return c;
+    }
+
+    private String freeNodeId(String name) {
         String base = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
         if (base.isEmpty()) base = "place";
         String id = base;
         for (int i = 2; node(id) != null; i++) id = base + "_" + i;
-        Node n = new Node(id, name, x, y);
-        nodes.add(n);
-        if (nodes.size() == 1) start = id;
-        return n;
+        return id;
+    }
+
+    /** Everything on it moved {@code (dx, dy)} tiles (what would leave the map stays at its edge). */
+    public void shift(int dx, int dy) {
+        char[][] to = new char[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int fx = x - dx, fy = y - dy;
+                to[y][x] = inside(fx, fy) ? tiles[fy][fx] : 'w';
+            }
+        }
+        tiles = to;
+        for (Node n : nodes) {
+            n.x = Math.max(0, Math.min(width - 1, n.x + dx));
+            n.y = Math.max(0, Math.min(height - 1, n.y + dy));
+        }
+        for (Way p : ways) {
+            for (int[] v : p.via) {
+                v[0] = Math.max(0, Math.min(width - 1, v[0] + dx));
+                v[1] = Math.max(0, Math.min(height - 1, v[1] + dy));
+            }
+        }
+    }
+
+    /** Every tile from {@code (x0, y0)} to {@code (x1, y1)} (either way round) made {@code t}. */
+    public void fillRect(int x0, int y0, int x1, int y1, Terrain t) {
+        for (int y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+            for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) paint(x, y, t);
+        }
+    }
+
+    /** A straight stroke of {@code t} from one tile to another, {@code size} tiles wide. */
+    public void line(int x0, int y0, int x1, int y1, int size, Terrain t) {
+        int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        int r = size / 2;
+        for (int i = 0; i <= steps; i++) {
+            int x = Math.round(x0 + (x1 - x0) * (steps == 0 ? 0f : i / (float) steps));
+            int y = Math.round(y0 + (y1 - y0) * (steps == 0 ? 0f : i / (float) steps));
+            for (int yy = y - r; yy <= y + r; yy++) for (int xx = x - r; xx <= x + r; xx++) paint(xx, yy, t);
+        }
+    }
+
+    /** A copy of the whole map, for undoing back to. */
+    public Overworld copy() {
+        Overworld o = parse(json());
+        o.story = story;
+        return o;
     }
 
     /** A destination taken off the map, and its paths with it. */
@@ -405,6 +550,12 @@ public final class Overworld {
         j.put("height", (double) height);
         j.put("start", start);
         j.put("music", music);
+        if (!background.isEmpty()) {
+            j.put("background", background);
+            j.put("tilesShown", tilesShown);
+        }
+        if (!roadStyle.equals("dotted")) j.put("roadStyle", roadStyle);
+        if (smoothRoads) j.put("smoothRoads", true);
         List<Object> rows = new ArrayList<>();
         for (char[] row : tiles) rows.add(new String(row));
         j.put("tiles", rows);
@@ -456,7 +607,7 @@ public final class Overworld {
                 String id = Json.str(m, "id", "");
                 if (id.isEmpty() || o.node(id) != null) continue;
                 Node n = new Node(id, Json.str(m, "name", id), (int) Json.num(m, "x", 0), (int) Json.num(m, "y", 0));
-                n.kind = KINDS.contains(Json.str(m, "kind", "town")) ? Json.str(m, "kind", "town") : "town";
+                n.kind = isKind(Json.str(m, "kind", "town")) ? Json.str(m, "kind", "town") : "town";
                 n.level = Json.str(m, "level", "");
                 n.open = Json.bool(m, "open", false);
                 n.about = Json.str(m, "about", "");
@@ -488,6 +639,10 @@ public final class Overworld {
         }
         o.start = Json.str(j, "start", "");
         o.setMusic(Json.str(j, "music", "shuffle"));
+        o.setBackground(Json.str(j, "background", ""));
+        o.tilesShown = Json.bool(j, "tilesShown", o.background.isEmpty());
+        o.setRoadStyle(Json.str(j, "roadStyle", "dotted"));
+        o.smoothRoads = Json.bool(j, "smoothRoads", false);
         return o;
     }
 
@@ -496,16 +651,40 @@ public final class Overworld {
         return assets.resolve(FOLDER).resolve(MAPS);
     }
 
+    /** Where the main story's own map is kept, under {@code assets}: read, never written by the game. */
+    public static Path storyFolder(Path assets) {
+        return assets.resolve(FOLDER).resolve(STORY);
+    }
+
+    /** Where the pictures maps lie over are kept, under {@code assets}. */
+    public static Path backgrounds(Path assets) {
+        return assets.resolve(FOLDER).resolve(BACKGROUNDS);
+    }
+
+    /** Whether map {@code id} is the main story's own (kept in {@code story/}). */
+    public static boolean isStory(Path assets, String id) {
+        return id != null && !id.isBlank() && Files.isRegularFile(storyFolder(assets).resolve(id + ".json"));
+    }
+
+    /** The file map {@code id} is read from: the story's own first, then those made in the editor. */
+    public static Path file(Path assets, String id) {
+        Path story = storyFolder(assets).resolve(id + ".json");
+        return Files.isRegularFile(story) ? story : folder(assets).resolve(id + ".json");
+    }
+
     public static Overworld load(Path file) throws IOException {
         return parse(Json.asObject(Json.parse(Files.readString(file, StandardCharsets.UTF_8))));
     }
 
     /** The map called {@code id} under {@code assets}, or null (none, or it cannot be read). */
     public static Overworld byId(Path assets, String id) {
-        Path f = folder(assets).resolve(id + ".json");
-        if (id == null || id.isBlank() || !Files.isRegularFile(f)) return null;
+        if (id == null || id.isBlank()) return null;
+        Path f = file(assets, id);
+        if (!Files.isRegularFile(f)) return null;
         try {
-            return load(f);
+            Overworld o = load(f);
+            o.story = isStory(assets, id);
+            return o;
         } catch (IOException | RuntimeException e) {
             System.err.println("[overworld] cannot read " + f + ": " + e.getMessage());
             return null;
@@ -522,13 +701,17 @@ public final class Overworld {
         return assets.resolve(FOLDER).resolve("campaign.json");
     }
 
-    /** The map a new game starts on: the one {@code campaign.json} names, or the first there is; "" when none. */
+    /**
+     * The map a new game starts on unless another is chosen: the one {@code
+     * campaign.json} names, else the main story's, else the first there is;
+     * "" when there is none.
+     */
     public static String campaignStart(Path assets) {
         try {
             Path f = campaignFile(assets);
             if (Files.isRegularFile(f)) {
                 String id = Json.str(Json.asObject(Json.parse(Files.readString(f, StandardCharsets.UTF_8))), "start", "");
-                if (Files.isRegularFile(folder(assets).resolve(id + ".json"))) return id;
+                if (!id.isBlank() && Files.isRegularFile(file(assets, id))) return id;
             }
         } catch (IOException | RuntimeException e) {
             System.err.println("[overworld] campaign.json: " + e.getMessage());
@@ -545,20 +728,32 @@ public final class Overworld {
         Files.writeString(campaignFile(assets), Json.stringify(j) + "\n", StandardCharsets.UTF_8);
     }
 
-    /** A map on file: its id (the file's name) and what it is called. */
-    public record Saved(String id, String name, Path file) {}
+    /** A map on file: its id (the file's name), what it is called, and whether it is the main story's. */
+    public record Saved(String id, String name, Path file, boolean story) {
+        /** What it is called in a list: "Main story: ..." for the story's own. */
+        public String shown() { return story ? "Main story: " + name : name; }
+    }
 
-    /** Every map under {@code assets}, by name. */
+    /** Every map under {@code assets}: the main story's first, then the rest by file name. */
     public static List<Saved> list(Path assets) {
         List<Saved> out = new ArrayList<>();
-        Path dir = folder(assets);
-        if (!Files.isDirectory(dir)) return out;
+        listInto(out, storyFolder(assets), true);
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (Saved s : out) ids.add(s.id());
+        List<Saved> made = new ArrayList<>();
+        listInto(made, folder(assets), false);
+        for (Saved s : made) if (!ids.contains(s.id())) out.add(s);
+        return out;
+    }
+
+    private static void listInto(List<Saved> out, Path dir, boolean story) {
+        if (!Files.isDirectory(dir)) return;
         try (Stream<Path> files = Files.list(dir)) {
             for (Path f : files.filter(p -> p.getFileName().toString().endsWith(".json")).sorted().toList()) {
                 try {
                     Map<String, Object> j = Json.asObject(Json.parse(Files.readString(f, StandardCharsets.UTF_8)));
                     String file = f.getFileName().toString();
-                    out.add(new Saved(file.substring(0, file.length() - 5), Json.str(j, "name", file), f));
+                    out.add(new Saved(file.substring(0, file.length() - 5), Json.str(j, "name", file), f, story));
                 } catch (IOException | RuntimeException e) {
                     System.err.println("[overworld] skipping " + f + ": " + e.getMessage());
                 }
@@ -566,15 +761,17 @@ public final class Overworld {
         } catch (IOException e) {
             System.err.println("[overworld] cannot list " + dir + ": " + e.getMessage());
         }
-        return out;
     }
 
-    /** An id for a map called {@code name} that no map under {@code assets} has. */
+    /** An id for a map called {@code name} that no map under {@code assets} has (the story's included). */
     public static String freeId(Path assets, String name) {
         String base = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
         if (base.isEmpty()) base = "map";
         String id = base;
-        for (int i = 2; Files.exists(folder(assets).resolve(id + ".json")); i++) id = base + "_" + i;
+        for (int i = 2; Files.exists(folder(assets).resolve(id + ".json"))
+                || Files.exists(storyFolder(assets).resolve(id + ".json")); i++) {
+            id = base + "_" + i;
+        }
         return id;
     }
 }

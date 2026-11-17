@@ -100,11 +100,20 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
     private People people = People.HUMAN;
     private double size = 1;
     private String heroClass = "";
+    /** The world map the playthrough sets out on (chosen on the Play tab, or on the Begin page). */
+    private String mapId;
 
-    /** A new character for save slot {@code slot}. */
+    /** A new character for save slot {@code slot}, on the usual map (the main story's). */
     public CreatorScene(Game game, int slot) {
+        this(game, slot, null);
+    }
+
+    /** A new character for save slot {@code slot}, setting out on world map {@code mapId} (null: the usual). */
+    public CreatorScene(Game game, int slot, String mapId) {
         this.game = game;
         this.slot = slot;
+        this.mapId = mapId == null || Overworld.byId(game.settings().assets, mapId) == null
+                ? Overworld.campaignStart(game.settings().assets) : mapId;
         this.world = new World(starter(game.sprites(), bodies(game.sprites()).get(0), People.HUMAN));
         this.look = new LookEditor(game);
         this.portrait = new Portrait(game);
@@ -258,8 +267,7 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
         if (page != Page.BEGIN) {
             if (ui.button("Next", x + w - 24 - 190, fy, 190, 38)) show(Page.values()[page.ordinal() + 1]);
         } else {
-            boolean can = ready() && Overworld.byId(game.settings().assets,
-                    Overworld.campaignStart(game.settings().assets)) != null;
+            boolean can = ready() && Overworld.byId(game.settings().assets, mapId) != null;
             if (ui.button("Begin the journey", x + w - 24 - 260, fy - 6, 260, 46, true, can)) begin();
         }
         if (game.window().input().padFocusing()) {
@@ -415,8 +423,23 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
             cy += 22;
         }
         cy += 14;
-        String map = Overworld.campaignStart(game.settings().assets);
-        Overworld o = Overworld.byId(game.settings().assets, map);
+        // the world map to set out on: the main story's, or one made in the map editor
+        List<Overworld.Saved> maps = Overworld.list(game.settings().assets);
+        if (maps.size() > 1) {
+            List<String> shown = new ArrayList<>();
+            int at = 0;
+            for (int i = 0; i < maps.size(); i++) {
+                shown.add(maps.get(i).shown());
+                if (maps.get(i).id().equals(mapId)) at = i;
+            }
+            int pick = widgets.choice(ui, "World map", shown, at, x, cy, Math.min(cw, 560));
+            if (pick != at) {
+                mapId = maps.get(pick).id();
+                Sounds.play(SoundKeys.ui("tab"));
+            }
+            cy += 42;
+        }
+        Overworld o = Overworld.byId(game.settings().assets, mapId);
         cy += ui.paragraph(ui.small, o == null ? "There is no map to set out on yet: make one in the Dev tab's map "
                 + "editor." : "The road begins in " + o.name() + (o.start() == null ? "" : ", at " + o.start().name)
                 + ". Your place on the map is saved every time you arrive somewhere.", x, cy, cw,
@@ -462,7 +485,7 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
         save.setSize(size);
         save.setWardrobe(p.wardrobe().copy());
         save.take(p);
-        save.setPlace(Overworld.campaignStart(game.settings().assets), "");
+        save.setPlace(mapId, "");
         game.freshPlaythrough();
         Saves.play(save, slot);
         Saves.write();

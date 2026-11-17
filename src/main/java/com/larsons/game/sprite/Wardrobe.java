@@ -143,6 +143,8 @@ public final class Wardrobe {
     private final Map<String, Set<String>> unlocked = new TreeMap<>();
     private Style style = Style.PIXEL_128;
     private Hand hand = Hand.AUTO;
+    /** Whether what is worn under armour is drawn all the same ({@link #hidden}): the wardrobe's toggle. */
+    private boolean underShown;
 
     public String get(Slot slot) {
         return items.get(slot);
@@ -169,6 +171,8 @@ public final class Wardrobe {
      * it shows again once the armour comes off.
      */
     public boolean hidden(Slot slot) {
+        // (with the wardrobe's "show clothes under armour" on, nothing is left out: the shirt shows round the mail)
+        if (underShown) return false;
         return switch (slot) {
             case WRISTWEAR, WRISTWEAR_LEFT -> {
                 String gloves = items.get(Slot.GLOVES);
@@ -281,8 +285,14 @@ public final class Wardrobe {
         for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) w.unlocked.put(e.getKey(), new TreeSet<>(e.getValue()));
         w.style = style;
         w.hand = hand;
+        w.underShown = underShown;
         return w;
     }
+
+    /** Whether the clothes under armour show anyway (the mail shirt's shirt, the leggings' pants). */
+    public boolean underShown() { return underShown; }
+
+    public void setUnderShown(boolean on) { underShown = on; }
 
     /**
      * Wear what {@code other} wears, in its colours, its style and its hand -
@@ -296,6 +306,7 @@ public final class Wardrobe {
         }
         style = other.style;
         hand = other.hand;
+        underShown = other.underShown;
     }
 
     public Map<String, Object> toJson() {
@@ -303,6 +314,7 @@ public final class Wardrobe {
         for (Map.Entry<Slot, String> e : items.entrySet()) out.put(e.getKey().key(), e.getValue());
         out.put("style", style.key());
         if (hand != Hand.AUTO) out.put("hand", hand.key());
+        if (underShown) out.put("underShown", true);
         if (!colours.isEmpty()) {
             Map<String, Object> c = new LinkedHashMap<>();
             for (Map.Entry<Slot, String> e : colours.entrySet()) c.put(e.getKey().key(), e.getValue());
@@ -325,6 +337,7 @@ public final class Wardrobe {
         }
         if (json.get("style") instanceof String s) w.setStyle(Style.byKey(s));
         if (json.get("hand") instanceof String s) w.setHand(Hand.byKey(s));
+        if (json.get("underShown") instanceof Boolean b) w.underShown = b;
         if (json.get("colours") instanceof Map<?, ?> c) {
             for (Map.Entry<?, ?> e : c.entrySet()) {
                 Slot slot = Slot.byKey(String.valueOf(e.getKey()));

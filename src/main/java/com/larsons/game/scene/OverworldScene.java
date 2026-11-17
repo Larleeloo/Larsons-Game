@@ -312,7 +312,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
             save.cleared().add(key(mapId, n.id));
             map = next;
             mapId = n.toMap;
-            save.setPlace(mapId, "");
+            save.goToMap(mapId);           // (where she left it, if she has been there: the way she came)
             place();
             if (back == null) Saves.write();
             Songs.playChoice(map.music(), DemoScene.MUSIC_VOLUME);
@@ -365,7 +365,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
         float ox = Math.round(w / 2 - camX), oy = Math.round(h / 2 - camY);
 
         ui.rect(0, 0, w, h, Theme.hex(0x0E1A26, 1f));
-        MapView.terrain(ui, map, ox, oy, s, time);
+        MapView.ground(ui, map, ox, oy, s, time);
         ui.frame(ox - 6, oy - 6, mw + 12, mh + 12, 6);
         Set<String> cleared = cleared();
         // a road is open once she may walk it from an end she can get to
@@ -422,7 +422,7 @@ public final class OverworldScene implements Scene, Autopilot.Scriptable {
         MapView.icon(ui, Overworld.ICON_HERE, fx, fy - s * (float) (2.9 * save.size()) + bob, s * 0.75f, 1f);
         ui.batch().rect(ui.white(), fx - s * 0.32f, fy - s * 0.09f, s * 0.64f, s * 0.18f, 0, 0, 1, 1, 0, 0, 0, 0.3f);
         try {
-            AnimState state = walk != null ? AnimState.WALK : AnimState.IDLE;
+            AnimState state = walk != null ? AnimState.WALK : AnimState.REST;
             SpriteView view = new SpriteView(Elevation.MIDDLE, facing, Elevation.MIDDLE.renderAngle());
             LayerStack.Result r = LayerStack.resolve(game.sprites(), save.wardrobe(), state, time, view, memory);
             LayerStack.drawFlat(ui.batch(), r, fx, fy, (float) (s * 1.3 * save.size()));

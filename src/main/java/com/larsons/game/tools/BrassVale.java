@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * Lays out the first of the main lands - the Brass Vale, as the overworld map
- * {@code assets/overworld/maps/brass_vale.json} draws it - a level for each
+ * {@code assets/overworld/story/brass_vale.json} draws it - a level for each
  * of its destinations:
  *
  * <pre>

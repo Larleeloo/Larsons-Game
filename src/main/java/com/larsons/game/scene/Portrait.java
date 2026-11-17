@@ -226,7 +226,7 @@ public final class Portrait {
 
     private static AnimState state(Pose pose, Stance holding, Stance stance) {
         return switch (pose) {
-            case STAND -> holding == null ? AnimState.IDLE : stance.idle(false);
+            case STAND -> holding == null ? AnimState.REST : stance.idle(false);
             case WALK -> holding == null ? AnimState.WALK : stance.moving(Stance.Pace.WALK, false);
             case RUN -> holding == null ? AnimState.RUN : stance.moving(Stance.Pace.RUN, false);
             case JUMP -> holding == null ? AnimState.JUMP : stance.jump();

@@ -297,11 +297,6 @@ public final class SettingsMenu {
                 + "How to play, on the main menu and in the pause menu, explains everything.", x, y, w);
         y += 40;
 
-        name(ui, "Birds", x + 400, y);
-        if (ui.button(s.birds ? "On" : "Off", c + 400, y, 110, 34, s.birds, true)) {
-            s.birds = !s.birds;
-            com.larsons.game.ambient.Animals.setBirds(s.birds);
-        }
         name(ui, "Pick up by walking over", x, y);
         if (ui.button(s.autoPickup ? "On" : "Off", c, y, 110, 34, s.autoPickup, true)) s.autoPickup = !s.autoPickup;
         ui.text(ui.small, "Range", c + 130, y + 9, Theme.ITEM);

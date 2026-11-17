@@ -34,6 +34,13 @@ public interface Target {
      */
     void hurt(double damage, Vec3 from, boolean react);
 
+    /**
+     * What gets through of a blow of {@code damage}: what its armour does
+     * not block (it rolls the armour's dice, where it wears armour that
+     * blocks); all of it, for anything that wears none.
+     */
+    default double armour(double damage) { return damage; }
+
     /** Which way and how fast it is going, metres a second: what a shot at it leads it by. */
     default Vec3 velocity() { return Vec3.ZERO; }
 

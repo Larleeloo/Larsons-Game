@@ -4,11 +4,14 @@ import com.larsons.game.level.LevelIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,7 +132,7 @@ class OverworldTest {
             assertTrue(ids.add(n.id), n.id + " twice");
             assertTrue(vale.inside(n.x, n.y), n.id);
             assertFalse(vale.terrain(n.x, n.y).water(), n.id + " is in the water");
-            assertTrue(Overworld.KINDS.contains(n.kind), n.id + ": " + n.kind);
+            assertTrue(Overworld.isKind(n.kind), n.id + ": " + n.kind);
             assertTrue(Overworld.CLEARS.contains(n.clear), n.id + ": " + n.clear);
             assertFalse(n.about.isBlank(), n.id);
             assertFalse(vale.waysAt(n.id).isEmpty(), n.id + " has no path to it");
@@ -173,5 +176,95 @@ class OverworldTest {
         assertEquals(id, Overworld.campaignStart(assets));
         assertNotNull(Overworld.byId(assets, id));
         assertNull(Overworld.byId(assets, "nowhere"));
+    }
+
+    @Test
+    void theMainStorysMapIsKeptApartListedFirstAndNeverShadowed(@TempDir Path assets) throws IOException {
+        Overworld story = small();
+        story.setName("The Story");
+        story.save(Overworld.storyFolder(assets).resolve("tale.json"));
+        Overworld mine = small();
+        mine.setName("Mine");
+        mine.save(Overworld.folder(assets).resolve("mine.json"));
+        // (a map of one's own under the story's id is never read in its place)
+        mine.save(Overworld.folder(assets).resolve("tale.json"));
+        List<Overworld.Saved> all = Overworld.list(assets);
+        assertEquals(2, all.size());
+        assertEquals("tale", all.get(0).id());
+        assertTrue(all.get(0).story());
+        assertEquals("Main story: The Story", all.get(0).shown());
+        assertFalse(all.get(1).story());
+        assertEquals("tale", Overworld.campaignStart(assets), "with no campaign.json: the story's");
+        assertTrue(Overworld.byId(assets, "tale").story());
+        assertEquals("The Story", Overworld.byId(assets, "tale").name());
+        assertFalse(Overworld.byId(assets, "mine").story());
+        assertNotEquals("tale", Overworld.freeId(assets, "Tale"), "a new map never takes the story's id");
+        assertTrue(Overworld.byId(assets, "tale").copy().story(), "a copy for undoing is still the story's");
+    }
+
+    @Test
+    void theBrassValeIsTheStorysOwn() {
+        assertTrue(Overworld.isStory(ASSETS, "brass_vale"));
+        assertFalse(Files.exists(Overworld.folder(ASSETS).resolve("brass_vale.json")), "not among the editable maps");
+        assertTrue(Overworld.list(ASSETS).get(0).story());
+    }
+
+    @Test
+    void aPictureRoadLooksAndMarksAreKeptInTheFile() {
+        Overworld map = small();
+        map.setBackground("my_land.png");
+        map.setTilesShown(false);
+        map.setRoadStyle("dashed");
+        map.setSmoothRoads(true);
+        map.node("home").kind = "standing_stone";
+        Overworld back = Overworld.parse(map.json());
+        assertEquals("my_land.png", back.background());
+        assertFalse(back.tilesShown());
+        assertEquals("dashed", back.roadStyle());
+        assertTrue(back.smoothRoads());
+        assertEquals("standing_stone", back.node("home").kind);
+        assertEquals(Overworld.MARKERS.indexOf("standing_stone"), back.node("home").marker());
+        assertEquals(-1, back.node("gate").marker(), "a painted icon");
+        back.setRoadStyle("nonsense");
+        assertEquals("dotted", back.roadStyle());
+        back.setBackground("");
+        assertTrue(back.tilesShown(), "with no picture the tiles always show");
+        // a map with none of it writes none of it
+        Map<String, Object> plain = small().json();
+        assertFalse(plain.containsKey("background"));
+        assertFalse(plain.containsKey("roadStyle"));
+    }
+
+    @Test
+    void theMarksPictureHasEveryMarkFilledAndHollow() throws IOException {
+        BufferedImage marks = ImageIO.read(ASSETS.resolve("overworld").resolve("markers.png").toFile());
+        assertNotNull(marks);
+        assertEquals(MapView.MARK * Overworld.MARKERS.size(), marks.getWidth());
+        assertEquals(MapView.MARK * 2, marks.getHeight());
+        for (String k : Overworld.MARKERS) {
+            assertTrue(Overworld.isKind(k));
+            assertFalse(Overworld.KINDS.contains(k), k + " is an icon's name too");
+        }
+    }
+
+    @Test
+    void movingPaintingAndCopying() {
+        Overworld map = small();
+        map.fillRect(0, 0, 2, 1, Overworld.terrain('m'));
+        assertEquals('m', map.terrain(2, 1).key());
+        assertEquals('w', map.terrain(3, 1).key());
+        map.line(0, 5, 6, 5, 1, Overworld.terrain('s'));
+        for (int x = 0; x <= 6; x++) assertEquals('s', map.terrain(x, 5).key());
+        Overworld before = map.copy();
+        map.shift(2, 1);
+        assertEquals(4, map.node("home").x);
+        assertEquals(9, map.node("home").y);
+        assertEquals('m', map.terrain(4, 2).key());
+        assertEquals(13, map.way("gate", "far").via.get(0)[0]);
+        assertEquals(2, before.node("home").x, "the copy is apart");
+        Overworld.Node c = map.addCopy(map.node("gate"), 1, 1);
+        assertNotEquals("gate", c.id);
+        assertEquals("gate", c.level);
+        assertEquals(map.node("gate").kind, c.kind);
     }
 }

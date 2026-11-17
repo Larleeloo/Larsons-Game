@@ -423,6 +423,11 @@ public final class ObjectTypes {
             case "hidden" -> o.type().equals(BUILDING) && !o.str("passage", "none").equals("none");
             // (a candle stands on what is under it, so its height is that: Lift raises it onto a ledge)
             case "height" -> !o.type().equals(LIGHT) || !SITS.contains(o.str("fixture", "candlestick"));
+            // (the folk: their look is dressed in the wardrobe, or rolled - not a number on a slider; a look made
+            // by hand is its own body, skin and dress; armour blocks only on one who is dressed)
+            case "look" -> !FolkTypes.folk(o);
+            case "body", "outfit", "skin" -> !FolkTypes.folk(o) || FolkTypes.look(o) == null;
+            case "armour" -> !FolkTypes.folk(o) || FolkTypes.dressed(o);
             default -> true;
         };
     }

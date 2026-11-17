@@ -16,23 +16,29 @@ import java.util.function.Predicate;
  * An overworld map drawn: its tiles ({@code assets/overworld/tiles.png}, a
  * row a terrain, four looks of each - the water's four are its waves), the
  * shore where land meets water, the ways as dotted roads and the
- * destinations' icons ({@code icons.png}). The map scene and the map editor
+ * destinations' icons ({@code icons.png}) or plain marks ({@code
+ * markers.png}), and a picture of one's own under it all when the map has
+ * one ({@code backgrounds/}). The map scene and the map editor
  * both draw with it: a tile at {@code (tx, ty)} lies at {@code (ox + tx * s,
  * oy + ty * s)} on the screen, {@code s} pixels across.
  */
 public final class MapView {
 
-    /** A tile's side and an icon's side in the pictures, pixels; how many looks a terrain has. */
-    public static final int TILE = 16, ICON = 24, VARIANTS = 4;
+    /** A tile's side, an icon's side and a mark's side in the pictures, pixels; how many looks a terrain has. */
+    public static final int TILE = 16, ICON = 24, MARK = 48, VARIANTS = 4;
 
     private static final float[] WHITE = {1, 1, 1, 1};
     private static final float[] FOAM = Theme.hex(0xDDEBF0, 0.55f), SHORE = Theme.hex(0x10202A, 0.35f);
     private static final float[] ROAD = Theme.hex(0xE8D3A0, 1f), ROAD_EDGE = Theme.hex(0x3A2A1A, 0.9f);
     private static final float[] ROAD_SHUT = Theme.hex(0x8A8A8A, 0.75f);
+    private static final float[] INK = Theme.hex(0x2A1E14, 0.9f), INK_RED = Theme.hex(0x8A2A1A, 0.95f);
+    private static final float[] TRACK = Theme.hex(0xB89A6A, 1f), TRACK_EDGE = Theme.hex(0x5A4028, 0.9f);
 
     private static Path folder = Path.of("assets", "overworld");
-    private static Texture tiles, icons;
+    private static Texture tiles, icons, markers;
     private static boolean tried;
+    /** The pictures maps lie over, read once each (a file that cannot be read: null, not tried again). */
+    private static final java.util.Map<String, Texture> backgrounds = new java.util.HashMap<>();
 
     private MapView() {}
 
@@ -50,6 +56,44 @@ public final class MapView {
         } catch (IOException | RuntimeException e) {
             System.err.println("[overworld] no map pictures: " + e.getMessage());
         }
+        try {
+            BufferedImage image = ImageIO.read(folder.resolve("markers.png").toFile());
+            if (image != null) markers = Texture.upload(PixelData.of(image), false);
+        } catch (IOException | RuntimeException e) {
+            System.err.println("[overworld] no map marks: " + e.getMessage());
+        }
+    }
+
+    /** The picture {@code file} (of {@code backgrounds/}), read once; null when it cannot be. */
+    public static Texture background(String file) {
+        if (file == null || file.isBlank()) return null;
+        if (backgrounds.containsKey(file)) return backgrounds.get(file);
+        Texture t = null;
+        try {
+            BufferedImage image = ImageIO.read(folder.resolve(Overworld.BACKGROUNDS).resolve(file).toFile());
+            if (image != null) t = Texture.upload(PixelData.of(image), false);
+        } catch (IOException | RuntimeException e) {
+            System.err.println("[overworld] cannot read the picture " + file + ": " + e.getMessage());
+        }
+        backgrounds.put(file, t);
+        return t;
+    }
+
+    /** Forget picture {@code file}, so it is read again (it was replaced). */
+    public static void forget(String file) {
+        Texture t = backgrounds.remove(file);
+        if (t != null) t.close();
+    }
+
+    /** The map's ground: its picture, if it has one, and its tiles over it (unless they are hidden). */
+    public static void ground(Ui ui, Overworld map, float ox, float oy, float s, double time) {
+        Texture bg = background(map.background());
+        if (bg != null) {
+            ui.image(bg, ox, oy, map.width() * s, map.height() * s, WHITE);
+        } else if (!map.background().isEmpty()) {
+            ui.rect(ox, oy, map.width() * s, map.height() * s, Theme.hex(0x3A3428, 1f));
+        }
+        if (map.tilesShown()) terrain(ui, map, ox, oy, s, time);
     }
 
     private static Texture read(Path file) throws IOException {
@@ -114,9 +158,102 @@ public final class MapView {
         return map.inside(x, y) && !map.terrain(x, y).water();
     }
 
-    /** Every way, as a dotted road: sandy where {@code open} says she may walk it, grey where not. */
+    /**
+     * Every way, as the map draws its roads (dotted, ink, dashed or a
+     * track; smoothly bent or not): bright where {@code open} says she may
+     * walk it, grey where not.
+     */
     public static void ways(Ui ui, Overworld map, float ox, float oy, float s, Predicate<Overworld.Way> open) {
-        for (Overworld.Way p : map.ways()) way(ui, map.points(p, p.from), ox, oy, s, open == null || open.test(p));
+        for (Overworld.Way p : map.ways()) {
+            way(ui, map, map.points(p, p.from), ox, oy, s, open == null || open.test(p));
+        }
+    }
+
+    /** One way through {@code points} (tiles), as {@code map} draws its roads. */
+    public static void way(Ui ui, Overworld map, List<float[]> points, float ox, float oy, float s, boolean open) {
+        List<float[]> pts = map.smoothRoads() ? smooth(points) : points;
+        switch (map.roadStyle()) {
+            case "ink" -> line(ui, pts, ox, oy, s, Math.max(2, s * 0.09f), open ? INK : ROAD_SHUT, 0, 0);
+            case "dashed" -> line(ui, pts, ox, oy, s, Math.max(2, s * 0.1f), open ? INK_RED : ROAD_SHUT, s * 0.45f,
+                    s * 0.3f);
+            case "track" -> {
+                line(ui, pts, ox, oy, s, Math.max(4, s * 0.3f), open ? TRACK_EDGE : ROAD_SHUT, 0, 0);
+                line(ui, pts, ox, oy, s, Math.max(2, s * 0.2f), open ? TRACK : ROAD_SHUT, 0, 0);
+            }
+            default -> way(ui, pts, ox, oy, s, open);
+        }
+    }
+
+    /**
+     * The points of a road bent smoothly through its bends (a Catmull-Rom
+     * curve through every point), a few points between each two.
+     */
+    public static List<float[]> smooth(List<float[]> points) {
+        if (points.size() < 3) return points;
+        List<float[]> out = new java.util.ArrayList<>();
+        int n = points.size();
+        for (int i = 0; i + 1 < n; i++) {
+            float[] p0 = points.get(Math.max(0, i - 1)), p1 = points.get(i), p2 = points.get(i + 1);
+            float[] p3 = points.get(Math.min(n - 1, i + 2));
+            int steps = Math.max(4, (int) (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 3));
+            for (int k = 0; k < steps; k++) {
+                float t = k / (float) steps, t2 = t * t, t3 = t2 * t;
+                float[] q = new float[2];
+                for (int c = 0; c < 2; c++) {
+                    q[c] = 0.5f * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2
+                            + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3);
+                }
+                out.add(q);
+            }
+        }
+        out.add(points.get(n - 1));
+        return out;
+    }
+
+    /**
+     * A line {@code width} wide through {@code points} (tiles, {@code s}
+     * pixels a tile, the map's corner at {@code (ox, oy)}): solid, or
+     * dashes {@code dash} long with {@code gap} between.
+     */
+    private static void line(Ui ui, List<float[]> points, float ox, float oy, float s, float width, float[] c,
+                             float dash, float gap) {
+        float carry = 0;
+        boolean on = true;
+        for (int i = 0; i + 1 < points.size(); i++) {
+            float ax = points.get(i)[0], ay = points.get(i)[1], bx = points.get(i + 1)[0], by = points.get(i + 1)[1];
+            float[] a = {ox + ax * s, oy + ay * s}, b = {ox + bx * s, oy + by * s};
+            float len = (float) Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (len < 1e-3f) continue;
+            if (dash <= 0) {
+                segment(ui, a[0], a[1], b[0], b[1], width, c, true);
+                continue;
+            }
+            float d = 0;
+            while (d < len) {
+                float left = (on ? dash : gap) - carry;
+                float e = Math.min(len, d + left);
+                if (on) {
+                    segment(ui, a[0] + (b[0] - a[0]) * d / len, a[1] + (b[1] - a[1]) * d / len,
+                            a[0] + (b[0] - a[0]) * e / len, a[1] + (b[1] - a[1]) * e / len, width, c, false);
+                }
+                carry += e - d;
+                if (carry >= (on ? dash : gap) - 1e-3f) {
+                    carry = 0;
+                    on = !on;
+                }
+                d = e;
+            }
+        }
+    }
+
+    /** A straight stroke from a to b, {@code w} wide; rounded joins (a disc at each end) when {@code joined}. */
+    private static void segment(Ui ui, float ax, float ay, float bx, float by, float w, float[] c, boolean joined) {
+        float dx = bx - ax, dy = by - ay, len = (float) Math.hypot(dx, dy);
+        if (len < 1e-3f) return;
+        float nx = -dy / len * w / 2, ny = dx / len * w / 2;
+        ui.batch().quad(ui.white(), ax + nx, ay + ny, 0, bx + nx, by + ny, 0, bx - nx, by - ny, 0, ax - nx, ay - ny, 0,
+                0, 0, 1, 1, c[0], c[1], c[2], c[3]);
+        if (joined && w >= 3) ui.disc(bx, by, w / 2, c);
     }
 
     /** One way through {@code points} (tiles), dotted. */
@@ -157,17 +294,46 @@ public final class MapView {
     public static void node(Ui ui, Overworld.Node n, float ox, float oy, float s, boolean cleared, boolean locked) {
         float cx = ox + (n.x + 0.5f) * s, cy = oy + (n.y + 0.5f) * s;
         float size = s * 1.5f;
+        if (n.marker() >= 0) {
+            // a plain mark: filled once she can get there, hollow while she cannot
+            marker(ui, n.marker(), !locked, cx, cy - s * 0.12f, size, 1f);
+            if (cleared) icon(ui, Overworld.ICON_CLEARED, cx + s * 0.55f, cy - s * 0.7f, s * 0.7f, 1f);
+            return;
+        }
         ui.disc(cx, cy + s * 0.18f, s * 0.42f, Theme.hex(0x000000, 0.28f));
         icon(ui, n.icon(), cx, cy - s * 0.18f, size, locked ? 0.7f : 1f);
         if (cleared) icon(ui, Overworld.ICON_CLEARED, cx + s * 0.5f, cy - s * 0.7f, s * 0.75f, 1f);
         else if (locked) icon(ui, Overworld.ICON_LOCKED, cx + s * 0.5f, cy - s * 0.7f, s * 0.75f, 1f);
     }
 
+    /** Mark {@code index} of {@code markers.png}, filled or hollow, {@code size} across, its middle at {@code (cx, cy)}. */
+    public static void marker(Ui ui, int index, boolean filled, float cx, float cy, float size, float alpha) {
+        load();
+        if (markers == null) {
+            ui.disc(cx, cy, size / 3, Theme.withAlpha(filled ? Theme.TITLE : Theme.IRON, alpha));
+            return;
+        }
+        float tw = markers.width(), th = markers.height();
+        float v0 = (filled ? 0 : MARK) / th, v1 = (filled ? MARK : 2 * MARK) / th;
+        ui.image(markers, cx - size / 2, cy - size / 2, size, size, index * MARK / tw, v0, (index + 1) * MARK / tw, v1,
+                alpha >= 1 ? WHITE : new float[]{1, 1, 1, alpha});
+    }
+
+    /** A destination's picture as its kind draws it - an icon or a mark - for a list or a panel. */
+    public static void kind(Ui ui, String kind, float cx, float cy, float size) {
+        int m = Overworld.MARKERS.indexOf(kind);
+        if (m >= 0) marker(ui, m, true, cx, cy, size, 1f);
+        else icon(ui, Math.max(0, Overworld.KINDS.indexOf(kind)), cx, cy, size, 1f);
+    }
+
     /** Let the pictures go. */
     public static void dispose() {
         if (tiles != null) tiles.close();
         if (icons != null) icons.close();
-        tiles = icons = null;
+        if (markers != null) markers.close();
+        for (Texture t : backgrounds.values()) if (t != null) t.close();
+        backgrounds.clear();
+        tiles = icons = markers = null;
         tried = false;
     }
 }

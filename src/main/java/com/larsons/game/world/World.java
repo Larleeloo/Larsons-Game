@@ -877,7 +877,7 @@ public final class World {
         kills.add(new Kill(b == null ? f.people().key() : b.key(), f.hasName() ? f.name() : null, at,
                 b != null && b.risen()));
         if (b == null) return;
-        earn(b.xp() * Math.max(0.6, f.size()));
+        earn(b.xp() * Math.max(0.6, f.size()) * f.xpTimes());
         if (b.risen() && hordeLoot != null && !hordeLoot.test(f)) return;
         Random r = new Random(Double.doubleToLongBits(at.x() * 31 + at.z() + time));
         int coins = 1 + r.nextInt(Math.max(1, b.xp() / 4));
