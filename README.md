@@ -125,7 +125,7 @@ itself, the file to ask for with a bug report.
 ### The main menu
 
 <p align="center">
-  <img src="docs/screenshots/main-menu.png" width="49%" alt="The main menu: your own character with Bryn behind the menu">
+  <img src="docs/screenshots/main-menu.png" width="49%" alt="The main menu: your own character standing at ease in the meadow">
   <img src="docs/screenshots/how-to-play.png" width="49%" alt="How to play: the chapters down the left, the page on parchment with its keys drawn as they are set">
 </p>
 
@@ -154,6 +154,11 @@ playthrough is on - **Main story: the Brass Vale** first, then every map made
 in the map editor - and *Load Game* has a picker beside each slot to take
 that playthrough onto another map; each map remembers where she stood on it,
 so going back puts her where she left off.
+
+<p align="center">
+  <img src="docs/screenshots/codes-page.png" width="49%" alt="Play → Codes: the dev code typed, the keypad under it, the Dev and Cutscene tabs now along the top">
+  <img src="docs/screenshots/load-world-maps.png" width="49%" alt="Load Game: each saved game with the world map it is played on, one changed to a map made in the map editor">
+</p>
 
 ### A playthrough
 
@@ -530,7 +535,8 @@ sprites in their tier's colours.
 ### The wardrobe
 
 <p align="center">
-  <img src="docs/screenshots/wardrobe.png" width="70%" alt="The wardrobe: an oak armoire with its doors open, shelves of what she owns to wear, colour gems, and her in a gilded mirror">
+  <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe's Clothing section: a dropdown of shirts open, the Armour tab beside it, her in the gilded mirror">
+  <img src="docs/screenshots/wardrobe-closeup.png" width="49%" alt="The Armour section and the mirror's close up: her face and shoulders, at rest, from the front">
 </p>
 
 <p align="center">
@@ -925,6 +931,11 @@ comes back.
   if they sell, **where they live** (the nearest house, none, or a building
   picked) and **their day**: a row for each part of it - from what time, what
   they do, and where.
+<p align="center">
+  <img src="docs/screenshots/editor-foe-wardrobe.png" width="49%" alt="A bandit's look in the editor: the wardrobe's armoire, an iron helmet, chestplate and gauntlets worn, Armour (3 worn)">
+  <img src="docs/screenshots/editor-foe-stats.png" width="49%" alt="The bandit in the level in its iron, and its props: dressed by hand, Wardrobe…, and the Fighting section, health three times its kind's">
+</p>
+
 - **A person's or a dressed foe's look** is made in **the wardrobe**:
   **Wardrobe…** opens the same armoire as the player's - Looks (with horns
   and tail), Clothing and Armour, every layer a dropdown, the mirror and its
@@ -979,6 +990,11 @@ shops and on horde boards like any weapon (`forged:<id>`).
 <p align="center">
   <img src="docs/screenshots/play-map-editor.png" width="49%" alt="The map editor: a destination selected, its level and roads">
   <img src="docs/screenshots/horde-editor.png" width="49%" alt="The horde editor">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/map-editor-picture.png" width="49%" alt="A world map on a picture of its own: an island drawn on parchment, painted marks for its places, roads in ink">
+  <img src="docs/screenshots/map-editor-story.png" width="49%" alt="The main story's map in the editor: it cannot be changed, Make a copy">
 </p>
 
 **The map editor** (`editor/OverworldEditor`) paints the overworld's

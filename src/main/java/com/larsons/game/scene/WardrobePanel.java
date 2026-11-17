@@ -349,11 +349,13 @@ public final class WardrobePanel {
         return Wearables.dyeIn(player.inventory(), c.option()) != null ? c.option() : null;
     }
 
+    /** What an item folder is called on its row: "gold_pendant" -> "Gold pendant". */
     static String label(Slot slot, String item) {
         if (item == null) return slot == Slot.BODY ? "Fallback (32 px)" : "None";
         // (the long ears are the Drurineans')
-        if (slot == Slot.EARS && item.startsWith("elven")) return "drurinean" + item.substring(5);
-        return item;
+        String s = (slot == Slot.EARS && item.startsWith("elven") ? "drurinean" + item.substring(5) : item)
+                .replace('_', ' ');
+        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     /** "royal_blue" -> "Royal blue". */

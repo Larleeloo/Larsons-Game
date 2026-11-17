@@ -361,7 +361,7 @@ public final class MainMenuScene implements Scene {
                 Sounds.play(SoundKeys.ui("click"));
             } else {
                 setDev(true);
-                codeSaid = "Dev mode on: the Dev and Cutscene tabs are along the top, and every cosmetic is yours.";
+                codeSaid = "Dev mode on: the Dev and Cutscene tabs are along the top, every cosmetic yours.";
             }
         } else {
             codeSaid = typed.isEmpty() ? "Type a code first." : "Nothing happens.";
@@ -382,7 +382,7 @@ public final class MainMenuScene implements Scene {
         ui.text(ui.large, "Codes", x, y, Theme.TITLE);
         ui.paragraph(ui.small, "Secret codes, for those who know them. Type one on the number keys or tap it on the "
                 + "keypad, then Enter.", x, y + 40, 420, Theme.HINT);
-        float by = y + 92, bw = 300, bh = 52;
+        float by = y + 88, bw = 300, bh = 44;
         // the box: what has been typed, a dot for each digit still to come
         ui.plate(x - 6, by - 6, bw + 12, bh + 12, Theme.BRASS_DARK);
         ui.rect(x, by, bw, bh, Theme.withAlpha(Theme.SOOT, 0.85f));
@@ -395,10 +395,10 @@ public final class MainMenuScene implements Scene {
         ui.textCentered(ui.large, shown + (blink && code.length() < CODE_LENGTH ? "_" : " "), x + bw / 2,
                 by + (bh - ui.large.lineHeight()) / 2, code.isEmpty() ? Theme.ITEM_DISABLED : Theme.TITLE);
         // the keypad: 1-9, then clear, 0, enter
-        float ky = by + bh + 18, kw = (bw - 16) / 3, kh = 44;
+        float ky = by + bh + 14, kw = (bw - 12) / 3, kh = 36;
         String[] keys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "Clear", "0", "Enter"};
         for (int i = 0; i < keys.length; i++) {
-            float kx = x + (i % 3) * (kw + 8), kyy = ky + (i / 3) * (kh + 8);
+            float kx = x + (i % 3) * (kw + 6), kyy = ky + (i / 3) * (kh + 6);
             String k = keys[i];
             boolean enter = k.equals("Enter");
             if (ui.button(k, kx, kyy, kw, kh, enter, true)) {
@@ -407,25 +407,24 @@ public final class MainMenuScene implements Scene {
                 else typeDigit(k.charAt(0) - '0');
             }
         }
-        float ny = ky + 4 * (kh + 8) + 6;
-        if (!codeSaid.isEmpty() && time - codeAt < 8) {
-            ny += ui.paragraph(ui.small, codeSaid, x, ny, 420, codeSaid.startsWith("Nothing")
-                    || codeSaid.startsWith("Type") ? Theme.WARNING : Theme.OK) + 8;
+        // what the last code did - or, in dev mode, what it has unlocked
+        float ny = ky + 4 * (kh + 6) + 4;
+        boolean said = !codeSaid.isEmpty() && time - codeAt < 8;
+        float fy = ny;
+        if (said) {
+            boolean bad = codeSaid.startsWith("Nothing") || codeSaid.startsWith("Type");
+            fy += ui.paragraph(ui.small, codeSaid, x, ny, 420, bad ? Theme.WARNING : Theme.OK) + 8;
+        } else if (dev) {
+            fy += ui.paragraph(ui.small, "Dev mode is on: the Dev and Cutscene tabs are along the top, and every "
+                    + "cosmetic is unlocked.", x, ny, 420, Theme.ACCENT) + 8;
         }
-        if (dev) {
-            ui.text(ui.body, "Dev mode is on", x, ny + 4, Theme.ACCENT);
-            ny += 30;
-            ny += ui.paragraph(ui.small, "The Dev tab (Creative Mode, the world map and horde map editors) and the "
-                    + "Cutscene tab are along the top, and every hairstyle, garment, piece of armour and colour is "
-                    + "unlocked in the wardrobe.", x, ny, 420, Theme.HINT) + 8;
-            if (ui.button("Turn dev mode off", x, ny, 220, 40)) {
-                setDev(false);
-                codeSaid = "Dev mode off.";
-                codeAt = time;
-            }
-            ny += 48;
+        boolean back = ui.button("Back", x, fy, 140, 38);
+        if (dev && ui.button("Turn dev mode off", x + 150, fy, 220, 38)) {
+            setDev(false);
+            codeSaid = "Dev mode off.";
+            codeAt = time;
         }
-        if (ui.button("Back", x, ny + 4, 140, 40) || ui.input().pressed(GLFW_KEY_ESCAPE)) {
+        if (back || ui.input().pressed(GLFW_KEY_ESCAPE)) {
             ui.input().consumeKey(GLFW_KEY_ESCAPE);
             playPage = PlayPage.MAIN;
             code = "";
@@ -582,11 +581,16 @@ public final class MainMenuScene implements Scene {
 
     /** "<  Main story: The Brass Vale  >": a world map to step through; returns the one now chosen. */
     private String mapPicker(Ui ui, String id, float x, float y, float w, float h) {
+        return mapPicker(ui, id, x, y, w, h, Theme.TITLE);
+    }
+
+    private String mapPicker(Ui ui, String id, float x, float y, float w, float h, float[] colour) {
         boolean many = worldMaps.size() > 1;
-        if (ui.button("<", x, y, 36, h, false, many)) id = nextMap(id, -1);
-        ui.plate(x + 40, y, w - 80, h, Theme.BRASS_DARK);
-        ui.textCentered(ui.small, Ui.fit(ui.small, mapName(id), w - 96), x + w / 2, y + (h - 16) / 2, Theme.TITLE);
-        if (ui.button(">", x + w - 36, y, 36, h, false, many)) id = nextMap(id, 1);
+        float aw = Math.min(36, h + 6);
+        if (ui.button("<", x, y, aw, h, false, many)) id = nextMap(id, -1);
+        ui.plate(x + aw + 4, y, w - 2 * aw - 8, h, Theme.BRASS_DARK);
+        ui.textCentered(ui.small, Ui.fit(ui.small, mapName(id), w - 2 * aw - 16), x + w / 2, y + (h - 16) / 2, colour);
+        if (ui.button(">", x + w - aw, y, aw, h, false, many)) id = nextMap(id, 1);
         return id;
     }
 
@@ -612,7 +616,9 @@ public final class MainMenuScene implements Scene {
         items.add("Codes");
         items.add("Settings");
         items.add("Quit");
-        int chosen = quitting ? -1 : menu.show(ui, items.toArray(String[]::new), x, y, 300, 50, 10);
+        // (eight of them - a saved game to go on with, the Codes - are a little shorter, to fit a 720-high window)
+        float itemH = Math.max(40, Math.min(50, (ui.height() - y - 24) / items.size() - 10));
+        int chosen = quitting ? -1 : menu.show(ui, items.toArray(String[]::new), x, y, 300, itemH, 10);
         if (latest >= 0) {
             SaveGame s = slots[latest];
             ui.text(ui.small, s.name() + " · " + describe(s), x + 314, y + 18, Theme.HINT);
@@ -652,7 +658,8 @@ public final class MainMenuScene implements Scene {
     private void slotsPage(Ui ui, float x, float y) {
         boolean fresh = playPage == PlayPage.NEW;
         ui.text(ui.large, fresh ? "New game: choose a slot" : "Load a game", x, y, Theme.TITLE);
-        float ry = y + 44, rw = 430, rh = 84;
+        // (a saved game's row holds the world map it is played on as well)
+        float ry = y + 44, rw = 430, rh = fresh ? 84 : 92;
         if (fresh) {
             // which world map the new playthrough sets out on: the main story's, or one made in the map editor
             ui.text(ui.small, "World map", x, ry + 8, Theme.ACCENT);
@@ -668,34 +675,35 @@ public final class MainMenuScene implements Scene {
             if (s == null) {
                 ui.text(ui.body, "Empty", x + 6, ry + 28, Theme.ITEM_DISABLED);
                 if (fresh && ui.button("Start here", bx, ry + 22, 100, 38)) create(i);
+            } else if (!fresh) {
+                // its world map along the top (another can be chosen: she goes where she last was on
+                // it), then its name and how far it has come, Load and Delete beside them
+                if (!worldMaps.isEmpty()) {
+                    boolean changed = !slotMap[i].equals(s.map());
+                    slotMap[i] = mapPicker(ui, slotMap[i], x + 70, ry + 4, rw - 76, 24,
+                            changed ? Theme.ACCENT : Theme.TITLE);
+                }
+                ui.text(ui.body, Ui.fit(ui.body, s.name(), rw - 124), x + 6, ry + 34, Theme.TITLE);
+                ui.text(ui.small, Ui.fit(ui.small, describe(s), rw - 124), x + 6, ry + 64, Theme.HINT);
+                boolean sure = sureSlot == i;
+                if (ui.button("Load", bx, ry + 32, 100, 28)) load(i);
+                if (ui.button(sure ? "Sure?" : "Delete", bx, ry + 62, 100, 26, sure, true)) {
+                    if (sure) {
+                        Saves.delete(i);
+                        refreshSlots();
+                        sureSlot = -1;
+                        game.toast("Deleted slot " + (i + 1), Theme.HINT);
+                    } else {
+                        confirm(i);
+                    }
+                }
             } else {
                 ui.text(ui.body, Ui.fit(ui.body, s.name(), rw - 230), x + 6, ry + 26, Theme.TITLE);
                 ui.text(ui.small, describe(s), x + 6, ry + 54, Theme.HINT);
-                if (!fresh && !worldMaps.isEmpty()) {
-                    // the world map it is played on: another can be chosen (she is where she last was on it)
-                    float mx = x + rw + 20;
-                    ui.text(ui.tiny, slotMap[i].equals(s.map()) ? "World map" : "World map (changed)", mx, ry + 6,
-                            slotMap[i].equals(s.map()) ? Theme.ITEM_DISABLED : Theme.ACCENT);
-                    slotMap[i] = mapPicker(ui, slotMap[i], mx, ry + 24, 320, 34);
-                }
                 boolean sure = sureSlot == i;
-                if (fresh) {
-                    if (ui.button(sure ? "Sure?" : "Overwrite", bx, ry + 22, 100, 38, sure, true)) {
-                        if (sure) create(i);
-                        else confirm(i);
-                    }
-                } else {
-                    if (ui.button("Load", bx, ry + 6, 100, 34)) load(i);
-                    if (ui.button(sure ? "Sure?" : "Delete", bx, ry + 44, 100, 32, sure, true)) {
-                        if (sure) {
-                            Saves.delete(i);
-                            refreshSlots();
-                            sureSlot = -1;
-                            game.toast("Deleted slot " + (i + 1), Theme.HINT);
-                        } else {
-                            confirm(i);
-                        }
-                    }
+                if (ui.button(sure ? "Sure?" : "Overwrite", bx, ry + 22, 100, 38, sure, true)) {
+                    if (sure) create(i);
+                    else confirm(i);
                 }
             }
             ry += rh + 10;
