@@ -158,7 +158,7 @@ public final class HordeTypes {
         StoryTypes.spot(BOX, "Mystery box", Category.ZOMBIES,
                 List.of(Prop.text("name", "Name", "Mystery box"),
                         Prop.number("cost", "Price (coins or points)", 950, 0, 100000, 50),
-                        Prop.text("pool", "What can come (blank: every weapon)", "")),
+                        Prop.rows("pool", "What can come", "", Rows.pool())),
                 "mystery_box", "box", 0.9, 0.8, 0xB060FF);
     }
 

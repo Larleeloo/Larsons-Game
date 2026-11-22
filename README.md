@@ -1087,7 +1087,8 @@ starts; *Try it* walks the map. It works like the level editor:
   editor are `assets/overworld/maps/`; *Chosen first for a new game* marks
   which one *New Game* offers first. **The horde editor** is Creative Mode with a
 **Zombies** shelf - Risen spawns (which kind, from which round, behind which
-gate), barricades, weapon boards, the mystery box, gates - and the map's
+gate), barricades, weapon boards, the mystery box (what it can stop on picked
+as rows: a weapon, the Forge's too, at one tier or every tier), gates - and the map's
 rules: starting points, how the rounds grow, how many at once, lives, her
 kit, which Risen come.
 

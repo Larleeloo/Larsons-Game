@@ -209,6 +209,65 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
         return out;
     }
 
+    // --- what a horde's mystery box can stop on -------------------------------------------
+
+    /** A pool row's tier when the weapon comes at every one of its tiers. */
+    public static final String EVERY_TIER = "*";
+
+    /**
+     * What a mystery box can stop on ({@code pool}): each weapon - the Forge's
+     * among them - at one tier or at every tier; written "sword:*, longbow:perfect".
+     * No rows: every weapon, at every tier.
+     */
+    public static Rows pool() {
+        return new Rows(List.of(
+                Column.choice("Weapon", 0.6f, "sword", (o, row) -> withCurrent(weapons(), row, 0), Rows::itemLabel),
+                Column.choice("Tier", 0.4f, EVERY_TIER, (o, row) -> withCurrent(poolTiers(row.get(0)), row, 1),
+                        t -> EVERY_TIER.equals(t) ? "Every tier" : tierLabel(t))),
+                "+ Add a weapon", "Every weapon, at every tier", Rows::readPool, Rows::writePool,
+                "The box stops on one of these, the rarer the less often.");
+    }
+
+    /** Every weapon: the eight and the Forge's (not its armour or clothes). */
+    static List<String> weapons() {
+        List<String> out = new ArrayList<>();
+        for (ItemDef d : ItemDef.ALL) out.add(d.id());
+        for (Forged f : Forged.all()) if (!f.worn()) out.add(f.key());
+        return out;
+    }
+
+    static List<String> poolTiers(String id) {
+        List<String> out = new ArrayList<>(List.of(EVERY_TIER));
+        for (String t : tiers(id)) if (!t.isBlank()) out.add(t);
+        return out;
+    }
+
+    static List<List<String>> readPool(String text) {
+        List<List<String>> out = new ArrayList<>();
+        if (text == null) return out;
+        for (String part : text.split(",")) {
+            String s = part.strip();
+            if (s.isEmpty()) continue;
+            if (s.endsWith(":" + EVERY_TIER)) {
+                out.add(new ArrayList<>(List.of(s.substring(0, s.length() - 2).strip(), EVERY_TIER)));
+                continue;
+            }
+            String[] it = item(s);
+            out.add(new ArrayList<>(List.of(it[0], it[1])));
+        }
+        return out;
+    }
+
+    static String writePool(List<List<String>> rows) {
+        StringBuilder s = new StringBuilder();
+        for (List<String> r : rows) {
+            if (r.get(0).isBlank()) continue;
+            if (!s.isEmpty()) s.append(", ");
+            s.append(key(r.get(0), r.get(1)));
+        }
+        return s.toString();
+    }
+
     // --- what someone can be asked -------------------------------------------------------
 
     /** What can be asked of someone: the topic, and her answer (| starts a new page). */
