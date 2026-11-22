@@ -111,9 +111,10 @@ final class HowToPlay {
                                     + "inventory to see them and upgrade it with upgrade ingots.",
                             "Pause, then Wardrobe, dresses you. Its three tabs (LB and RB) are Looks, Clothing and "
                                     + "Armour - the armour plated in iron, each piece with the die it rolls. Every "
-                                    + "layer is a list to drop down; on a controller, left and right step through "
-                                    + "it without opening it. \"Clothes under it\" shows what you wear under the "
-                                    + "armour.",
+                                    + "layer is a list to drop down - a long one scrolls with the wheel or its bar; on "
+                                    + "a controller, left and right step through it without opening it. Colours are "
+                                    + "one palette, the item's own shades in it. \"Armour: hidden\" keeps your armour "
+                                    + "out of sight - it still blocks.",
                             "Close up, in the mirror, brings your face and shoulders near, breathing and glancing "
                                     + "about, from any side: turn it with the arrows. Dyes turn up everywhere - in "
                                     + "chests, in shops, in barrels and on felled foes - and each unlocks a colour "

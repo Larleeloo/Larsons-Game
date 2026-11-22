@@ -27,9 +27,11 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
  * A character to look at, in a box that fits them: the whole figure, which
  * can be turned through the eight directions (the arrows, or dragged with the
  * mouse), seen from the three heights the sprites are drawn from, zoomed in
- * on (the buttons, or the wheel) and played in a few poses - or the face,
- * close up and at rest, to tell one nose or one pair of eyes from another
- * (the conversation close-ups' quiet frame, {@code assets/closeups}).
+ * on (the buttons, or the wheel) and played in a few poses - or close up,
+ * from the waist up and at rest, to tell one nose or one pair of eyes from
+ * another: the wardrobe's own close-up ({@link CloseUp}), playing on and
+ * turned round the same way (where a body has none of those, the
+ * conversation close-ups' quiet frame, {@code assets/closeups}).
  *
  * <p>In a pose that swings or raises something, the hands hold it: what the
  * character's class carries ({@link #hold}), or a sword and a shield.
@@ -67,7 +69,8 @@ public final class Portrait {
     private Elevation elevation = Elevation.SIDE;
     private Pose pose = Pose.STAND;
     private Stance holding;
-    private boolean turning = true, face, mirrored;
+    private boolean turning = true, face;
+    private CloseUp closeUp;
     private double zoom = 1, time, turnTimer, dragged;
     private boolean dragging;
     /** A state to play in place of the pose's (a script's: any state at all), or null. */
@@ -116,9 +119,10 @@ public final class Portrait {
     public void draw(Ui ui, double dt, float x, float y, float w, float h, Wardrobe wardrobe, double size,
                      double tallest, String caption) {
         time += dt;
-        if (turning && !face && !dragging) {
+        if (turning && !dragging) {
             turnTimer += dt;
-            if (turnTimer > 1.4) {
+            // (close up it turns slower, as the wardrobe's mirror does)
+            if (turnTimer > (face ? 2.4 : 1.4)) {
                 turnTimer = 0;
                 facing = facing.counterClockwise();
             }
@@ -139,8 +143,7 @@ public final class Portrait {
             } else {
                 dragged += in.mouseDX();
                 while (Math.abs(dragged) >= 34) {
-                    if (face) mirrored = !mirrored;
-                    else facing = dragged > 0 ? facing.counterClockwise() : facing.clockwise();
+                    facing = dragged > 0 ? facing.counterClockwise() : facing.clockwise();
                     dragged -= Math.signum(dragged) * 34;
                     turning = false;
                 }
@@ -240,8 +243,16 @@ public final class Portrait {
         };
     }
 
-    /** The face, close up and at rest: the conversation close-up's quiet first frame, layer on layer. */
+    /**
+     * Close up, at rest, from the side it is turned to: the wardrobe's
+     * close-up, playing on ({@link CloseUp}); for a body with none of those,
+     * the conversation close-up's quiet first frame.
+     */
     private void face(Ui ui, float x, float y, float w, float h, Wardrobe wd) {
+        if (closeUp == null) closeUp = new CloseUp(game);
+        if (closeUp.draw(ui, x, y, w, h, wd, null, facing, time, zoom) >= 0) return;
+        // (that close-up is from the front-left: turned to the right, it is seen in a mirror)
+        boolean mirrored = facing.key().endsWith("w");
         SpriteLibrary lib = game.sprites();
         CloseupLibrary closeups = game.closeups();
         String root = lib.rootOf(wd.get(Slot.BODY));
@@ -289,10 +300,7 @@ public final class Portrait {
         // --- the first row: round and round, and from how high
         float bw = 34;
         if (ui.button("<", x, y, bw, bh)) step(-1);
-        if (ui.button(face ? "Flip" : turning ? "Stop" : "Turn", x + bw + gap, y, 62, bh, turning && !face, true)) {
-            if (face) mirrored = !mirrored;
-            else turning = !turning;
-        }
+        if (ui.button(turning ? "Stop" : "Turn", x + bw + gap, y, 62, bh, turning, true)) turning = !turning;
         if (ui.button(">", x + bw + gap + 62 + gap, y, bw, bh)) step(1);
         float ex = x + 2 * bw + 62 + 3 * gap + 6;
         Elevation[] heights = Elevation.values();
@@ -307,8 +315,12 @@ public final class Portrait {
         if (ui.button("-", x, y2, bw, bh, false, zoom > 1)) setZoom(zoom - 0.5);
         if (ui.button("+", x + bw + gap, y2, bw, bh, false, zoom < CLOSEST)) setZoom(zoom + 0.5);
         float fx = x + 2 * (bw + gap);
-        if (ui.button(face ? "Body" : "Face", fx, y2, 58, bh, face, true)) face = !face;
-        float px = fx + 58 + gap + 6, pw = x + w - px;
+        float cw = Math.max(58, ui.small.width("Close up") + 16);
+        if (ui.button(face ? "Whole" : "Close up", fx, y2, cw, bh, face, true)) {
+            face = !face;
+            time = 0;
+        }
+        float px = fx + cw + gap + 6, pw = x + w - px;
         Pose[] poses = Pose.values();
         if (ui.button("<", px, y2, 26, bh, false, !face)) pose(Math.floorMod(pose.ordinal() - 1, poses.length));
         if (ui.button(">", px + pw - 26, y2, 26, bh, false, !face)) pose((pose.ordinal() + 1) % poses.length);
@@ -319,8 +331,7 @@ public final class Portrait {
     }
 
     private void step(int by) {
-        if (face) mirrored = !mirrored;
-        else facing = by < 0 ? facing.clockwise() : facing.counterClockwise();
+        facing = by < 0 ? facing.clockwise() : facing.counterClockwise();
         turning = false;
     }
 

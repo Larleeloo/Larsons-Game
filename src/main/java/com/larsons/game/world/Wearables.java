@@ -249,9 +249,11 @@ public final class Wearables {
      * The looks a piece drawn from another's art is worn in, with no colour of
      * its own to change ({@code variants.json} has none for its metal): the
      * colour its metal or leather is tinted, as the forge tints a part (RGB).
+     * (Bronze is a brassy, yellow bronze: an orange one came out the colour of
+     * skin, and bronze leg plating looked like bare legs.)
      */
     public static final Map<String, Integer> TINTS = Map.of(
-            "bronze", 0xC08040, "gilded", 0xF9C36D, "blackened", 0x3E3631, "silvered", 0xD8DCE4);
+            "bronze", 0xB5893E, "gilded", 0xF9C36D, "blackened", 0x3E3631, "silvered", 0xD8DCE4);
 
     /**
      * The 54 new wearables: 43 pieces of their own (a new eyewear slot among
@@ -399,6 +401,16 @@ public final class Wearables {
         List<ItemDef> out = new ArrayList<>();
         for (ItemDef d : ALL) if (TAILORED_COLOUR.containsKey(d.id())) out.add(d);
         return out;
+    }
+
+    /** Whether some tailored garment is {@code folder} in {@code slot} cut in {@code colour}. */
+    public static boolean tailoredCut(Slot slot, String folder, String colour) {
+        if (folder == null || colour == null) return false;
+        for (ItemDef d : ALL) {
+            String c = TAILORED_COLOUR.get(d.id());
+            if (c != null && c.equalsIgnoreCase(colour) && d.wearable().puts(slot, folder)) return true;
+        }
+        return false;
     }
 
     /** Whether one of {@code owned} is {@code folder} in {@code slot} tailored in {@code colour}. */
@@ -632,6 +644,10 @@ public final class Wearables {
         // (the one of that colour first: a bronze helmet is the iron helmet's folder, in bronze)
         if (colour != null) {
             for (ItemDef d : ALL) if (colour.equals(d.wearable().colour()) && d.wearable().puts(slot, folder)) return d;
+            // (a tailored garment in its cut: the laced dress in platinum is the Moonsilk gown)
+            for (ItemDef d : ALL) {
+                if (colour.equalsIgnoreCase(TAILORED_COLOUR.get(d.id())) && d.wearable().puts(slot, folder)) return d;
+            }
         }
         for (ItemDef d : ALL) if (d.wearable().wornAs(slot, folder, colour)) return d;
         return null;
