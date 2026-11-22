@@ -352,17 +352,21 @@ public final class SettingsMenu {
         options.addAll(Pointers.NAMES);
         options.add(Pointers.CUSTOM);
         options.add(Pointers.SYSTEM);
-        float bw = (w - (options.size() - 1) * 4) / options.size();
+        // two rows of them
+        int across = (options.size() + 1) / 2;
+        float bw = (w - (across - 1) * 4) / across;
         y += 40;
         for (int i = 0; i < options.size(); i++) {
             String o = options.get(i);
-            if (ui.button(Pointers.label(o), x + i * (bw + 4), y, bw, 34, o.equals(s.pointer), true)) {
+            float bx = x + (i % across) * (bw + 4), by = y + (i / across) * 38;
+            if (ui.button(Pointers.label(o), bx, by, bw, 34, o.equals(s.pointer), true)) {
                 s.pointer = o;
             }
         }
-        y += 44;
-        note(ui, "Your class's pointer follows your class (a wand for a Mage, a lute for a Bard). Custom: "
-                + "drop a picture in assets/ui/pointers/custom.png (its top-left corner points).", x, y, w);
+        y += 82;
+        note(ui, "Default: an arrow made of gears - and in a story played with a class chosen, your class's "
+                + "(a wand for a Mage, a lute for a Bard). Custom: drop a picture in "
+                + "assets/ui/pointers/custom.png (its top-left corner points).", x, y, w);
         y += 56;
         name(ui, "Changes with what it is over", x, y);
         if (ui.button(s.dynamicPointer ? "On" : "Off", x + 300, y, 110, 34, s.dynamicPointer, true)) {
@@ -380,7 +384,8 @@ public final class SettingsMenu {
             float bx = px, by = y;
             ui.rect(bx, by, 74, 74, Theme.withAlpha(Theme.SOOT, 0.5f));
             ui.outline(bx, by, 74, 74, 1, Theme.BRASS_DARK);
-            game.pointers().preview(ui, s.pointer, s.heroClass, hint, bx + 22, by + 14);
+            var playing = com.larsons.game.save.Saves.active();
+            game.pointers().preview(ui, s.pointer, playing != null ? playing.heroClass() : "", hint, bx + 22, by + 14);
             ui.textCentered(ui.tiny, hint.isEmpty() ? "plain" : hint, bx + 37, by + 56, Theme.ITEM_DISABLED);
             px += 82;
             if (px + 74 > x + w) break;

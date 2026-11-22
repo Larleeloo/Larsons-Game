@@ -120,6 +120,9 @@ final class ItemRenderer implements AutoCloseable {
 
         SheetTexture sheet = spin == null ? null : sheet(id, SpriteView.of(eye, c, 0, yaw).elevation());
         Border border = g.shown() ? null : g.item.ring();
+        boolean potion = pickup != null && Goods.P_POTION.equals(pickup.spin());
+        // a potion's brew glows in its flask, pulsing (a dye's bottle never does)
+        if (potion) brewGlow(c, right, up, length, pickup.rgb(), t, g.phase());
         if (sheet != null) {
             drawSprite(g, t, yaw, c, right, up, spin, sheet, rc, border, pickup);
         } else {
@@ -128,6 +131,7 @@ final class ItemRenderer implements AutoCloseable {
             batch.quad(icon, corner(c, right, up, s), right.scale(s), up.scale(-s), 0, 0, 1, 1, 1, 1, 1, 1);
         }
         if (border != null) motes(border, c, right, up, length, t, g.phase());
+        if (potion) bubbles(c, right, up, length, pickup.rgb(), t, g.phase());
         if (b > 0) sparks(foot, level, right, up, rc, b, t, g.phase());
     }
 
@@ -181,6 +185,39 @@ final class ItemRenderer implements AutoCloseable {
         if (last == null || last.closed()) return null;
         sprites.touch(last);
         return last;
+    }
+
+    /** Bubbles rising off a potion's mouth at a time, and how fast they go up (a second). */
+    static final int BUBBLES = 6;
+    static final double BUBBLE_HZ = 0.55;
+
+    /** The glow of a potion's brew in its belly: soft, its colour, swelling and fading. */
+    private void brewGlow(Vec3 c, Vec3 right, Vec3 up, double length, int rgb, double t, double phase) {
+        float[] lc = rgb(rgb);
+        double r = length * (0.62 + 0.06 * Math.sin((t + phase) * 2.2));
+        Vec3 belly = c.add(up.scale(-length * 0.22));
+        batch.glow(dot, corner(belly, right, up, r), right.scale(r), up.scale(-r), lc[0], lc[1], lc[2],
+                (float) (0.32 + 0.12 * Math.sin((t + phase) * 3.1)));
+    }
+
+    /**
+     * A potion bubbling over: bubbles of its brew rising off the flask's mouth,
+     * wobbling, swelling and bursting - straight up, whichever way it lies.
+     */
+    private void bubbles(Vec3 c, Vec3 right, Vec3 up, double length, int rgb, double t, double phase) {
+        float[] lc = rgb(rgb), light = whiter(lc, 0.45f);
+        Vec3 mouth = c.add(0, length * 0.2, 0);
+        for (int k = 0; k < BUBBLES; k++) {
+            double f = ((t + phase * 3.7) * BUBBLE_HZ + (double) k / BUBBLES) % 1.0;
+            double wob = Math.sin((t + k) * 3.3 + k * 1.7) * length * 0.05;
+            Vec3 at = mouth.add(right.scale(wob)).add(0, f * length * 0.55, 0);
+            double size = length * (0.05 + 0.05 * Math.sin(Math.PI * Math.min(1, f * 1.3)));
+            float a = (float) Math.sin(Math.PI * f);
+            batch.glow(dot, corner(at, right, up, size * 1.8), right.scale(size * 1.8), up.scale(-size * 1.8),
+                    lc[0], lc[1], lc[2], 0.35f * a);
+            batch.glow(dot, corner(at, right, up, size), right.scale(size), up.scale(-size),
+                    light[0], light[1], light[2], 0.8f * a);
+        }
     }
 
     private void beam(Vec3 foot, Vec3 level, float[] rc, double strength, double t, double phase) {

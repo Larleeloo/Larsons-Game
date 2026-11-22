@@ -9,6 +9,7 @@ import com.larsons.game.world.Buffs;
 import com.larsons.game.world.Stealth;
 import com.larsons.game.world.Ammo;
 import com.larsons.game.world.Forged;
+import com.larsons.game.world.Gear;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
@@ -172,6 +173,8 @@ public final class Combat {
     /** The world it was last ticked in: whose cards help, whose animals a blow can turn things into. */
     private World world;
     private double mana;
+    /** What her gear adds to the mana pool. */
+    private double gearMana;
     private double now;
 
     private AnimState swingState;
@@ -240,7 +243,7 @@ public final class Combat {
     /** Play by {@code t}'s numbers from now on. */
     public void use(CombatTuning t) {
         tuning = t == null ? CombatTuning.defaults() : t;
-        mana = Math.min(mana, tuning.maxMana);
+        mana = Math.min(mana, maxMana());
     }
 
     public CombatTuning tuning() { return tuning; }
@@ -259,9 +262,12 @@ public final class Combat {
     public void tick(double dt, World world) {
         this.world = world;
         now = world.time();
-        mana = Math.min(tuning.maxMana, mana + world.buffs().plus(Buffs.Kind.REGEN_MANA) * dt);
-        mana = Math.min(tuning.maxMana, mana + tuning.manaRegen * dt);
         Player p = world.player();
+        // what her gear adds to the pool, and to how fast it fills
+        Gear.Totals gear = p.gear();
+        gearMana = gear.get(Gear.Effect.MANA);
+        mana = Math.min(maxMana(), mana + world.buffs().plus(Buffs.Kind.REGEN_MANA) * dt);
+        mana = Math.min(maxMana(), mana + (tuning.manaRegen + gear.get(Gear.Effect.MANA_REGEN)) * dt);
         List<Target> targets = world.targets();
 
         AnimState a = p.action();
@@ -327,7 +333,7 @@ public final class Combat {
         Ammo.Use ammo = plain ? Ammo.Use.FREE
                 : world.ammo().use(weapon, p.inventory(), buffs.has(Buffs.Kind.AMMO_FREE));
         if (ammo == Ammo.Use.EMPTY) {
-            mana = Math.min(tuning.maxMana, mana + (paid ? cost : 0));
+            mana = Math.min(maxMana(), mana + (paid ? cost : 0));
             ItemDef needs = Ammo.of(weapon.def());
             popups.add(new Popup("Out of " + Ammo.said(needs), AMMO_RGB, p.ground(), 2.0, now, true));
             sounds.add(new Sound("combat/out_of_ammo", p.ground()));
@@ -338,6 +344,10 @@ public final class Combat {
             sounds.add(new Sound("combat/reload", p.ground()));
         }
         boolean dull = ammo == Ammo.Use.DULL;
+        // its stamina: without enough of it, a tired blow
+        double stamina = staminaCost(move, state) * buffs.times(Buffs.Kind.STAMINA_COST);
+        boolean tired = !p.spendStamina(stamina);
+        if (tired) popups.add(new Popup("Out of stamina", TIRED_RGB, p.ground(), 2.0, now, true));
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
         boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
@@ -353,7 +363,8 @@ public final class Combat {
         // hidden, a blow is a sneak attack (or a card makes it one)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
         double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
-        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1);
+        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1)
+                * (tired ? tuning.tiredDamage : 1);
         Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random), mystic && paid, plain, sneak, times, what);
         List<Note> notes = notes(strike, aimed);
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
@@ -362,6 +373,7 @@ public final class Combat {
         if (sneak) notes.add(new Note("Sneak attack ×" + trim(Stealth.SNEAK_DAMAGE), SNEAK_RGB));
         if (dull) notes.add(new Note("Dull: no " + Ammo.said(Ammo.of(weapon.def())) + " ×" + trim(Ammo.DULL),
                 AMMO_RGB));
+        if (tired) notes.add(new Note("Tired ×" + trim(tuning.tiredDamage), TIRED_RGB));
         show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
         sounds.add(new Sound("combat/dice_roll", p.ground()));
         return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
@@ -369,6 +381,23 @@ public final class Combat {
 
     /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green; ammunition's, a steel grey. */
     public static final int CARD_RGB = 0xC8A8FF, SNEAK_RGB = 0x9FD8A0, AMMO_RGB = 0xB8C0CC;
+    /** A tired blow's note, and the popup that she is out of stamina: the stamina bar's green, dulled. */
+    public static final int TIRED_RGB = 0x9DB86A;
+
+    /**
+     * The stamina {@code move} (played as {@code state}) costs ({@code
+     * combat.json}'s {@code stamina}): a swing, a heavy attack, a spin, the
+     * jump attack, a shot, a spell.
+     */
+    double staminaCost(Move move, AnimState state) {
+        return switch (move.kind()) {
+            case ARROW, BOLT -> tuning.staminaShot;
+            case SPELL -> tuning.staminaSpell;
+            case SWING -> state == AnimState.JUMP_ATTACK ? tuning.staminaJumpAttack
+                    : move.arc() >= 359 ? tuning.staminaSpin
+                    : move.heavy() ? tuning.staminaHeavy : tuning.staminaSwing;
+        };
+    }
     /** What a foe's armour blocked: steel. */
     public static final int ARMOUR_RGB = 0xA9B4C2;
 
@@ -393,7 +422,7 @@ public final class Combat {
 
     /** The swing under way stops before its blow: its mana back, its dice taken down. */
     private void cancel() {
-        mana = Math.min(tuning.maxMana, mana + swing.cost);
+        mana = Math.min(maxMana(), mana + swing.cost);
         if (show != null && show == swing.show) show = null;
         swing = null;
     }
@@ -801,6 +830,7 @@ public final class Combat {
         if (through < d) d = Math.max(0, Math.round(through));
         t.hurt(d, from, true);
         if (was && !t.alive() && world != null) world.felled(t);
+        if (world != null && d > 0) absorb(d, t);
         popups.add(new Popup(format(d), s.rarity().rgb(), t.position(), t.height() + 0.25, now, false));
         if (d < rolled) {
             popups.add(new Popup(format(rolled - d) + " blocked", ARMOUR_RGB, t.position(), t.height() + 0.55, now,
@@ -817,6 +847,27 @@ public final class Combat {
             effects.add(new Effect(Effect.Kind.SPARK,
                     t.position().add(0, t.height() * 0.62, 0).add(toward.scale(t.radius())), now, 0));
             sounds.add(new Sound("combat/blow", t.position()));
+        }
+    }
+
+    /**
+     * What her gear draws back from a blow of hers that did {@code d}: a share
+     * of it as health, as mana, as stamina ({@link Gear.Effect#HEALTH_ABSORB} ...).
+     */
+    private void absorb(double d, Target t) {
+        Player p = world.player();
+        Gear.Totals g = p.gear();
+        double h = d * g.share(Gear.Effect.HEALTH_ABSORB), m = d * g.share(Gear.Effect.MANA_ABSORB),
+                st = d * g.share(Gear.Effect.STAMINA_ABSORB);
+        if (h > 0) p.heal(h);
+        if (m > 0) mana = Math.min(maxMana(), mana + m);
+        if (st > 0) p.restoreStamina(st);
+        if (h >= 0.5) {
+            popups.add(new Popup("+" + format(h), Gear.Effect.HEALTH.rgb(), p.ground(), 2.15, now, true));
+        }
+        if (m >= 0.5) popups.add(new Popup("+" + format(m), Gear.Effect.MANA.rgb(), p.ground(), 2.35, now, true));
+        if (st >= 0.5) {
+            popups.add(new Popup("+" + format(st), Gear.Effect.STAMINA.rgb(), p.ground(), 2.55, now, true));
         }
     }
 
@@ -939,11 +990,12 @@ public final class Combat {
 
     public double mana() { return mana; }
 
-    public double maxMana() { return tuning.maxMana; }
+    /** The mana pool when full: {@code combat.json}'s and what her gear adds. */
+    public double maxMana() { return tuning.maxMana + gearMana; }
 
     /** Set the mana (scripts and tests). */
     public void setMana(double m) {
-        mana = Math.max(0, Math.min(tuning.maxMana, m));
+        mana = Math.max(0, Math.min(maxMana(), m));
     }
 
     /** The dice above her head, or null. */

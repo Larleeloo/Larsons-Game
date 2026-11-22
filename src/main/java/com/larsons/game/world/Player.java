@@ -184,8 +184,17 @@ public final class Player {
     /** Her breath, seconds; how much faster it comes back than it ran out; health a second drowning. */
     public static final double MAX_BREATH = 20, BREATH_BACK = 4, DROWN = 6;
 
-    /** Her health and stamina when full. */
+    /** Her health and stamina when full - before what her gear adds ({@link #maxHealth}, {@link #maxStamina}). */
     public static final double MAX_HEALTH = 100, MAX_STAMINA = 100;
+    /**
+     * Stamina a second spent running and sprinting (on her feet, moving).
+     * Run out, she walks until it is back up to {@link #RUN_AGAIN}.
+     */
+    public static final double RUN_COST = 3, SPRINT_COST = 8, RUN_AGAIN = 25;
+    /** How strong the second jump her gear gives her is, against her first. */
+    public static final double DOUBLE_JUMP_POWER = 0.9;
+    /** How often what her gear does is worked out again, in seconds (and whenever she changes what she wears). */
+    public static final double GEAR_EVERY = 0.5;
     /** A fall from higher than this (metres, feet to feet) hurts: {@link #FALL_DAMAGE} for each metre beyond. */
     public static final double SAFE_FALL = 3.0, FALL_DAMAGE = 9.0;
     /** From higher than this, a primed landing roll plays (lower, she just lands). */
@@ -307,6 +316,10 @@ public final class Player {
             ARMOUR_HELD,
             /** Her health ran out. */
             KNOCKED_OUT,
+            /** Jumped again in the air, {@code amount} metres up (her gear's second jump). */
+            DOUBLE_JUMPED,
+            /** Ran out of stamina running: she walks till it comes back. */
+            WINDED,
             /** Up in the saddle. */
             MOUNTED,
             /** Down off the horse, on her feet. */
@@ -418,6 +431,14 @@ public final class Player {
     /** The dodge key went down in the air: she lands in a roll. */
     private boolean rollPrimed;
     private double health = MAX_HEALTH, stamina = MAX_STAMINA;
+    /** What her clothes and armour do for her ({@link Gear}), and when it was last worked out. */
+    private Gear.Totals gear = Gear.Totals.NONE;
+    private int gearVersion = Integer.MIN_VALUE;
+    private double gearAge = Double.MAX_VALUE;
+    /** Whether she has used her gear's second jump since she left the ground. */
+    private boolean doubleJumped;
+    /** Out of stamina from running: she walks until it is back up to {@link #RUN_AGAIN}. */
+    private boolean winded;
     private double sinceHurt = Double.MAX_VALUE, sinceTired = Double.MAX_VALUE;
     private BooleanSupplier aimUp = () -> false;
     private final List<Event> events = new ArrayList<>();
@@ -466,14 +487,25 @@ public final class Player {
         heavyWait = Math.max(0, heavyWait - dt);
         buffs.tick(dt);
         hero.deck().tick(dt);
-        if (health > 0) health = Math.min(MAX_HEALTH, health + buffs.plus(Buffs.Kind.REGEN_HEALTH) * dt);
-        stamina = Math.min(MAX_STAMINA, stamina + buffs.plus(Buffs.Kind.REGEN_STAMINA) * dt);
+        if (gearAge < Double.MAX_VALUE) gearAge += dt;
+        Gear.Totals worn = gear();
+        double maxHealth = maxHealth(), maxStamina = maxStamina();
+        // (gear taken off: no more than she can hold now)
+        health = Math.min(health, maxHealth);
+        stamina = Math.min(stamina, maxStamina);
+        if (health > 0) {
+            health = Math.min(maxHealth, health + (buffs.plus(Buffs.Kind.REGEN_HEALTH)
+                    + worn.get(Gear.Effect.HEALTH_REGEN)) * dt);
+        }
+        stamina = Math.min(maxStamina, stamina + (buffs.plus(Buffs.Kind.REGEN_STAMINA)
+                + worn.get(Gear.Effect.STAMINA_REGEN)) * dt);
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
         if (armourAge < Double.MAX_VALUE) armourAge += dt;
         if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
-        if (sinceHurt >= HEALTH_DELAY && health > 0) health = Math.min(MAX_HEALTH, health + HEALTH_REGEN * dt);
-        if (wall == null && sinceTired >= STAMINA_DELAY) stamina = Math.min(MAX_STAMINA, stamina + STAMINA_REGEN * dt);
+        if (sinceHurt >= HEALTH_DELAY && health > 0) health = Math.min(maxHealth, health + HEALTH_REGEN * dt);
+        if (wall == null && sinceTired >= STAMINA_DELAY) stamina = Math.min(maxStamina, stamina + STAMINA_REGEN * dt);
+        if (winded && stamina >= RUN_AGAIN) winded = false;
         if (preview != null && (in.moving() || in.acts())) preview = null;
         if (preview != null) {
             velocity = Vec3.ZERO;
@@ -509,6 +541,7 @@ public final class Player {
         breathe(dt);
 
         boolean grounded = height <= 1e-6 && vy <= 0;
+        if (grounded && !airborne) doubleJumped = false;
         Stance st = stance();
 
         // --- what is under way ---------------------------------------------------------
@@ -575,7 +608,7 @@ public final class Player {
             } else if (in.heavy() && st.heavy() != null && heavyWait <= 0) {
                 next = st.heavy();
                 crouched = false;
-                heavyWait = heavyCooldown;
+                heavyWait = heavyCooldown();
             } else if (st.bash() != null && (in.bash() || in.block() && in.attack())) {
                 next = st.bash();
                 crouched = false;
@@ -602,15 +635,40 @@ public final class Player {
             if (next != null) start(next, durations);
             if (next == AnimState.DASH) dodgeScale = scale(AnimState.DASH);
         }
+        // --- the second jump, in the air: what her gear gives her ------------------------
+        if (!grounded && in.jump() && canDoubleJump()) {
+            doubleJumped = true;
+            crouched = false;
+            jumping = true;
+            launched = true;
+            jumpState = AnimState.DOUBLE_JUMP;
+            setState(jumpState);
+            stateTime = 0;
+            actionDuration = durations.applyAsDouble(AnimState.DOUBLE_JUMP);
+            AnimState first = st.jump() != null ? st.jump() : AnimState.JUMP;
+            vy = Math.max(vy, jumpSpeed(durations.applyAsDouble(first)) * DOUBLE_JUMP_POWER);
+            events.add(new Event(Event.Kind.DOUBLE_JUMPED, height));
+        }
         busy = action != null || jumping;
 
         // --- movement, relative to the camera (the caller already rotated it) -----------
         Stance.Pace pace = in.sprint() ? Stance.Pace.SPRINT : in.run() ? Stance.Pace.RUN : Stance.Pace.WALK;
+        if (winded) pace = Stance.Pace.WALK;                               // out of breath: she walks
         AnimState moving = st.moving(pace, crouched);
         Vec3 wish = new Vec3(in.moveX(), 0, in.moveZ());
         if (wish.length() > 1) wish = wish.normalize();
         boolean rooted = (busy && !jumping) || blocking;
         if (rooted) wish = Vec3.ZERO;
+        // running and sprinting on her feet cost stamina; run out, she walks till it comes back
+        if (pace != Stance.Pace.WALK && grounded && !rooted && !crouched && wish.length() > 0.3) {
+            double cost = (pace == Stance.Pace.SPRINT ? SPRINT_COST : RUN_COST) * buffs.times(Buffs.Kind.STAMINA_COST);
+            stamina = Math.max(0, stamina - cost * wish.length() * dt);
+            sinceTired = 0;
+            if (stamina <= 0) {
+                winded = true;
+                events.add(new Event(Event.Kind.WINDED, 0));
+            }
+        }
         // walking into a wall she can climb, she takes hold of it; off the top of one, she steps down onto it
         if (!busy && grounded && !blocking && wish.length() > 0.5 && grabWall(wish)) {
             climb(0, in);
@@ -623,7 +681,7 @@ public final class Player {
                 return;
             }
         }
-        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED));
+        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED) * worn.speedTimes());
         if (dodging()) {
             velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
         } else {
@@ -638,7 +696,7 @@ public final class Player {
         if (jumping) {
             if (!launched && stateTime >= JUMP_LAUNCH * actionDuration) {
                 launched = true;
-                vy = GRAVITY * (JUMP_AIRTIME * actionDuration) / 2 * Math.sqrt(buffs.times(Buffs.Kind.JUMP));
+                vy = jumpSpeed(actionDuration);
             }
             if (launched && stateTime >= actionDuration) jumping = false;
         }
@@ -659,13 +717,12 @@ public final class Player {
         boolean falling = falling();
         if (jumping) next = jumpState;
         else if (action != null) next = action;
-        else if (falling) next = st.jump() != null ? st.jump() : AnimState.JUMP;
+        else if (falling) next = AnimState.FALL;
         else if (blocking) next = st.block();
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
         else next = st.idle(crouched);
         setState(next);
-        if (falling) stateTime = FALL_POSE * durations.applyAsDouble(next);    // held in the air
-        else stateTime += dt;
+        stateTime += dt;
         if (plunging) {
             // the draw over her head, then down: held on the drop until she lands
             if (stateTime >= plungeAt(PLUNGE_DIVE)) vy = Math.min(vy, -PLUNGE_SPEED);
@@ -1655,7 +1712,7 @@ public final class Player {
     public double heavyWait() { return heavyWait; }
 
     /** The least time from one heavy attack to the next, in seconds. */
-    public double heavyCooldown() { return heavyCooldown; }
+    public double heavyCooldown() { return heavyCooldown * gear().heavyTimes(); }
 
     /** Make heavy attacks wait {@code seconds} after each other from now on (0: no wait). */
     public void setHeavyCooldown(double seconds) {
@@ -1810,22 +1867,90 @@ public final class Player {
 
     /** {@code amount} health back (no more than full; not once knocked out). */
     public void heal(double amount) {
-        if (health > 0 && amount > 0) health = Math.min(MAX_HEALTH, health + amount);
+        if (health > 0 && amount > 0) health = Math.min(maxHealth(), health + amount);
     }
 
     public double stamina() { return stamina; }
+
+    /** {@code amount} stamina back (no more than full). */
+    public void restoreStamina(double amount) {
+        if (amount > 0) stamina = Math.min(maxStamina(), stamina + amount);
+    }
+
+    /**
+     * Spend {@code amount} stamina on an attack: whether she had it. Short of
+     * it, what she has is spent and the blow is a tired one (the caller
+     * weakens it: {@code combat.json}'s {@code stamina.tiredDamage}).
+     */
+    public boolean spendStamina(double amount) {
+        if (amount <= 0) return true;
+        sinceTired = 0;
+        if (stamina + 1e-9 >= amount) {
+            stamina -= amount;
+            return true;
+        }
+        stamina = 0;
+        return false;
+    }
+
+    /** Whether she ran out of stamina running and walks until it comes back ({@link #RUN_AGAIN}). */
+    public boolean winded() { return winded; }
+
+    /** Her health when full: {@link #MAX_HEALTH} and what her gear adds. */
+    public double maxHealth() {
+        return MAX_HEALTH + gear().get(Gear.Effect.HEALTH);
+    }
+
+    /** Her stamina when full: {@link #MAX_STAMINA} and what her gear adds. */
+    public double maxStamina() {
+        return MAX_STAMINA + gear().get(Gear.Effect.STAMINA);
+    }
+
+    /**
+     * What everything she wears does for her ({@link Gear#of}): worked out
+     * again when she changes what she wears, and every {@link #GEAR_EVERY}
+     * seconds (a piece lost, or forged to a new tier).
+     */
+    public Gear.Totals gear() {
+        if (wardrobe == null) return Gear.Totals.NONE;
+        if (wardrobe.version() != gearVersion || gearAge >= GEAR_EVERY) {
+            gear = Gear.of(wardrobe, inventory);
+            gearVersion = wardrobe.version();
+            gearAge = 0;
+        }
+        return gear;
+    }
+
+    /** Whether she can jump again now, in the air: her gear gives her the second jump and she has not used it. */
+    public boolean canDoubleJump() {
+        return airborne() && !doubleJumped && action == null && !plunging && wall == null && ledge == null
+                && !swimming && riding == Riding.NO && (!jumping || launched) && gear().has(Gear.Effect.DOUBLE_JUMP);
+    }
+
+    /** Whether she has used her second jump since she left the ground. */
+    public boolean doubleJumped() { return doubleJumped; }
+
+    /**
+     * How fast she leaves the ground in a jump whose animation lasts {@code
+     * duration} seconds: just enough to come down as it lands, on level
+     * ground - higher with a card's or her gear's jump.
+     */
+    private double jumpSpeed(double duration) {
+        return GRAVITY * (JUMP_AIRTIME * duration) / 2
+                * Math.sqrt(buffs.times(Buffs.Kind.JUMP) * gear().jumpTimes());
+    }
 
     /** Seconds since she was last hurt (a lot: never). */
     public double sinceHurt() { return sinceHurt; }
 
     /** Set her health (scripts and tests; 0 knocks her out). */
     public void setHealth(double h) {
-        health = Math.max(0, Math.min(MAX_HEALTH, h));
+        health = Math.max(0, Math.min(maxHealth(), h));
     }
 
     /** Set her stamina (scripts and tests). */
     public void setStamina(double s) {
-        stamina = Math.max(0, Math.min(MAX_STAMINA, s));
+        stamina = Math.max(0, Math.min(maxStamina(), s));
     }
 
     /**
@@ -1905,8 +2030,10 @@ public final class Player {
     /** Back on her feet at {@code at}, health and stamina full, doing nothing. */
     public void respawn(Vec3 at) {
         setPosition(at);
-        health = MAX_HEALTH;
-        stamina = MAX_STAMINA;
+        health = maxHealth();
+        stamina = maxStamina();
+        winded = false;
+        doubleJumped = false;
         sinceHurt = sinceTired = Double.MAX_VALUE;
         action = null;
         drawing = false;

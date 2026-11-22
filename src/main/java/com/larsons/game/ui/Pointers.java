@@ -20,11 +20,13 @@ import java.util.Map;
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * The mouse pointer: her class's (a wand for a Mage, a lute for a Bard, a
+ * The mouse pointer: by default an arrow made of gears ({@link #GEAR}),
+ * everywhere but in a story played with a class chosen, where it is her
+ * class's (a wand for a Mage, a lute for a Bard, a
  * sword for a Knight, an axe for a Warrior, a staff for a Warlock, a
  * leafy branch for a Druid, a dagger for a Rogue, an arrow for a Ranger, a
- * holy symbol for a Cleric), or one chosen in Pause → Class - any of the
- * nine, a picture of her own ({@code assets/ui/pointers/custom.png}, its
+ * holy symbol for a Cleric); or one chosen in Pause → Class - the gear
+ * arrow or any of the nine, a picture of her own ({@code assets/ui/pointers/custom.png}, its
  * hot spot its top-left corner), or the system's arrow.
  *
  * <p>The pointers are 32-pixel pixel art ({@code tools/ui/make_pointers.py}),
@@ -33,9 +35,16 @@ import static org.lwjgl.glfw.GLFW.*;
 public final class Pointers implements AutoCloseable {
 
     /** The pointers there are, in the order Pause → Class offers them. */
-    public static final List<String> NAMES = List.of("wand", "lute", "sword", "axe", "staff", "leafy_branch",
-            "dagger", "arrow", "holy_symbol");
+    public static final List<String> NAMES = List.of("gear_arrow", "wand", "lute", "sword", "axe", "staff",
+            "leafy_branch", "dagger", "arrow", "holy_symbol");
+    /**
+     * The setting that follows the class ({@link #CLASS}: the default) - the
+     * gear arrow outside a story with a class chosen - one of their own, the
+     * system's.
+     */
     public static final String CLASS = "class", CUSTOM = "custom", SYSTEM = "system";
+    /** The arrow made of gears: everyone's pointer but in a story with a class chosen. */
+    public static final String GEAR = "gear_arrow";
 
     private final Path dir;
     private final Map<String, Long> cursors = new HashMap<>();
@@ -50,7 +59,8 @@ public final class Pointers implements AutoCloseable {
     /** What a pointer is called in the menu. */
     public static String label(String name) {
         return switch (name) {
-            case CLASS -> "Your class's";
+            case CLASS -> "Default";
+            case GEAR -> "Gear arrow";
             case CUSTOM -> "Custom (custom.png)";
             case SYSTEM -> "System arrow";
             case "staff" -> "Staff";
@@ -65,11 +75,16 @@ public final class Pointers implements AutoCloseable {
         return "gloved_hand".equals(name) ? "staff" : name;
     }
 
-    /** The pointer {@code setting} comes to for {@code heroClass}: a name, or {@link #SYSTEM}. */
+    /**
+     * The pointer {@code setting} comes to for {@code heroClass} - the class
+     * of the story being played, or null (or "") outside one: a name, or
+     * {@link #SYSTEM}. The default ({@link #CLASS}) is the class's pointer in
+     * a story with a class chosen, and the gear arrow everywhere else.
+     */
     public static String resolve(String setting, String heroClass) {
         if (setting == null || setting.isBlank() || setting.equals(CLASS)) {
-            CardBook.Hero h = CardBook.get().hero(heroClass);
-            return h == null ? SYSTEM : renamed(h.pointer());
+            CardBook.Hero h = heroClass == null || heroClass.isBlank() ? null : CardBook.get().hero(heroClass);
+            return h == null ? GEAR : renamed(h.pointer());
         }
         return renamed(setting);
     }

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "Springheel boots",
+  "base": "riding_boots",
+  "rarity": "legendary",
+  "dice": 1,
+  "sides": 4,
+  "effects": [],
+  "gear": {
+    "double_jump": 1,
+    "jump": 30,
+    "speed": 15,
+    "stamina": 25
+  },
+  "tints": {}
+}

@@ -4,7 +4,8 @@ art in the art's 128-colour palette: a wand for the Mage, a lute for the
 Bard, a sword for the Knight, an axe for the Warrior, a staff for the
 Warlock, a leafy branch for the Druid, a dagger for the Rogue, an arrow for
 the Ranger and a holy symbol - a golden sun-cross on its rod - for the
-Cleric. Each points up and to the left, its tip the pointer's hot spot.
+Cleric; and an arrow made of gears, everyone's outside a story with a class
+chosen. Each points up and to the left, its tip the pointer's hot spot.
 
     python3 tools/ui/make_pointers.py [assets/ui/pointers] [palette=../3D-Modeling/generic_feminine_model/pixel_palette.json]
 
@@ -48,6 +49,8 @@ MATS = {
     "string": ((150, 140, 120), (210, 200, 176), (240, 236, 220)),
     "lute_face": ((120, 70, 24), (196, 130, 56), (236, 186, 110)),
     "hole": ((18, 10, 6), (30, 18, 10), (40, 26, 14)),
+    "brass": ((116, 74, 22), (190, 138, 50), (240, 204, 118)),
+    "copper": ((104, 46, 24), (178, 92, 50), (230, 152, 100)),
 }
 OUTLINE = (14, 10, 18)
 
@@ -204,6 +207,31 @@ def arrow(c):
     c.poly([(19, 21.5), (21.5, 19), (24, 21), (21, 24)], "feather")
 
 
+def cog(c, centre, r, teeth, mat, turn=0.0, hub="hole"):
+    """A gear: a wheel of {@code r} with {@code teeth} square teeth round it, and its axle hole."""
+    cx, cy = centre
+    c.disc(centre, r * 0.74, mat)
+    half = math.pi / teeth * 0.5
+    for k in range(teeth):
+        a = turn + 2 * math.pi * k / teeth
+        pts = []
+        for (rr, da) in ((r * 0.62, -half * 1.25), (r, -half * 0.8), (r, half * 0.8), (r * 0.62, half * 1.25)):
+            pts.append((cx + rr * math.cos(a + da), cy + rr * math.sin(a + da)))
+        c.poly(pts, mat)
+    if hub:
+        c.disc(centre, max(0.9, r * 0.26), hub)
+
+
+def gear_arrow(c):
+    # the plain pointer's arrow, made of gears: a brass arrowhead with an iron cog set in it,
+    # its tail a train of two gears running down and away from it - an iron one, a brass one
+    cog(c, (23, 23), 6.4, 9, "brass", turn=0.2)
+    cog(c, (14.6, 14.6), 4.4, 7, "iron", turn=0.45, hub="gold")
+    c.poly([(1, 1), (1.8, 16.5), (5.6, 12.6), (12.6, 5.6), (16.5, 1.8)], "brass")
+    cog(c, (5.9, 5.9), 3.1, 6, "iron", turn=0.1, hub="gold")
+    c.disc((23, 23), 1.2, "gold")
+
+
 def holy_symbol(c):
     # a golden sun-cross: a ring and its cross, on a short rod, the cross's arm the tip
     c.capsule((12, 12), (28, 28), 2.6, "dark_wood")
@@ -216,7 +244,8 @@ def holy_symbol(c):
 
 
 POINTERS = {"wand": wand, "lute": lute, "sword": sword, "axe": axe, "staff": staff,
-            "leafy_branch": leafy_branch, "dagger": dagger, "arrow": arrow, "holy_symbol": holy_symbol}
+            "leafy_branch": leafy_branch, "dagger": dagger, "arrow": arrow, "holy_symbol": holy_symbol,
+            "gear_arrow": gear_arrow}
 
 
 def main(args):

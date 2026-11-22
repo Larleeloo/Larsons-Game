@@ -20,6 +20,7 @@ import com.larsons.game.sprite.ObjectStack;
 import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
+import com.larsons.game.sprite.Variants;
 import com.larsons.game.sprite.Wardrobe;
 
 import java.util.ArrayList;
@@ -1179,6 +1180,7 @@ public final class WorldRenderer implements AutoCloseable {
     public static LayerStack.Result inLooks(LayerStack.Result stack, Wardrobe wardrobe, Inventory inventory,
                                             ItemSprites items, SpriteLibrary sprites) {
         if (stack == null || wardrobe == null || items == null || sprites == null) return stack;
+        wardrobe = wardrobe.drawn();
         List<LayerStack.Layer> layers = null;
         for (int i = 0; i < stack.layers().size(); i++) {
             LayerStack.Layer l = stack.layers().get(i);
@@ -1208,25 +1210,31 @@ public final class WorldRenderer implements AutoCloseable {
         }
         String colour = wardrobe.colour(slot);
         boolean armourSlot = Armour.location(slot) != null;
-        if (!armourSlot && !Wearables.tint(colour)) return palette;
-        int tint = Wearables.tint(colour) ? Wearables.TINTS.get(colour) : -1;
+        boolean custom = Variants.isCustom(colour);
+        if (!armourSlot && !Wearables.tint(colour) && !custom && wardrobe.id(slot) == null) return palette;
+        String body = wardrobe.get(Slot.BODY), base = Wardrobe.Style.base(item);
+        // a palette colour put on something with no colour of its own to change (armour): it is dyed that colour
+        boolean dyed = custom && sprites.colourOptions(body, slot, base, wardrobe.style()).isEmpty();
+        int tint = Wearables.tint(colour) ? Wearables.TINTS.get(colour) : dyed ? Wearables.rgb(colour) : -1;
         String tier = null;
         Map<String, Integer> forged = null;
-        if (armourSlot) {
-            Item it = Armour.item(wardrobe, inventory, slot);
-            if (it != null && Armour.sides(it.def()) > 0) {
-                String base = it.def().wearable().colour();
-                if (Wearables.tint(base)) tint = Wearables.TINTS.get(base);
-                if (it.forged() != null) {
-                    forged = it.forged().tints();
-                } else if (it.tier() != null) {
-                    Tier.Row row = Tier.row(it.def().id());
-                    if (row != null && row.lowest() != it.tier()) tier = it.tier().key();
-                }
+        Item it = Armour.item(wardrobe, inventory, slot);
+        if (it != null && it.def().isWearable()) {
+            // its own look - a bronze helmet's bronze - unless it is dyed or tinted otherwise
+            String own = it.def().wearable().colour();
+            if (tint < 0 && colour == null && Wearables.tint(own)) tint = Wearables.TINTS.get(own);
+            if (it.forged() != null) {
+                if (!dyed) forged = it.forged().tints();
+            } else if (it.tier() != null && Armour.sides(it.def()) > 0) {
+                Tier.Row row = Tier.row(it.def().id());
+                if (row != null && row.lowest() != it.tier()) tier = it.tier().key();
             }
         }
         if (tint < 0 && tier == null && (forged == null || forged.isEmpty())) return palette;
-        int[] fixed = sprites.fixedMaterials(wardrobe.get(Slot.BODY), slot, Wardrobe.Style.base(item), wardrobe.style());
+        int[] fixed = sprites.fixedMaterials(body, slot, base, wardrobe.style());
+        // (a dye over a tier's look: the dye last, so it is the colour seen)
+        if (dyed) return items.worn(items.worn(palette, key, fixed, -1, tier, null), key + "|dyed", fixed, tint, null,
+                null);
         return items.worn(palette, key, fixed, tint, tier, forged);
     }
 

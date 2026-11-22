@@ -43,10 +43,12 @@ final class HowToPlay {
                             Action.SPRINT, Action.CROUCH, Action.JUMP, Action.CAMERA_LEFT, Action.CAMERA_RIGHT,
                             Action.ZOOM_IN, Action.ZOOM_OUT, Action.CAMERA_HEIGHT, Action.HIDE_HUD),
                     List.of("{MOVE} walks, the way the camera looks. Hold {RUN} to run and {SPRINT} to sprint: "
-                                    + "sprinting and climbing spend stamina, the green bar, which fills again as you "
-                                    + "slow down.",
+                                    + "running, sprinting and climbing spend stamina, the green bar, which fills again "
+                                    + "as you walk or stand. Run it out and you are out of breath: you walk until a "
+                                    + "quarter of it is back.",
                             "{CROUCH} crouches, quieter and lower. {JUMP} jumps, and climbs up onto anything "
-                                    + "about as high as you are: a table, a crate, a low wall, a cart.",
+                                    + "about as high as you are: a table, a crate, a low wall, a cart. Wearing gear "
+                                    + "forged with a double jump, press {JUMP} again in the air to jump once more.",
                             "{CAMERA} turns the camera round you, and {ZOOM_IN} and {ZOOM_OUT} zoom in and out. "
                                     + "{CAMERA_HEIGHT} steps it from side on to overhead. {HIDE_HUD} hides the HUD "
                                     + "for a clear view.")),
@@ -61,6 +63,8 @@ final class HowToPlay {
                                     + "hotbar fills again. {SPIN} spins and strikes all round you.",
                             "Strike in the air for a jump attack: you come down on everything round you with a die "
                                     + "more than a swing.",
+                            "Every blow costs stamina: a swing a little, a heavy attack, a spin or a jump attack "
+                                    + "more. With too little left the blow is tired, for 70% of its damage.",
                             "Hold {BLOCK} to raise your shield, or your weapon across you. {PARRY} just as a blow "
                                     + "lands turns it aside, and {BASH} bashes with the shield.",
                             "{LOCK} locks on to the foe nearest the middle of the view: the camera keeps it in sight "
@@ -115,6 +119,10 @@ final class HowToPlay {
                                     + "a controller, left and right step through it without opening it. Colours are "
                                     + "one palette, the item's own shades in it. \"Armour: hidden\" keeps your armour "
                                     + "out of sight - it still blocks.",
+                            "The Armour tab is set out by where each piece guards: head, torso, arms, legs and feet, "
+                                    + "with the dice each part rolls. Armour is worn over your clothes: a gorget over a "
+                                    + "necklace, a breastplate over a shirt. What is under it is not seen but is still "
+                                    + "worn, and still gives whatever it was forged with.",
                             "Close up, in the mirror, brings your face and shoulders near, breathing and glancing "
                                     + "about, from any side: turn it with the arrows. Dyes turn up everywhere - in "
                                     + "chests, in shops, in barrels and on felled foes - and each unlocks a colour "
@@ -166,7 +174,8 @@ final class HowToPlay {
                                     + "and trinkets. At a cauldron you brew potions and cook meals. {USE} by one opens "
                                     + "it: each recipe shows what it takes, and what you have of it.",
                             "Potions are drunk from the hand: health, mana, stamina, swiftness, might, stoneskin, "
-                                    + "shadow, gills and more. Scrolls are stronger, are read the same way, and are "
+                                    + "shadow, gills and more. They are the big round flasks that bubble; dyes are the "
+                                    + "small slim bottles. Scrolls are stronger, are read the same way, and are "
                                     + "never made, only found or bought.")),
             new Chapter("Fishing and hunting", "willow_rod",
                     List.of(Action.ATTACK, Action.USE),
@@ -235,17 +244,22 @@ final class HowToPlay {
                                     + "chests, shops, quests and doors; play a level from where you stand; and save "
                                     + "it for the map.",
                             "Ctrl+F searches everything there is to place. Click something placed to change it: its "
-                                    + "numbers have sliders and boxes to type in, a shop's stock and a quest's "
-                                    + "reward are rows to pick from, and a person's day is set hour by hour. People "
+                                    + "numbers have sliders and boxes to type in, a shop's stock, a quest's "
+                                    + "reward and what a chest, a barrel or a house holds are rows to pick from, and a person's day is set hour by hour. People "
                                     + "and foes are dressed in the wardrobe, hold forged weapons, and have their "
                                     + "health, damage and speed set.",
-                            "The Forge makes weapons of your own: their look, colours, dice, effects and tiers. The "
+                            "The Forge makes weapons, armour and clothes of your own: their look, colours, dice, "
+                                    + "effects and tiers. Armour and clothes are forged with gifts instead: more "
+                                    + "health, mana or stamina, faster regen, health drawn from your blows, higher "
+                                    + "jumps, a double jump, a sooner heavy attack, more speed. Forged pieces can still "
+                                    + "be dyed. The "
                                     + "map editor draws world maps - on its tiles or a picture of your own, with "
                                     + "marks and roads, Ctrl+Z to undo - and the horde editor the horde maps.")),
             new Chapter("Settings and controls", null,
                     List.of(Action.SETTINGS, Action.FULLSCREEN, Action.PAUSE),
                     List.of("{SETTINGS} opens the settings from anywhere, and so does the Settings button: the "
-                                    + "display, the game, the pointer, sounds, controls and colours.",
+                                    + "display, the game, the pointer, sounds, controls and colours. The pointer is an arrow "
+                                    + "of gears, or your class's own in a story where you chose one.",
                             "{FULLSCREEN} switches between full screen and the window.",
                             "Every key can be changed on the Controls page, and an Xbox controller works "
                                     + "everywhere: it is used as soon as you touch it. In menus, the d-pad or the "

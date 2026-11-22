@@ -545,9 +545,9 @@ public final class Game implements AutoCloseable {
 
             if (!booting) {
                 ui.drawFocus();
-                // (a playthrough's own class, not the demo's)
+                // (a story's own class; outside a story - the menus, the demo, the editor - the gear arrow)
                 com.larsons.game.save.SaveGame playing = com.larsons.game.save.Saves.active();
-                pointers.apply(window, settings.pointer, playing != null ? playing.heroClass() : settings.heroClass,
+                pointers.apply(window, settings.pointer, playing != null ? playing.heroClass() : "",
                         settings.dynamicPointer ? ui.pointerHint() : "", in.mouseDown(0), in.padFocusing() && !in.padPointer());
             }
             takeShot(!autopilot.active());

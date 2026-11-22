@@ -2199,11 +2199,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * The Forge: a weapon of Larson's own - one of the weapons, named and
      * given a rarity, its dice (how many, d4 to d20 or d%) in a colour of
      * their own, any of the three effects (Venom, Mystic, Bonded - together if
-     * wanted) and each part in a colour of the palette. Saved in {@code
-     * assets/forge/} for every level, and placed from Place → Items.
+     * wanted) and each part in a colour of the palette. Or a piece of armour
+     * or clothing: its dice to block (armour), and in place of the weapon's
+     * three effects the gear's ({@link com.larsons.game.world.Gear.Effect}:
+     * more health, mana or stamina, each filling faster, a share of each blow
+     * drawn back, a higher jump, a second jump, a shorter wait between heavy
+     * attacks, more speed) - and still dyed like any other piece. Saved in
+     * {@code assets/forge/} for every level, and placed from Place → Items.
      */
     private void forgePanel(Ui ui, float x, float y, float w) {
-        y = heading(ui, "Forge a weapon or armour", x, y);
+        y = heading(ui, "Forge a weapon, armour or clothes", x, y);
         List<Forged> all = Forged.all();
         List<String> names = new ArrayList<>();
         names.add("A new weapon");
@@ -2219,19 +2224,33 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         y += 36;
         boolean armour = com.larsons.game.world.Armour.sides(forging.def()) > 0;
-        String[] pages = {armour ? "Armour" : "Weapon", armour ? "Dice" : "Dice & ammo",
-                "Tiers (" + forging.tiers() + ")"};
-        float pw = (w - 8) / 3;
-        for (int i = 0; i < pages.length; i++) {
-            if (ui.button(pages[i], x + i * (pw + 4), y, pw, 28, forgePage == i, true)) forgePage = i;
+        boolean worn = forging.worn();
+        // its pages: a weapon's, armour's (its effects, its dice), or clothing's (its effects)
+        List<Integer> kinds = worn ? armour ? List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_DICE, PAGE_TIERS)
+                : List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_TIERS) : List.of(PAGE_MAIN, PAGE_DICE, PAGE_TIERS);
+        if (!kinds.contains(forgePage)) forgePage = PAGE_MAIN;
+        float pw = (w - 4 * (kinds.size() - 1)) / kinds.size();
+        for (int i = 0; i < kinds.size(); i++) {
+            int k = kinds.get(i);
+            String label = switch (k) {
+                case PAGE_MAIN -> armour ? "Armour" : worn ? "Clothing" : "Weapon";
+                case PAGE_EFFECTS -> "Effects (" + forging.gear().size() + ")";
+                case PAGE_DICE -> worn ? "Dice" : "Dice & ammo";
+                default -> "Tiers (" + forging.tiers() + ")";
+            };
+            if (ui.button(label, x + i * (pw + 4), y, pw, 28, forgePage == k, true)) forgePage = k;
         }
         y += 38;
-        if (forgePage == 1) {
+        if (forgePage == PAGE_DICE) {
             forgeDice(ui, x, y, w);
             return;
         }
-        if (forgePage == 2) {
+        if (forgePage == PAGE_TIERS) {
             forgeTiers(ui, x, y, w);
+            return;
+        }
+        if (forgePage == PAGE_EFFECTS) {
+            forgeEffects(ui, x, y, w);
             return;
         }
         String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
@@ -2243,7 +2262,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         int bi = 0;
         for (int i = 0; i < made.size(); i++) {
             ItemDef d = made.get(i);
-            bases.add(com.larsons.game.world.Armour.sides(d) > 0 ? d.name() + " (armour)" : d.name());
+            bases.add(com.larsons.game.world.Armour.sides(d) > 0 ? d.name() + " (armour)"
+                    : d.isWearable() ? d.name() + " (clothing)" : d.name());
             if (d.id().equals(forging.base())) bi = i;
         }
         int b = widgets.choice(ui, "Made from", bases, bi, x, y, w, 0.36f);
@@ -2258,31 +2278,43 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (ri != forging.rarity().ordinal()) forging = forging.withRarity(Rarity.values()[ri]);
         y += 40;
 
-        // the dice: how many, and of what
-        int n = (int) Math.round(widgets.stepper(ui, "Dice", forging.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
-        if (n != forging.dice()) forging = forging.withDice(n);
-        y += 34;
-        int kinds = Forged.SIDES.length;
-        float dw = (w - (kinds - 1) * 3) / kinds;
-        for (int i = 0; i < kinds; i++) {
-            int sides = Forged.SIDES[i];
-            if (ui.button(Forged.die(sides), x + i * (dw + 3), y, dw, 28, forging.sides() == sides, true)) {
-                forging = forging.withSides(sides);
+        // the dice: how many, and of what (clothes roll none: they block nothing)
+        if (!worn || armour) {
+            int n = (int) Math.round(widgets.stepper(ui, armour ? "Dice to block" : "Dice", forging.dice(), 1, 1,
+                    Forged.MAX_DICE, "%.0f", x, y, w));
+            if (n != forging.dice()) forging = forging.withDice(n);
+            y += 34;
+            int sideKinds = Forged.SIDES.length;
+            float dw = (w - (sideKinds - 1) * 3) / sideKinds;
+            for (int i = 0; i < sideKinds; i++) {
+                int sides = Forged.SIDES[i];
+                if (ui.button(Forged.die(sides), x + i * (dw + 3), y, dw, 28, forging.sides() == sides, true)) {
+                    forging = forging.withSides(sides);
+                }
             }
+            y += 38;
         }
-        y += 38;
 
-        // its effects: any of the three, all three if wanted
-        Border[] borders = Border.values();
-        float ew = (w - 8) / 3;
-        for (int i = 0; i < borders.length; i++) {
-            Border e = borders[i];
-            boolean on = forging.effects().contains(e);
-            float ex = x + i * (ew + 4);
-            if (ui.button(e.label(), ex, y, ew, 28, on, true)) forging = forging.withEffect(e, !on);
-            ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
+        if (worn) {
+            // what it does for whoever wears it: set on its Effects page
+            List<String> said = forging.gearText();
+            String line = said.isEmpty() ? "No special effects yet: add them on the Effects page."
+                    : "Effects: " + String.join(", ", said) + ".";
+            ui.paragraph(ui.small, line, x, y, w, said.isEmpty() ? Theme.ITEM_DISABLED : Theme.ACCENT);
+            y += 38;
+        } else {
+            // a weapon's effects: any of the three, all three if wanted
+            Border[] borders = Border.values();
+            float ew = (w - 8) / 3;
+            for (int i = 0; i < borders.length; i++) {
+                Border e = borders[i];
+                boolean on = forging.effects().contains(e);
+                float ex = x + i * (ew + 4);
+                if (ui.button(e.label(), ex, y, ew, 28, on, true)) forging = forging.withEffect(e, !on);
+                ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
+            }
+            y += 38;
         }
-        y += 38;
 
         // the colours: of a part (or all of it), or of the dice
         List<String> parts = game.items().parts(forging.base());
@@ -2308,18 +2340,66 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         forgeButtons(ui, x, y, w);
     }
 
+    /** The Forge's pages: what it is, its special effects (armour and clothes), its dice, its tiers. */
+    private static final int PAGE_MAIN = 0, PAGE_EFFECTS = 1, PAGE_DICE = 2, PAGE_TIERS = 3;
+
     /**
      * What the Forge makes things from: the weapons, then every piece of
      * armour ({@link com.larsons.game.world.Armour}) - a forged piece is worn
      * like the piece, rolls its own dice to block a blow and climbs its own
-     * upgrade tiers.
+     * upgrade tiers - then the clothes ({@link Forged#wornBase}: a shirt, a
+     * hat, a necklace, a ring ...), which block nothing but can be given
+     * special effects as armour can.
      */
     static List<ItemDef> forgeBases() {
         List<ItemDef> out = new ArrayList<>(ItemDef.ALL);
         for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
             if (com.larsons.game.world.Armour.sides(d) > 0) out.add(d);
         }
+        for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
+            if (com.larsons.game.world.Armour.sides(d) <= 0 && Forged.wornBase(d)) out.add(d);
+        }
         return out;
+    }
+
+    /**
+     * The Forge's effects page, for armour and clothes: each of the gear's
+     * special effects on or off, and how much of it - added up with
+     * everything else she wears.
+     */
+    private void forgeEffects(Ui ui, float x, float y, float w) {
+        ui.paragraph(ui.small, "What it does for whoever wears it, under other clothes or armour too. Several "
+                + "pieces add up; a dye still colours it.", x, y, w, Theme.ITEM_DISABLED);
+        y += 40;
+        float bw = (float) Math.floor(w * 0.46f);
+        for (com.larsons.game.world.Gear.Effect e : com.larsons.game.world.Gear.Effect.values()) {
+            Double amount = forging.gear().get(e);
+            boolean on = amount != null;
+            if (ui.button(e.label(), x, y, bw, 28, on, true)) forging = forging.withGear(e, on ? 0 : e.fallback());
+            ui.rect(x + 4, y + 24, bw - 8, 3, Theme.hex(e.rgb(), on ? 1f : 0.3f));
+            float sx = x + bw + 6, sw = w - bw - 6;
+            if (on && !e.onOff()) {
+                double v = amount;
+                if (ui.button("-", sx, y, 26, 28)) v = e.clamp(v - e.step());
+                if (ui.button("+", sx + sw - 26, y, 26, 28)) v = e.clamp(v + e.step());
+                ui.textCentered(ui.small, fitSmall(ui, e.said(v), sw - 60), sx + sw / 2, y + 7, Theme.TITLE);
+                if (v != amount) forging = forging.withGear(e, v);
+            } else {
+                ui.text(ui.small, fitSmall(ui, on ? e.said(1) : "Off", sw), sx + 4, y + 7,
+                        on ? Theme.TITLE : Theme.ITEM_DISABLED);
+            }
+            y += 31;
+        }
+        y += 8;
+        forgeButtons(ui, x, y, w);
+    }
+
+    /** {@code s} cut to {@code width} in the small font, with an ellipsis. */
+    private static String fitSmall(Ui ui, String s, float width) {
+        if (ui.small.width(s) <= width) return s;
+        String out = s;
+        while (out.length() > 1 && ui.small.width(out + "…") > width) out = out.substring(0, out.length() - 1);
+        return out + "…";
     }
 
     /** The Forge's Save, Place it and Delete buttons, at {@code y}. */
@@ -4586,7 +4666,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "forge" -> {
                 // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |
-                // effect <key> on|off | tint <part> <#rgb|none> | dicecolour <#rgb|none> | colour <n> | save | place
+                // effect <key> on|off | gear <effect> <amount|on|off> | tint <part> <#rgb|none> |
+                // dicecolour <#rgb|none> | colour <n> | page <n> | save | place
                 String what = a[0], rest = argument.trim().substring(what.length()).trim();
                 switch (what) {
                     case "new" -> forging = Forged.fresh(rest.isEmpty() ? "New weapon" : rest);
@@ -4600,6 +4681,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
                     case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
                     case "effect" -> forging = forging.withEffect(Border.byKey(a[1]), a.length < 3 || a[2].equals("on"));
+                    case "gear" -> {
+                        // gear <effect> <amount|on|off>: armour's and clothes' special effects
+                        var e = com.larsons.game.world.Gear.Effect.byKey(a[1]);
+                        if (e != null) {
+                            String v = a.length < 3 ? "on" : a[2];
+                            double amount = v.equals("off") ? 0 : v.equals("on") ? e.fallback() : Double.parseDouble(v);
+                            forging = forging.withGear(e, amount);
+                        }
+                    }
+                    case "page" -> forgePage = Integer.parseInt(rest);
                     case "tint" -> forging = forging.withTint(a[1], a[2].equals("none") ? -1
                             : Integer.parseInt(a[2].replace("#", ""), 16));
                     case "dicecolour" -> forging = forging.withDiceRgb(rest.equals("none") ? -1

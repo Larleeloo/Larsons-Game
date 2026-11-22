@@ -185,6 +185,30 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
         return s.toString();
     }
 
+    // --- what a chest, a barrel or a house holds -------------------------------------------
+
+    /**
+     * What a chest, a barrel, a crate or a house holds ({@code contents}):
+     * item (each picked from every item there is - the Forge's among them),
+     * tier, how many; written as the text the game has always read ("health_potion
+     * x6, wild_berries, longbow:perfect").
+     */
+    public static Rows contents() {
+        return new Rows(List.of(
+                Column.choice("Item", 0.52f, "health_potion", (o, row) -> withCurrent(holdable(), row, 0), Rows::itemLabel),
+                Column.choice("Tier", 0.24f, "", (o, row) -> withCurrent(tiers(row.get(0)), row, 1), Rows::tierLabel),
+                Column.number("How many", 0.24f, "1", 1, 999, 1, v -> v)),
+                "+ Add something to it", "Holds nothing", Rows::readReward, Rows::writeReward,
+                "Pick each item from the list (type in it to find one); how many of it is the last column.");
+    }
+
+    /** What a chest can hold: every item there is (coins are carried in a purse, not kept in a chest). */
+    static List<String> holdable() {
+        List<String> out = new ArrayList<>();
+        for (String id : ObjectTypes.itemIds()) if (!id.equals("coins")) out.add(id);
+        return out;
+    }
+
     // --- what someone can be asked -------------------------------------------------------
 
     /** What can be asked of someone: the topic, and her answer (| starts a new page). */

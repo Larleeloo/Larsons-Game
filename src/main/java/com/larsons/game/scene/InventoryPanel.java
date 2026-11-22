@@ -15,6 +15,7 @@ import com.larsons.game.world.Item;
 import com.larsons.game.world.Shop;
 import com.larsons.game.world.Store;
 import com.larsons.game.world.ItemDef;
+import com.larsons.game.world.Goods;
 import com.larsons.game.world.Wearables;
 import com.larsons.game.world.World;
 
@@ -25,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
@@ -104,6 +106,12 @@ final class InventoryPanel {
     private static final double ICON_TURN = 3.2;
     /** A wearable's pickup's frame, in half-diagonals of its slot: the pickup a little less than the slot's width. */
     private static final float PICKUP_ICON = 1.75f;
+    /**
+     * A potion's flask against a dye's bottle, in the slot: the potion a size
+     * bigger (and bubbling: {@link #bubbles}), the dye a size smaller - never
+     * taken for each other.
+     */
+    private static final float POTION_ICON = 1.18f, DYE_ICON = 0.82f;
 
     private final Game game;
     private final World world;
@@ -855,7 +863,9 @@ final class InventoryPanel {
             return;
         }
         // a weapon as long as the diamond's side, lying along it at rest; a pickup upright, inside it
-        float s = pickup != null ? r * PICKUP_ICON
+        boolean potion = pickup != null && Goods.P_POTION.equals(pickup.spin());
+        float s = pickup != null ? r * PICKUP_ICON * (potion ? POTION_ICON
+                : Wearables.BOTTLE.equals(pickup.spin()) ? DYE_ICON : 1f)
                 : (float) (r * 1.3 * spin.profile().frameWorldSize() / spin.length());
         int frame = pickup != null ? 0 : ItemSprites.ICON_REST_FRAME;
         if (turning) frame += (int) Math.floor(time / ICON_TURN * icon.frames());
@@ -871,6 +881,27 @@ final class InventoryPanel {
             b.rect(icon.ring(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], bc[0], bc[1], bc[2], k * alpha);
         }
         b.rect(icon.sprite(), x0, y0, s, s, uv[0], uv[1], uv[2], uv[3], 1, 1, 1, alpha);
+        if (potion) bubbles(ui, pickup.rgb(), x, y0 + s * 0.2f, s, alpha, turning ? time : System.nanoTime() / 1e9);
+    }
+
+    /**
+     * A potion's brew bubbling over: bubbles of it rising off the flask's mouth
+     * (at {@code (x, top)}; {@code s} the icon's size) and bursting, over and
+     * over - a dye's bottle never does.
+     */
+    static void bubbles(Ui ui, int rgb, float x, float top, float s, float alpha, double time) {
+        float[] c = Theme.hex(rgb, 1f);
+        for (int k = 0; k < 4; k++) {
+            double f = (time * 0.7 + k / 4.0) % 1.0;                 // how far up this one is
+            float by = top - (float) (f * s * 0.26);
+            float bx = x + (float) (Math.sin(time * 2.6 + k * 1.9) * s * 0.035);
+            float br = (float) (s * (0.022 + 0.018 * Math.sin(Math.PI * Math.min(1, f * 1.4))));
+            float a = (float) (alpha * Math.sin(Math.PI * f));
+            float[] light = {Math.min(1, c[0] * 0.6f + 0.4f), Math.min(1, c[1] * 0.6f + 0.4f),
+                    Math.min(1, c[2] * 0.6f + 0.4f), a};
+            ui.disc(bx, by, br + 1, new float[]{c[0] * 0.35f, c[1] * 0.35f, c[2] * 0.35f, a * 0.8f});
+            ui.disc(bx, by, br, light);
+        }
     }
 
     /**
@@ -1059,7 +1090,8 @@ final class InventoryPanel {
         Forged forged = item.forged();
         String rarity = item.def().isFood() ? item.def().food().kind() + " - " + item.rarity().label()
                 : forged != null ? item.rarity().label() + " - forged " + item.def().name().toLowerCase(Locale.ROOT)
-                        + ", rolls " + forged.notation()
+                        + (forged.worn() && com.larsons.game.world.Armour.sides(item.def()) <= 0 ? ""
+                        : ", rolls " + forged.notation())
                 : item.rarity().label() + (item.tier() == null ? ""
                         : " - " + (com.larsons.game.world.Armour.sides(item.def()) > 0
                         ? com.larsons.game.world.Tier.armourLabel(item.tier()) : item.tier().label()) + " tier");
@@ -1071,10 +1103,14 @@ final class InventoryPanel {
                         ? com.larsons.game.world.Armour.describe(item, world.player().armourRules())
                 : forged != null ? (forged.effects().isEmpty() ? null : effects(forged))
                 : border == null ? null : border.label() + " border: " + border.effect();
+        // a forged piece's special effects, a line each in its colour (more health in red, mana in blue ...)
+        List<Map.Entry<com.larsons.game.world.Gear.Effect, Double>> gear = forged == null ? List.of()
+                : new ArrayList<>(forged.gear().entrySet());
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
+        for (var g : gear) w = Math.max(w, ui.small.width(g.getKey().said(g.getValue())));
         w += 20;
-        float h = effect == null ? 70 : 92;
+        float h = (effect == null ? 70 : 92) + 20 * gear.size();
         x = Math.min(x, ui.width() - w - 4);
         y = Math.min(y, ui.height() - h - 4);
         ui.rect(x, y, w, h, Theme.withAlpha(Theme.PANEL, 0.95f));
@@ -1085,6 +1121,10 @@ final class InventoryPanel {
         if (effect != null) {
             ui.text(ui.small, effect, x + 10, hy, border == null ? Theme.ACCENT : border.colour(1f));
             hy += 22;
+        }
+        for (var g : gear) {
+            ui.text(ui.small, g.getKey().said(g.getValue()), x + 10, hy, Theme.hex(g.getKey().rgb(), 1f));
+            hy += 20;
         }
         ui.text(ui.small, hint, x + 10, hy, Theme.ITEM_DISABLED);
     }

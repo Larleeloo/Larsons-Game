@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "Wyrmguard",
+  "base": "gorget",
+  "rarity": "epic",
+  "dice": 2,
+  "sides": 8,
+  "effects": [],
+  "gear": {
+    "health": 50,
+    "health_regen": 2,
+    "stamina_absorb": 10
+  },
+  "tints": {}
+}

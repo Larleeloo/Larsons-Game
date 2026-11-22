@@ -682,16 +682,27 @@ public final class Wearables {
      */
     public static List<Colour> colours(Slot slot, String folder, List<String> all, String current,
                                        Set<ItemDef> owned, Wardrobe wardrobe) {
+        return colours(slot, folder, all, current, owned, wardrobe, false);
+    }
+
+    /**
+     * {@link #colours(Slot, String, List, String, Set, Wardrobe)}; a forged
+     * piece ({@code forged}) is dyed like any other, even one of a metal - the
+     * Forge's look is not the metal's.
+     */
+    public static List<Colour> colours(Slot slot, String folder, List<String> all, String current,
+                                       Set<ItemDef> owned, Wardrobe wardrobe, boolean forged) {
         List<Colour> out = new ArrayList<>();
-        if (metal(slot, folder)) return out;
+        if (metal(slot, folder) && !forged) return out;
         boolean open = everything || slot.carried() || (free(slot) && slot != Slot.MOUTH)
                 || (slot == Slot.MOUTH && owned.contains(LIPSTICK)) || slot == Slot.HAIR || slot == Slot.EYEBROWS;
         for (String c : all) {
             out.add(new Colour(c, open || c.equals(current) || wardrobe.unlocked(slot, folder, c)
                     || tailoredIn(owned, slot, folder, c)));
         }
-        // and any of the palette's colours (an item with no colour of its own to change takes none)
-        if (!all.isEmpty()) {
+        // and any of the palette's colours (an item with no colour of its own to change takes none - but armour
+        // is dyed all over, as the Forge tints it)
+        if (!all.isEmpty() || Wardrobe.isArmour(folder)) {
             for (String c : PALETTE) {
                 out.add(new Colour(c, open || c.equalsIgnoreCase(current) || wardrobe.unlocked(slot, folder, c)));
             }
@@ -714,12 +725,21 @@ public final class Wearables {
      * of it, or the colour is already unlocked.
      */
     public static boolean useDye(Wardrobe wardrobe, Inventory inventory, Slot slot, String colour) {
-        String folder = wardrobe.get(slot);
+        return useDye(wardrobe, inventory, slot, Wardrobe.isArmour(wardrobe.get(slot)), colour);
+    }
+
+    /**
+     * {@link #useDye(Wardrobe, Inventory, Slot, String)} on the armour worn in
+     * {@code slot} ({@code armour}) or the clothes ({@link Wardrobe#get(Slot, boolean)}):
+     * a necklace under a gorget is dyed as well as the gorget.
+     */
+    public static boolean useDye(Wardrobe wardrobe, Inventory inventory, Slot slot, boolean armour, String colour) {
+        String folder = wardrobe.get(slot, armour);
         if (folder == null || colour == null || wardrobe.unlocked(slot, folder, colour)) return false;
         Item dye = dyeIn(inventory, colour);
         if (dye == null || !inventory.remove(dye)) return false;
         wardrobe.unlock(slot, folder, colour);
-        wardrobe.setColour(slot, colour);
+        wardrobe.setColour(slot, armour, colour);
         return true;
     }
 
@@ -737,14 +757,21 @@ public final class Wearables {
         if (owned.contains(lost)) return;
         Wearable w = lost.wearable();
         for (Slot slot : w.slots()) {
-            String folder = wardrobe.get(slot);
-            String colour = wardrobe.colour(slot);
-            if (folder == null || !w.wornAs(slot, folder, colour)) continue;
-            boolean other = false;
-            for (ItemDef d : owned) other |= d.wearable().wornAs(slot, folder, colour);
-            if (other) continue;
-            wardrobe.clear(slot);
-            wardrobe.setColour(slot, null);
+            // (the armour there, and the clothes under it)
+            for (boolean armour : new boolean[]{true, false}) {
+                String folder = wardrobe.get(slot, armour);
+                String colour = wardrobe.colour(slot, armour), id = wardrobe.id(slot, armour);
+                if (folder == null) continue;
+                boolean it = id != null ? id.equals(lost.id()) : w.wornAs(slot, folder, colour);
+                if (!it) continue;
+                boolean other = false;
+                for (ItemDef d : owned) {
+                    other |= id != null ? d.id().equals(id) && d != lost : d.wearable().wornAs(slot, folder, colour);
+                }
+                if (other) continue;
+                wardrobe.setColour(slot, armour, null);
+                wardrobe.wear(slot, armour, null);
+            }
         }
         if (lost == LIPSTICK) {
             String lips = wardrobe.get(Slot.MOUTH), colour = wardrobe.colour(Slot.MOUTH);

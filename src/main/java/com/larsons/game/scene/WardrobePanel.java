@@ -104,7 +104,17 @@ public final class WardrobePanel {
     enum Kind { ALL, CLOTHES, ARMOUR }
 
     /** One row of a section: its slot, what it is called there, and which choices it offers. */
-    record Row(Slot slot, String label, Kind kind) {}
+    record Row(Slot slot, String label, Kind kind) {
+
+        /**
+         * The layer of its slot it dresses: the armour (true), the clothes -
+         * worn under the armour, if there is armour there (false) - or
+         * whatever is worn there (null).
+         */
+        Boolean layer() {
+            return kind == Kind.ARMOUR ? Boolean.TRUE : kind == Kind.CLOTHES ? Boolean.FALSE : null;
+        }
+    }
 
     static final List<Row> LOOKS = List.of(new Row(Slot.BODY, "Body · skin", Kind.ALL),
             new Row(Slot.HAIR, "Hair", Kind.ALL), new Row(Slot.EYES, "Eyes", Kind.ALL),
@@ -119,13 +129,21 @@ public final class WardrobePanel {
             new Row(Slot.NECKLACE, "Necklace", Kind.CLOTHES), new Row(Slot.EARRINGS, "Earrings", Kind.ALL),
             new Row(Slot.EYEWEAR, "Eyewear", Kind.ALL), new Row(Slot.WRISTWEAR, "Right wrist", Kind.CLOTHES),
             new Row(Slot.WRISTWEAR_LEFT, "Left wrist", Kind.CLOTHES), new Row(Slot.SHEATH, "Sheath", Kind.ALL));
+    /** The armour's rows, by the part of the body each guards ({@link Armour#location}): head, torso, arms, legs, feet. */
     static final List<Row> ARMOUR = List.of(new Row(Slot.HAT, "Helmet", Kind.ARMOUR),
             new Row(Slot.NECKLACE, "Gorget", Kind.ARMOUR), new Row(Slot.SHIRT, "Gambeson · jerkin", Kind.ARMOUR),
-            new Row(Slot.CHAINMAIL, "Mail shirt", Kind.ALL), new Row(Slot.CHESTPLATE, "Chestplate", Kind.ALL),
+            new Row(Slot.CHAINMAIL, "Mail shirt", Kind.ARMOUR), new Row(Slot.CHESTPLATE, "Chestplate", Kind.ARMOUR),
             new Row(Slot.GLOVES, "Gauntlets", Kind.ARMOUR), new Row(Slot.WRISTWEAR, "Right bracer", Kind.ARMOUR),
             new Row(Slot.WRISTWEAR_LEFT, "Left bracer", Kind.ARMOUR),
-            new Row(Slot.CHAINMAIL_LEGS, "Mail leggings", Kind.ALL),
-            new Row(Slot.LEG_PLATING, "Leg plating", Kind.ALL), new Row(Slot.SHOES, "Sabatons", Kind.ARMOUR));
+            new Row(Slot.CHAINMAIL_LEGS, "Mail leggings", Kind.ARMOUR),
+            new Row(Slot.LEG_PLATING, "Leg plating", Kind.ARMOUR), new Row(Slot.SHOES, "Sabatons", Kind.ARMOUR));
+
+    /** The armour rows guarding {@code at}, in order. */
+    static List<Row> armourOf(Armour.Location at) {
+        List<Row> out = new ArrayList<>();
+        for (Row r : ARMOUR) if (Armour.location(r.slot()) == at) out.add(r);
+        return out;
+    }
 
     /** The Looks of someone dressed in the editor: her people's horns and tail are chosen here too. */
     static final List<Row> LOOKS_EVERYTHING = everythingLooks();
@@ -168,10 +186,13 @@ public final class WardrobePanel {
     private Elevation elevation = Elevation.MIDDLE;
     private AnimState state = AnimState.REST;
     private boolean spin = true, closeup;
+    /** Whether the list of what everything worn gives is open (the cornice's Gifts button). */
+    private boolean giftsOpen;
     private double time, spinTimer;
     private Section section = Section.CLOTHING;
-    /** The layer whose colours the dye shelf shows. */
+    /** The layer whose colours the dye shelf shows: its slot, and which of the slot's ({@link Row#layer}). */
     private Slot focus = Slot.HAIR;
+    private Boolean focusLayer;
     /** A locked colour of the focused layer she has clicked and has a dye of: offered to be used up, or null. */
     private String offered;
     // the list dropped down: its row, its choices, where it hangs, how far it is scrolled
@@ -235,10 +256,19 @@ public final class WardrobePanel {
             return folders.size() == 1 ? wearable.name() : wearable.name() + " (" + item.replace('_', ' ') + ")";
         }
 
-        /** The colour it is always worn in (a metal's, a tint's, a forged piece's look), or null. */
+        /** The colour it is always worn in (a metal's, a tint's - a forged piece's as its own), or null. */
         String colour() {
-            if (forged != null) return Armour.forgedLook(forged);
             return wearable == null ? null : wearable.wearable().colour();
+        }
+
+        /**
+         * What it is worn as ({@link Wardrobe#id}): a forged piece's {@code
+         * forged:<id>}, a wearable's id - so a dye can colour it and it stays
+         * itself - or null for a folder no wearable is.
+         */
+        String id() {
+            if (forged != null) return Armour.forgedLook(forged);
+            return wearable == null ? null : wearable.id();
         }
 
         /**
@@ -297,15 +327,52 @@ public final class WardrobePanel {
             for (Option o : out) listed |= o.forged() != null && o.forged().id().equals(f.id());
             if (!listed) out.add(new Option(i.def().wearable().folders().get(0), i.def(), f));
         }
-        // what she wears and no longer owns stays on until it is taken off
-        String worn = wardrobe.get(slot);
-        if (worn != null && current(out, slot, wardrobe) < 0) {
-            String forgedId = Armour.forgedId(wardrobe.colour(slot));
-            Forged f = forgedId == null ? null : Forged.byId(forgedId);
-            out.add(f != null ? new Option(worn, f.def(), f)
-                    : new Option(worn, Wearables.wornAs(slot, worn, forgedId != null ? null : wardrobe.colour(slot))));
-        }
+        // what she wears and no longer owns stays on until it is taken off (the armour, and the clothes under it)
+        addWorn(out, slot, wardrobe);
         return out;
+    }
+
+    /** To {@code out}, what {@code wardrobe} wears in {@code slot} - its armour, its clothes - that none of it is. */
+    static void addWorn(List<Option> out, Slot slot, Wardrobe wardrobe) {
+        for (boolean armour : new boolean[]{true, false}) {
+            String worn = wardrobe.get(slot, armour);
+            if (worn == null || current(out, slot, wardrobe, armour) >= 0) continue;
+            String id = wardrobe.id(slot, armour), colour = wardrobe.colour(slot, armour);
+            String forgedId = Armour.forgedId(id != null ? id : colour);
+            Forged f = forgedId == null ? null : Forged.byId(forgedId);
+            ItemDef own = id != null && forgedId == null ? Wearables.byId(id) : null;
+            out.add(f != null ? new Option(worn, f.def(), f)
+                    : own != null && own.wearable().puts(slot, worn) ? new Option(worn, own)
+                    : new Option(worn, Wearables.wornAs(slot, worn, forgedId != null ? null : colour)));
+        }
+    }
+
+    // --- a slot's layers: the armour, and the clothes under it ------------------------------
+
+    /** What is worn in {@code slot}'s {@code layer} ({@link Row#layer}; null: whatever is on top). */
+    static String worn(Wardrobe w, Slot slot, Boolean layer) {
+        return layer == null ? w.get(slot) : w.get(slot, layer);
+    }
+
+    /** Its colour. */
+    static String wornColour(Wardrobe w, Slot slot, Boolean layer) {
+        return layer == null ? w.colour(slot) : w.colour(slot, layer);
+    }
+
+    /** What it is worn as ({@link Wardrobe#id}). */
+    static String wornId(Wardrobe w, Slot slot, Boolean layer) {
+        return layer == null ? w.id(slot) : w.id(slot, layer);
+    }
+
+    /** Put {@code colour} on what is worn in {@code slot}'s {@code layer}. */
+    static void setWornColour(Wardrobe w, Slot slot, Boolean layer, String colour) {
+        if (layer == null) w.setColour(slot, colour);
+        else w.setColour(slot, layer, colour);
+    }
+
+    /** The layer what is on top in {@code slot} is: the armour, or the clothes. */
+    private static boolean top(Wardrobe w, Slot slot) {
+        return Wardrobe.isArmour(w.get(slot));
     }
 
     /**
@@ -316,7 +383,26 @@ public final class WardrobePanel {
      * another colour.
      */
     static int current(List<Option> options, Slot slot, Wardrobe wardrobe) {
-        String item = wardrobe.get(slot), colour = wardrobe.colour(slot);
+        return current(options, slot, wardrobe, null);
+    }
+
+    /**
+     * {@link #current(List, Slot, Wardrobe)} of {@code slot}'s {@code layer}
+     * (the armour, the clothes under it; null: what is on top): what it is
+     * worn as first ({@link Wardrobe#id}: a dyed bronze helmet is the bronze
+     * helmet still), else by its folder and colour.
+     */
+    static int current(List<Option> options, Slot slot, Wardrobe wardrobe, Boolean layer) {
+        String item = worn(wardrobe, slot, layer), colour = wornColour(wardrobe, slot, layer);
+        String id = item == null ? null : wornId(wardrobe, slot, layer);
+        if (id != null) {
+            for (int i = 0; i < options.size(); i++) {
+                Option o = options.get(i);
+                if (java.util.Objects.equals(o.item(), item) && id.equals(o.id())) return i;
+            }
+            // (a forged piece is that piece or none of these)
+            if (Armour.forgedId(id) != null) return -1;
+        }
         for (int i = 0; i < options.size(); i++) {
             Option o = options.get(i);
             if (java.util.Objects.equals(o.item(), item) && o.cut() != null && o.cut().equalsIgnoreCase(colour)) return i;
@@ -341,14 +427,40 @@ public final class WardrobePanel {
      * the platinum Moonsilk gown).
      */
     static void choose(Wardrobe wardrobe, Slot slot, Option option) {
-        String was = wardrobe.get(slot), wasColour = wardrobe.colour(slot);
-        wardrobe.set(slot, option.item());
-        if (option.cut() != null) {
-            wardrobe.setColour(slot, option.cut());
-        } else if (was != null && (Wearables.metal(slot, was) || Armour.look(wasColour)
-                || Wearables.tailoredCut(slot, was, wasColour))) {
-            wardrobe.setColour(slot, null);
+        choose(wardrobe, slot, null, option);
+    }
+
+    /**
+     * {@link #choose(Wardrobe, Slot, Option)} in {@code slot}'s {@code layer}:
+     * armour goes over the clothes there and the clothes under the armour,
+     * the other left on ({@link Wardrobe#wear}); null: as armour if it is
+     * armour, else as clothes. What it is worn as goes with it ({@link
+     * Wardrobe#id}); a forged piece is put on in its own look.
+     */
+    static void choose(Wardrobe wardrobe, Slot slot, Boolean layer, Option option) {
+        boolean armour = layer != null ? layer
+                : option.item() != null ? Wardrobe.isArmour(option.item()) : top(wardrobe, slot);
+        String was = wardrobe.get(slot, armour), wasColour = wardrobe.colour(slot, armour);
+        String wasId = wardrobe.id(slot, armour);
+        // (the very piece worn already: it stays as it is, dyed or not)
+        if (option.item() != null && option.item().equals(was) && option.id() != null && option.id().equals(wasId)) {
+            return;
         }
+        wardrobe.wear(slot, armour, option.item());
+        if (option.item() != null) wardrobe.setId(slot, armour, option.id());
+        boolean wasOwn = wasId != null && (Armour.forgedId(wasId) != null || ownColour(wasId) != null);
+        if (option.cut() != null) {
+            wardrobe.setColour(slot, armour, option.cut());
+        } else if (option.forged() != null || was != null && (Wearables.metal(slot, was) || Armour.look(wasColour)
+                || Wearables.tailoredCut(slot, was, wasColour) || wasOwn)) {
+            wardrobe.setColour(slot, armour, null);
+        }
+    }
+
+    /** The colour the wearable {@code id} is always worn in, or null. */
+    private static String ownColour(String id) {
+        ItemDef d = Wearables.byId(id);
+        return d == null ? null : d.wearable().colour() != null ? d.wearable().colour() : Wearables.tailoredColour(d);
     }
 
     /**
@@ -356,12 +468,21 @@ public final class WardrobePanel {
      * each unlocked or not ({@link Wearables#colours}).
      */
     static List<Wearables.Colour> colours(SpriteLibrary lib, Slot slot, Player player) {
+        return colours(lib, slot, player, null);
+    }
+
+    /**
+     * The colours of what is worn in {@code slot}'s {@code layer}: a forged
+     * piece is dyed like any other, even one of a metal.
+     */
+    static List<Wearables.Colour> colours(SpriteLibrary lib, Slot slot, Player player, Boolean layer) {
         Wardrobe wardrobe = player.wardrobe();
-        String item = wardrobe.get(slot);
+        String item = worn(wardrobe, slot, layer);
         if (item == null) return List.of();
         List<String> all = lib.colourOptions(wardrobe.get(Slot.BODY), slot, item, wardrobe.style());
-        return Wearables.colours(slot, item, all, wardrobe.colour(slot), Wearables.owned(player.inventory()),
-                wardrobe);
+        boolean forged = Armour.forgedId(wornId(wardrobe, slot, layer)) != null;
+        return Wearables.colours(slot, item, all, wornColour(wardrobe, slot, layer),
+                Wearables.owned(player.inventory()), wardrobe, forged);
     }
 
     /**
@@ -371,8 +492,13 @@ public final class WardrobePanel {
      * colour now offered, or null.
      */
     static String pick(Wardrobe wardrobe, Player player, Slot slot, Wearables.Colour c) {
+        return pick(wardrobe, player, slot, null, c);
+    }
+
+    /** {@link #pick(Wardrobe, Player, Slot, Wearables.Colour)} on {@code slot}'s {@code layer}. */
+    static String pick(Wardrobe wardrobe, Player player, Slot slot, Boolean layer, Wearables.Colour c) {
         if (c.unlocked()) {
-            wardrobe.setColour(slot, c.option());
+            setWornColour(wardrobe, slot, layer, c.option());
             return null;
         }
         return Wearables.dyeIn(player.inventory(), c.option()) != null ? c.option() : null;
@@ -476,9 +602,10 @@ public final class WardrobePanel {
 
     // --- a row's choices ---------------------------------------------------------------
 
-    /** Whether {@code o} is armour: a piece that rolls dice to block, or one forged. */
+    /** Whether {@code o} is armour: a piece that rolls dice to block (a forged one too), worn over the clothes. */
     static boolean armour(Option o) {
-        return o.forged() != null || o.wearable() != null && Wearables.armour(o.wearable());
+        if (o.item() != null && Wardrobe.isArmour(o.item())) return true;
+        return o.wearable() != null && Wearables.armour(o.wearable());
     }
 
     /** The choices of {@code row}: "nothing" and those of its kind. */
@@ -497,28 +624,20 @@ public final class WardrobePanel {
         return out;
     }
 
+    /** Wear {@code o} by {@code row}: in its layer, the other layer left on (a necklace stays under a gorget). */
+    static void chooseIn(Wardrobe wardrobe, Row row, Option o) {
+        choose(wardrobe, row.slot(), row.layer(), o);
+    }
+
     /**
-     * What is worn in {@code row}'s slot that is of the other kind (a helmet
-     * where the hat row is, a hat where the helmet row is), by name; null when
-     * it is the row's own kind, or nothing.
+     * What covers {@code row}'s clothes: the armour worn over them in its
+     * slot ("Iron helmet"), by name - the clothes still worn, and counting -
+     * or null.
      */
-    static String otherWorn(SpriteLibrary lib, Row row, Player player) {
-        return otherWorn(options(lib, row.slot(), player), row, player.wardrobe());
-    }
-
-    /** {@link #otherWorn(SpriteLibrary, Row, Player)}, of {@code all} the slot's choices and {@code wardrobe}. */
-    static String otherWorn(List<Option> all, Row row, Wardrobe wardrobe) {
-        if (row.kind() == Kind.ALL || wardrobe.get(row.slot()) == null) return null;
-        int at = current(all, row.slot(), wardrobe);
-        if (at <= 0) return null;
-        Option o = all.get(at);
-        return armour(o) == (row.kind() == Kind.ARMOUR) ? null : o.label(row.slot());
-    }
-
-    /** Wear {@code o} by {@code row}: "nothing" in a row of one kind leaves the other kind's on. */
-    static void chooseIn(Wardrobe wardrobe, Row row, Option o, String otherWorn) {
-        if (o.item() == null && otherWorn != null) return;
-        choose(wardrobe, row.slot(), o);
+    static String over(List<Option> all, Row row, Wardrobe wardrobe) {
+        if (row.layer() != Boolean.FALSE || wardrobe.get(row.slot(), true) == null) return null;
+        int at = current(all, row.slot(), wardrobe, true);
+        return at > 0 ? all.get(at).label(row.slot()) : label(row.slot(), wardrobe.get(row.slot(), true));
     }
 
     // --- whom it dresses now ------------------------------------------------------------
@@ -532,23 +651,39 @@ public final class WardrobePanel {
         return rowOptions(opts(row.slot()), row);
     }
 
-    private String other(Row row) {
-        return otherWorn(opts(row.slot()), row, wd);
+    /** The armour over {@code row}'s clothes, by name, or null. */
+    private String over(Row row) {
+        return over(opts(row.slot()), row, wd);
     }
 
     /** The colours of what is worn in {@code slot}: hers, each unlocked or not; or (the editor) every one. */
-    private List<Wearables.Colour> cols(Slot slot) {
-        return player != null ? colours(game.sprites(), slot, player) : everything.colours(slot, wd, null);
+    private List<Wearables.Colour> cols(Slot slot, Boolean layer) {
+        return player != null ? colours(game.sprites(), slot, player, layer) : everything.colours(slot, wd, null, layer);
     }
 
     private int dyesOf(String colour) {
         return player == null ? 0 : dyes(player, colour);
     }
 
-    private String pickColour(Slot slot, Wearables.Colour c) {
-        if (player != null) return pick(wd, player, slot, c);
-        wd.setColour(slot, c.option());
+    private String pickColour(Slot slot, Boolean layer, Wearables.Colour c) {
+        keepId(slot, layer);
+        if (player != null) return pick(wd, player, slot, layer, c);
+        setWornColour(wd, slot, layer, c.option());
         return null;
+    }
+
+    /**
+     * Before what is worn in {@code slot}'s {@code layer} is dyed: say what it
+     * is worn as, if nothing says it yet (an outfit saved before), so a dyed
+     * bronze helmet is not taken for an iron one.
+     */
+    private void keepId(Slot slot, Boolean layer) {
+        if (worn(wd, slot, layer) == null || wornId(wd, slot, layer) != null) return;
+        List<Option> o = opts(slot);
+        int at = current(o, slot, wd, layer);
+        if (at <= 0 || o.get(at).id() == null) return;
+        boolean armour = layer != null ? layer : top(wd, slot);
+        wd.setId(slot, armour, o.get(at).id());
     }
 
     /**
@@ -650,6 +785,7 @@ public final class WardrobePanel {
         float listW = cw - mirrorW - 22;
         shelves(ui, m, cx, cy, listW);
         mirror(ui, m, cx + cw - mirrorW, cy - 2, mirrorW, ch + 6);
+        gifts(ui, m, x + w - 128 - 168, y + 22, x + w - 28);
         ui.targetsOff(false);
         if (listRow != null) list(ui, m);
         return back;
@@ -672,7 +808,7 @@ public final class WardrobePanel {
                 int worn = 0;
                 for (Row r : ARMOUR) {
                     List<Option> o = rowOpts(r);
-                    int at = current(o, r.slot(), wardrobe);
+                    int at = current(o, r.slot(), wardrobe, r.layer());
                     if (at > 0) worn++;
                 }
                 label = "Armour" + (worn > 0 ? " (" + worn + " worn)" : "");
@@ -703,25 +839,53 @@ public final class WardrobePanel {
         // --- the rows: three across, each a list to drop down -------------------------------
         List<Row> rows = rowsNow(section);
         int columns = 3;
-        float gap = 12, colW = (w - (columns - 1) * gap) / columns, rowH = 48, boxH = 26;
-        for (int i = 0; i < rows.size(); i++) {
-            Row row = rows.get(i);
-            float sx = x + (i % columns) * (colW + gap);
-            float sy = ry + (i / columns) * rowH;
-            row(ui, m, row, sx, sy, colW, boxH, lib, body, style);
+        float gap = 12, rowH = 48, boxH = 26;
+        float shelfY;
+        if (section == Section.ARMOUR) {
+            // the armour by the part of the body it guards: a band each, its name and how often a blow lands there
+            float gutter = Math.min(96, w * 0.14f);
+            float colW = (w - gutter - (columns - 1) * gap) / columns;
+            int line = 0;
+            for (Armour.Location at : Armour.Location.values()) {
+                List<Row> part = armourOf(at);
+                if (part.isEmpty()) continue;
+                float ly = ry + line * rowH;
+                ui.rect(x - 4, ly - 4, w + 8, rowH - 4, Theme.withAlpha(STEEL, line % 2 == 0 ? 0.42f : 0.26f));
+                ui.rect(x - 4, ly - 4, 3, rowH - 4, STEEL_LIGHT);
+                m.carved(m.heading, at.label(), x + 6, ly + 2, STEEL_TEXT);
+                // what it rolls (or that it is bare), and how often a blow lands there
+                String share = at.weight() + "%";
+                ui.text(m.small, fit(m.small, armourDice(at), gutter - 14 - m.small.width(share)), x + 6, ly + 24,
+                        Theme.withAlpha(STEEL_TEXT, 0.8f));
+                ui.text(m.small, share, x + gutter - 6 - m.small.width(share), ly + 24, Theme.withAlpha(STEEL_TEXT, 0.5f));
+                for (int i = 0; i < part.size(); i++) {
+                    row(ui, m, part.get(i), x + gutter + i * (colW + gap), ly, colW, boxH, lib, body, style);
+                }
+                line++;
+            }
+            shelfY = ry + line * rowH + 2;
+        } else {
+            float colW = (w - (columns - 1) * gap) / columns;
+            for (int i = 0; i < rows.size(); i++) {
+                Row row = rows.get(i);
+                float sx = x + (i % columns) * (colW + gap);
+                float sy = ry + (i / columns) * rowH;
+                row(ui, m, row, sx, sy, colW, boxH, lib, body, style);
+            }
+            shelfY = ry + ((rows.size() + columns - 1) / columns) * rowH + 2;
         }
-        float shelfY = ry + ((rows.size() + columns - 1) / columns) * rowH + 2;
         m.shelf(x - 8, shelfY, w + 16);
 
         // --- the dye shelf: the focused layer's colours ----------------------------------
         float dy = shelfY + 22;
-        String fItem = wardrobe.get(focus);
-        List<Wearables.Colour> fOpts = cols(focus);
+        Boolean fl = focusLayer;
+        String fItem = worn(wardrobe, focus, fl), fColour = wornColour(wardrobe, focus, fl);
+        List<Wearables.Colour> fOpts = cols(focus, fl);
         boolean anyInStyle = fItem != null && !lib.colourOptions(body, focus, fItem, style).isEmpty();
-        String what = focus == Slot.BODY ? "Skin" : focus.label();
+        String what = focus == Slot.BODY ? "Skin" : focusName();
         String picked = fItem == null ? "nothing worn"
-                : !fOpts.isEmpty() ? colourName(wardrobe.colour(focus))
-                : Wearables.metal(focus, fItem) ? colourName(wardrobe.colour(focus)) + " (the metal's own)"
+                : !fOpts.isEmpty() ? colourName(fColour)
+                : Wearables.metal(focus, fItem) ? colourName(fColour) + " (the metal's own)"
                 : !anyInStyle ? "none in this style"
                 : "own colours";
         if (offered != null && fOpts.stream().noneMatch(o -> o.option().equals(offered) && !o.unlocked())) {
@@ -746,12 +910,12 @@ public final class WardrobePanel {
                 if (carried > 0) m.bottle(px + cw / 2 - 3, cy + ph - 3, rgb >= 0 ? rgb : 0xffffff);
                 else m.padlock(px + cw / 2, cy + ph / 2 + 1);
             }
-            boolean on = worn(cell, wardrobe.colour(focus)) || o.option().equals(offered);
+            boolean on = worn(cell, fColour) || o.option().equals(offered);
             if (on) ui.outline(px - 2, cy - 2, cw + 4, ph + 4, 2, Medieval.GOLD);
             else if (ui.hover(px, cy, cw, ph)) ui.outline(px - 1, cy - 1, cw + 2, ph + 2, 1, Medieval.CREAM);
             if (ui.hover(px, cy, cw, ph)) hovered = colourName(o.option());
             if (ui.clicked(px, cy, cw, ph)) {
-                offered = pickColour(focus, o);
+                offered = pickColour(focus, fl, o);
                 if (o.unlocked()) Sounds.play(SoundKeys.ui("wear"));
             }
         }
@@ -761,9 +925,8 @@ public final class WardrobePanel {
         String heading = "Colour · " + what + ": " + picked + (hovered != null ? "  ›  " + hovered : "");
         m.carved(m.heading, fit(m.heading, heading, w - (fOpts.isEmpty() ? 0 : ow + 10)), x, dy,
                 fOpts.isEmpty() ? Medieval.BRASS : Medieval.GOLD);
-        if (!fOpts.isEmpty() && m.button(ownLabel, x + w - ow, dy - 2, ow, 26, wardrobe.colour(focus) == null,
-                wardrobe.colour(focus) != null)) {
-            wardrobe.setColour(focus, null);
+        if (!fOpts.isEmpty() && m.button(ownLabel, x + w - ow, dy - 2, ow, 26, fColour == null, fColour != null)) {
+            setWornColour(wardrobe, focus, fl, null);
             Sounds.play(SoundKeys.ui("wear"));
         }
         int paletteRows = (cells.size() + across - 1) / across;
@@ -774,7 +937,9 @@ public final class WardrobePanel {
             String ask = "Use up a " + dye + " dye to make " + on + " " + dye.toLowerCase(Locale.ROOT) + " for good?";
             ui.text(m.small, fit(m.small, ask, w - 214), x, ny + 6, Medieval.CREAM);
             if (m.button("Use dye", x + w - 204, ny - 2, 100, 30, false, true)) {
-                if (Wearables.useDye(wardrobe, player.inventory(), focus, offered)) {
+                keepId(focus, fl);
+                boolean armourLayer = fl != null ? fl : top(wardrobe, focus);
+                if (Wearables.useDye(wardrobe, player.inventory(), focus, armourLayer, offered)) {
                     Sounds.play(SoundKeys.ui("secret"));
                     game.toast(dye + " unlocked for " + on, com.larsons.game.world.Rarity.RARE.colour(1f));
                     game.saveWardrobe();
@@ -847,25 +1012,35 @@ public final class WardrobePanel {
                      SpriteLibrary lib, String body, Wardrobe.Style style) {
         Wardrobe wardrobe = wd;
         Slot slot = row.slot();
+        Boolean layer = row.layer();
         List<Option> opts = rowOpts(row);
-        String other = other(row);
-        String current = wardrobe.get(slot);
-        int at = other != null ? 0 : current(opts, slot, wardrobe);
+        String over = over(row);
+        String current = worn(wardrobe, slot, layer);
+        int at = current(opts, slot, wardrobe, layer);
         boolean missing = current != null && at < 0;
         String folder = current == null ? null : lib.styled(body, slot, current, style);
-        boolean hasArt = current == null || other != null || lib.entry(body, slot, folder) != null;
+        boolean hasArt = current == null || lib.entry(body, slot, folder) != null;
         boolean iron = row.kind() == Kind.ARMOUR || section == Section.ARMOUR;
+        boolean focused = focus == slot && java.util.Objects.equals(focusLayer, layer);
 
         // the name, and an armour piece's dice
         String name = row.label();
-        if (iron && at > 0 && opts.get(at).wearable() != null) {
+        if (iron && at > 0 && opts.get(at).forged() != null) {
+            name += " · d" + opts.get(at).forged().sides();               // the Forge's own die
+        } else if (iron && at > 0 && opts.get(at).wearable() != null) {
             int sides = Armour.sides(opts.get(at).wearable());
             if (sides > 0) name += " · d" + sides;
         }
-        if (ui.clicked(sx, sy, colW, 14)) focusOn(slot);
-        m.carved(m.small, name.toUpperCase(Locale.ROOT), sx + 2, sy, focus == slot ? Medieval.GOLD
+        if (ui.clicked(sx, sy, colW, 14)) focusOn(slot, layer);
+        m.carved(m.small, name.toUpperCase(Locale.ROOT), sx + 2, sy, focused ? Medieval.GOLD
                 : iron ? STEEL_TEXT : Medieval.BRASS);
-        List<Wearables.Colour> colours = other != null ? List.of() : cols(slot);
+        if (over != null && current != null) {
+            // (worn under the armour: still worn, and what it does still counts - only not seen)
+            String under = "under " + over.toLowerCase(Locale.ROOT);
+            float nx = sx + 8 + m.small.width(name.toUpperCase(Locale.ROOT));
+            ui.text(m.small, fit(m.small, under, sx + colW - nx), nx, sy, Theme.withAlpha(Medieval.CREAM, 0.6f));
+        }
+        List<Wearables.Colour> colours = cols(slot, layer);
         float gemW = colours.isEmpty() ? 0 : 26;
         float bx = sx, by = sy + 16, bw = colW - gemW;
         boolean open = row.equals(listRow);
@@ -877,7 +1052,7 @@ public final class WardrobePanel {
             m.parchment(bx, by, bw, boxH);
             if (hot) ui.outline(bx, by, bw, boxH, 1, open ? Medieval.GOLD : Medieval.BRASS);
         }
-        String shown = other != null ? "None  (" + other + ")" : at < 0 ? label(slot, current) : opts.get(at).label(slot);
+        String shown = at < 0 ? label(slot, current) : opts.get(at).label(slot);
         String text = missing ? current + " (missing)" : !hasArt ? shown + " (no art)" : shown;
         float[] c = missing || !hasArt ? Medieval.EMBER
                 : iron ? (at <= 0 ? Theme.withAlpha(STEEL_TEXT, 0.55f) : STEEL_TEXT)
@@ -899,22 +1074,22 @@ public final class WardrobePanel {
         if (in.padFocusing() && in.navAdjust() != 0 && ui.hover(bx, by, bw, boxH) && listRow == null && opts.size() > 1) {
             int i = Math.floorMod(Math.max(0, at) + in.navAdjust(), opts.size());
             in.adjust(0);
-            chooseIn(wardrobe, row, opts.get(i), other);
+            chooseIn(wardrobe, row, opts.get(i));
             Sounds.play(SoundKeys.ui("wear"));
-            focusOn(slot);
+            focusOn(slot, layer);
         }
         if (ui.clicked(bx, by, bw, boxH)) {
-            focusOn(slot);
+            focusOn(slot, layer);
             openList(ui, row, opts, Math.max(0, at), bx, by + boxH + 2, Math.max(bw, 240));
         }
         if (!colours.isEmpty()) {
             // the colour picked for it (its own colours: an empty bezel)
             float gx = sx + colW - 11, gy = by + boxH / 2;
-            String picked = wardrobe.colour(slot);
+            String picked = wornColour(wardrobe, slot, layer);
             int sw = swatch(lib, body, slot, current, style, picked);
             m.gem(gx, gy, 10, sw, true);
-            if (focus == slot) ui.outline(gx - 12, gy - 12, 24, 24, 1, Medieval.GOLD);
-            if (ui.clicked(gx - 10, gy - 10, 20, 20)) focusOn(slot);
+            if (focused) ui.outline(gx - 12, gy - 12, 24, 24, 1, Medieval.GOLD);
+            if (ui.clicked(gx - 10, gy - 10, 20, 20)) focusOn(slot, layer);
         }
     }
 
@@ -986,7 +1161,7 @@ public final class WardrobePanel {
         if (ui.hover(listX, listY + 4, listW, shown * LIST_ROW_H)) {
             int i = listScroll + (int) ((in.mouseY() - listY - 4) / LIST_ROW_H);
             if (i >= 0 && i < listOptions.size()) {
-                chooseIn(wd, listRow, listOptions.get(i), other(listRow));
+                chooseIn(wd, listRow, listOptions.get(i));
                 Sounds.play(SoundKeys.ui("wear"));
             }
         } else if (ui.hover(listX, listY, listW, h)) {
@@ -1014,8 +1189,7 @@ public final class WardrobePanel {
             m.parchment(listX, listY, listW, h);
             ui.outline(listX, listY, listW, h, 2, Medieval.BRASS);
         }
-        String other = other(listRow);
-        int at = other != null ? 0 : current(listOptions, listRow.slot(), wd);
+        int at = current(listOptions, listRow.slot(), wd, listRow.layer());
         float top = listY + 4, track = shown * LIST_ROW_H;
         ui.clip(listX, top, listW, track);
         for (int i = 0; i < n; i++) {
@@ -1066,13 +1240,36 @@ public final class WardrobePanel {
     /** What the focused layer wears, by name: "the Baggy shirt". */
     private String current(Slot slot) {
         List<Option> opts = opts(slot);
-        int at = current(opts, slot, wd);
-        return "the " + (at < 0 ? label(slot, wd.get(slot)) : opts.get(at).label(slot));
+        int at = current(opts, slot, wd, focusLayer);
+        return "the " + (at < 0 ? label(slot, worn(wd, slot, focusLayer)) : opts.get(at).label(slot));
     }
 
-    private void focusOn(Slot slot) {
-        if (focus != slot) offered = null;
+    private void focusOn(Slot slot, Boolean layer) {
+        if (focus != slot || !java.util.Objects.equals(focusLayer, layer)) offered = null;
         focus = slot;
+        focusLayer = layer;
+    }
+
+    /** What the dye shelf's layer is called: the row's name ("Gorget", "Necklace"), else the slot's. */
+    private String focusName() {
+        for (Section s : Section.values()) {
+            for (Row r : rowsNow(s)) {
+                if (r.slot() == focus && java.util.Objects.equals(r.layer(), focusLayer)) return r.label();
+            }
+        }
+        return focus.label();
+    }
+
+    /**
+     * What the armour worn on {@code at} rolls to block a blow there ("d8 + d6"),
+     * or that nothing guards it ("bare").
+     */
+    private String armourDice(Armour.Location at) {
+        List<String> dice = new ArrayList<>();
+        for (Armour.Piece p : Armour.worn(wd, player == null ? null : player.inventory())) {
+            if (p.at() == at) dice.add(p.notation(Armour.Rules.defaults()));
+        }
+        return dice.isEmpty() ? "bare" : String.join(" + ", dice);
     }
 
     /** Her reflection in the mirror - or, brought close, her face and shoulders - and the controls that turn it. */
@@ -1145,6 +1342,45 @@ public final class WardrobePanel {
         String s = closeup ? "At rest" : state.label() + "  (" + (state.ordinal() + 1) + " / " + states.length + ")";
         ui.text(m.body, fit(m.body, s, sw - 76), sx + sw / 2 - Math.min(m.body.width(s), sw - 76) / 2,
                 by + (30 - m.body.lineHeight()) / 2, Medieval.INK);
+    }
+
+    /**
+     * What everything worn gives ({@link com.larsons.game.world.Gear}): a
+     * "Gifts" button in the cornice, by Back, and the list it opens (or shows
+     * while the pointer is on it) - a line each, in its colour. Nothing when
+     * nothing worn was forged with an effect.
+     */
+    private void gifts(Ui ui, Medieval m, float bx, float by, float right) {
+        if (player == null) return;
+        com.larsons.game.world.Gear.Totals g = com.larsons.game.world.Gear.of(wd, player.inventory());
+        if (g.isEmpty()) {
+            giftsOpen = false;
+            return;
+        }
+        List<java.util.Map.Entry<com.larsons.game.world.Gear.Effect, Double>> lines =
+                new ArrayList<>(g.amounts().entrySet());
+        float bw = 160, bh = 34;
+        if (m.button("Gifts (" + lines.size() + ")", bx, by, bw, bh, giftsOpen, true)) {
+            giftsOpen = !giftsOpen;
+            Sounds.play(SoundKeys.ui("tab"));
+        }
+        if (!giftsOpen && !ui.hover(bx, by, bw, bh)) return;
+        String heading = "What you wear gives";
+        float lh = m.small.lineHeight() + 3, pw = m.small.width(heading);
+        for (var e : lines) pw = Math.max(pw, m.small.width(e.getKey().said(e.getValue())));
+        pw = Math.min(pw + 28, right - 40);
+        float ph = 14 + (lines.size() + 1) * lh, px = right - pw, py = by + bh + 8;
+        m.shadow(px, py, pw, ph, 6);
+        ui.rect(px, py, pw, ph, Theme.withAlpha(Medieval.INK, 0.94f));
+        ui.outline(px, py, pw, ph, 1, Medieval.GOLD);
+        float ly = py + 7;
+        ui.text(m.small, heading, px + 14, ly, Medieval.GOLD);
+        ly += lh;
+        for (var e : lines) {
+            ui.text(m.small, fit(m.small, e.getKey().said(e.getValue()), pw - 28), px + 14, ly,
+                    Theme.hex(e.getKey().rgb(), 1f));
+            ly += lh;
+        }
     }
 
     /**

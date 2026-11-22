@@ -310,8 +310,10 @@ or the **Settings** button, and saves as it changes (`config/settings.json`):
 - **Game**: the HUD and the missions on it, tutorial tips, picking up by
   walking over (and how near), the camera's height, walls indoors and out,
   scenery and animations.
-- **Pointer**: her class's pointer, any class's, a picture of your own or the
-  system's, and whether it changes with what it is over - a hand over
+- **Pointer**: **Default** - an **arrow of gears** (brass and iron cogs)
+  everywhere, and her class's own pointer in a story where she chose a class
+  (`ui/Pointers`) - or the gear arrow always, any class's, a picture of your
+  own or the system's, and whether it changes with what it is over - a hand over
   buttons, a speech mark over someone to talk to, a sword over a foe, a key
   over a lock, a coin over a shop, a beam over loot.
 - **Sounds** (with the **birds** switch: off unless switched on here),
@@ -324,12 +326,16 @@ and the choice is kept for the next start.
 
 ## Moving about
 
-- **Walking, running, sprinting** - stamina (the yellow bar) goes on sprinting,
-  climbing and swimming fast, and comes back as she slows. **Crouched** she is
+- **Walking, running, sprinting** - stamina (the yellow bar) goes on
+  **running** (3 a second) and more on **sprinting** (8), on climbing and on
+  swimming fast, and comes back as she walks or stands. Run it out and she is
+  **out of breath**: she walks until a quarter of it is back. **Crouched** she is
   low and quiet. Ground steeper than she can walk up stops her; rock is rock.
 - **Jumping and climbing up**: **Space** by a table, a bench, a crate, a low
   wall - anything up to about her height - and she climbs up onto it; she
-  stands on furniture up to 2 m tall.
+  stands on furniture up to 2 m tall. Gear forged with a **double jump**
+  lets her jump once more in the air (its own animation, then a **fall**
+  animation all the way down), and **jump** gear sends her higher.
 - **Falls** of more than 3 m hurt, more for every metre. The dodge key in the
   air lands her in a roll, unhurt. Water breaks a fall.
 - **Vines** on a cliff are climbed (forward up, back down, sideways along);
@@ -368,6 +374,10 @@ left-handed.
   a die more, once every 10 seconds; the **spin** strikes all round her; a
   **jump attack** - attacking in the air - comes down on everything round her
   with a die more.
+- **Stamina**: every blow costs it - a swing 6, a heavy attack 14, a spin 12,
+  a jump attack 10, a shot 4, a spell 3 (`assets/combat/combat.json`
+  `stamina`). With too little left the blow is **tired**: "Out of stamina",
+  and **70 %** of its damage.
 - **Bows, crossbows, wands and staffs** shoot: arrows and bolts arc onto what
   she faces, spells fly straight (10 mana each; her **mana** refills). At
   what flies, or what is well above her, she **aims up**; from **the high
@@ -401,6 +411,8 @@ left-handed.
   name, rarity, colours part by part, dice - how many of a **d4, d6, d8, d10,
   d%, d12 or d20**, and up to four more groups that **add, subtract,
   multiply, divide or scale** the total - and any of the three borders.
+  Borders are for weapons only; forged armour and clothes take **gifts**
+  ([below](#the-forge)).
 - **Armour rolls to block** (`world/Armour`): a blow lands on her **head,
   torso, arms, legs or feet** (torso most often), and what she wears there
   rolls its dice **just above the hotbar** - leather and padding a **d4**,
@@ -553,9 +565,23 @@ in its mirror, turning through every view and state.
 - **Three sections**, a tab each (**LB** / **RB** on the gamepad): **Looks**
   (body and skin, hair, eyes, eyebrows, ears, nose, mouth, makeup),
   **Clothing**, and **Armour** - plated in iron, rivets and a little shield
-  on its tab, so it is never mistaken for the clothes: helmet, gorget,
-  gambeson or jerkin, mail shirt, chestplate, gauntlets, both bracers, mail
-  leggings, leg plating and sabatons, each with the die it rolls to block.
+  on its tab, so it is never mistaken for the clothes - **set out by the part
+  of the body it guards**: **Head** (helmet, gorget), **Torso** (gambeson or
+  jerkin, mail shirt, chestplate), **Arms** (gauntlets, both bracers),
+  **Legs** (mail leggings, leg plating) and **Feet** (sabatons), each band
+  with the dice that part rolls and how often it is struck, each piece with
+  the die it rolls to block.
+- **Armour goes over any clothes** (`sprite/Wardrobe`: the clothes are kept
+  *under* the armour in the slots they share). A gorget over a necklace, a
+  breastplate over a shirt, gauntlets over gloves: the armour is drawn, the
+  clothes beneath are not, but **both are worn** - both count for what they
+  were forged with - and the clothes row says "under the gorget". Take the
+  armour off, or hide it, and the clothes show again.
+- **Gifts** - the button by **Back** (there when anything she wears was
+  forged with one) lists what everything she wears gives, forged armour and
+  clothes alike ([the Forge](#the-forge)), each in its colour.
+- **The armour bands** say what each part rolls to block ("2d10", or *bare*)
+  and how often a blow lands there (torso 40 %, legs 20 %, head 15 % ...).
   Its header has **Armour: shown / hidden** - hidden, the armour is still
   worn (it rolls its dice, the Armour tab lists it) but it is not drawn, in
   the game or the mirror, and the clothes it would cover show instead (kept
@@ -599,7 +625,8 @@ named ones, from royal blue to green ombre, and one for every other colour
 of the palette; the skin, the eyes, the hair and the eyebrows are free. Dyes
 are **common** now: six times as likely in a loot pool, one or two more in
 every chest, one felled foe in four drops one, about one breakable in five hides
-one, and every shop has a few on its shelves. Lips nobody has painted are the skin's
+one, and every shop has a few on its shelves. **Every piece takes dye, forged
+ones too** - a forged gorget dyed red is still that gorget, with its gifts. Lips nobody has painted are the skin's
 own colour, a little darker. Armour hides what it covers. Two bodies,
 feminine and masculine, wear every item, in 128- or 64-pixel pixel art.
 
@@ -660,7 +687,10 @@ chooses which with *Follow*.
   what a thing is worth.
 - **Goods** (`world/Goods`): **potions** (health, mana, stamina, swiftness,
   might, stoneskin, shadow, gills, springheel, fortune, thornblood, the crystal
-  elixir) and **scrolls** (stronger, never made), **keys** for locked doors and
+  elixir) - big round flasks, half again the size of a dye bottle, with a
+  brass collar and a frothing top, that **bubble** where they lie (rising
+  bubbles and a glow) and in the inventory, so they are never taken for the
+  slim little dye bottles - and **scrolls** (stronger, never made), **keys** for locked doors and
   gates (rusty to crystal, and the skeleton key), **spawner eggs**, **fishing
   rods**, **packs**, meals, and the makings - bottles, parchment, ink, twine,
   gears, iron bars, crystal dust, leather, cloth.
@@ -966,6 +996,11 @@ comes back.
   your blows, as yours does (what it stopped rises in steel grey). The line
   under it says what they fight as now: "60 health · 8 a blow, every 1.6 s
   · walks 1.5 m/s ...".
+- **What a chest, a barrel, a crate or a house holds** is rows too
+  (`level/Rows.contents`): **+ Add something to it**, then pick the item from
+  the list of every item (type to find one), its tier and how many - no
+  typing out "health_potion x6, longbow:perfect" by hand (the same text is kept, so
+  old levels read as before).
 - **Forged weapons** are in a foe's *Weapon* and a person's *Holds* lists
   (`forged:<id>`): held in the hand in their colours, hitting as their dice
   roll.
@@ -992,12 +1027,21 @@ furnish and play-test from inside.
   <img src="docs/screenshots/creative-forge.png" width="70%" alt="The Forge: a weapon of your own, its colours, dice and effects">
 </p>
 
-The **Forge** makes weapons - and armour - of your own: a name, which of the
-eight weapons or which piece of armour it is made from (its look, stance and
+The **Forge** makes weapons, armour and clothes of your own: a name, which of the
+eight weapons, which piece of armour or which garment it is made from (its look, stance and
 moves; for armour, where it is worn and what it rolls to block), its rarity, its colours part by part (a sword's
 blade, fittings and handle; the dice), its dice and their operators, its
 effects, how long its ammunition lasts, and its upgrade tiers (each a name,
-rarity, dice, colours, its price in ingots, or a mystery shown as ???). Saved
+rarity, dice, colours, its price in ingots, or a mystery shown as ???).
+
+Armour and clothes have an **Effects** page instead of borders (Venom, Mystic
+and Bonded are weapons' only): any of **more health, mana or stamina**,
+**health, mana or stamina regen** (a second), **health, mana or stamina drawn
+from her blows** (a share of the damage), **higher jumps**, a **double
+jump**, a **sooner heavy attack** and **more speed** - each switched on and
+set with its - / + (`world/Gear`). Everything she wears adds up, the clothes
+under her armour too; a pair of forged bracers counts once. Forged clothes
+roll no dice; they are worn and dyed like any garment. Saved
 in `assets/forge/<name>.json`, placed from **Items → Weapons** and sold in
 shops and on horde boards like any weapon (`forged:<id>`).
 
