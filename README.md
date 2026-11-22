@@ -354,6 +354,10 @@ and the choice is kept for the next start.
   <img src="docs/screenshots/riding-gallop.png" width="32%" alt="Riding a horse at a gallop">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/double-jump-and-fall.png" width="90%" alt="The double jump in the air: a tucked flip, opening out, then the fall with her arms out">
+</p>
+
 ## Fighting
 
 <p align="center">
@@ -439,6 +443,10 @@ nothing, she is knocked out and back at the start.
 <p align="center">
   <img src="docs/screenshots/armour-dice-landed.png" width="49%" alt="A blow on the torso: her Epic steel chestplate's two d10s above the hotbar, fully blocked, 20 against 14">
   <img src="docs/screenshots/armour-dice-all.png" width="49%" alt="With every piece rolling: helmet, chestplate, gauntlets and leg plating each roll two d10s against a blow of 30">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/tired-blow.png" width="70%" alt="A blow with no stamina left: Out of stamina, Tired x0.7 over the dice, and +0.6 stamina drawn back by her gorget">
 </p>
 
 ## Foes
@@ -551,6 +559,11 @@ sprites in their tier's colours.
 <p align="center">
   <img src="docs/screenshots/wardrobe.png" width="49%" alt="The wardrobe's Clothing section: a dropdown of shirts open, the Armour tab beside it, her in the gilded mirror">
   <img src="docs/screenshots/wardrobe-closeup.png" width="49%" alt="The Armour section and the mirror's close up: her face and shoulders, at rest, from the front">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/wardrobe-armour-by-body-part.png" width="49%" alt="The Armour tab in bands: Head 2d8 15%, Torso 2d10 40%, Arms 1d8 15%, Legs 2d10 20%, Feet bare 10%">
+  <img src="docs/screenshots/wardrobe-gifts.png" width="49%" alt="The Gifts list: +50 max health, +25 max stamina, +2 health a second, 10% of damage back as stamina, +30% jump height, a second jump, +15% speed">
 </p>
 
 <p align="center">
@@ -679,6 +692,10 @@ chooses which with *Follow*.
 <p align="center">
   <img src="docs/screenshots/goods-shop.png" width="49%" alt="Marta's shop beside her inventory">
   <img src="docs/screenshots/goods-cauldron.png" width="49%" alt="Brewing at a cauldron">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/potions-vs-dyes.png" width="70%" alt="A red health potion and a green stamina potion, big round flasks bubbling where they lie, beside a small blue dye bottle">
 </p>
 
 - **Shops**: a market stall, a shop counter or a shopkeeper sells what its
@@ -1016,6 +1033,10 @@ comes back.
   <img src="docs/screenshots/editor-quest.png" width="49%" alt="A quest's props: given by, to do, what or whom, what it pays, all picked">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/editor-chest-holds.png" width="70%" alt="A chest's Holds as rows: health potion x3, wild berries x6, a Perfect longbow, royal blue dye x2">
+</p>
+
 **Buildings** are dressed part by part (**Look**: any of the 128 colours and
 the 25 patterns, copied from one to another), and **Edit inside** opens their
 floors - walls, doorways, windows, stairs, furniture, chests, people - to
@@ -1024,7 +1045,8 @@ furnish and play-test from inside.
 ### The Forge
 
 <p align="center">
-  <img src="docs/screenshots/creative-forge.png" width="70%" alt="The Forge: a weapon of your own, its colours, dice and effects">
+  <img src="docs/screenshots/creative-forge.png" width="49%" alt="The Forge: a weapon of your own, its colours, dice and effects">
+  <img src="docs/screenshots/forge-gear-effects.png" width="49%" alt="The Forge's Effects page for the Wyrmguard gorget: health boost +50, health regen +2/s, stamina absorb 10%">
 </p>
 
 The **Forge** makes weapons, armour and clothes of your own: a name, which of the
@@ -1272,8 +1294,9 @@ Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
 `quit`. On the new game's pages: `page`, `name`, `people`, `class`, `skin`,
 `colour`, `turn`, `zoom`, `face`, `pose`, `begin`. On the map: `go`, `enter`,
 `mapmenu`, `resetmap`. In the game: `bed`,
-`teleport`, `goto`, `time`, `timelapse`, `weather`, `give`, `coins`, `hero`,
-`wear`, `colour`, `style`, `stance`, `attack`, `heavy`, `spin`, `parry`,
+`teleport`, `goto`, `time`, `timelapse`, `weather`, `give`, `lay` (an item
+put down before her), `coins`, `hero`, `wear` (armour over the clothes;
+`wear necklace forged:wyrmguard`), `colour`, `style`, `stance`, `attack`, `heavy`, `spin`, `parry`,
 `block`, `dash`, `roll`, `jump`, `crouch`, `lock`, `pickup`, `chest`,
 `surround` (the country round the level: `surround pines height=1.5 seed=4`),
 `fog`,

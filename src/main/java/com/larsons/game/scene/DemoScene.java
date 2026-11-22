@@ -2603,6 +2603,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "dropitem" -> drop();
+            // lay <item>: an item put down on the ground before her, from nowhere (for screenshots)
+            case "lay" -> {
+                Item item = Item.parse(argument.trim());
+                if (item == null) return false;
+                world.dropItem(item);
+            }
             case "pause" -> pause.open(PauseMenu.Page.valueOf(
                     argument.isBlank() ? "MAIN" : argument.toUpperCase()));
             case "resume" -> pause.close();

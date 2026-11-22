@@ -124,6 +124,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/feminine/swim.mp3                       feminine swim (held)                             player/feminine/swim
   player/feminine/swim_under.mp3                 feminine swim under water (held)                 player/feminine/swim_under
   player/feminine/rest.mp3                       feminine at rest (held)                          player/feminine/rest
+  player/feminine/double_jump.mp3                feminine double jump                             player/feminine/double_jump
+  player/feminine/fall.mp3                       feminine fall (held)                             player/feminine/fall
   player/feminine/footstep_grass.mp3             feminine footstep on grass                       player/feminine/footstep_grass
   player/feminine/footstep_dirt.mp3              feminine footstep on a dirt path                 player/feminine/footstep_dirt
   player/feminine/footstep_gravel.mp3            feminine footstep on gravel                      player/feminine/footstep_gravel
@@ -222,6 +224,8 @@ Footsteps on each kind of ground, jumping and landing, crouching, the dash and t
   player/masculine/swim.mp3                      masculine swim (held)                            player/masculine/swim
   player/masculine/swim_under.mp3                masculine swim under water (held)                player/masculine/swim_under
   player/masculine/rest.mp3                      masculine at rest (held)                         player/masculine/rest
+  player/masculine/double_jump.mp3               masculine double jump                            player/masculine/double_jump
+  player/masculine/fall.mp3                      masculine fall (held)                            player/masculine/fall
   player/masculine/footstep_grass.mp3            masculine footstep on grass                      player/masculine/footstep_grass
   player/masculine/footstep_dirt.mp3             masculine footstep on a dirt path                player/masculine/footstep_dirt
   player/masculine/footstep_gravel.mp3           masculine footstep on gravel                     player/masculine/footstep_gravel
