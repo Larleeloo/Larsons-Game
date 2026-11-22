@@ -1182,31 +1182,7 @@ public final class WorldRenderer implements AutoCloseable {
         List<LayerStack.Layer> layers = null;
         for (int i = 0; i < stack.layers().size(); i++) {
             LayerStack.Layer l = stack.layers().get(i);
-            Slot slot = l.slot();
-            if (slot == Slot.BODY || slot.carried() || l.palette() == null || l.item() == null) continue;
-            String colour = wardrobe.colour(slot);
-            boolean armourSlot = Armour.location(slot) != null;
-            if (!armourSlot && !Wearables.tint(colour)) continue;
-            int tint = Wearables.tint(colour) ? Wearables.TINTS.get(colour) : -1;
-            String tier = null;
-            Map<String, Integer> forged = null;
-            if (armourSlot) {
-                Item it = Armour.item(wardrobe, inventory, slot);
-                if (it != null && Armour.sides(it.def()) > 0) {
-                    String base = it.def().wearable().colour();
-                    if (Wearables.tint(base)) tint = Wearables.TINTS.get(base);
-                    if (it.forged() != null) {
-                        forged = it.forged().tints();
-                    } else if (it.tier() != null) {
-                        Tier.Row row = Tier.row(it.def().id());
-                        if (row != null && row.lowest() != it.tier()) tier = it.tier().key();
-                    }
-                }
-            }
-            if (tint < 0 && tier == null && (forged == null || forged.isEmpty())) continue;
-            int[] fixed = sprites.fixedMaterials(wardrobe.get(Slot.BODY), slot, Wardrobe.Style.base(l.item()),
-                    wardrobe.style());
-            int[] p = items.worn(l.palette(), l.item(), fixed, tint, tier, forged);
+            int[] p = wornPalette(l.palette(), l.slot(), l.item(), l.item(), wardrobe, inventory, items, sprites);
             if (p == l.palette()) continue;
             if (layers == null) layers = new ArrayList<>(stack.layers());
             layers.set(i, l.withPalette(p));
@@ -1214,6 +1190,44 @@ public final class WorldRenderer implements AutoCloseable {
         if (layers == null) return stack;
         return new LayerStack.Result(List.copyOf(layers), stack.framing(), stack.view(), stack.state(),
                 stack.asked(), stack.frame(), stack.frames(), stack.fps(), stack.fallbackBody(), stack.loading());
+    }
+
+    /**
+     * The palette {@code palette} of a layer of {@code item} (its folder,
+     * styled or not) worn in {@code slot} is drawn in, in the look of what is
+     * worn there ({@link #inLooks}): tinted, in its tier's look, forged.
+     * {@code key} tells apart the sheets of one item that are drawn
+     * differently (the wardrobe's close-ups from the sprites). {@code
+     * palette} itself when nothing changes.
+     */
+    public static int[] wornPalette(int[] palette, Slot slot, String item, String key, Wardrobe wardrobe,
+                                    Inventory inventory, ItemSprites items, SpriteLibrary sprites) {
+        if (palette == null || item == null || slot == null || slot == Slot.BODY || slot.carried() || wardrobe == null
+                || items == null || sprites == null) {
+            return palette;
+        }
+        String colour = wardrobe.colour(slot);
+        boolean armourSlot = Armour.location(slot) != null;
+        if (!armourSlot && !Wearables.tint(colour)) return palette;
+        int tint = Wearables.tint(colour) ? Wearables.TINTS.get(colour) : -1;
+        String tier = null;
+        Map<String, Integer> forged = null;
+        if (armourSlot) {
+            Item it = Armour.item(wardrobe, inventory, slot);
+            if (it != null && Armour.sides(it.def()) > 0) {
+                String base = it.def().wearable().colour();
+                if (Wearables.tint(base)) tint = Wearables.TINTS.get(base);
+                if (it.forged() != null) {
+                    forged = it.forged().tints();
+                } else if (it.tier() != null) {
+                    Tier.Row row = Tier.row(it.def().id());
+                    if (row != null && row.lowest() != it.tier()) tier = it.tier().key();
+                }
+            }
+        }
+        if (tint < 0 && tier == null && (forged == null || forged.isEmpty())) return palette;
+        int[] fixed = sprites.fixedMaterials(wardrobe.get(Slot.BODY), slot, Wardrobe.Style.base(item), wardrobe.style());
+        return items.worn(palette, key, fixed, tint, tier, forged);
     }
 
     /** Whether {@code l} is weapon {@code id} in a hand (its left-handed or styled sheets too). */

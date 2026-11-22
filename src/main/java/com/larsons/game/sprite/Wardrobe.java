@@ -38,6 +38,10 @@ import java.util.TreeSet;
  * bra and the shirt - but not a dress, whose skirt hangs below the mail; the
  * dress is cut at the mail's edge instead ({@link #cutBy}).
  *
+ * <p>The armour can be put out of sight ({@link #armourHidden}, the
+ * wardrobe's switch): it is still worn - it rolls its dice, it is listed -
+ * but none of it is drawn, and so nothing it would cover is hidden either.
+ *
  * <p>And it remembers the colours dyes have unlocked, item by item ({@link
  * #unlocked}): a dye is used up to unlock its colour on one item for good.
  */
@@ -136,6 +140,15 @@ public final class Wardrobe {
     public static final Set<String> DRESSES = Set.of("laced_dress", "robe", "frock_coat");
     /** The necklaces that lie on the chest, under a chestplate; a gorget, a choker or a scarf goes over it. */
     public static final Set<String> LOW_NECKLACES = Set.of("gold_pendant", "amulet");
+    /**
+     * The armour's folders, in whatever slot they are worn (world/Armour's
+     * dice, by folder): out of sight while the armour is hidden ({@link #armourHidden}).
+     */
+    public static final Set<String> ARMOUR = Set.of(
+            "leather_cap", "chain_coif", "kettle_hat", "horned_helm", "iron_helmet", "steel_helmet", "great_helm",
+            "gorget", "gambeson", "leather_jerkin", "chainmail_shirt", "scale_mail", "iron_chestplate",
+            "steel_chestplate", "leather_bracers", "iron_gauntlets", "steel_gauntlets", "leather_greaves",
+            "chainmail_pants", "iron_leg_plating", "steel_leg_plating", "sabatons");
 
     private final EnumMap<Slot, String> items = new EnumMap<>(Slot.class);
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
@@ -143,8 +156,8 @@ public final class Wardrobe {
     private final Map<String, Set<String>> unlocked = new TreeMap<>();
     private Style style = Style.PIXEL_128;
     private Hand hand = Hand.AUTO;
-    /** Whether what is worn under armour is drawn all the same ({@link #hidden}): the wardrobe's toggle. */
-    private boolean underShown;
+    /** Whether the armour worn is left undrawn ({@link #hidden}): the wardrobe's switch. Still worn all the same. */
+    private boolean armourHidden;
 
     public String get(Slot slot) {
         return items.get(slot);
@@ -168,20 +181,23 @@ public final class Wardrobe {
      * it: the wrists under gauntlets, a pendant or an amulet under a chestplate, the
      * underwear and the pants under mail leggings, the bra and a shirt (not a
      * dress) under a mail shirt. What is in the slot stays in the wardrobe -
-     * it shows again once the armour comes off.
+     * it shows again once the armour comes off. With the armour hidden
+     * ({@link #armourHidden}) it is the armour that is left out, and nothing
+     * else: what it covered is drawn.
      */
     public boolean hidden(Slot slot) {
-        // (with the wardrobe's "show clothes under armour" on, nothing is left out: the shirt shows round the mail)
-        if (underShown) return false;
+        if (armourHidden) return in(ARMOUR, items.get(slot));
         return switch (slot) {
             case WRISTWEAR, WRISTWEAR_LEFT -> {
                 String gloves = items.get(Slot.GLOVES);
                 yield gloves != null && GAUNTLETS.contains(gloves);
             }
-            case NECKLACE -> items.containsKey(Slot.CHESTPLATE) && LOW_NECKLACES.contains(items.get(Slot.NECKLACE));
+            // (the sets are Set.of: asked about a slot with nothing in it, they would throw - nothing is never covered)
+            case NECKLACE -> items.containsKey(Slot.CHESTPLATE) && in(LOW_NECKLACES, items.get(Slot.NECKLACE));
             case UNDERWEAR, PANTS -> items.containsKey(Slot.CHAINMAIL_LEGS);
             case BRA -> items.containsKey(Slot.CHAINMAIL);
-            case SHIRT -> items.containsKey(Slot.CHAINMAIL) && !DRESSES.contains(items.get(Slot.SHIRT));
+            case SHIRT -> items.containsKey(Slot.CHAINMAIL) && items.containsKey(Slot.SHIRT)
+                    && !in(DRESSES, items.get(Slot.SHIRT));
             default -> false;
         };
     }
@@ -193,10 +209,16 @@ public final class Wardrobe {
      * ({@link SheetImage#cutUnder}).
      */
     public Slot cutBy(Slot slot) {
-        if (slot == Slot.SHIRT && DRESSES.contains(items.get(Slot.SHIRT)) && items.containsKey(Slot.CHAINMAIL)) {
+        if (armourHidden) return null;
+        if (slot == Slot.SHIRT && in(DRESSES, items.get(Slot.SHIRT)) && items.containsKey(Slot.CHAINMAIL)) {
             return Slot.CHAINMAIL;
         }
         return null;
+    }
+
+    /** Whether {@code item} is one of {@code set}: never when it is nothing (a {@code Set.of} throws if asked). */
+    private static boolean in(Set<String> set, String item) {
+        return item != null && set.contains(item);
     }
 
     /** Long hair, and the short cut it is gathered to while swimming ({@link #keptTo}). */
@@ -285,14 +307,14 @@ public final class Wardrobe {
         for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) w.unlocked.put(e.getKey(), new TreeSet<>(e.getValue()));
         w.style = style;
         w.hand = hand;
-        w.underShown = underShown;
+        w.armourHidden = armourHidden;
         return w;
     }
 
-    /** Whether the clothes under armour show anyway (the mail shirt's shirt, the leggings' pants). */
-    public boolean underShown() { return underShown; }
+    /** Whether the armour worn is out of sight: worn, rolling its dice, but not drawn (nor hiding anything). */
+    public boolean armourHidden() { return armourHidden; }
 
-    public void setUnderShown(boolean on) { underShown = on; }
+    public void setArmourHidden(boolean on) { armourHidden = on; }
 
     /**
      * Wear what {@code other} wears, in its colours, its style and its hand -
@@ -306,7 +328,7 @@ public final class Wardrobe {
         }
         style = other.style;
         hand = other.hand;
-        underShown = other.underShown;
+        armourHidden = other.armourHidden;
     }
 
     public Map<String, Object> toJson() {
@@ -314,7 +336,7 @@ public final class Wardrobe {
         for (Map.Entry<Slot, String> e : items.entrySet()) out.put(e.getKey().key(), e.getValue());
         out.put("style", style.key());
         if (hand != Hand.AUTO) out.put("hand", hand.key());
-        if (underShown) out.put("underShown", true);
+        if (armourHidden) out.put("armourHidden", true);
         if (!colours.isEmpty()) {
             Map<String, Object> c = new LinkedHashMap<>();
             for (Map.Entry<Slot, String> e : colours.entrySet()) c.put(e.getKey().key(), e.getValue());
@@ -337,7 +359,7 @@ public final class Wardrobe {
         }
         if (json.get("style") instanceof String s) w.setStyle(Style.byKey(s));
         if (json.get("hand") instanceof String s) w.setHand(Hand.byKey(s));
-        if (json.get("underShown") instanceof Boolean b) w.underShown = b;
+        if (json.get("armourHidden") instanceof Boolean b) w.armourHidden = b;
         if (json.get("colours") instanceof Map<?, ?> c) {
             for (Map.Entry<?, ?> e : c.entrySet()) {
                 Slot slot = Slot.byKey(String.valueOf(e.getKey()));

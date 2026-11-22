@@ -3,14 +3,12 @@ package com.larsons.game.scene;
 import com.larsons.game.audio.SoundKeys;
 import com.larsons.game.audio.Sounds;
 import com.larsons.game.core.Game;
-import com.larsons.game.cutscene.CloseupLibrary;
 import com.larsons.game.gfx.Font;
 import com.larsons.game.input.Input;
 import com.larsons.game.sprite.AnimState;
 import com.larsons.game.sprite.Elevation;
 import com.larsons.game.sprite.Facing;
 import com.larsons.game.sprite.LayerStack;
-import com.larsons.game.sprite.SheetTexture;
 import com.larsons.game.sprite.Slot;
 import com.larsons.game.sprite.SpriteLibrary;
 import com.larsons.game.sprite.SpriteView;
@@ -49,8 +47,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
  * the bracers, the leg armour and the sabatons - each with the dice it rolls
  * to block a blow ({@link Armour}). A layer armour shares with clothes (a
  * helmet is worn where a hat is) is a row in each section, offering only its
- * own kind. The armour section has the switch that shows the clothes under
- * the armour anyway ({@link Wardrobe#underShown}).
+ * own kind. The armour section has the switch that puts the armour out of
+ * sight - still worn and rolling its dice, but not drawn, in the game or the
+ * mirror ({@link Wardrobe#armourHidden}).
  *
  * <p>What is worn is items ({@link Wearables}): a layer offers the wearables
  * in her inventory - picked up, or out of a chest - and the underwear, the
@@ -164,6 +163,7 @@ public final class WardrobePanel {
     private final Game game;
     private final LayerStack.Memory previewMemory = new LayerStack.Memory();
     private Medieval skin;
+    private CloseUp closeUps;
     private Facing facing = Facing.SOUTH_EAST;
     private Elevation elevation = Elevation.MIDDLE;
     private AnimState state = AnimState.REST;
@@ -178,8 +178,13 @@ public final class WardrobePanel {
     private Row listRow;
     private List<Option> listOptions = List.of();
     private float listX, listY, listW;
-    private int listScroll;
-    private static final int LIST_ROWS = 10;
+    private int listScroll, listShown;
+    /** Whether the list's scroll bar is being dragged. */
+    private boolean listDragging;
+    /** The most rows a list shows at once (fewer where the window has no room). */
+    private static final int LIST_ROWS = 14;
+    /** The width of a list's scroll bar, along its right edge. */
+    private static final float LIST_BAR = 12;
     private static final float LIST_ROW_H = 26;
     // whom it dresses now: her, from what she owns - or, in the editor, anyone, from everything there is
     private Wardrobe wd;
@@ -234,6 +239,16 @@ public final class WardrobePanel {
         String colour() {
             if (forged != null) return Armour.forgedLook(forged);
             return wearable == null ? null : wearable.wearable().colour();
+        }
+
+        /**
+         * The colour it is put on in: its own ({@link #colour}), or the one a
+         * tailored garment is cut in (the Moonsilk gown is the laced dress in
+         * platinum); null for anything worn in whatever colour was picked.
+         */
+        String cut() {
+            String c = colour();
+            return c != null ? c : Wearables.tailoredColour(wearable);
         }
     }
 
@@ -293,31 +308,45 @@ public final class WardrobePanel {
         return out;
     }
 
-    /** Which of {@code options} is worn in {@code slot}: its folder, in its colour if it has one; or -1. */
+    /**
+     * Which of {@code options} is worn in {@code slot}, or -1: the one of its
+     * folder put on in its very colour (a bronze helmet, the silver wrist
+     * band, a tailored garment in its cut); else the plain one of its folder,
+     * whatever colour it was dyed; else a tailored garment of its folder dyed
+     * another colour.
+     */
     static int current(List<Option> options, Slot slot, Wardrobe wardrobe) {
         String item = wardrobe.get(slot), colour = wardrobe.colour(slot);
-        // (the one in that very look first: a bronze helmet is the iron helmet's folder, in bronze)
         for (int i = 0; i < options.size(); i++) {
             Option o = options.get(i);
-            if (java.util.Objects.equals(o.item(), item) && o.colour() != null && o.colour().equals(colour)) return i;
+            if (java.util.Objects.equals(o.item(), item) && o.cut() != null && o.cut().equalsIgnoreCase(colour)) return i;
         }
         boolean look = Armour.look(colour);
         for (int i = 0; i < options.size(); i++) {
             Option o = options.get(i);
-            if (java.util.Objects.equals(o.item(), item) && o.colour() == null && !look) return i;
+            if (java.util.Objects.equals(o.item(), item) && o.cut() == null && !look) return i;
+        }
+        for (int i = 0; i < options.size(); i++) {
+            Option o = options.get(i);
+            if (item != null && item.equals(o.item()) && o.colour() == null && !look) return i;
         }
         return -1;
     }
 
     /**
-     * Wear {@code option} in {@code slot}: its folder, and a metal's colour
-     * with it (taking a metal off takes its colour off too).
+     * Wear {@code option} in {@code slot}: its folder, and the colour it is
+     * put on in ({@link Option#cut}: a metal's, a tint, a tailored garment's
+     * cut). Taking off one put on in its own colour takes the colour off too,
+     * so what is worn next is not mistaken for it (a plain laced dress after
+     * the platinum Moonsilk gown).
      */
     static void choose(Wardrobe wardrobe, Slot slot, Option option) {
-        String was = wardrobe.get(slot);
+        String was = wardrobe.get(slot), wasColour = wardrobe.colour(slot);
         wardrobe.set(slot, option.item());
-        if (option.colour() != null) wardrobe.setColour(slot, option.colour());
-        else if (was != null && (Wearables.metal(slot, was) || Armour.look(wardrobe.colour(slot)))) {
+        if (option.cut() != null) {
+            wardrobe.setColour(slot, option.cut());
+        } else if (was != null && (Wearables.metal(slot, was) || Armour.look(wasColour)
+                || Wearables.tailoredCut(slot, was, wasColour))) {
             wardrobe.setColour(slot, null);
         }
     }
@@ -379,6 +408,71 @@ public final class WardrobePanel {
         return n;
     }
 
+
+    /** One cell of the colour grid: the colour it puts on (an item's own option, or {@code #rrggbb}) and how it shows. */
+    record Cell(Wearables.Colour colour, int rgb) {}
+
+    /**
+     * The colours of a layer ({@code cols}: its own options, then the
+     * palette's) set out as one grid in the palette's order: each of the
+     * item's own options takes the place of the palette colour it shows as
+     * ({@code swatch}: RGB, or -1), and one that shows as none of them sits
+     * beside the nearest. A cell is unlocked if either of the two is; a locked
+     * own option whose palette colour is unlocked puts the palette colour on.
+     */
+    static List<Cell> grid(List<Wearables.Colour> cols, java.util.function.ToIntFunction<String> swatch) {
+        List<Wearables.Colour> own = new ArrayList<>();
+        List<Integer> ownRgb = new ArrayList<>();
+        List<Cell> cells = new ArrayList<>();
+        for (Wearables.Colour c : cols) {
+            if (Variants.isCustom(c.option())) {
+                cells.add(new Cell(c, Wearables.rgb(c.option())));
+            } else {
+                own.add(c);
+                ownRgb.add(swatch.applyAsInt(c.option()));
+            }
+        }
+        boolean[] placed = new boolean[own.size()];
+        for (int i = 0; i < cells.size(); i++) {
+            Cell p = cells.get(i);
+            for (int k = 0; k < own.size(); k++) {
+                int rgb = ownRgb.get(k);
+                if (placed[k] || rgb < 0 || (rgb & 0xFFFFFF) != p.rgb()) continue;
+                placed[k] = true;
+                Wearables.Colour o = own.get(k);
+                // (the own option - its shading drawn by hand - unless only the palette's is unlocked)
+                cells.set(i, new Cell(!o.unlocked() && p.colour().unlocked() ? p.colour() : o, p.rgb()));
+                break;
+            }
+        }
+        // the item's own colours the palette has none of: each beside the nearest (or at the end)
+        for (int k = 0; k < own.size(); k++) {
+            if (placed[k]) continue;
+            int rgb = ownRgb.get(k);
+            int at = cells.size();
+            if (rgb >= 0) {
+                double best = Double.MAX_VALUE;
+                double[] l = Variants.Oklab.of(rgb & 0xFFFFFF);
+                for (int i = 0; i < cells.size(); i++) {
+                    double[] m = Variants.Oklab.of(cells.get(i).rgb() & 0xFFFFFF);
+                    double d = Math.pow(l[0] - m[0], 2) + Math.pow(l[1] - m[1], 2) + Math.pow(l[2] - m[2], 2);
+                    if (d < best) {
+                        best = d;
+                        at = i + 1;
+                    }
+                }
+            }
+            cells.add(at, new Cell(own.get(k), rgb));
+        }
+        return cells;
+    }
+
+    /** Whether {@code cell} is the colour worn: its option, or the palette colour it shows as. */
+    static boolean worn(Cell cell, String colour) {
+        if (colour == null) return false;
+        if (cell.colour().option().equalsIgnoreCase(colour)) return true;
+        return Variants.isCustom(colour) && cell.rgb() >= 0 && Wearables.rgb(colour) == (cell.rgb() & 0xFFFFFF);
+    }
 
     // --- a row's choices ---------------------------------------------------------------
 
@@ -592,16 +686,15 @@ public final class WardrobePanel {
         }
         float ry = y + th + 12;
 
-        // --- the armour's own header: what it does, and whether the clothes show under it ----
+        // --- the armour's own header: what it does, and whether it is drawn at all ----------
         if (section == Section.ARMOUR) {
             ui.rect(x - 4, ry - 4, w + 8, 34, Theme.withAlpha(STEEL, 0.85f));
             ui.outline(x - 4, ry - 4, w + 8, 34, 1, STEEL_LIGHT);
-            ui.text(m.small, fit(m.small, "Armour rolls its dice to block a blow where it lands.", w - 250), x + 4,
-                    ry + 5, STEEL_TEXT);
-            boolean under = wardrobe.underShown();
-            if (m.button(under ? "Clothes under it: shown" : "Clothes under it: hidden", x + w - 236, ry - 1, 236, 28,
-                    under, true)) {
-                wardrobe.setUnderShown(!under);
+            boolean hidden = wardrobe.armourHidden();
+            ui.text(m.small, fit(m.small, hidden ? "Out of sight, the armour still rolls its dice to block."
+                    : "Armour rolls its dice to block a blow where it lands.", w - 250), x + 4, ry + 5, STEEL_TEXT);
+            if (m.button(hidden ? "Armour: hidden" : "Armour: shown", x + w - 236, ry - 1, 236, 28, hidden, true)) {
+                wardrobe.setArmourHidden(!hidden);
                 Sounds.play(SoundKeys.ui("wear"));
             }
             ry += 40;
@@ -634,71 +727,47 @@ public final class WardrobePanel {
         if (offered != null && fOpts.stream().noneMatch(o -> o.option().equals(offered) && !o.unlocked())) {
             offered = null;
         }
-        m.carved(m.heading, "Colour · " + what + ": " + picked, x, dy, fOpts.isEmpty() ? Medieval.BRASS : Medieval.GOLD);
-        float gy = dy + 34, r = 12, step = 2 * r + 8;
-        // its own options as gems (and "-": none picked), then every colour of the palette under them
-        List<Wearables.Colour> named = new ArrayList<>(), palette = new ArrayList<>();
-        List<Integer> shown = new ArrayList<>();
-        for (Wearables.Colour o : fOpts) {
-            if (Variants.isCustom(o.option())) continue;
-            named.add(o);
-            shown.add(swatch(lib, body, focus, fItem, style, o.option()));
-        }
-        for (Wearables.Colour o : fOpts) {
-            // (a palette colour that is one of the item's own options is set out once, as the gem)
-            if (Variants.isCustom(o.option()) && !shown.contains(Wearables.rgb(o.option()))) palette.add(o);
-        }
-        if (!fOpts.isEmpty()) {
-            if (m.knob("-", x, gy - 10, 20, wardrobe.colour(focus) != null)) wardrobe.setColour(focus, null);
-            for (int i = 0; i < named.size(); i++) {
-                float gx = x + 40 + i * step;
-                if (gx + r > x + w) break;
-                Wearables.Colour o = named.get(i);
-                int rgb = swatch(lib, body, focus, fItem, style, o.option());
-                int carried = o.unlocked() ? 0 : dyesOf(o.option());
-                m.gem(gx, gy, r, rgb, o.unlocked() || carried > 0);
-                boolean on = o.option().equals(wardrobe.colour(focus)) || o.option().equals(offered);
-                if (on) ui.outline(gx - r - 3, gy - r - 3, 2 * r + 6, 2 * r + 6, 2, Medieval.GOLD);
-                else if (ui.hover(gx - r, gy - r, 2 * r, 2 * r)) ui.outline(gx - r - 2, gy - r - 2, 2 * r + 4, 2 * r + 4, 1, Medieval.CREAM);
-                if (!o.unlocked()) {
-                    if (carried > 0) {
-                        m.bottle(gx + r - 4, gy + r + 2, rgb >= 0 ? rgb : 0xffffff);
-                        if (carried > 1) ui.text(m.small, "x" + carried, gx + r - 2, gy - r - 8, Medieval.CREAM);
-                    } else {
-                        m.padlock(gx + r - 5, gy + r - 6);
-                    }
-                }
-                if (ui.clicked(gx - r, gy - r, 2 * r, 2 * r)) {
-                    offered = pickColour(focus, o);
-                    if (o.unlocked()) Sounds.play(SoundKeys.ui("wear"));
-                }
-            }
-        }
-        float py = gy + r + 10;
+        // every colour it can be, as one grid in the palette's order: its own shades among them
+        List<Cell> cells = grid(fOpts, o -> swatch(lib, body, focus, fItem, style, o));
         int across = 25;
-        float pw = (float) Math.floor(Math.min(28, (w + 2) / across)), ph = 14;
-        for (int i = 0; i < palette.size(); i++) {
-            Wearables.Colour o = palette.get(i);
-            float px = x + (i % across) * pw, cy = py + (i / across) * (ph + 2), cw = pw - 2;
-            int rgb = Wearables.rgb(o.option());
+        float pw = (float) Math.floor(Math.min(28, (w + 2) / across)), ph = 16;
+        float gy = dy + 30;
+        String hovered = null;
+        for (int i = 0; i < cells.size(); i++) {
+            Cell cell = cells.get(i);
+            Wearables.Colour o = cell.colour();
+            float px = x + (i % across) * pw, cy = gy + (i / across) * (ph + 2), cw = pw - 2;
+            int rgb = cell.rgb();
             int carried = o.unlocked() ? 0 : dyesOf(o.option());
             ui.rect(px, cy, cw, ph, Medieval.INK);
-            ui.rect(px + 1, cy + 1, cw - 2, ph - 2, Theme.hex(rgb & 0xFFFFFF, 1f));
+            ui.rect(px + 1, cy + 1, cw - 2, ph - 2, rgb < 0 ? Medieval.INK_FADED : Theme.hex(rgb & 0xFFFFFF, 1f));
             if (!o.unlocked()) {
                 ui.rect(px + 1, cy + 1, cw - 2, ph - 2, Theme.withAlpha(Medieval.INK, carried > 0 ? 0.25f : 0.55f));
-                if (carried > 0) m.bottle(px + cw / 2 - 3, cy + ph - 3, rgb);
+                if (carried > 0) m.bottle(px + cw / 2 - 3, cy + ph - 3, rgb >= 0 ? rgb : 0xffffff);
                 else m.padlock(px + cw / 2, cy + ph / 2 + 1);
             }
-            boolean on = o.option().equalsIgnoreCase(wardrobe.colour(focus)) || o.option().equals(offered);
+            boolean on = worn(cell, wardrobe.colour(focus)) || o.option().equals(offered);
             if (on) ui.outline(px - 2, cy - 2, cw + 4, ph + 4, 2, Medieval.GOLD);
             else if (ui.hover(px, cy, cw, ph)) ui.outline(px - 1, cy - 1, cw + 2, ph + 2, 1, Medieval.CREAM);
+            if (ui.hover(px, cy, cw, ph)) hovered = colourName(o.option());
             if (ui.clicked(px, cy, cw, ph)) {
                 offered = pickColour(focus, o);
                 if (o.unlocked()) Sounds.play(SoundKeys.ui("wear"));
             }
         }
-        int paletteRows = (palette.size() + across - 1) / across;
-        float ny = paletteRows == 0 ? gy + r + 8 : py + paletteRows * (ph + 2) + 2;
+        // its own colours, none picked: the button at the end of the heading
+        String ownLabel = focus == Slot.MOUTH ? "Natural" : "Own colours";
+        float ow = m.small.width(ownLabel) + 24;
+        String heading = "Colour · " + what + ": " + picked + (hovered != null ? "  ›  " + hovered : "");
+        m.carved(m.heading, fit(m.heading, heading, w - (fOpts.isEmpty() ? 0 : ow + 10)), x, dy,
+                fOpts.isEmpty() ? Medieval.BRASS : Medieval.GOLD);
+        if (!fOpts.isEmpty() && m.button(ownLabel, x + w - ow, dy - 2, ow, 26, wardrobe.colour(focus) == null,
+                wardrobe.colour(focus) != null)) {
+            wardrobe.setColour(focus, null);
+            Sounds.play(SoundKeys.ui("wear"));
+        }
+        int paletteRows = (cells.size() + across - 1) / across;
+        float ny = paletteRows == 0 ? gy - 2 : gy + paletteRows * (ph + 2) + 2;
         if (offered != null && player != null) {
             String dye = colourName(offered);
             String on = focus == Slot.BODY ? "the skin" : current(focus);
@@ -714,7 +783,7 @@ public final class WardrobePanel {
             }
             if (m.button("Keep it", x + w - 100, ny - 2, 100, 30, false, true)) offered = null;
         } else if (!fOpts.isEmpty() && player == null) {
-            ui.text(m.small, "Any colour of the palette, or the item's own. The Forge's armour is in the Armour section.",
+            ui.text(m.small, "Any colour of the palette (the item's own shades among them). The Forge's armour is in the Armour section.",
                     x, ny + 6, Theme.withAlpha(Medieval.CREAM, 0.75f));
         } else if (!fOpts.isEmpty()) {
             ui.text(m.small, "Locked colours take a dye of their colour: one dye unlocks it on this item for good.",
@@ -852,11 +921,16 @@ public final class WardrobePanel {
     private void openList(Ui ui, Row row, List<Option> opts, int at, float x, float y, float w) {
         listRow = row;
         listOptions = List.copyOf(opts);
-        // (it hangs under the row - or over it, if there is no room below)
-        int shown = Math.min(LIST_ROWS, opts.size());
+        listDragging = false;
+        // as many rows as the window has room for (up to LIST_ROWS); the rest are scrolled to
+        int room = (int) Math.max(3, (ui.height() - 24) / LIST_ROW_H);
+        int shown = Math.min(Math.min(LIST_ROWS, room), opts.size());
+        listShown = shown;
         float h = shown * LIST_ROW_H + 8;
         listX = Math.min(x, ui.width() - w - 8);
-        listY = y + h > ui.height() - 8 ? Math.max(8, y - h - 34) : y;
+        // (it hangs under the row - or over it, if there is no room below - and never off the window)
+        float above = y - h - 34;
+        listY = y + h <= ui.height() - 8 ? y : above >= 8 ? above : Math.max(8, ui.height() - 8 - h);
         listW = w;
         listScroll = Math.max(0, Math.min(opts.size() - shown, at - shown / 2));
         if (ui.input().usingPad()) {
@@ -865,32 +939,73 @@ public final class WardrobePanel {
         }
     }
 
-    /** A click while the list is down: a choice in it is worn; anywhere else shuts it. */
+    /** Scroll the list dropped down to {@code to} (kept in range). */
+    private void scrollList(int to) {
+        listScroll = Math.max(0, Math.min(listOptions.size() - listShown, to));
+    }
+
+    /**
+     * The list's input, before anything else has it: the wheel (anywhere: the
+     * list is all there is while it is down) and the gamepad's scrolling go
+     * through it; its scroll bar is dragged or clicked a page up or down; a
+     * click on a choice wears it; anywhere else shuts it.
+     */
     private void listClick(Ui ui) {
         Input in = ui.input();
-        int shown = Math.min(LIST_ROWS, listOptions.size());
+        int n = listOptions.size(), shown = listShown;
         float h = shown * LIST_ROW_H + 8;
-        if (in.scroll() != 0 && ui.hover(listX, listY, listW, h)) {
-            listScroll = Math.max(0, Math.min(listOptions.size() - shown, listScroll - (int) Math.signum(in.scroll())));
+        if (in.scroll() != 0) {
+            int notches = (int) Math.signum(in.scroll()) * Math.max(1, (int) Math.round(Math.abs(in.scroll())));
+            scrollList(listScroll - notches);
             in.consumeScroll();
+        }
+        boolean bar = n > shown;
+        float bx = listX + listW - LIST_BAR - 3, top = listY + 4, track = shown * LIST_ROW_H;
+        if (listDragging) {
+            if (!in.mouseDown(GLFW_MOUSE_BUTTON_LEFT)) {
+                listDragging = false;
+            } else {
+                float thumb = Math.max(18, track * shown / n);
+                double f = (in.mouseY() - top - thumb / 2) / Math.max(1, track - thumb);
+                scrollList((int) Math.round(f * (n - shown)));
+            }
+            in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
+            return;
         }
         if (!in.mousePressed(GLFW_MOUSE_BUTTON_LEFT)) return;
         in.consumeMouse(GLFW_MOUSE_BUTTON_LEFT);
+        if (bar && ui.hover(bx - 2, top, LIST_BAR + 5, track)) {
+            // the scroll bar: its thumb is dragged; above or below it, a page up or down
+            float thumb = Math.max(18, track * shown / n);
+            float thumbY = top + (track - thumb) * listScroll / Math.max(1, n - shown);
+            if (in.mouseY() < thumbY) scrollList(listScroll - shown);
+            else if (in.mouseY() > thumbY + thumb) scrollList(listScroll + shown);
+            else listDragging = true;
+            return;
+        }
         if (ui.hover(listX, listY + 4, listW, shown * LIST_ROW_H)) {
             int i = listScroll + (int) ((in.mouseY() - listY - 4) / LIST_ROW_H);
             if (i >= 0 && i < listOptions.size()) {
                 chooseIn(wd, listRow, listOptions.get(i), other(listRow));
                 Sounds.play(SoundKeys.ui("wear"));
             }
+        } else if (ui.hover(listX, listY, listW, h)) {
+            return;                                     // (its rim: nothing)
         }
         listRow = null;
     }
 
-    /** The list dropped down, over everything. */
+    /**
+     * The list dropped down, over everything: the rows in sight, and every
+     * row a place for the gamepad's focus - those out of sight scroll into it
+     * as the focus goes on past the end - and the scroll bar.
+     */
     private void list(Ui ui, Medieval m) {
-        int n = listOptions.size(), shown = Math.min(LIST_ROWS, n);
+        int n = listOptions.size(), shown = listShown;
         float h = shown * LIST_ROW_H + 8;
         boolean iron = listRow.kind() == Kind.ARMOUR || ARMOUR.contains(listRow) && section == Section.ARMOUR;
+        boolean bar = n > shown;
+        float rowW = listW - (bar ? LIST_BAR + 6 : 0);
         m.shadow(listX, listY, listW, h, 6);
         if (iron) {
             ui.rect(listX, listY, listW, h, Theme.rgb(40, 44, 50, 1f));
@@ -901,27 +1016,51 @@ public final class WardrobePanel {
         }
         String other = other(listRow);
         int at = other != null ? 0 : current(listOptions, listRow.slot(), wd);
-        for (int k = 0; k < shown; k++) {
-            int i = listScroll + k;
-            if (i >= n) break;
+        float top = listY + 4, track = shown * LIST_ROW_H;
+        ui.clip(listX, top, listW, track);
+        for (int i = 0; i < n; i++) {
+            float ry = top + (i - listScroll) * LIST_ROW_H;
+            // (every row can take the focus; those clipped out of sight are scrolled to)
+            ui.target(listX + 3, ry, rowW - 6, LIST_ROW_H, Ui.Kind.BUTTON);
+            if (i < listScroll || i >= listScroll + shown) continue;
             Option o = listOptions.get(i);
-            float ry = listY + 4 + k * LIST_ROW_H;
-            boolean hot = ui.hover(listX, ry, listW, LIST_ROW_H);
-            if (hot) ui.rect(listX + 3, ry, listW - 6, LIST_ROW_H, iron ? Theme.rgb(84, 90, 100, 1f)
+            boolean hot = !listDragging && ui.hover(listX, ry, rowW, LIST_ROW_H);
+            if (hot) ui.rect(listX + 3, ry, rowW - 6, LIST_ROW_H, iron ? Theme.rgb(84, 90, 100, 1f)
                     : Theme.withAlpha(Medieval.BRASS, 0.35f));
-            if (i == at) ui.outline(listX + 3, ry, listW - 6, LIST_ROW_H, 1, Medieval.GOLD);
+            if (i == at) ui.outline(listX + 3, ry, rowW - 6, LIST_ROW_H, 1, Medieval.GOLD);
             if (o.wearable() != null) ui.disc(listX + 13, ry + LIST_ROW_H / 2, 4, o.wearable().wearable().rarity().colour(1f));
             String label = o.item() == null ? "None" : o.label(listRow.slot());
             if (iron && o.wearable() != null && Armour.sides(o.wearable()) > 0) label += "   d" + Armour.sides(o.wearable());
-            ui.text(m.body, fit(m.body, label, listW - 36), listX + 24, ry + (LIST_ROW_H - m.body.lineHeight()) / 2,
+            ui.text(m.body, fit(m.body, label, rowW - 36), listX + 24, ry + (LIST_ROW_H - m.body.lineHeight()) / 2,
                     iron ? STEEL_TEXT : o.item() == null ? Medieval.INK_FADED : Medieval.INK);
-            ui.target(listX + 3, ry, listW - 6, LIST_ROW_H, Ui.Kind.BUTTON);
         }
-        if (n > shown) {
-            // how far down the list is scrolled
-            float bar = h * shown / n, top = listY + (h - bar) * listScroll / Math.max(1, n - shown);
-            ui.rect(listX + listW - 5, top, 3, bar, iron ? STEEL_LIGHT : Medieval.BRASS);
+        ui.unclip();
+        if (bar) {
+            // the scroll bar: how far down the list is, and how much of it is in sight
+            float bx = listX + listW - LIST_BAR - 3;
+            float thumb = Math.max(18, track * shown / n);
+            float thumbY = top + (track - thumb) * listScroll / Math.max(1, n - shown);
+            boolean hot = listDragging || ui.hover(bx - 2, top, LIST_BAR + 5, track);
+            ui.rect(bx, top, LIST_BAR, track, Theme.withAlpha(iron ? STEEL : Medieval.INK, iron ? 0.9f : 0.18f));
+            ui.rect(bx + 1, thumbY, LIST_BAR - 2, thumb, iron ? (hot ? STEEL_TEXT : STEEL_LIGHT)
+                    : hot ? Medieval.GOLD : Medieval.BRASS);
+            // how many more there are above and below
+            float[] c = iron ? STEEL_TEXT : Medieval.INK_FADED;
+            if (listScroll > 0) moreMark(ui, m, bx, top + 2, listScroll, true, c);
+            int below = n - listScroll - shown;
+            if (below > 0) moreMark(ui, m, bx, top + track - m.small.lineHeight() - 2, below, false, c);
         }
+    }
+
+    /** "3 more" and a little arrow, up or down, just left of the scroll bar at {@code barX}. */
+    private static void moreMark(Ui ui, Medieval m, float barX, float y, int more, boolean up, float[] c) {
+        String s = more + " more";
+        float tx = barX - m.small.width(s) - 18;
+        ui.rect(tx - 4, y - 1, m.small.width(s) + 20, m.small.lineHeight() + 2, Theme.withAlpha(Medieval.INK, 0.06f));
+        ui.text(m.small, s, tx + 12, y, c);
+        float ax = tx + 4, ay = y + m.small.lineHeight() / 2, d = up ? -1 : 1;
+        ui.batch().quad(ui.white(), ax - 4, ay - 2 * d, 0, ax + 4, ay - 2 * d, 0, ax, ay + 3 * d, 0, ax, ay + 3 * d, 0,
+                0, 0, 1, 1, c[0], c[1], c[2], c[3]);
     }
 
     /** What the focused layer wears, by name: "the Baggy shirt". */
@@ -1010,58 +1149,28 @@ public final class WardrobePanel {
 
     /**
      * Her close up, waist up, at rest, from the side the mirror is turned to
-     * ({@code assets/wardrobe_closeups/}: every item, layer on layer, playing
-     * on); where those are not drawn yet, her sprite brought close instead.
-     * Returns the frame shown, or -1 for the sprite.
+     * ({@link CloseUp}: every item, layer on layer, playing on); where those
+     * are not drawn for her body, her sprite brought close instead. Returns
+     * the frame shown, or -1 for the sprite.
      */
     private int closeUp(Ui ui, float x, float y, float w, float h, Wardrobe wd) {
+        if (closeUps == null) closeUps = new CloseUp(game);
+        try {
+            int frame = closeUps.draw(ui, x, y, w, h, wd, player == null ? null : player.inventory(), facing, time, 1);
+            if (frame >= 0) return frame;
+        } catch (RuntimeException e) {
+            // (a close-up that cannot be drawn is never worth the game: her sprite is shown instead)
+            System.err.println("[wardrobe] close-up: " + e);
+        }
+        // no close-ups of this body: the sprite, brought close on the head and shoulders
         SpriteLibrary lib = game.sprites();
-        CloseupLibrary closeups = game.wardrobeCloseups();
-        String root = lib.rootOf(wd.get(Slot.BODY));
-        String clip = "rest_side_" + facing.key();
-        record Drawn(SheetTexture sheet, int[] palette) {}
-        List<Drawn> layers = new ArrayList<>();
-        boolean bodyDrawn = false;
-        for (Slot slot : LayerStack.drawOrder(wd.leftHanded(), Elevation.SIDE, facing)) {
-            if (slot.carried() || wd.hidden(slot)) continue;
-            CloseupLibrary.Entry e = closeups.entryIn(root, slot, wd.get(slot), wd.style());
-            SpriteLibrary.Resolved r = closeups.resolve(e, clip, null, false);
-            if (r == null) continue;
-            SheetTexture t = lib.sheet(r);
-            if (t == null) continue;
-            if (slot == Slot.BODY) bodyDrawn = true;
-            int[] base = t.sharedPalette();
-            int[] palette = base == null || e.variants() == null ? base : Variants.recolored(base,
-                    e.variants().recolor(CloseupLibrary.choice(slot, wd.colour(slot), wd.skin())));
-            layers.add(new Drawn(t, palette));
-        }
-        if (!bodyDrawn) {
-            // no close-ups of this body yet: the sprite, brought close on the head and shoulders
-            SpriteView view = new SpriteView(Elevation.SIDE, facing, Elevation.SIDE.renderAngle());
-            LayerStack.Result r = LayerStack.resolve(lib, wd, AnimState.REST, time, view, previewMemory);
-            // (about the top 0.85 m of her - head to waist - fills the glass)
-            float ppm = h / 0.85f;
-            float footY = y + h * 0.06f + 1.78f * ppm;
-            LayerStack.drawFlat(ui.batch(), r, x + w / 2, footY, ppm);
-            return -1;
-        }
-        int frames = Integer.MAX_VALUE;
-        for (Drawn d : layers) frames = Math.min(frames, Math.max(1, d.sheet().frameCount()));
-        // (drawn every other frame of the rest: played so a loop lasts as long as the rest's)
-        double fps = frames * AnimState.DEFAULT_FPS / (double) Math.max(1, AnimState.REST.defaultFrames());
-        int frame = (int) (time * fps) % frames;
-        float size = Math.min(w, h * 1.05f);
-        float fx = x + w / 2 - size / 2, fy = y + h / 2 - size * 0.5f;
-        for (Drawn d : layers) {
-            double[] region = d.sheet().region(false);
-            if (region[2] <= region[0] || region[3] <= region[1]) continue;
-            float[] uv = d.sheet().uv(frame, false);
-            ui.batch().rect(d.sheet().texture(), fx + (float) region[0] * size, fy + (float) region[1] * size,
-                    (float) (region[2] - region[0]) * size, (float) (region[3] - region[1]) * size,
-                    uv[0], uv[1], uv[2], uv[3], 1, 1, 1, 1,
-                    ui.batch().palette(d.sheet().indexed() ? d.palette() : null));
-        }
-        return frame;
+        SpriteView view = new SpriteView(Elevation.SIDE, facing, Elevation.SIDE.renderAngle());
+        LayerStack.Result r = LayerStack.resolve(lib, wd, AnimState.REST, time, view, previewMemory);
+        // (about the top 0.85 m of her - head to waist - fills the glass)
+        float ppm = h / 0.85f;
+        float footY = y + h * 0.06f + 1.78f * ppm;
+        LayerStack.drawFlat(ui.batch(), r, x + w / 2, footY, ppm);
+        return -1;
     }
 
     private static String fit(Font font, String s, float width) {

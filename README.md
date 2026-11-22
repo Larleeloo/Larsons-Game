@@ -180,7 +180,9 @@ so going back puts her where she left off.
 - **The portrait** beside every page (`scene/Portrait`) is your character in
   a frame fitted to them: **turn** them (the arrows, a drag, or let them
   spin), look from level, above or the top, **zoom** in with the wheel or
-  **+**, switch to a **close-up of the face** at rest to see the features,
+  **+**, switch to the wardrobe's **animated close-up** (**Close up**: face
+  and shoulders at rest, breathing and glancing, turning by itself or by the
+  arrows and a drag, from all eight sides, in the clothes and colours picked),
   and step through poses - standing, walking, the attacks, parry, guard,
   shield bash - with the class's weapon in hand (a sword and shield until a
   class is picked, and for any move the class's weapon has none of, such as
@@ -554,12 +556,26 @@ in its mirror, turning through every view and state.
   on its tab, so it is never mistaken for the clothes: helmet, gorget,
   gambeson or jerkin, mail shirt, chestplate, gauntlets, both bracers, mail
   leggings, leg plating and sabatons, each with the die it rolls to block.
-  Its header has **Clothes under it: shown / hidden** - armour hides what it
-  covers unless this is on (kept with her look, `underShown`).
+  Its header has **Armour: shown / hidden** - hidden, the armour is still
+  worn (it rolls its dice, the Armour tab lists it) but it is not drawn, in
+  the game or the mirror, and the clothes it would cover show instead (kept
+  with her look, `armourHidden`).
 - **Every layer is a dropdown**: click it (or **A**) and the list hangs under
-  it, with each item's rarity dot and an armour piece's die; the d-pad moves
-  between the lists, **left / right** step through a list's choices without
-  opening it, **A** picks, **B** shuts it.
+  it (or over it, near the foot of the screen), with each item's rarity dot
+  and an armour piece's die; the d-pad moves between the lists, **left /
+  right** step through a list's choices without opening it, **A** picks,
+  **B** shuts it. A long list **scrolls**: the mouse wheel anywhere over it,
+  the bar at its side (drag it, or click above or below the handle), the
+  d-pad (it follows the highlighted row), with "N more" above and below.
+- **Every item is its own choice**: a garment cut in a named colour (the
+  Herder's shirt, the Moonsilk gown) or worn in another metal (a bronze
+  helmet, a gilded great helm) stays picked as itself, and a plain one picked
+  after it is plain again.
+- **One colour grid** under the lists: the whole 128-colour palette, with
+  the item's own shades in it where their colour is (one that is in no
+  palette colour sits beside its nearest) - no row of its own apart.
+  **Own colours** (**Natural** for the lips) puts the item back in the
+  colours it came in.
 - **Close up** in the mirror brings her face and shoulders near, **at rest
   and moving** (her breathing, a glance, a blink), from **every one of the
   eight sides** - the mirror's arrows turn her, *Spin* walks her round

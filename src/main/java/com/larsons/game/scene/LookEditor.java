@@ -259,43 +259,27 @@ public final class LookEditor {
         cy += 30;
         if (cols.isEmpty()) return changed;
 
-        // its own options first (and "its own": none picked), then the palette
-        List<Wearables.Colour> named = new ArrayList<>(), palette = new ArrayList<>();
-        List<Integer> shown = new ArrayList<>();
-        for (Wearables.Colour c : cols) {
-            if (Variants.isCustom(c.option())) continue;
-            named.add(c);
-            shown.add(swatch(focus, wardrobe, c.option()));
-        }
-        for (Wearables.Colour c : cols) {
-            // (a palette colour that is one of the item's own options is listed once, as the option)
-            if (Variants.isCustom(c.option()) && !shown.contains(Wearables.rgb(c.option()))) palette.add(c);
-        }
-        float sw = 28, sh = 22, step = sw + 4;
-        float nx = x;
+        // "its own" (none picked), then every colour it can be as one grid in the palette's order -
+        // the item's own shades among them, where they show (WardrobePanel.grid)
+        float sh = 22;
         if (focus != Slot.BODY) {
             String own = focus == Slot.MOUTH ? "Natural" : "Its own";
             float ow = ui.small.width(own) + 18;
-            if (ui.button(own, nx, cy, ow, sh, wardrobe.colour(focus) == null, true) && wardrobe.colour(focus) != null) {
+            if (ui.button(own, x, cy, ow, sh, wardrobe.colour(focus) == null, true) && wardrobe.colour(focus) != null) {
                 wardrobe.setColour(focus, null);
                 Sounds.play(SoundKeys.ui("wear"));
                 changed = true;
             }
-            nx += ow + 8;
+            cy += sh + 8;
         }
-        for (Wearables.Colour c : named) {
-            if (nx + sw > x + w) break;
-            changed |= chip(ui, nx, cy, sw, sh, c, wardrobe, player);
-            nx += step;
-        }
-        cy += sh + 8;
+        List<WardrobePanel.Cell> cells = WardrobePanel.grid(cols, o -> swatch(focus, wardrobe, o));
         int columns = 25;
         float pw = (float) Math.floor((w + 2) / columns), ph = 20;
-        for (int i = 0; i < palette.size(); i++) {
+        for (int i = 0; i < cells.size(); i++) {
             float px = x + (i % columns) * pw, py = cy + (i / columns) * (ph + 2);
-            changed |= chip(ui, px, py, pw - 2, ph, palette.get(i), wardrobe, player);
+            changed |= chip(ui, px, py, pw - 2, ph, cells.get(i), wardrobe, player);
         }
-        cy += ((palette.size() + columns - 1) / columns) * (ph + 2) + 4;
+        cy += ((cells.size() + columns - 1) / columns) * (ph + 2) + 4;
 
         // --- a dye, where the colour is not yet hers ---------------------------------------
         if (offered != null && player != null) {
@@ -319,10 +303,11 @@ public final class LookEditor {
     }
 
     /** One colour to click: lit when it is on, a padlock on one not unlocked (a bottle with a dye of it carried). */
-    private boolean chip(Ui ui, float x, float y, float w, float h, Wearables.Colour c, Wardrobe wardrobe,
+    private boolean chip(Ui ui, float x, float y, float w, float h, WardrobePanel.Cell cell, Wardrobe wardrobe,
                          Player player) {
-        int rgb = swatch(focus, wardrobe, c.option());
-        boolean on = c.option().equalsIgnoreCase(wardrobe.colour(focus)) || c.option().equals(offered);
+        Wearables.Colour c = cell.colour();
+        int rgb = cell.rgb();
+        boolean on = WardrobePanel.worn(cell, wardrobe.colour(focus)) || c.option().equals(offered);
         ui.rect(x, y, w, h, Theme.SOOT);
         ui.rect(x + 1, y + 1, w - 2, h - 2, rgb < 0 ? Theme.IRON : Theme.hex(rgb & 0xFFFFFF, 1f));
         int carried = 0;

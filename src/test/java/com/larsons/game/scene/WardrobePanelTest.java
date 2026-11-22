@@ -297,4 +297,106 @@ class WardrobePanelTest {
             Wearables.setEverything(false);
         }
     }
+    @Test
+    void aTailoredGarmentStaysPickedAndThePlainOneAfterIt() {
+        for (String id : List.of("baggy_shirt", "herders_shirt", "millers_shirt")) player.inventory().add(Item.of(w(id)));
+        Wardrobe wr = player.wardrobe();
+        List<WardrobePanel.Option> opts = WardrobePanel.options(lib, Slot.SHIRT, player);
+        assertEquals(List.of("None", "Baggy shirt", "Herder's shirt", "Miller's shirt"),
+                opts.stream().map(o -> o.label(Slot.SHIRT)).toList());
+        for (int i = 1; i < opts.size(); i++) {
+            WardrobePanel.choose(wr, Slot.SHIRT, opts.get(i));
+            assertEquals("plaid_flannel", wr.get(Slot.SHIRT));
+            assertEquals(i, WardrobePanel.current(opts, Slot.SHIRT, wr), opts.get(i).label(Slot.SHIRT) + " stays picked");
+        }
+        assertEquals("platinum", wr.colour(Slot.SHIRT), "the Miller's shirt is cut in platinum");
+        WardrobePanel.choose(wr, Slot.SHIRT, opts.get(1));
+        assertNull(wr.colour(Slot.SHIRT), "the plain shirt after it: its own colours, not the Miller's");
+        assertEquals(1, WardrobePanel.current(opts, Slot.SHIRT, wr));
+        // the plain one dyed is still the plain one; a tailored one dyed (without the plain one) is still itself
+        wr.setColour(Slot.SHIRT, "mint");
+        assertEquals(1, WardrobePanel.current(opts, Slot.SHIRT, wr));
+        assertSame(w("herders_shirt"), Wearables.wornAs(Slot.SHIRT, "plaid_flannel", "copper"));
+    }
+
+    @Test
+    void armourWithNothingUnderItHidesNothingAndNeverThrows() {
+        Wardrobe wr = new Wardrobe();
+        wr.set(Slot.CHESTPLATE, "iron_chestplate");
+        wr.set(Slot.CHAINMAIL, "chainmail_shirt");
+        for (Slot s : Slot.values()) assertDoesNotThrow(() -> wr.hidden(s), s + " with nothing worn there");
+        assertFalse(wr.hidden(Slot.NECKLACE));
+        assertNull(wr.cutBy(Slot.SHIRT));
+        wr.set(Slot.NECKLACE, "amulet");
+        wr.set(Slot.SHIRT, "plaid_flannel");
+        assertTrue(wr.hidden(Slot.NECKLACE), "an amulet lies under the chestplate");
+        assertTrue(wr.hidden(Slot.SHIRT), "a shirt under the mail");
+        wr.set(Slot.SHIRT, "robe");
+        assertFalse(wr.hidden(Slot.SHIRT));
+        assertEquals(Slot.CHAINMAIL, wr.cutBy(Slot.SHIRT), "a robe is cut at the mail's edge");
+    }
+
+    @Test
+    void theItemsOwnColoursAreSetAmongThePalettesNotApart() {
+        Wardrobe wr = player.wardrobe();
+        wr.set(Slot.SHIRT, "plaid_flannel");
+        List<Wearables.Colour> colours = WardrobePanel.colours(lib, Slot.SHIRT, player);
+        // "black" shows as one of the palette's colours; "pink" and "mint" as none of them
+        String black = Wearables.PALETTE.get(0);
+        java.util.Map<String, Integer> shows = java.util.Map.of("pink", 0xff5276, "black", Wearables.rgb(black),
+                "mint", 0x56c77c);
+        assertFalse(Wearables.PALETTE.contains("#ff5276") || Wearables.PALETTE.contains("#56c77c"));
+        List<WardrobePanel.Cell> grid = WardrobePanel.grid(colours, o -> shows.getOrDefault(o, -1));
+        assertEquals(Wearables.PALETTE.size() + 2, grid.size(), "the palette's hundred, black among them, and two more");
+        assertEquals("black", grid.get(0).colour().option(), "its own black takes the palette's black's place");
+        assertEquals(1, grid.stream().filter(c -> c.rgb() == Wearables.rgb(black)).count(), "once");
+        for (String own : List.of("pink", "mint")) {
+            int at = -1;
+            for (int i = 0; i < grid.size(); i++) if (grid.get(i).colour().option().equals(own)) at = i;
+            assertTrue(at > 0, own + " is in the grid");
+            assertTrue(Variants.isCustom(grid.get(at - 1).colour().option()), own + " sits beside a palette colour");
+        }
+        // the colour worn is lit whether it was put on by its name or as the palette's colour
+        assertTrue(WardrobePanel.worn(grid.get(0), "black"));
+        assertTrue(WardrobePanel.worn(grid.get(0), black));
+        assertFalse(WardrobePanel.worn(grid.get(1), "black"));
+    }
+
+    @Test
+    void hidingTheArmourLeavesEveryPieceUndrawnButStillWornAndGuarding() {
+        // the wardrobe knows armour by its folder: every piece that rolls dice, and nothing else
+        for (ItemDef d : Wearables.ALL) {
+            boolean listed = false;
+            for (String f : d.wearable().folders()) listed |= Wardrobe.ARMOUR.contains(f);
+            assertEquals(Wearables.armour(d), listed, d.id());
+        }
+        Wardrobe w = new Wardrobe();
+        w.set(Slot.SHIRT, "plaid_flannel");
+        w.set(Slot.CHAINMAIL, "chainmail_shirt");
+        w.set(Slot.CHESTPLATE, "iron_chestplate");
+        w.set(Slot.NECKLACE, "amulet");
+        w.set(Slot.HAT, "great_helm");
+        w.set(Slot.GLOVES, "iron_gauntlets");
+        w.set(Slot.WRISTWEAR, "gear_cuff");
+        assertTrue(w.hidden(Slot.SHIRT), "shown, the mail covers the shirt");
+        assertFalse(w.hidden(Slot.HAT));
+        int guarding = com.larsons.game.world.Armour.worn(w, null).size();
+        assertEquals(4, guarding);
+
+        w.setArmourHidden(true);
+        for (Slot s : List.of(Slot.HAT, Slot.CHAINMAIL, Slot.CHESTPLATE, Slot.GLOVES)) {
+            assertTrue(w.hidden(s), s + ": out of sight");
+            assertNotNull(w.get(s), s + ": still worn");
+        }
+        for (Slot s : List.of(Slot.SHIRT, Slot.NECKLACE, Slot.WRISTWEAR)) {
+            assertFalse(w.hidden(s), s + ": nothing drawn covers it now");
+        }
+        assertNull(w.cutBy(Slot.SHIRT));
+        assertEquals(guarding, com.larsons.game.world.Armour.worn(w, null).size(), "hidden, it still rolls its dice");
+        assertTrue(Wardrobe.fromJson(w.toJson()).armourHidden(), "kept with the look");
+        assertTrue(w.copy().armourHidden());
+        w.setArmourHidden(false);
+        assertTrue(w.hidden(Slot.SHIRT));
+        assertFalse(Wardrobe.fromJson(w.toJson()).armourHidden());
+    }
 }
