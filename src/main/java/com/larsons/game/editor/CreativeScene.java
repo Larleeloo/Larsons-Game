@@ -1883,8 +1883,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> "Name the level, choose its size, save it · F5: play from the spawn · Shift+F5: from the pointer";
             case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
-            case FORGE -> "Make a weapon of your own: its weapon, name and rarity, its dice and their colour, its "
-                    + "effects, its parts' colours, more dice, its ammunition, its upgrade tiers · Save it, then Place it";
+            case FORGE -> "Make a weapon, armour or clothes of your own: what it is made from, name and rarity, its dice, "
+                    + "its effects (a weapon's borders, worn gear's gifts), its colours, its upgrade tiers · Save it, then Place it";
             case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
@@ -2208,7 +2208,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * {@code assets/forge/} for every level, and placed from Place → Items.
      */
     private void forgePanel(Ui ui, float x, float y, float w) {
-        y = heading(ui, "Forge a weapon, armour or clothes", x, y);
+        y = heading(ui, "Forge weapons and gear", x, y);
         List<Forged> all = Forged.all();
         List<String> names = new ArrayList<>();
         names.add("A new weapon");
@@ -2300,8 +2300,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             List<String> said = forging.gearText();
             String line = said.isEmpty() ? "No special effects yet: add them on the Effects page."
                     : "Effects: " + String.join(", ", said) + ".";
-            ui.paragraph(ui.small, line, x, y, w, said.isEmpty() ? Theme.ITEM_DISABLED : Theme.ACCENT);
-            y += 38;
+            y += ui.paragraph(ui.small, line, x, y, w, said.isEmpty() ? Theme.ITEM_DISABLED : Theme.ACCENT) + 12;
         } else {
             // a weapon's effects: any of the three, all three if wanted
             Border[] borders = Border.values();
@@ -2368,24 +2367,25 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * everything else she wears.
      */
     private void forgeEffects(Ui ui, float x, float y, float w) {
-        ui.paragraph(ui.small, "What it does for whoever wears it, under other clothes or armour too. Several "
-                + "pieces add up; a dye still colours it.", x, y, w, Theme.ITEM_DISABLED);
-        y += 40;
-        float bw = (float) Math.floor(w * 0.46f);
+        y += ui.paragraph(ui.small, "What it does for whoever wears it, under other clothes or armour too. Several "
+                + "pieces add up; a dye still colours it.", x, y, w, Theme.ITEM_DISABLED) + 10;
+        float bw = (float) Math.floor(w * 0.52f);
         for (com.larsons.game.world.Gear.Effect e : com.larsons.game.world.Gear.Effect.values()) {
             Double amount = forging.gear().get(e);
             boolean on = amount != null;
-            if (ui.button(e.label(), x, y, bw, 28, on, true)) forging = forging.withGear(e, on ? 0 : e.fallback());
+            // (the small font on every one, so a short name is not drawn bigger than a long one)
+            if (ui.button("", x, y, bw, 28, on, true)) forging = forging.withGear(e, on ? 0 : e.fallback());
+            ui.textCentered(ui.small, fitSmall(ui, e.label(), bw - 8), x + bw / 2, y + 7, on ? Theme.TITLE : Theme.ITEM);
             ui.rect(x + 4, y + 24, bw - 8, 3, Theme.hex(e.rgb(), on ? 1f : 0.3f));
             float sx = x + bw + 6, sw = w - bw - 6;
             if (on && !e.onOff()) {
                 double v = amount;
                 if (ui.button("-", sx, y, 26, 28)) v = e.clamp(v - e.step());
                 if (ui.button("+", sx + sw - 26, y, 26, 28)) v = e.clamp(v + e.step());
-                ui.textCentered(ui.small, fitSmall(ui, e.said(v), sw - 60), sx + sw / 2, y + 7, Theme.TITLE);
+                ui.textCentered(ui.small, fitSmall(ui, e.amount(v), sw - 56), sx + sw / 2, y + 7, Theme.TITLE);
                 if (v != amount) forging = forging.withGear(e, v);
             } else {
-                ui.text(ui.small, fitSmall(ui, on ? e.said(1) : "Off", sw), sx + 4, y + 7,
+                ui.text(ui.small, fitSmall(ui, on ? "On" : "Off", sw), sx + 4, y + 7,
                         on ? Theme.TITLE : Theme.ITEM_DISABLED);
             }
             y += 31;
@@ -2595,8 +2595,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         Forged f = forging;
         y = heading(ui, "As it will be", x, y);
         ItemSprites items = game.items();
-        ItemSprites.Spin spin = items.spin(f.base());
-        ItemSprites.Icon icon = spin == null ? null : items.icon(f.base(), f.tints());
+        // (armour and clothes as they lie about: a shield or a shirt on a hanger, in its rarity's colour)
+        com.larsons.game.world.Wearables.Pickup pickup = f.worn()
+                ? com.larsons.game.world.Wearables.pickup(f.item()) : null;
+        String spinId = pickup != null ? pickup.spin() : f.base();
+        ItemSprites.Spin spin = items.spin(spinId);
+        ItemSprites.Icon icon = spin == null ? null : pickup != null ? items.icon(spinId, pickup.part(), pickup.rgb())
+                : items.icon(f.base(), f.tints());
         float s = w * 0.86f;
         if (icon != null) {
             int frame = (int) Math.floor(view.world().time() / 6.0 * icon.frames());
@@ -2615,13 +2620,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.text(ui.body, f.name(), x, y, f.rarity().colour(1f));
         y += 28;
         ItemDef base = f.def();
+        // (clothes roll nothing: only weapons and armour have dice)
+        boolean rolls = !f.worn() || com.larsons.game.world.Armour.sides(base) > 0;
         ui.text(ui.small, f.rarity().label() + " - forged " + base.name().toLowerCase(java.util.Locale.ROOT)
-                + " - rolls " + f.diceText(), x, y, Theme.ITEM);
+                + (rolls ? " - rolls " + f.diceText() : ""), x, y, Theme.ITEM);
         y += 22;
         for (Border e : f.effects()) {
             y += ui.paragraph(ui.small, e.label() + ": " + e.effect(), x, y, w, e.colour(1f)) + 2;
         }
+        // worn gear's gifts, a line each in its colour
+        for (var g : f.gear().entrySet()) {
+            y += ui.paragraph(ui.small, g.getKey().said(g.getValue()), x, y, w, Theme.hex(g.getKey().rgb(), 1f)) + 2;
+        }
         y += 8;
+        if (!rolls) return;
         // its dice, come up highest (a d% as its tens and its ones), and any more doing their sums
         com.larsons.game.combat.DiceRoll roll = highest(f);
         int[] pal = com.larsons.game.combat.CombatColours.diePalette(f.rarity(),

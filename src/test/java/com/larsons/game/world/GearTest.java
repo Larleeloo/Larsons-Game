@@ -247,6 +247,17 @@ class GearTest {
     }
 
     @Test
+    void eachGiftIsSaidInFullAndShortForTheForgesSteppers() {
+        assertEquals("+50 max health", Gear.Effect.HEALTH.said(50));
+        assertEquals("+50", Gear.Effect.HEALTH.amount(50));
+        assertEquals("+2.5/s", Gear.Effect.HEALTH_REGEN.amount(2.5));
+        assertEquals("10%", Gear.Effect.STAMINA_ABSORB.amount(10));
+        assertEquals("-25%", Gear.Effect.HEAVY_COOLDOWN.amount(25));
+        assertEquals("+15%", Gear.Effect.SPEED.amount(15));
+        assertEquals("On", Gear.Effect.DOUBLE_JUMP.amount(1));
+    }
+
+    @Test
     void theForgesTwoExamplesAreAnArmourPieceAndAGarmentWithGifts() throws java.io.IOException {
         Forged guard = Forged.parse("wyrmguard",
                 java.nio.file.Files.readString(java.nio.file.Path.of("assets", "forge", "wyrmguard.json")));

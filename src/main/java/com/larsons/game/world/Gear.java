@@ -68,6 +68,19 @@ public final class Gear {
             return said.contains("%s") ? String.format(Locale.ROOT, said, trim(amount)) : said;
         }
 
+        /** Its amount, short, for the Forge's - / +: "+25", "+2/s", "10%", "-25%", "On". */
+        public String amount(double amount) {
+            if (onOff()) return "On";
+            String n = trim(amount);
+            return switch (this) {
+                case HEALTH, MANA, STAMINA -> "+" + n;
+                case HEALTH_REGEN, MANA_REGEN, STAMINA_REGEN -> "+" + n + "/s";
+                case HEALTH_ABSORB, MANA_ABSORB, STAMINA_ABSORB -> n + "%";
+                case HEAVY_COOLDOWN -> "-" + n + "%";
+                default -> "+" + n + "%";
+            };
+        }
+
         /** The amount a piece is forged with at first. */
         public double fallback() { return fallback; }
 
