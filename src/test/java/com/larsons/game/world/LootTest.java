@@ -69,8 +69,8 @@ class LootTest {
 
     @Test
     void anItemIsWrittenAsOneWordAndReadBack() {
-        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.CRYSTAL).withBorder(Border.BONDED);
-        assertEquals("battle_axe:crystal:bonded", axe.key());
+        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.CRYSTAL).withBorder(Border.BLOODLUST);
+        assertEquals("battle_axe:crystal:bloodlust", axe.key());
         assertEquals(axe, Item.parse(axe.key()));
         assertEquals("sword", Item.of(ItemDef.SWORD).key(), "the lowest tier goes without saying");
         assertEquals(Item.of(ItemDef.SWORD), Item.parse("sword"));

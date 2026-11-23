@@ -54,9 +54,9 @@ class GearTest {
     @Test
     void armourAndClothesTakeTheGearsEffectsAndNeverTheWeaponsBorders() {
         Forged gorget = new Forged("g", "Gorget", "gorget", Rarity.RARE, Map.of(), 1, 6, -1,
-                Set.of(Border.VENOM, Border.MYSTIC, Border.BONDED), List.of(), Forged.AMMO_EVERY, List.of(), 0,
+                Set.of(Border.VENOM, Border.MYSTIC, Border.BLOODLUST), List.of(), Forged.AMMO_EVERY, List.of(), 0,
                 Map.of(Gear.Effect.HEALTH, 40.0));
-        assertTrue(gorget.effects().isEmpty(), "no Venom, Mystic or Bonded on armour");
+        assertTrue(gorget.effects().isEmpty(), "no Venom, Mystic or Bloodlust on armour");
         assertEquals(40, gorget.gear().get(Gear.Effect.HEALTH));
         assertTrue(gorget.worn());
 

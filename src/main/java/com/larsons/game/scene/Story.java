@@ -53,8 +53,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
  */
 final class Story {
 
-    /** The most slots packs can take her inventory to. */
-    static final int MOST_SLOTS = 60;
     private static final float[] QUEST = Theme.rgb(255, 210, 122, 1f), DONE = Theme.rgb(140, 220, 130, 1f);
 
     private record Option(String label, float[] colour, Runnable does) {}
@@ -539,12 +537,16 @@ final class Story {
             }
             case PACK -> {
                 int more = Integer.parseInt(g.arg()), size = p.inventory().size();
-                if (size >= MOST_SLOTS) {
+                if (size >= Player.MOST_SLOTS) {
                     game.toast("You can carry no more than this", Theme.HINT);
                     return;
                 }
                 world.useUpHeld();
-                p.inventory().resize(Math.min(MOST_SLOTS, size + more));
+                // (the bag's slots go before the pack's: the pack's are always the last)
+                int pack = p.packSlots();
+                p.fitPack(0);
+                p.inventory().resize(Math.min(Player.MOST_SLOTS, p.inventory().size() + more));
+                p.fitPack(pack);
                 Sounds.play(SoundKeys.ui("equip"));
                 game.toast("Inventory: " + p.inventory().size() + " slots", Theme.OK);
             }

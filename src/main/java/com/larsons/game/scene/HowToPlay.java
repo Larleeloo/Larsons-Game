@@ -57,7 +57,8 @@ final class HowToPlay {
                             Action.LOCK, Action.LOCK_NEXT),
                     List.of("{ATTACK} strikes with what is in your hands. Every blow rolls dice over your head in "
                                     + "the colour of the weapon's rarity, and their total is the damage: a Common "
-                                    + "weapon rolls one D20, a Mythic one six. A forged weapon can roll its own dice, "
+                                    + "weapon rolls one die, a Mythic six - bare hands a D4, a dagger a D6, a sword, axe or mace a D8, a "
+                                    + "bow or crossbow a D10, a staff or wand a D12. A forged weapon can roll its own dice, "
                                     + "even adding or multiplying them.",
                             "{HEAVY} is a heavy attack, one die more, once every ten seconds: the orange bar by the "
                                     + "hotbar fills again. {SPIN} spins and strikes all round you.",
@@ -141,7 +142,7 @@ final class HowToPlay {
                                     + "Game sets how near), and go in your purse and your pouch, not a slot.",
                             "Everything has a rarity, from Common in white to Mythic in cyan, shown in its glow. "
                                     + "Some weapons carry a rare border: Venom poisons, Mystic strikes harder for "
-                                    + "mana, Bonded grows with every foe it has struck.")),
+                                    + "mana, Bloodlust grows with every foe it has struck.")),
             new Chapter("Classes and cards", "reshuffle_scroll",
                     List.of(Action.CARDS, Action.INVENTORY),
                     List.of("Your class gives you a deck of cards: four in hand to start, and one more every few "

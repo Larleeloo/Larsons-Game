@@ -270,7 +270,7 @@ public final class BrassVale {
         // the market: six stalls round the fountain, each with its own wares (all to be changed in the editor)
         String[][] stalls = {
                 {"The Brass Blade", "sword, sword sharper, sword crystal, sword perfect, sword mythic, "
-                        + "sword sharper venom, sword crystal mystic, sword perfect bonded, "
+                        + "sword sharper venom, sword crystal mystic, sword perfect bloodlust, "
                         + "dagger sharper, mace sharper, battle_axe sharper, longbow crafted, crossbow, "
                         + "whetstone x30, iron wedges x30, mace studs x30, upgrade ingot x6"},
                 {"Phials and Fumes", "health potion x8, greater health potion x3, mana potion x6, stamina potion x6, "
@@ -707,8 +707,8 @@ public final class BrassVale {
                         + "drinking horn x2, gilded horn x1, twine x20"},
                 {"Mirel's Keys and Curios", "rusty key x2, iron key x1, brass key x1, silver key x1, gold key x1, "
                         + "bone key x1, skeleton key x1, crystal ball x1, crystal shield x1, scroll of return x4"},
-                {"Dhal's Edge", "dagger sharper venom, mace sharper mystic, battle_axe sharper bonded, "
-                        + "sword crystal venom, sword perfect mystic, longbow crafted bonded, "
+                {"Dhal's Edge", "dagger sharper venom, mace sharper mystic, battle_axe sharper bloodlust, "
+                        + "sword crystal venom, sword perfect mystic, longbow crafted bloodlust, "
                         + "crossbow crafted venom, wand honed mystic, whetstone x20, iron wedges x20"}};
         String[] keepers = {"Ashka of the Long Road", "Tovrin Packmaker", "Old Mirel", "Dhal"};
         String[] says = {"Every shell here is warm. Mind the green one - it has been warm for a hundred years.",

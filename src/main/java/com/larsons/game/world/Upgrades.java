@@ -17,11 +17,9 @@ import java.util.List;
  * The top tier of a chart weapon (its Mythic) is a mystery until it is
  * reached.
  *
- * <p>Armour climbs the same way ({@link Tier#armour}): each tier up a rarity,
- * so more dice to block a blow with ({@link Armour}) - and the clothes too
- * ({@link Tier#clothing}), which block nothing. Every tier of a piece of
- * armour or clothing gives what the Tailor set for it ({@link Tailor}); a
- * forged piece climbs its own tiers, each giving what it was made with.
+ * <p>The clothes and the armour the game comes with have no tiers: only a
+ * piece of your own, made in Creative Mode's Tailor ({@link Forged}), climbs
+ * tiers - its own, each giving what it was made with.
  */
 public final class Upgrades {
 
@@ -120,7 +118,7 @@ public final class Upgrades {
                     : worn ? "" : dice.applyAsInt(t.rarity()) + Forged.die(sides);
             out.add(new Step(at.name(), t.rarity(), rolls, worn ? 0 : Ammo.every(at),
                     n == 0 ? 0 : cost(t.rarity()), n == tiers.size() - 1 && n > now, n <= now, n == now,
-                    worn ? Tailor.gear(item.def(), t) : java.util.Map.of()));
+                    java.util.Map.of()));
         }
         return out;
     }

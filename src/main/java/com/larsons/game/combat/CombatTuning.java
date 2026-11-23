@@ -10,16 +10,18 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * The numbers combat runs on, in one place to tune: how many D20s a weapon
- * of each rarity rolls, how long a heavy attack and a dodge take to come
+ * The numbers combat runs on, in one place to tune: how many dice a weapon
+ * of each rarity rolls and of how many sides each kind of weapon's are, how long a heavy attack and a dodge take to come
  * back, the mana pool, how fast the projectiles fly, how much a dummy takes. Read from {@code assets/combat/combat.json} (every
  * value is optional: one left out keeps its default here); the borders'
- * own numbers - Venom's share, Mystic's multipliers, Bonded's step - are
+ * own numbers - Venom's share, Mystic's multipliers, Bloodlust's step - are
  * the rarity system's ({@link com.larsons.game.world.Border}).
  *
  * <pre>
- *   Common     1d20      Rare       3d20      Legendary  5d20
- *   Uncommon   2d20      Epic       4d20      Mythic     6d20
+ *   Common     1 die     Rare       3 dice    Legendary  5 dice
+ *   Uncommon   2 dice    Epic       4 dice    Mythic     6 dice
+ *   their sides by the weapon: bare hands D4, a dagger D6, a sword, an axe or a mace D8,
+ *   a bow or a crossbow D10, a staff or a wand D12 (dice.sidesByWeapon)
  *   a heavy attack rolls one die more; no weapon at all rolls one;
  *   a wand's heavy attack - a blow, no spell in it - rolls one, whatever the wand
  *   a heavy attack can be made once every 10 seconds
@@ -31,8 +33,13 @@ public final class CombatTuning {
     /** Where the game reads it, under the assets folder. */
     public static final String FILE = "combat/combat.json";
 
-    /** Faces on a die. */
+    /** Faces on a die of a weapon {@link #sidesByWeapon} does not name. */
     public final int sides;
+    /** Faces on each kind of weapon's dice, by its id ({@code unarmed}: bare hands). */
+    private final Map<String, Integer> sidesByWeapon;
+    /** The dice each kind of weapon rolls, as the game comes. */
+    public static final Map<String, Integer> SIDES = Map.of("unarmed", 4, "dagger", 6, "sword", 8,
+            "battle_axe", 8, "mace", 8, "longbow", 10, "crossbow", 10, "crystal_staff", 12, "wand", 12);
     private final Map<Rarity, Integer> dice;
     /** Extra dice a heavy attack rolls. */
     public final int heavyExtra;
@@ -87,9 +94,28 @@ public final class CombatTuning {
      */
     public final com.larsons.game.world.Armour.Rules armour;
 
+    /** The nearest die there is art for to {@code n} sides: 4, 6, 8, 10, 12 or 20. */
+    static int known(int n) {
+        int best = 20;
+        for (int k : new int[]{4, 6, 8, 10, 12, 20}) if (Math.abs(k - n) < Math.abs(best - n)) best = k;
+        return best;
+    }
+
+    /** How many sides {@code weapon}'s dice have (null: bare hands): its kind's ({@link #SIDES}). */
+    public int sides(com.larsons.game.world.ItemDef weapon) {
+        return sidesByWeapon.getOrDefault(weapon == null ? "unarmed" : weapon.id(), sides);
+    }
+
     private CombatTuning(Map<String, Object> json) {
         Map<String, Object> d = Json.obj(json, "dice");
-        sides = Math.max(2, Math.min(20, (int) Json.num(d, "sides", 20)));   // the dice are drawn with 20 faces
+        sides = known((int) Json.num(d, "sides", 8));
+        Map<String, Object> by = Json.obj(d, "sidesByWeapon");
+        Map<String, Integer> sb = new java.util.HashMap<>();
+        for (Map.Entry<String, Integer> e : SIDES.entrySet()) {
+            sb.put(e.getKey(), known((int) Json.num(by, e.getKey(), e.getValue())));
+        }
+        for (String k : by.keySet()) if (!sb.containsKey(k)) sb.put(k, known((int) Json.num(by, k, sides)));
+        sidesByWeapon = Map.copyOf(sb);
         Map<String, Object> per = Json.obj(d, "perRarity");
         int[] standard = {1, 2, 3, 4, 5, 6};
         dice = new EnumMap<>(Rarity.class);
