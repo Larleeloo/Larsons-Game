@@ -59,6 +59,8 @@
   "heart": 54,
   "star": 55,
   "shield": 56,
-  "portal": 57
+  "portal": 57,
+  "pick": 58,
+  "furnace": 59
  }
 }

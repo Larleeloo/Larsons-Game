@@ -1,0 +1,79 @@
+{
+ "key": "smelter",
+ "label": "Smelting furnace",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.97,
+ "model": true,
+ "parts": [
+  {
+   "key": "stone",
+   "label": "Stone",
+   "colour": "#7e7a74",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "brick",
+   "label": "Firebrick",
+   "colour": "#9a4a32",
+   "texture": "brick",
+   "glow": false
+  },
+  {
+   "key": "iron",
+   "label": "Iron",
+   "colour": "#3a3a40",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "fire",
+   "label": "Fire",
+   "colour": "#f08a30",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "bellows",
+   "label": "Bellows",
+   "colour": "#7a4e2e",
+   "texture": "woven",
+   "glow": false
+  },
+  {
+   "key": "wood",
+   "label": "Wood",
+   "colour": "#6a4a2a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "coal",
+   "label": "Coal",
+   "colour": "#262428",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.858
+  ],
+  [
+   "box",
+   1.1,
+   0.0,
+   0.55,
+   0.55
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null
+}

@@ -1111,6 +1111,12 @@ public final class WorldRenderer implements AutoCloseable {
             lamps.add(new Lamp(g.position.add(0, 0.5, 0), 1.4, g.item.rarity().rgb(), 0.35 * night));
         }
         for (World.LightSpot s : world.lights()) lamps.add(new Lamp(s.at(), s.radius(), s.rgb(), s.strength() * night));
+        // her brass lantern, lit: the dark round her, warm, flickering a little
+        if (world.player().lanternLit()) {
+            double flicker = 0.92 + 0.05 * Math.sin(world.time() * 9.1) + 0.03 * Math.sin(world.time() * 17.3);
+            lamps.add(new Lamp(world.player().ground().add(0, 1.3, 0), 7.5, 0xFFC878,
+                    Math.max(0.35, night) * flicker));
+        }
         // a few of the fireflies nearest the camera light the grass round them as they blink
         List<Critter> flies = new ArrayList<>();
         Vec3 aim = camera.target();

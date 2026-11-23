@@ -389,6 +389,16 @@ public final class Player {
     private Stance stance = Stance.SWORD;
     private boolean handsEmpty;
     private boolean crouched;
+    /** Whether her brass lantern is lit (it lights the dark round her: {@code WorldRenderer}). */
+    private boolean lanternLit;
+
+    public boolean lanternLit() {
+        return lanternLit && inventory.total(Goods.item(Goods.LANTERN)) > 0;
+    }
+
+    public void setLanternLit(boolean on) {
+        lanternLit = on;
+    }
     private boolean jumping, launched;
     /** In the air in a jump attack (until she lands), and in the air loosing a shot. */
     private boolean plunging, aerial;

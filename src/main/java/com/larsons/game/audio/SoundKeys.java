@@ -125,7 +125,7 @@ public final class SoundKeys {
             "select", "place", "remove", "rotate", "brush", "undo", "save", "playtest",
             "level_up", "upgrade", "card_play", "card_shuffle", "perk", "shop_open", "shop_buy", "shop_sell",
             "open", "close", "tab", "buy", "equip", "talk", "quest_new", "quest_ready", "quest_done",
-            "craft", "crafted", "brew", "brewed", "summon", "card_open", "card_draw",
+            "craft", "crafted", "brew", "brewed", "smelted", "summon", "card_open", "card_draw",
             "map_step", "map_arrive", "map_enter", "round_start", "round_end", "game_over");
 
     /** The training dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
@@ -195,7 +195,14 @@ public final class SoundKeys {
      * the crystal shield raised.
      */
     public static final List<String> GOODS_SOUNDS = List.of("potion_drink", "scroll_read", "egg_hatch", "storm",
-            "return", "horn_fill", "horn_drink", "crystal_ball", "crystal_shield");
+            "return", "horn_fill", "horn_drink", "crystal_ball", "crystal_shield", "spyglass", "lantern_light",
+            "lantern_out", "bandage", "smoke_pellet", "blade_oil");
+
+    /**
+     * The gathering spots worked: a vein or a seam mined, a crystal chipped,
+     * sand or clay dug, logs cut, flax cut, resin taken from a pine.
+     */
+    public static final List<String> GATHER_SOUNDS = List.of("mine", "chip", "dig", "chop", "cut", "tap");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -604,6 +611,7 @@ public final class SoundKeys {
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
         out.add(row(SoundCategory.WORLD, "item/eat", "Eating something picked", "eat"));
         for (String s : GOODS_SOUNDS) out.add(row(SoundCategory.WORLD, "item/" + s, goodsName(s), s));
+        for (String s : GATHER_SOUNDS) out.add(row(SoundCategory.WORLD, "gather/" + s, gatherName(s), s));
         for (String s : FISHING_SOUNDS) out.add(row(SoundCategory.WORLD, "fishing/" + s, fishingName(s), s));
         for (String s : HORDE_SOUNDS) out.add(row(SoundCategory.WORLD, "horde/" + s, hordeName(s), s));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
@@ -939,6 +947,7 @@ public final class SoundKeys {
             case "crafted" -> "Workbench: made";
             case "brew" -> "Cauldron: starting a brew";
             case "brewed" -> "Cauldron: brewed";
+            case "smelted" -> "Furnace: smelted";
             case "summon" -> "A summoning station's button pressed";
             case "card_open" -> "The card table opened";
             case "card_draw" -> "A card drawn";
@@ -1005,6 +1014,24 @@ public final class SoundKeys {
             case "horn_drink" -> "Drinking from the horn";
             case "crystal_ball" -> "Looking into the crystal ball";
             case "crystal_shield" -> "The crystal shield raised";
+            case "spyglass" -> "Looking through the spyglass";
+            case "lantern_light" -> "The lantern lit";
+            case "lantern_out" -> "The lantern put out";
+            case "bandage" -> "A bandage wound on";
+            case "smoke_pellet" -> "A smoke pellet burst";
+            case "blade_oil" -> "Blade oil wiped on";
+            default -> s;
+        };
+    }
+
+    private static String gatherName(String s) {
+        return switch (s) {
+            case "mine" -> "Mining a vein or a seam";
+            case "chip" -> "Chipping crystal";
+            case "dig" -> "Digging sand or clay";
+            case "chop" -> "Cutting fallen logs";
+            case "cut" -> "Cutting flax";
+            case "tap" -> "Taking resin from a pine";
             default -> s;
         };
     }

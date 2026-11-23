@@ -1,0 +1,52 @@
+{
+ "key": "clay_bank_spent",
+ "label": "Clay bank (dug out)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.242,
+ "model": true,
+ "parts": [
+  {
+   "key": "soil",
+   "label": "Clay",
+   "colour": "#b06a44",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "wet",
+   "label": "Dug face",
+   "colour": "#7a4430",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "stones",
+   "label": "Stones",
+   "colour": "#8a867e",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "spade",
+   "label": "Spade",
+   "colour": "#5a5a60",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "handle",
+   "label": "Handle",
+   "colour": "#8a6038",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

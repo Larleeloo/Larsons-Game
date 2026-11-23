@@ -23,7 +23,11 @@ import java.util.Map;
  *   rods         fishing rods, better by rarity: a longer bite, a wider catch, rarer fish
  *   fish         what is caught, eaten or sold - and brewed with
  *   packs        a satchel, a backpack, an explorer's pack: more room in her inventory, for good
- *   makings      bottles, parchment, ink, twine, gears, hooks: what the benches and cauldrons use up
+ *   materials    what is gathered at a gathering spot ({@link Gathering}): ore, coal, timber, sand, clay,
+ *                raw crystal, flax, resin
+ *   makings      bars, glass, planks, charcoal, bottles, parchment, ink, twine, gears, hooks: what the furnace,
+ *                the benches and the cauldrons make of the materials, and use up
+ *   field kits   bandages, smoke pellets, blade oil: made, carried, used up in a fight
  * </pre>
  *
  * <p>Each is drawn as one of the turning pickups 3D-Modeling's {@code
@@ -35,7 +39,7 @@ public final class Goods {
     /** What sort of good it is. */
     public enum Kind {
         POTION("Potion"), SCROLL("Scroll"), KEY("Key"), EGG("Spawner egg"), TRINKET("Trinket"), ROD("Fishing rod"),
-        FISH("Fish"), MEAL("Meal"), PACK("Pack"), MAKING("Crafting");
+        FISH("Fish"), MEAL("Meal"), PACK("Pack"), MATERIAL("Material"), MAKING("Crafting"), KIT("Field kit");
 
         private final String label;
 
@@ -65,13 +69,14 @@ public final class Goods {
 
         /** Whether using it uses it up. */
         public boolean spent() {
-            return kind == Kind.POTION || kind == Kind.SCROLL || kind == Kind.EGG || kind == Kind.PACK;
+            return kind == Kind.POTION || kind == Kind.SCROLL || kind == Kind.EGG || kind == Kind.PACK
+                    || kind == Kind.KIT;
         }
 
         /** Whether it can be used from her hand at all. */
         public boolean usable() {
             return kind == Kind.POTION || kind == Kind.SCROLL || kind == Kind.EGG || kind == Kind.PACK
-                    || kind == Kind.TRINKET;
+                    || kind == Kind.TRINKET || kind == Kind.KIT;
         }
     }
 
@@ -79,6 +84,11 @@ public final class Goods {
             P_ORB = "craft_orb", P_HORN = "craft_horn", P_ROD = "craft_rod", P_FISH = "craft_fish",
             P_PACK = "craft_backpack", P_SCROLL = Supplies.P_SCROLL, P_SHIELD = "armour_shield",
             P_BOTTLE = "dye_bottle", P_INGOT = Supplies.P_INGOT, P_CRYSTAL = Supplies.P_CRYSTAL;
+    /** The materials' and the makings' pickups (hand-pixelled: tools/items/make_pickups.py). */
+    public static final String P_ORE = "mat_ore", P_LOGS = "mat_logs", P_HEAP = "mat_heap", P_SHARD = "mat_shard",
+            P_SHEAF = "mat_sheaf", P_RESIN = "mat_resin", P_BAR = "mat_bar", P_GLASS = "mat_glass",
+            P_PLANKS = "mat_planks", P_CRUCIBLE = "mat_crucible", P_LENS = "mat_lens", P_BANDAGE = "kit_bandage",
+            P_PELLET = "kit_pellet", P_SPYGLASS = "craft_spyglass", P_LANTERN = "craft_lantern";
 
     private static final Map<String, Good> BY_ID = new LinkedHashMap<>();
     private static final List<ItemDef> DEFS = new ArrayList<>();
@@ -142,6 +152,16 @@ public final class Goods {
     private static Good making(String id, String name, Rarity r, int price, String about, String pickup, String part,
                                int rgb) {
         return good(id, name, Kind.MAKING, r, price, about, 40, pickup, part, rgb, 0, 0, 0, null);
+    }
+
+    private static Good material(String id, String name, Rarity r, int price, String about, String pickup,
+                                 String part, int rgb) {
+        return good(id, name, Kind.MATERIAL, r, price, about, 40, pickup, part, rgb, 0, 0, 0, null);
+    }
+
+    private static Good kit(String id, String name, Rarity r, int price, String about, String pickup, String part,
+                            int rgb, double health, Help... helps) {
+        return good(id, name, Kind.KIT, r, price, about, 10, pickup, part, rgb, health, 0, 0, null, helps);
     }
 
     // --- potions: brewed at a cauldron ---------------------------------------------------
@@ -304,6 +324,47 @@ public final class Goods {
 
     public static final List<Good> PACKS = List.of(SATCHEL, BACKPACK, EXPLORERS_PACK);
 
+    // --- trinkets of the furnace and the bench ---------------------------------------------------
+    public static final Good SPYGLASS = good("spyglass", "Brass spyglass", Kind.TRINKET, Rarity.RARE, 120,
+            "Look about: every foe within sight marked for 20 seconds. Ready again in 20", 1, P_SPYGLASS, "metal",
+            0xD6AA5C, 0, 0, 0, null);
+    public static final Good LANTERN = good("brass_lantern", "Brass lantern", Kind.TRINKET, Rarity.UNCOMMON, 78,
+            "Lit, it lights the dark round you. Use it to light it or put it out", 1, P_LANTERN, "metal", 0xD6AA5C,
+            0, 0, 0, null);
+
+    // --- field kits: made at the bench and the cauldron, used up --------------------------------
+    public static final Good BANDAGE = kit("bandage", "Bandage", Rarity.COMMON, 8,
+            "+15 health, and 3 a second for 15 seconds", P_BANDAGE, "cloth", 0xE8E0D0, 15,
+            help(Buffs.Kind.REGEN_HEALTH, 3, 15));
+    public static final Good SMOKE_PELLET = kit("smoke_pellet", "Smoke pellet", Rarity.UNCOMMON, 14,
+            "A cloud of smoke: half as easily noticed for 30 seconds", P_PELLET, "shell", 0x8A8A92, 0,
+            help(Buffs.Kind.STEALTH, 0.5, 30));
+    public static final Good BLADE_OIL = kit("blade_oil", "Blade oil", Rarity.UNCOMMON, 30,
+            "Every blow poisons for a third as much again, for 90 seconds", P_POTION, "liquid", 0x9AB83A, 0,
+            help(Buffs.Kind.POISON, 0.33, 90));
+
+    // --- materials: gathered at the gathering spots ------------------------------------------
+    public static final Good IRON_ORE = material("iron_ore", "Iron ore", Rarity.COMMON, 3,
+            "Mined from an iron vein. Smelted into iron bars", P_ORE, "ore", 0x9A5232);
+    public static final Good COPPER_ORE = material("copper_ore", "Copper ore", Rarity.COMMON, 4,
+            "Mined from a copper vein. Smelted into copper bars", P_ORE, "ore", 0xC87533);
+    public static final Good CALAMINE = material("calamine", "Calamine", Rarity.UNCOMMON, 8,
+            "The pale stone in a copper vein: smelted with copper, it makes brass", P_ORE, "ore", 0xA8C8B0);
+    public static final Good COAL = material("coal", "Coal", Rarity.COMMON, 3,
+            "Mined from a coal seam. What a furnace burns", P_ORE, "ore", 0x2E2C30);
+    public static final Good TIMBER = material("timber", "Timber", Rarity.COMMON, 3,
+            "Cut from fallen logs. Sawn into planks, or burnt down to charcoal", P_LOGS, "wood", 0x7A5030);
+    public static final Good SAND = material("sand", "Sand", Rarity.COMMON, 1,
+            "Dug from a sand bank. Melted into glass; grit for whetstones", P_HEAP, "heap", 0xD8C08A);
+    public static final Good CLAY = material("clay", "Clay", Rarity.COMMON, 2,
+            "Dug from a clay bank. Fired into crucibles and whetstones", P_HEAP, "heap", 0xB06A44);
+    public static final Good RAW_CRYSTAL = material("raw_crystal", "Raw crystal", Rarity.UNCOMMON, 16,
+            "Chipped from a crystal cluster. Ground to dust, cut for a wand or a staff", P_SHARD, "crystal", 0x8AD8F0);
+    public static final Good FLAX = material("flax", "Flax", Rarity.COMMON, 2,
+            "Cut from a flax patch. Spun into twine, woven into cloth", P_SHEAF, "stalks", 0xB8B060);
+    public static final Good RESIN = material("resin", "Pine resin", Rarity.COMMON, 3,
+            "From a tapped pine. Glues fletching, thickens oil, burns smoky", P_RESIN, "resin", 0xD08A2A);
+
     // --- makings -----------------------------------------------------------------------------
     public static final Good EMPTY_BOTTLE = making("empty_bottle", "Empty bottle", Rarity.COMMON, 4,
             "Every potion wants one", P_POTION, "liquid", 0xDDE8EE);
@@ -317,14 +378,28 @@ public final class Goods {
             "metal", 0x9A9590);
     public static final Good BRASS_GEAR = making("brass_gear", "Brass gear", Rarity.UNCOMMON, 14,
             "Clockwork's first need", P_INGOT, "metal", 0xD6AA5C);
-    public static final Good IRON_BAR = making("iron_bar", "Iron bar", Rarity.COMMON, 10, "Keys, hooks, fittings",
-            P_INGOT, "metal", 0x6E7480);
+    public static final Good IRON_BAR = making("iron_bar", "Iron bar", Rarity.COMMON, 10,
+            "Smelted iron: keys, hooks, arrowheads, fittings", P_BAR, "metal", 0x6E7480);
     public static final Good CRYSTAL_DUST = making("crystal_dust", "Crystal dust", Rarity.RARE, 30,
             "Ground crystal: the rarest brews and makings", P_CRYSTAL, "crystal", 0xC86FFF);
     public static final Good LEATHER = making("leather", "Leather", Rarity.COMMON, 8, "Tanned hide: packs and straps",
             P_PACK, "cloth", 0x8A5A33);
-    public static final Good CLOTH = making("cloth", "Cloth", Rarity.COMMON, 6, "Woven wool: packs and wrappings",
+    public static final Good CLOTH = making("cloth", "Cloth", Rarity.COMMON, 6, "Woven wool or flax: packs, bandages",
             P_PACK, "cloth", 0xD8D0C8);
+    public static final Good CHARCOAL = making("charcoal", "Charcoal", Rarity.COMMON, 3,
+            "Timber burnt down: a furnace's fuel, black ink, smoke", P_ORE, "ore", 0x3A3436);
+    public static final Good PLANKS = making("planks", "Planks", Rarity.COMMON, 2,
+            "Sawn timber: shafts for arrows and bolts, rods", P_PLANKS, "wood", 0xB08050);
+    public static final Good COPPER_BAR = making("copper_bar", "Copper bar", Rarity.COMMON, 12,
+            "Smelted copper: with calamine, brass", P_BAR, "metal", 0xC87533);
+    public static final Good BRASS_BAR = making("brass_bar", "Brass bar", Rarity.UNCOMMON, 24,
+            "Copper and calamine smelted together: gears, keys, fittings", P_BAR, "metal", 0xD6AA5C);
+    public static final Good CRUCIBLE = making("crucible", "Crucible", Rarity.COMMON, 6,
+            "Fired clay: brass is smelted in one", P_CRUCIBLE, "clay", 0xB06A44);
+    public static final Good GLASS = making("glass", "Glass", Rarity.COMMON, 6,
+            "Sand melted clear: bottles, lenses, a lantern's panes", P_GLASS, "glass", 0xB8E0E8);
+    public static final Good LENS = making("lens", "Lens", Rarity.UNCOMMON, 14,
+            "Glass ground with sand: a spyglass, a crystal ball", P_LENS, "glass", 0xB8E0E8);
 
     private Goods() {}
 

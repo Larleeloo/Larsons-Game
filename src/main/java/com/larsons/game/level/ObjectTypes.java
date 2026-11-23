@@ -957,6 +957,11 @@ public final class ObjectTypes {
         }
         out.add(new Entry("Storage chest", Category.LOOT, CHEST,
                 Map.of("sprite", CHEST_SPRITE, "loot", false, "contents", "")));
+        // the gathering spots: one for each thing gathered (an iron vein, a sand bank, fallen logs ...)
+        for (com.larsons.game.world.Gathering.Kind k : com.larsons.game.world.Gathering.Kind.values()) {
+            out.add(new Entry("Gathering: " + k.label(), Category.CRAFT, StoryTypes.GATHER,
+                    Map.of("kind", k.key(), "regrow", 0.0, "yield", 1.0)));
+        }
         // shops: a stall of supplies, a card seller's, a smith's counter, a spot at a counter built already
         Object[][] shops = {
                 {"Market stall: supplies", "Supplies", "market_stall",
@@ -981,7 +986,8 @@ public final class ObjectTypes {
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
                     || t.key().equals(STAIRS) || t.key().equals(EXIT) || t.key().equals(TEMPLATE)
-                    || t.key().equals(LIGHT) || t.key().equals(SHOP) || t.key().equals(RAYS)) continue;
+                    || t.key().equals(LIGHT) || t.key().equals(SHOP) || t.key().equals(RAYS)
+                    || t.key().equals(StoryTypes.GATHER)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));

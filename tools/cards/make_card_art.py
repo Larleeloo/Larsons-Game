@@ -699,6 +699,28 @@ def icon_shield(p):
     p.poly([(12, 6), (17.5, 6), (17.5, 12.5), (12, 19)], BLUE[0])
 
 
+def icon_pick(p):
+    """A miner's pick: a curved iron head, pointed both ways, on an ash handle - for a place to gather from."""
+    p.poly([(5.5, 20.5), (7.2, 22), (17, 9.6), (15.3, 8.2)], BROWN[1])
+    p.poly([(5.5, 20.5), (6.3, 21.2), (16.1, 8.9), (15.3, 8.2)], BROWN[2])
+    p.poly([(4.6, 19.5), (8.1, 22.8), (9.6, 21.2), (6.1, 18)], BROWN[0])
+    # the head: a crescent of iron, its two points
+    p.poly([(3.2, 9.6), (8, 4.6), (14.5, 2.6), (21, 4.4), (21.5, 6.6), (14.6, 5.4), (8.6, 7.4)], STEEL[1])
+    p.poly([(3.2, 9.6), (8, 4.6), (14.5, 2.6), (21, 4.4), (14.6, 3.9), (8.6, 5.8)], STEEL[2])
+    p.poly([(13.2, 4.2), (17.6, 4.6), (17.4, 9.8), (13.6, 9.4)], STEEL[0])
+
+
+def icon_furnace(p):
+    """A smelting furnace: a stone body narrowing to a brick chimney, the fire bright in its arched mouth."""
+    p.poly([(4, 22), (20, 22), (18.5, 11), (15, 8.5), (9, 8.5), (5.5, 11)], STEEL[0])
+    p.poly([(12, 22), (20, 22), (18.5, 11), (15, 8.5), (12, 8.5)], LINE)
+    p.rect(9.6, 1.5, 14.4, 9, RED[0])
+    p.rect(9.0, 1.2, 15.0, 2.6, RED[1])
+    p.poly([(8, 22), (16, 22), (16, 16.5), (14.4, 14.4), (12, 13.6), (9.6, 14.4), (8, 16.5)], GOLD[0])
+    p.poly([(9.4, 22), (14.6, 22), (14.6, 17.2), (12, 15.4), (9.4, 17.2)], GOLD[1])
+    p.poly([(10.8, 22), (13.2, 22), (13.2, 19), (12, 17.6), (10.8, 19)], GOLD[2])
+
+
 def icon_portal(p):
     p.ring(12, 12, 9, PURPLE[0], 3.0)
     p.ring(12, 12, 6.4, PURPLE[1], 2.4)
@@ -722,7 +744,8 @@ ICONS = [
     ("wayout", icon_wayout), ("talk", icon_talk), ("exclaim", icon_exclaim), ("question", icon_question),
     ("lock", icon_lock), ("cauldron", icon_cauldron), ("egg", icon_egg), ("cog", icon_cog), ("box", icon_box),
     ("door", icon_door), ("scroll", icon_scroll), ("backpack", icon_backpack), ("heart", icon_heart),
-    ("star", icon_star), ("shield", icon_shield), ("portal", icon_portal),
+    ("star", icon_star), ("shield", icon_shield), ("portal", icon_portal), ("pick", icon_pick),
+    ("furnace", icon_furnace),
 ]
 
 

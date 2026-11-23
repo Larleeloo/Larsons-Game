@@ -535,6 +535,16 @@
     {"id": 445, "type": "scenery", "x": 34.44, "z": 86.12, "yaw": 0, "sprite": "oak_tree", "mirrored": true, "scale": 1.59},
     {"id": 446, "type": "scenery", "x": -43.45, "z": 91.99, "yaw": 0, "sprite": "great_oak", "mirrored": true, "scale": 1.55},
     {"id": 447, "type": "scenery", "x": -38.73, "z": 88.28, "yaw": 0, "sprite": "pine_tree", "mirrored": false, "scale": 1.52},
-    {"id": 448, "type": "wayout", "x": 5, "z": 90, "yaw": 0, "name": "The road out of Oakhollow", "clears": false}
+    {"id": 448, "type": "wayout", "x": 5, "z": 90, "yaw": 0, "name": "The road out of Oakhollow", "clears": false},
+    {"id": 449, "type": "furnace", "x": 27, "z": -10, "yaw": 90, "name": "Garrick's furnace", "model": "smelter"},
+    {"id": 450, "type": "gather", "x": 6, "z": -25, "yaw": 20, "kind": "iron_vein"},
+    {"id": 451, "type": "gather", "x": 11, "z": -31, "yaw": 140, "kind": "copper_vein"},
+    {"id": 452, "type": "gather", "x": 15, "z": -24, "yaw": 250, "kind": "coal_seam"},
+    {"id": 453, "type": "gather", "x": 7, "z": -33, "yaw": 60, "kind": "crystal_cluster"},
+    {"id": 454, "type": "gather", "x": 37, "z": -37, "yaw": 10, "kind": "log_pile"},
+    {"id": 455, "type": "gather", "x": 43, "z": -41, "yaw": 0, "kind": "resin_pine"},
+    {"id": 456, "type": "gather", "x": 45, "z": -35, "yaw": 30, "kind": "flax_patch"},
+    {"id": 457, "type": "gather", "x": 36, "z": -45, "yaw": 200, "kind": "sand_bank"},
+    {"id": 458, "type": "gather", "x": 42, "z": -48, "yaw": 110, "kind": "clay_bank"}
   ]
 }

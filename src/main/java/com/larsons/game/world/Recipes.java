@@ -4,10 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * What is made of what, and where: at a <b>workbench</b> the makings, the
- * rods, the packs, the trinkets, the keys and the ammunition; at a
- * <b>cauldron</b> the potions (each wants an empty bottle) and the meals.
- * Scrolls and spawner eggs are never made - they are found, won and bought.
+ * What is made of what, and where: at a <b>furnace</b> the ore smelted into
+ * bars (coal or charcoal to burn), sand into glass, clay into crucibles and
+ * whetstones, timber into charcoal; at a <b>workbench</b> the makings, the
+ * rods, the packs, the trinkets, the keys, the field kits and the
+ * ammunition; at a <b>cauldron</b> the potions (each wants an empty bottle),
+ * the oils and the meals. Scrolls and spawner eggs are never made - they are
+ * found, won and bought.
+ *
+ * <p>What goes in is gathered (the ore, the timber, the sand and clay, the
+ * crystal, the flax, the resin: {@link Gathering}), hunted, fished, picked or
+ * made here of those - never ammunition: arrows, bolts, crystals and the
+ * rest are only ever made, never used up in a making.
  *
  * <p>A recipe's needs are counted by kind - any sword is a sword, whatever
  * its tier - and taken from her inventory when it is made.
@@ -16,7 +24,8 @@ public final class Recipes {
 
     /** Where a thing is made. */
     public enum Station {
-        BENCH("workbench", "Workbench", "Make"), CAULDRON("cauldron", "Cauldron", "Brew");
+        BENCH("workbench", "Workbench", "Make"), CAULDRON("cauldron", "Cauldron", "Brew"),
+        FURNACE("furnace", "Furnace", "Smelt");
 
         private final String key, label, verb;
 
@@ -72,64 +81,98 @@ public final class Recipes {
             for (Recipe r : ALL) if (r.id().equals(id)) taken = true;
             if (taken) id = out + "_" + n++;
         }
-        ALL.add(new Recipe(id, st, out, makes, st == Station.CAULDRON ? 3.0 : 1.2, List.copyOf(parts)));
+        ALL.add(new Recipe(id, st, out, makes, st == Station.CAULDRON ? 3.0 : st == Station.FURNACE ? 2.4 : 1.2,
+                List.copyOf(parts)));
     }
 
     static {
-        Station b = Station.BENCH, c = Station.CAULDRON;
+        Station b = Station.BENCH, c = Station.CAULDRON, f = Station.FURNACE;
+        // --- the furnace: ore to bars (coal or charcoal burnt), sand to glass, clay fired, timber to charcoal ---
+        recipe(f, "iron_bar", 1, "iron_ore", 2, "coal", 1);
+        recipe(f, "iron_bar", 1, "iron_ore", 2, "charcoal", 1);
+        recipe(f, "copper_bar", 1, "copper_ore", 2, "coal", 1);
+        recipe(f, "copper_bar", 1, "copper_ore", 2, "charcoal", 1);
+        recipe(f, "brass_bar", 2, "copper_bar", 2, "calamine", 1, "crucible", 1);
+        recipe(f, "glass", 2, "sand", 3, "coal", 1);
+        recipe(f, "glass", 2, "sand", 3, "charcoal", 1);
+        recipe(f, "crucible", 2, "clay", 3);
+        recipe(f, "charcoal", 3, "timber", 2);
+        recipe(f, "whetstone", 4, "sand", 2, "clay", 1);
         // --- the makings ---
-        recipe(b, "empty_bottle", 3, "small_crystal", 2);
+        recipe(b, "planks", 3, "timber", 1);
+        recipe(b, "empty_bottle", 2, "glass", 1);
+        recipe(b, "lens", 1, "glass", 1, "sand", 1);
         recipe(b, "parchment", 2, "deer_hide", 1);
         recipe(b, "parchment", 2, "cow_hide", 1);
         recipe(b, "ink", 1, "thornberries", 3, "empty_bottle", 1);
+        recipe(b, "ink", 2, "charcoal", 1, "resin", 1, "empty_bottle", 2);
         recipe(b, "twine", 3, "wool", 1);
+        recipe(b, "twine", 3, "flax", 2);
         recipe(b, "cloth", 2, "wool", 2);
+        recipe(b, "cloth", 2, "flax", 3);
         recipe(b, "leather", 1, "cow_hide", 1);
         recipe(b, "leather", 1, "deer_hide", 1);
+        recipe(b, "leather", 1, "fox_pelt", 1);
         recipe(b, "leather", 2, "bear_pelt", 1);
-        recipe(b, "iron_bar", 1, "iron_wedges", 4);
         recipe(b, "fish_hook", 2, "iron_bar", 1);
-        recipe(b, "brass_gear", 1, "mace_studs", 3, "iron_bar", 1);
-        recipe(b, "crystal_dust", 1, "large_crystal", 3);
-        // --- ammunition, the ingot, the reshuffle scroll ---
-        recipe(b, "arrow_bundle", 6, "feather", 2, "iron_bar", 1);
-        recipe(b, "bolt_bundle", 6, "feather", 1, "iron_bar", 1);
-        recipe(b, "whetstone", 6, "iron_bar", 1);
-        recipe(b, "upgrade_ingot", 1, "iron_bar", 3, "brass_gear", 1);
+        recipe(b, "brass_gear", 2, "brass_bar", 1);
+        recipe(b, "crystal_dust", 1, "raw_crystal", 1);
+        // --- ammunition, the ingot, the reshuffle scroll: made, never used up in a making ---
+        recipe(b, "arrow_bundle", 8, "planks", 1, "feather", 2, "iron_bar", 1, "resin", 1);
+        recipe(b, "arrow_bundle", 12, "planks", 1, "eagle_feather", 1, "iron_bar", 1, "resin", 1);
+        recipe(b, "bolt_bundle", 6, "planks", 1, "feather", 1, "iron_bar", 1);
+        recipe(b, "iron_wedges", 6, "iron_bar", 1);
+        recipe(b, "mace_studs", 8, "brass_bar", 1);
+        recipe(b, "small_crystal", 4, "raw_crystal", 1);
+        recipe(b, "large_crystal", 2, "raw_crystal", 2, "crystal_dust", 1);
+        recipe(b, "upgrade_ingot", 1, "iron_bar", 2, "brass_gear", 2, "coal", 1);
         recipe(b, "reshuffle_scroll", 1, "parchment", 1, "ink", 1);
         // --- fishing rods, each made of the last ---
-        recipe(b, "willow_rod", 1, "twine", 3, "fish_hook", 1);
+        recipe(b, "willow_rod", 1, "planks", 1, "twine", 3, "fish_hook", 1);
         recipe(b, "reed_rod", 1, "willow_rod", 1, "twine", 2, "feather", 2);
         recipe(b, "brass_rod", 1, "reed_rod", 1, "brass_gear", 2, "iron_bar", 1);
         recipe(b, "clockwork_rod", 1, "brass_rod", 1, "brass_gear", 4, "upgrade_ingot", 1);
-        recipe(b, "crystal_rod", 1, "clockwork_rod", 1, "crystal_dust", 4, "large_crystal", 4);
+        recipe(b, "crystal_rod", 1, "clockwork_rod", 1, "crystal_dust", 4, "raw_crystal", 4);
         // --- packs, each made of the last ---
         recipe(b, "satchel", 1, "leather", 4, "cloth", 4, "twine", 2, "brass_gear", 1);
         recipe(b, "backpack", 1, "satchel", 1, "leather", 4, "cloth", 3, "brass_gear", 1);
         recipe(b, "explorers_pack", 1, "backpack", 1, "leather", 6, "cloth", 4, "brass_gear", 3, "upgrade_ingot", 1);
-        // --- keys and trinkets ---
+        // --- keys, trinkets and field kits ---
         recipe(b, "iron_key", 1, "iron_bar", 1);
-        recipe(b, "brass_key", 1, "brass_gear", 1, "iron_bar", 1);
+        recipe(b, "brass_key", 1, "brass_bar", 1);
         recipe(b, "drinking_horn", 1, "antler", 1, "leather", 1, "twine", 2);
-        recipe(b, "crystal_ball", 1, "crystal_dust", 3, "large_crystal", 3, "brass_gear", 2);
+        recipe(b, "brass_lantern", 1, "brass_bar", 1, "glass", 2, "resin", 1);
+        recipe(b, "spyglass", 1, "brass_bar", 1, "lens", 2, "leather", 1);
+        recipe(b, "crystal_ball", 1, "crystal_dust", 3, "raw_crystal", 3, "lens", 1, "brass_gear", 2);
         recipe(b, "crystal_shield", 1, "crystal_dust", 4, "iron_bar", 3, "leather", 2);
-        // --- potions ---
+        recipe(b, "bandage", 2, "cloth", 1, "sage", 1);
+        recipe(b, "smoke_pellet", 2, "charcoal", 2, "resin", 1, "parchment", 1);
+        // --- dyes, from what has colour in it ---
+        recipe(b, "dye_cherry_red", 1, "thornberries", 3, "empty_bottle", 1);
+        recipe(b, "dye_black", 1, "charcoal", 2, "empty_bottle", 1);
+        recipe(b, "dye_copper", 1, "copper_ore", 1, "empty_bottle", 1);
+        recipe(b, "dye_royal_blue", 1, "macaw_feather", 2, "empty_bottle", 1);
+        recipe(b, "dye_pink", 1, "flamingo_feather", 2, "empty_bottle", 1);
+        recipe(b, "dye_emerald", 1, "peacock_feather", 1, "sage", 2, "empty_bottle", 1);
+        // --- potions and oils ---
         recipe(c, "health_potion", 1, "empty_bottle", 1, "wild_berries", 3, "sage", 1);
-        recipe(c, "mana_potion", 1, "empty_bottle", 1, "bilberries", 3, "small_crystal", 1);
+        recipe(c, "mana_potion", 1, "empty_bottle", 1, "bilberries", 3, "crystal_dust", 1);
         recipe(c, "stamina_potion", 1, "empty_bottle", 1, "bilberries", 2, "sage", 2);
         recipe(c, "greater_health_potion", 1, "health_potion", 1, "sunfruit", 2, "crystal_bloom", 1);
         recipe(c, "swiftness_potion", 1, "empty_bottle", 1, "feather", 2, "sea_buckthorn", 2);
         recipe(c, "swiftness_potion", 1, "empty_bottle", 1, "feather", 2, "rabbit_pelt", 1);
         recipe(c, "might_potion", 1, "empty_bottle", 1, "bear_meat", 1, "thornberries", 3);
         recipe(c, "might_potion", 1, "empty_bottle", 1, "raw_beef", 2, "thornberries", 3);
-        recipe(c, "stoneskin_potion", 1, "empty_bottle", 1, "antler", 1, "sage", 2, "large_crystal", 2);
+        recipe(c, "stoneskin_potion", 1, "empty_bottle", 1, "antler", 1, "sage", 2, "raw_crystal", 1);
         recipe(c, "shadow_potion", 1, "empty_bottle", 1, "ink", 1, "thornberries", 3);
         recipe(c, "gills_potion", 1, "empty_bottle", 1, "minnow", 2, "sea_buckthorn", 1);
         recipe(c, "gills_potion", 1, "empty_bottle", 1, "trout", 1, "sage", 2);
         recipe(c, "spring_potion", 1, "empty_bottle", 1, "rabbit_pelt", 1, "sunfruit", 2);
         recipe(c, "thorn_potion", 1, "empty_bottle", 1, "thornberries", 4, "emberfin", 1);
         recipe(c, "fortune_potion", 1, "empty_bottle", 1, "goldscale", 1, "sunfruit", 2, "crystal_dust", 1);
+        recipe(c, "fortune_potion", 1, "empty_bottle", 1, "peacock_feather", 2, "sunfruit", 2, "crystal_dust", 1);
         recipe(c, "crystal_elixir", 1, "empty_bottle", 1, "crystal_bloom", 3, "crystal_dust", 2, "crystal_eel", 1);
+        recipe(c, "blade_oil", 1, "empty_bottle", 1, "resin", 1, "thornberries", 2);
         // --- meals ---
         recipe(c, "roast_meat", 1, "raw_beef", 1);
         recipe(c, "roast_meat", 1, "raw_pork", 1);
@@ -149,6 +192,25 @@ public final class Recipes {
     private Recipes() {}
 
     public static List<Recipe> all() { return List.copyOf(ALL); }
+
+    /**
+     * What tells {@code r} from the other ways {@code list} has of making the
+     * same thing - "with charcoal", "with eagle feather" - or "" when it is the
+     * only one.
+     */
+    public static String variant(Recipe r, List<Recipe> list) {
+        for (Recipe o : list) {
+            if (o == r || !o.out().equals(r.out())) continue;
+            List<String> own = new ArrayList<>();
+            for (Part p : r.needs()) {
+                boolean shared = false;
+                for (Part q : o.needs()) if (q.item().equals(p.item())) shared = true;
+                if (!shared) own.add(p.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            if (!own.isEmpty()) return "with " + String.join(", ", own);
+        }
+        return "";
+    }
 
     /** What is made at {@code station}, in order. */
     public static List<Recipe> at(Station station) {

@@ -526,6 +526,40 @@ public final class World {
         return s;
     }
 
+    // --- the gathering spots ---------------------------------------------------------------
+
+    /**
+     * Work gathering spot {@code s} ({@link Gathering}): what it gives, and it
+     * stands worked out - its model swapped for its spent one - until it comes
+     * back; null when it is worked out already.
+     */
+    public List<Drops.Drop> gather(Spot s) {
+        List<Drops.Drop> got = Gathering.work(s, time, random);
+        if (got != null) gatherLook(s, true);
+        return got;
+    }
+
+    /** Gathering spot {@code s} drawn worked out ({@code spent}) or ready: its model swapped, when it has both. */
+    private void gatherLook(Spot s, boolean spent) {
+        Gathering.Kind k = Gathering.of(s);
+        if (k == null) return;
+        BuildingProfile p = com.larsons.game.building.BuildingCatalog.get().profile(spent ? k.spentModel() : k.model());
+        if (p == null) return;
+        Building old = takeBuilding(s.id());
+        if (old == null) return;
+        addBuilding(new Building(old.id(), p, old.position(), old.heading(), old.look(), null));
+    }
+
+    /** The gathering spots that have stood worked out long enough: back, as they were. */
+    private void regrowGathered() {
+        for (Spot s : spots) {
+            if (!Gathering.SPOT.equals(s.kind()) || !s.state().containsKey(Gathering.BACK)) continue;
+            if (Gathering.spent(s, time)) continue;
+            s.state().remove(Gathering.BACK);
+            gatherLook(s, false);
+        }
+    }
+
     /**
      * What stands in her way and no one else's: a barricade's gap, which the
      * Risen come through once its boards are down and she never goes out by.
@@ -1359,6 +1393,7 @@ public final class World {
                 if (c.store() == null) opened(c);           // (a storage chest throws nothing out)
             }
         }
+        regrowGathered();
         for (Store s : List.copyOf(stores)) {
             s.tick(dt);
             if (s.broken()) smash(s);

@@ -1,0 +1,38 @@
+{
+ "key": "flax_patch",
+ "label": "Flax in flower",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.984,
+ "model": true,
+ "parts": [
+  {
+   "key": "stalks",
+   "label": "Stalks",
+   "colour": "#8aa84a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "flowers",
+   "label": "Flowers",
+   "colour": "#6a8ae8",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "earth",
+   "label": "Earth",
+   "colour": "#6a4a32",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

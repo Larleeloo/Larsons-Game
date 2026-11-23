@@ -594,6 +594,18 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   items/horn_drink.mp3                           Drinking from the horn                           item/horn_drink
   items/crystal_ball.mp3                         Looking into the crystal ball                    item/crystal_ball
   items/crystal_shield.mp3                       The crystal shield raised                        item/crystal_shield
+  items/spyglass.mp3                             Looking through the spyglass                     item/spyglass
+  items/lantern_light.mp3                        The lantern lit                                  item/lantern_light
+  items/lantern_out.mp3                          The lantern put out                              item/lantern_out
+  items/bandage.mp3                              A bandage wound on                               item/bandage
+  items/smoke_pellet.mp3                         A smoke pellet burst                             item/smoke_pellet
+  items/blade_oil.mp3                            Blade oil wiped on                               item/blade_oil
+  other/gather_mine.mp3                          Mining a vein or a seam                          gather/mine
+  other/gather_chip.mp3                          Chipping crystal                                 gather/chip
+  other/gather_dig.mp3                           Digging sand or clay                             gather/dig
+  other/gather_chop.mp3                          Cutting fallen logs                              gather/chop
+  other/gather_cut.mp3                           Cutting flax                                     gather/cut
+  other/gather_tap.mp3                           Taking resin from a pine                         gather/tap
   fishing/cast.mp3                               Fishing: the cast                                fishing/cast
   fishing/plop.mp3                               Fishing: the float landing                       fishing/plop
   fishing/bite.mp3                               Fishing: a bite                                  fishing/bite
@@ -753,6 +765,7 @@ Menus, the inventory and the wardrobe, the lock-on, screenshots, cutscene lines,
   ui/crafted.mp3                                 Workbench: made                                  ui/crafted
   ui/brew.mp3                                    Cauldron: starting a brew                        ui/brew
   ui/brewed.mp3                                  Cauldron: brewed                                 ui/brewed
+  ui/smelted.mp3                                 Furnace: smelted                                 ui/smelted
   ui/summon.mp3                                  A summoning station's button pressed             ui/summon
   ui/card_open.mp3                               The card table opened                            ui/card_open
   ui/card_draw.mp3                               A card drawn                                     ui/card_draw

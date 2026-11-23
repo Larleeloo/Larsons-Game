@@ -21,13 +21,14 @@ import java.util.List;
  */
 public final class StoryTypes {
 
-    public static final String WAY_OUT = "wayout", WORKBENCH = "workbench", CAULDRON = "cauldron", LOCK = "lock";
+    public static final String WAY_OUT = "wayout", WORKBENCH = "workbench", CAULDRON = "cauldron", LOCK = "lock",
+            FURNACE = "furnace", GATHER = com.larsons.game.world.Gathering.SPOT;
 
     private StoryTypes() {}
 
     private static final java.util.Map<String, String> STAND_INS = java.util.Map.of("workbench", "prep_table",
             "signpost", "lantern_post", "summon_station", "tesla_coil", "locked_door", "gatehouse",
-            "mystery_box", "storage_chest", "wall_buy", "weapon_rack", "barricade", "crate");
+            "mystery_box", "storage_chest", "wall_buy", "weapon_rack", "barricade", "crate", "smelter", "bread_oven");
 
     /**
      * Register a kind of spot: {@code model} (a building's key; null: none)
@@ -68,6 +69,30 @@ public final class StoryTypes {
                         Prop.choice("model", "Looks like", "cauldron",
                                 o -> List.of("cauldron", "large_pot", "alchemy_table", "distiller", "none"))),
                 "cauldron", "cauldron", 0.6, 1.0, 0x60BE78);
+        spot(FURNACE, "Furnace (smelting)", Category.CRAFT,
+                List.of(Prop.text("name", "Name", "Furnace"),
+                        Prop.choice("model", "Looks like", "smelter",
+                                o -> List.of("smelter", "bread_oven", "stove", "fireplace", "none"))),
+                "smelter", "furnace", 0.8, 2.7, 0xE07A3A);
+        // where the makings are gathered: a vein to mine, a bank to dig, logs to cut ... worked out for a while after
+        ObjectTypes.register(new ObjectType(GATHER, "Gathering spot", Category.CRAFT,
+                List.of(Prop.choice("kind", "What is gathered", com.larsons.game.world.Gathering.Kind.IRON_VEIN.key(),
+                                o -> com.larsons.game.world.Gathering.Kind.keys()),
+                        Prop.number("regrow", "Comes back after (s) (0: as its kind)", 0, 0, 3600, 10),
+                        Prop.number("yield", "Gives × ", 1, 0.25, 5, 0.25)),
+                0.7, 0.9, 0x9AB0C0, false, (o, b) -> {
+            com.larsons.game.world.Gathering.Kind k = com.larsons.game.world.Gathering.Kind.byKey(
+                    o.str("kind", com.larsons.game.world.Gathering.Kind.IRON_VEIN.key()));
+            if (k == null) return;
+            Vec3 at = b.onGround(o);
+            BuildingProfile p = BuildingCatalog.get().profile(k.model());
+            if (p != null) {
+                b.world().addBuilding(new Building(o.id(), p, at, o.yaw(), BuildingLook.of(o.props().get("look")),
+                        null));
+            }
+            b.world().addSpot(new Spot(o.id(), GATHER, k.label(), at, o.yaw(), o.props()).icon("pick")
+                    .markerHeight(1.6));
+        }));
         // a locked door or gate, in the way until she has its key (the skeleton key opens any)
         spot(LOCK, "Locked door", Category.QUESTS,
                 List.of(Prop.text("name", "Name", "The door"),
