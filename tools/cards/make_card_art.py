@@ -535,9 +535,34 @@ def icon_fish(p):
 
 
 def icon_hammer(p):
-    p.line([(5, 21), (14, 9)], BROWN[1], 2.2)
-    p.poly([(8, 5), (16, 2), (21, 8), (13, 12)], STEEL[1])
-    p.poly([(16, 2), (21, 8), (17, 10), (12.5, 4)], STEEL[2])
+    """A smith's hammer: an ash handle with a leather grip, through a steel head - a broad, square striking face
+    at one end and a tapered peen at the other - lit along its top, a glint on the face."""
+    d = (0.707, -0.707)                                      # up the handle
+    n = (0.707, 0.707)                                       # along the head, towards the face
+    cx, cy = 14.6, 8.4                                       # where the handle goes through the head
+
+    def at(u, v):
+        return (cx + n[0] * u + d[0] * v, cy + n[1] * u + d[1] * v)
+
+    def quad(pts, c):
+        p.poly([at(u, v) for u, v in pts], c)
+
+    # the handle: the wood, lit down one side; the grip, wrapped
+    quad([(-1.3, -15.2), (1.3, -15.2), (1.3, 0.0), (-1.3, 0.0)], BROWN[1])
+    quad([(-1.3, -15.2), (-0.3, -15.2), (-0.3, 0.0), (-1.3, 0.0)], BROWN[2])
+    quad([(-1.5, -15.4), (1.5, -15.4), (1.5, -10.6), (-1.5, -10.6)], BROWN[0])
+    quad([(-1.5, -12.6), (1.5, -12.6), (1.5, -12.0), (-1.5, -12.0)], BROWN[1])
+    # the head's neck, its face and its peen: dark beneath, steel, lit along the top
+    quad([(-3.8, -2.0), (3.4, -2.0), (3.4, 2.2), (-3.8, 2.2)], STEEL[1])
+    quad([(3.0, -3.0), (6.6, -3.0), (6.6, 3.2), (3.0, 3.2)], STEEL[1])
+    quad([(-3.8, -2.0), (-6.8, -0.9), (-6.8, 1.4), (-3.8, 2.2)], STEEL[1])
+    quad([(-3.8, -2.0), (3.4, -2.0), (3.4, -0.9), (-3.8, -0.9)], STEEL[0])
+    quad([(3.0, -3.0), (6.6, -3.0), (6.6, -1.7), (3.0, -1.7)], STEEL[0])
+    quad([(-3.8, -2.0), (-6.8, -0.9), (-6.8, -0.2), (-3.8, -0.9)], STEEL[0])
+    quad([(-3.6, 1.2), (3.0, 1.2), (3.0, 2.2), (-3.6, 2.2)], STEEL[2])
+    quad([(3.2, 1.9), (6.4, 1.9), (6.4, 3.2), (3.2, 3.2)], STEEL[2])
+    gx, gy = at(5.4, 2.4)
+    p.circle(gx, gy, 0.7, CREAM[2])
 
 
 def icon_zombie(p):
@@ -674,6 +699,28 @@ def icon_shield(p):
     p.poly([(12, 6), (17.5, 6), (17.5, 12.5), (12, 19)], BLUE[0])
 
 
+def icon_pick(p):
+    """A miner's pick: a curved iron head, pointed both ways, on an ash handle - for a place to gather from."""
+    p.poly([(5.5, 20.5), (7.2, 22), (17, 9.6), (15.3, 8.2)], BROWN[1])
+    p.poly([(5.5, 20.5), (6.3, 21.2), (16.1, 8.9), (15.3, 8.2)], BROWN[2])
+    p.poly([(4.6, 19.5), (8.1, 22.8), (9.6, 21.2), (6.1, 18)], BROWN[0])
+    # the head: a crescent of iron, its two points
+    p.poly([(3.2, 9.6), (8, 4.6), (14.5, 2.6), (21, 4.4), (21.5, 6.6), (14.6, 5.4), (8.6, 7.4)], STEEL[1])
+    p.poly([(3.2, 9.6), (8, 4.6), (14.5, 2.6), (21, 4.4), (14.6, 3.9), (8.6, 5.8)], STEEL[2])
+    p.poly([(13.2, 4.2), (17.6, 4.6), (17.4, 9.8), (13.6, 9.4)], STEEL[0])
+
+
+def icon_furnace(p):
+    """A smelting furnace: a stone body narrowing to a brick chimney, the fire bright in its arched mouth."""
+    p.poly([(4, 22), (20, 22), (18.5, 11), (15, 8.5), (9, 8.5), (5.5, 11)], STEEL[0])
+    p.poly([(12, 22), (20, 22), (18.5, 11), (15, 8.5), (12, 8.5)], LINE)
+    p.rect(9.6, 1.5, 14.4, 9, RED[0])
+    p.rect(9.0, 1.2, 15.0, 2.6, RED[1])
+    p.poly([(8, 22), (16, 22), (16, 16.5), (14.4, 14.4), (12, 13.6), (9.6, 14.4), (8, 16.5)], GOLD[0])
+    p.poly([(9.4, 22), (14.6, 22), (14.6, 17.2), (12, 15.4), (9.4, 17.2)], GOLD[1])
+    p.poly([(10.8, 22), (13.2, 22), (13.2, 19), (12, 17.6), (10.8, 19)], GOLD[2])
+
+
 def icon_portal(p):
     p.ring(12, 12, 9, PURPLE[0], 3.0)
     p.ring(12, 12, 6.4, PURPLE[1], 2.4)
@@ -697,7 +744,8 @@ ICONS = [
     ("wayout", icon_wayout), ("talk", icon_talk), ("exclaim", icon_exclaim), ("question", icon_question),
     ("lock", icon_lock), ("cauldron", icon_cauldron), ("egg", icon_egg), ("cog", icon_cog), ("box", icon_box),
     ("door", icon_door), ("scroll", icon_scroll), ("backpack", icon_backpack), ("heart", icon_heart),
-    ("star", icon_star), ("shield", icon_shield), ("portal", icon_portal),
+    ("star", icon_star), ("shield", icon_shield), ("portal", icon_portal), ("pick", icon_pick),
+    ("furnace", icon_furnace),
 ]
 
 

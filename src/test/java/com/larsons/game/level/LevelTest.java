@@ -151,7 +151,7 @@ class LevelTest {
         l.add(ObjectTypes.ITEM, 1, 2, 0, Map.of("item", "sword", "tier", "iron"));
         l.add(ObjectTypes.VINES, 0, 10, Math.PI / 2, Map.of("length", 6.5)).setLift(0.25);
         l.add(new LevelObject(0, "npc", 4, 4, 0, Map.of("dialogue", "hello", "likes", List.of("cats", 3))));
-        l.setMusic("dream_on");
+        l.setMusic("copper_hearts,tavern_lights");
         l.extra().put("seasons", Map.of("winter", "long"));
 
         Path folder = root.resolve("round_trip");
@@ -182,8 +182,8 @@ class LevelTest {
         LevelObject npc = back.ofType("npc").get(0);
         assertEquals("hello", npc.str("dialogue", ""), "a kind this game does not know is kept");
         assertEquals(List.of("cats", 3.0), npc.props().get("likes"));
-        assertEquals("dream_on", back.music());
-        assertTrue(json.contains("\"music\": \"dream_on\""), json);
+        assertEquals("copper_hearts,tavern_lights", back.music());
+        assertTrue(json.contains("\"music\": \"copper_hearts,tavern_lights\""), json);
         assertEquals(Map.of("winter", "long"), back.extra().get("seasons"), "and keys it does not know");
         for (double[] p : new double[][]{{-6, 3}, {8, 8}, {0, 0}, {-3, 1}}) {
             assertEquals(l.heights().height(p[0], p[1]), back.heights().height(p[0], p[1]), 1 / 256.0,

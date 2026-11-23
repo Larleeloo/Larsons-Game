@@ -68,6 +68,22 @@ public enum Biome {
     public String ambientNight() { return ambientNight; }
 
     /**
+     * How much birdsong there is here by day ({@code ambient/birdsong},
+     * a bed of its own so it can be turned down by itself): 1 on the plains
+     * and in the jungle, less in the marsh, the savannah and along a river,
+     * none on the mountains' rock, the shore, the waste or the crystal.
+     */
+    public double birdsong() {
+        return switch (this) {
+            case PLAINS, JUNGLE -> 1.0;
+            case MARSH, RIVER -> 0.5;
+            case SAVANNAH -> 0.35;
+            case MOUNTAINS -> 0.15;
+            default -> 0.0;
+        };
+    }
+
+    /**
      * The ground the biome brush paints at {@code (x, z)}: its accent where a
      * slow noise through the world is high, its own ground elsewhere.
      */

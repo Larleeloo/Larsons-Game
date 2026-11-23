@@ -12,9 +12,8 @@ import java.util.Map;
 
 /**
  * What the clothes and the armour she wears do for her: the special effects
- * a piece gives at its tier - what the Tailor set for it ({@link Tailor}),
- * or what it was made with in the Forge's Tailor ({@link Forged#gear}, tier
- * by tier) - more health, mana or stamina; each filling back faster; some of
+ * a piece of your own gives at its tier - what it was made with in the
+ * Tailor ({@link Forged#gear}, tier by tier) - more health, mana or stamina; each filling back faster; some of
  * every blow she lands drawn back as health, mana or stamina; a higher jump;
  * a second jump in the air; a shorter wait between heavy attacks; more speed.
  *
@@ -45,7 +44,9 @@ public final class Gear {
         JUMP("jump", "Jump height", "+%s%% jump height", 25, 5, 150, 5),
         DOUBLE_JUMP("double_jump", "Double jump", "A second jump in the air", 1, 1, 1, 1),
         HEAVY_COOLDOWN("heavy_cooldown", "Heavy attack cooldown", "-%s%% wait between heavy attacks", 25, 5, 90, 5),
-        SPEED("speed", "Speed boost", "+%s%% speed", 10, 5, 100, 5);
+        SPEED("speed", "Speed boost", "+%s%% speed", 10, 5, 100, 5),
+        /** More slots in her inventory while it is worn: a backpack's (only packs are made with it). */
+        CARRY("carry", "Carry space", "+%s inventory slots", 10, 1, 100, 1);
 
         private final String key, label, said;
         private final double fallback, min, max, step;
@@ -78,6 +79,7 @@ public final class Gear {
                 case HEALTH_REGEN, MANA_REGEN, STAMINA_REGEN -> "+" + n + "/s";
                 case HEALTH_ABSORB, MANA_ABSORB, STAMINA_ABSORB -> n + "%";
                 case HEAVY_COOLDOWN -> "-" + n + "%";
+                case CARRY -> "+" + n;
                 default -> "+" + n + "%";
             };
         }
@@ -95,6 +97,7 @@ public final class Gear {
                 case DOUBLE_JUMP -> "double jump";
                 case HEAVY_COOLDOWN -> "heavy wait";
                 case SPEED -> "speed";
+                case CARRY -> "slots";
             };
         }
 
@@ -217,14 +220,42 @@ public final class Gear {
     }
 
     /**
-     * What one piece gives at its tier: a forged one what the Forge's Tailor
-     * made it with at that tier, any other what the Tailor set for its tier
-     * ({@link Tailor#gear}); nothing for what is not clothes or armour.
+     * What one piece gives: a piece of your own (made in the Tailor) what it
+     * was made with at its tier; one the game comes with nothing - but a
+     * pack its room ({@link #STOCK_PACK_SLOTS} slots).
      */
     public static Map<Effect, Double> of(Item item) {
         if (item == null || !item.def().isWearable()) return Map.of();
         if (item.forged() != null) return item.forged().gear();
-        return Tailor.gear(item.def(), item.tier());
+        if (isPack(item.def())) return Map.of(Effect.CARRY, (double) STOCK_PACK_SLOTS);
+        return Map.of();
+    }
+
+    /** The inventory slots the game's own leather backpack adds while worn. */
+    public static final int STOCK_PACK_SLOTS = 5;
+
+    /** Whether {@code d} is a pack worn on the back (what {@link Effect#CARRY} is for). */
+    public static boolean isPack(ItemDef d) {
+        return d != null && d.id().contains("backpack");
+    }
+
+    /** {@code g} with every amount kept within its effect's least and most, and none at 0. */
+    public static Map<Effect, Double> clean(Map<Effect, Double> g) {
+        EnumMap<Effect, Double> out = new EnumMap<>(Effect.class);
+        if (g != null) {
+            for (Map.Entry<Effect, Double> e : g.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null || e.getValue() <= 0) continue;
+                out.put(e.getKey(), e.getKey().onOff() ? 1.0 : e.getKey().clamp(e.getValue()));
+            }
+        }
+        return java.util.Collections.unmodifiableMap(out);
+    }
+
+    /** What {@code g} gives, in short: "+20 health, +1/s stamina" ("" for nothing). */
+    public static String shortText(Map<Effect, Double> g) {
+        List<String> out = new ArrayList<>();
+        if (g != null) for (Map.Entry<Effect, Double> e : g.entrySet()) out.add(shortly(e.getKey(), e.getValue()));
+        return String.join(", ", out);
     }
 
     private static boolean pairWith(Wardrobe wardrobe, Inventory inventory, Item left, boolean armour) {

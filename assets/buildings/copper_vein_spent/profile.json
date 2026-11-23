@@ -1,0 +1,51 @@
+{
+ "key": "copper_vein_spent",
+ "label": "Copper vein (worked out)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.935,
+ "model": true,
+ "parts": [
+  {
+   "key": "rock",
+   "label": "Rock",
+   "colour": "#74706a",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "ore",
+   "label": "Copper ore",
+   "colour": "#c87533",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "ore2",
+   "label": "Calamine and verdigris",
+   "colour": "#4a9a7a",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.682
+  ],
+  [
+   "circle",
+   0.605,
+   0.275,
+   0.33
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

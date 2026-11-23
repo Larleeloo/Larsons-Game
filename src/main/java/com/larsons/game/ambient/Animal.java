@@ -49,7 +49,7 @@ public final class Animal implements Target {
     public static final double FLASH = 0.14;
 
     final AnimalKind kind;
-    final Animals.Herd herd;               // the herd placed in the level it belongs to, or null (it came by)
+    Animals.Herd herd;                     // the herd placed in the level it belongs to, or null (it came by)
     final Temperament temperament;
     double x, y, z, heading;
     Mode mode = Mode.REST;

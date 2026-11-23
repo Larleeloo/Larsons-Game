@@ -1,0 +1,11 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "ore": [
+   0
+  ]
+ },
+ "materials": [
+  "ore"
+ ]
+}

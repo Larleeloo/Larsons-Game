@@ -59,7 +59,7 @@ class EditorTest {
         undo.before(l, Undo.Part.SKY, "Sky");
         l.setSky(l.sky().withFog(200));
         undo.before(l, Undo.Part.SKY, "Music");
-        l.setMusic("dream_on");
+        l.setMusic("copper_hearts,tavern_lights");
 
         assertEquals("Music", undo.nextUndo());
         assertEquals("Music", undo.undo(l));
@@ -81,7 +81,7 @@ class EditorTest {
         assertEquals("Paint", undo.redo(l));
         assertEquals("Sky", undo.redo(l));
         assertEquals("Music", undo.redo(l));
-        assertEquals("dream_on", l.music());
+        assertEquals("copper_hearts,tavern_lights", l.music());
         assertEquals("Music", undo.undo(l));
         assertEquals("Music", undo.nextRedo());
         undo.before(l, Undo.Part.OBJECTS, "Delete");

@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "wood": [
+   0
+  ],
+  "grain": [
+   1
+  ]
+ },
+ "materials": [
+  "wood",
+  "grain"
+ ]
+}

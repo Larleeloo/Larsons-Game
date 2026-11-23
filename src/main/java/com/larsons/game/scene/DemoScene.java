@@ -118,7 +118,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
     /**
      * The training dummies, each facing where she starts: one a few steps to
      * her right, one farther off behind it, one off to her left - targets
-     * for the bow and the crossbow, and three to keep alive for Bonded.
+     * for the bow and the crossbow, and three to keep alive for Bloodlust.
      */
     static final Vec3[] DUMMIES_AT = {new Vec3(4.2, 0, -1.0), new Vec3(5.6, 0, -4.0), new Vec3(-5.4, 0, 0.4)};
     /**
@@ -783,6 +783,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         // her own inventory open - her cards, a weapon's tiers - the game stands still
         boolean still = inventory.pausing();
         if (!still) p.update(dt, intent, durations());
+        for (Item spilt : p.takeSpilled()) world.dropItem(spilt);       // (a pack off: what no longer fits)
         if (scriptRoll && p.action() != AnimState.DASH) scriptRoll = false;   // rolling (or it never started)
         if (scripted != null) {
             // the one-shots happen once; with nothing left moving or held, the keys take over again

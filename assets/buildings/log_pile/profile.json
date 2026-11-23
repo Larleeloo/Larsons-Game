@@ -1,0 +1,66 @@
+{
+ "key": "log_pile",
+ "label": "Fallen logs",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.871,
+ "model": true,
+ "parts": [
+  {
+   "key": "bark",
+   "label": "Bark",
+   "colour": "#5e4430",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "ends",
+   "label": "Cut ends",
+   "colour": "#d0a868",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "axe",
+   "label": "Axe head",
+   "colour": "#6a6a72",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "handle",
+   "label": "Axe handle",
+   "colour": "#8a6038",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "chips",
+   "label": "Chips",
+   "colour": "#c8a070",
+   "texture": "smooth",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.99,
+   0.22,
+   0.33
+  ],
+  [
+   "box",
+   -0.275,
+   -0.055,
+   2.09,
+   0.825
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

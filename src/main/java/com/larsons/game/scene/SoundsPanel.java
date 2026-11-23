@@ -103,14 +103,6 @@ public final class SoundsPanel {
             settings.masterVolume = master;
         }
         ui.text(ui.body, percent(master), x + 404, y + 6, Theme.ITEM_SELECTED);
-        // the birds in the sky and their song (off: none, at any hour)
-        float bx = x + 486;
-        ui.text(ui.body, "Birds", bx, y + 6, Theme.ITEM);
-        if (ui.button(settings.birds ? "On" : "Off", bx + ui.body.width("Birds") + 14, y, 80, 32, settings.birds, true)) {
-            settings.birds = !settings.birds;
-            com.larsons.game.ambient.Animals.setBirds(settings.birds);
-            settings.save();
-        }
         if (ui.button("Rescan sound files", x + w - 200, y, 200, 32)) {
             SoundPack.reload();
             Sounds.preload();

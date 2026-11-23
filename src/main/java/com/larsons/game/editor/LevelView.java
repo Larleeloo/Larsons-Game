@@ -121,11 +121,12 @@ final class LevelView {
         world.player().preview(AnimState.IDLE);
     }
 
-    /** The vines and the named spots, as a key that changes when any of them does (they are in the ground). */
+    /** The vines, the ladders and the named spots, as a key that changes when any of them does (they are in the ground). */
     private String features() {
         StringBuilder sb = new StringBuilder(LevelWorld.openEdge(level) ? "open;" : "closed;");
         for (LevelObject o : level.objects()) {
-            if (o.type().equals(ObjectTypes.VINES) || o.type().equals(ObjectTypes.MARKER)
+            if (o.type().equals(ObjectTypes.VINES) || o.type().equals(ObjectTypes.LADDER)
+                    || o.type().equals(ObjectTypes.MARKER)
                     || o.type().equals(ObjectTypes.SPAWN)) {
                 sb.append(describe(o)).append(';');
             }

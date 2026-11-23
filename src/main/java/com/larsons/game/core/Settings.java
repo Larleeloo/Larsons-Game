@@ -151,14 +151,31 @@ public final class Settings {
     public boolean tutorialTips = true;
     /** The small map in the top corner, and the compass along the top. */
     public boolean miniMap = true, compass = true;
-    /** Whether there are birds in the world (off: none, at any hour). */
-    public boolean birds;
     /** The tips already shown, so each comes once ({@code scene/Tips}). */
     public final java.util.Set<String> tipsSeen = new java.util.LinkedHashSet<>();
     /** The pointer changes with what it is over (a button, someone to talk to, a foe); off: always the same. */
     public boolean dynamicPointer = true;
     /** The missions being followed are listed on the HUD. */
     public boolean missionTracker = true;
+    /** How fine the sun's shadows are ({@code gfx/Visuals.Shadows}: off, low, medium, high). */
+    public String shadows = com.larsons.game.gfx.Visuals.DEFAULT.shadows().name();
+    /** The Vibrant visuals look (warm sun, cool shade, richer colours, light rays), and how strong it is, 0 - 1. */
+    public boolean vibrant = true;
+    public double vibrantStrength = com.larsons.game.gfx.Visuals.DEFAULT.strength();
+    /** With Vibrant visuals: shafts of light worked out from the sun and the shadows. */
+    public boolean lightRays = true;
+    private com.larsons.game.gfx.Visuals visuals;
+
+    /** How the world looks, as Display has it. */
+    public com.larsons.game.gfx.Visuals visuals() {
+        com.larsons.game.gfx.Visuals.Shadows sh = com.larsons.game.gfx.Visuals.Shadows.of(shadows,
+                com.larsons.game.gfx.Visuals.Shadows.MEDIUM);
+        if (visuals == null || visuals.shadows() != sh || visuals.vibrant() != vibrant
+                || visuals.strength() != vibrantStrength || visuals.rays() != lightRays) {
+            visuals = new com.larsons.game.gfx.Visuals(sh, vibrant, vibrantStrength, lightRays);
+        }
+        return visuals;
+    }
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
@@ -216,7 +233,6 @@ public final class Settings {
                 s.autoPickup = Json.bool(j, "autoPickup", true);
                 s.pickupRange = Math.max(0.5, Math.min(8, Json.num(j, "pickupRange", 2.5)));
                 s.tutorialTips = Json.bool(j, "tutorialTips", true);
-                s.birds = Json.bool(j, "birds", false);
                 s.miniMap = Json.bool(j, "miniMap", true);
                 s.compass = Json.bool(j, "compass", true);
                 if (j.get("tipsSeen") instanceof java.util.List<?> seen) {
@@ -224,6 +240,10 @@ public final class Settings {
                 }
                 s.dynamicPointer = Json.bool(j, "dynamicPointer", true);
                 s.missionTracker = Json.bool(j, "missionTracker", true);
+                s.shadows = Json.str(j, "shadows", s.shadows);
+                s.vibrant = Json.bool(j, "vibrant", true);
+                s.vibrantStrength = Math.max(0, Math.min(1, Json.num(j, "vibrantStrength", s.vibrantStrength)));
+                s.lightRays = Json.bool(j, "lightRays", true);
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
@@ -260,12 +280,15 @@ public final class Settings {
         j.put("autoPickup", autoPickup);
         j.put("pickupRange", pickupRange);
         j.put("tutorialTips", tutorialTips);
-        j.put("birds", birds);
         j.put("miniMap", miniMap);
         j.put("compass", compass);
         j.put("tipsSeen", new java.util.ArrayList<>(tipsSeen));
         j.put("dynamicPointer", dynamicPointer);
         j.put("missionTracker", missionTracker);
+        j.put("shadows", shadows);
+        j.put("vibrant", vibrant);
+        j.put("vibrantStrength", vibrantStrength);
+        j.put("lightRays", lightRays);
         try {
             Files.createDirectories(config);
             Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);

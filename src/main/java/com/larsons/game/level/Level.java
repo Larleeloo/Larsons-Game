@@ -115,8 +115,10 @@ public final class Level {
 
     /**
      * The music played in the level: a song's id ({@link Songs}, e.g.
-     * {@code dream_on}), looping; {@link Songs#SHUFFLE} for all of them one
-     * after another (a new level's); or {@link Songs#NONE}.
+     * {@code copper_hearts}), looping; a playlist of several ids with
+     * {@link Songs#LIST} between, played in turn and round again;
+     * {@link Songs#SHUFFLE} for all of them one after another (a new
+     * level's); or {@link Songs#NONE}.
      */
     public String music() { return music; }
 

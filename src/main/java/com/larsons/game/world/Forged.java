@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  * the parts {@link com.larsons.game.sprite.TierLook} names), its own name and
  * rarity, the dice it rolls - how many, and of what: d4, d6, d8, d10, d%,
  * d12 or d20 - in a colour of their own, and any of the three borders'
- * effects ({@link Border}: Venom, Mystic, Bonded), even all three at once.
+ * effects ({@link Border}: Venom, Mystic, Bloodlust), even all three at once.
  *
  * <p>Items name it {@code forged:<id>} ({@link Item#key}): placed as an item
  * in a level, put in a chest or a barrel, given in a script. One file each in
@@ -50,7 +50,8 @@ import java.util.stream.Stream;
  */
 public record Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints,
                      int dice, int sides, int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra,
-                     int ammoEvery, List<Upgrade> upgrades, int level, Map<Gear.Effect, Double> gear) {
+                     int ammoEvery, List<Upgrade> upgrades, int level, Map<Gear.Effect, Double> gear,
+                     double fireRate, int accuracy) {
 
     /**
      * One of a forged weapon's upgrade tiers after its first (the weapon as
@@ -76,7 +77,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
             tints = tints == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(tints));
             ammoEvery = Math.max(1, ammoEvery);
             cost = Math.max(0, cost);
-            if (gear != null) gear = Tailor.clean(gear);
+            if (gear != null) gear = Gear.clean(gear);
         }
 
         /** One with what it gives as the tier before (a weapon's, which gives nothing). */
@@ -155,7 +156,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
             base = ItemDef.SWORD.id();
             d = ItemDef.SWORD;
         }
-        // what is worn has the gear's effects, a weapon the borders' (Venom, Mystic, Bonded): never the other's
+        // what is worn has the gear's effects, a weapon the borders' (Venom, Mystic, Bloodlust): never the other's
         boolean worn = d.isWearable();
         EnumMap<Gear.Effect, Double> g = new EnumMap<>(Gear.Effect.class);
         if (gear != null && worn) {
@@ -192,6 +193,41 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
             upgrades = List.copyOf(plain);
         }
         level = Math.max(0, Math.min(upgrades.size(), level));
+        fireRate = fireRate <= 0 || Double.isNaN(fireRate) ? 1 : Math.max(MIN_RATE, Math.min(MAX_RATE, fireRate));
+        accuracy = accuracy <= 0 ? 100 : Math.max(MIN_ACCURACY, Math.min(100, accuracy));
+    }
+
+    /** The slowest and the fastest a forged weapon shoots, of its kind's own speed. */
+    public static final double MIN_RATE = 0.25, MAX_RATE = 3;
+    /** The least accuracy a forged weapon is made with, percent (100: every shot as aimed). */
+    public static final int MIN_ACCURACY = 10;
+
+    /** One with its kind's own speed and every shot as aimed. */
+    public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
+                  int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra, int ammoEvery, List<Upgrade> upgrades,
+                  int level, Map<Gear.Effect, Double> gear) {
+        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, 1,
+                100);
+    }
+
+    /** Whether it shoots (a bow, a crossbow, a casting staff or a wand): what a rate of fire and accuracy are for. */
+    public boolean ranged() {
+        ItemDef d = def();
+        if (d == null || d.isWearable()) return false;
+        String b = base;
+        return b.equals("longbow") || b.equals("crossbow") || b.contains("staff") || b.contains("wand");
+    }
+
+    /** With a rate of fire of {@code r} times its kind's own. */
+    public Forged withFireRate(double r) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
+                level, gear, r, accuracy);
+    }
+
+    /** With an accuracy of {@code a} percent. */
+    public Forged withAccuracy(int a) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
+                level, gear, fireRate, a);
     }
 
     /** One as the Forge made them before upgrades: its first tier only. */
@@ -246,7 +282,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         if (amount <= 0) g.remove(e);
         else g.put(e, amount);
         return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
-                level, g);
+                level, g, fireRate, accuracy);
     }
 
     /** Its special effects at its tier now, as the inventory says them: "+25 max health", "A second jump in the air". */
@@ -322,7 +358,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
 
     /** It at tier {@code n} (0: as forged), held within its tiers. */
     public Forged at(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n, gear);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n, gear, fireRate, accuracy);
     }
 
     /** It one tier up, or null at its last. */
@@ -343,20 +379,21 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     }
 
     public Forged withExtra(List<DiceRoll.Group> e) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0, gear);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0, gear, fireRate, accuracy);
     }
 
     public Forged withAmmoEvery(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0, gear);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0, gear, fireRate, accuracy);
     }
 
     public Forged withUpgrades(List<Upgrade> u) {
         return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0, gear);
     }
 
-    /** A new one: an Epic sword rolling one d20, in its own colours, with no effects. */
+    /** A new one: an Epic sword rolling one die of a sword's (a d8), in its own colours, with no effects. */
     public static Forged fresh(String name) {
-        return new Forged(null, name, ItemDef.SWORD.id(), Rarity.EPIC, Map.of(), 1, 20, -1, Set.of());
+        return new Forged(null, name, ItemDef.SWORD.id(), Rarity.EPIC, Map.of(), 1,
+                com.larsons.game.combat.CombatTuning.SIDES.getOrDefault(ItemDef.SWORD.id(), 8), -1, Set.of());
     }
 
     /** A new piece of armour: an Epic iron helmet blocking with two d8s, in its own colours, giving nothing yet. */
@@ -404,27 +441,27 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return String.join(", ", out);
     }
 
-    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
-    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
     /** Made from another weapon: the colours of parts it does not have dropped. */
-    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
-    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
-    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
-    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
-    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level, gear); }
+    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
 
     /** {@code part} in {@code rgb} (-1: as it is drawn). */
     public Forged withTint(String part, int rgb) {
         Map<String, Integer> t = new LinkedHashMap<>(tints);
         if (rgb < 0) t.remove(part);
         else t.put(part, rgb);
-        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear);
+        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy);
     }
 
     /** With {@code b}'s effect, or without it. */
@@ -432,7 +469,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         EnumSet<Border> e = effects.isEmpty() ? EnumSet.noneOf(Border.class) : EnumSet.copyOf(effects);
         if (on) e.add(b);
         else e.remove(b);
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level, gear);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy);
     }
 
     // --- the forge's files ------------------------------------------------------------
@@ -500,6 +537,8 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         if (f.diceRgb() >= 0) m.put("diceColour", hex(f.diceRgb()));
         if (!f.extra().isEmpty()) m.put("moreDice", groups(f.extra()));
         m.put("ammoEvery", f.ammoEvery());
+        if (f.fireRate() != 1) m.put("fireRate", f.fireRate());
+        if (f.accuracy() != 100) m.put("accuracy", f.accuracy());
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
@@ -562,7 +601,8 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return new Forged(id, Json.str(m, "name", id), Json.str(m, "base", "sword"),
                 Rarity.byKey(Json.str(m, "rarity", "epic")), tints, (int) Json.num(m, "dice", 1),
                 (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
-                (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear);
+                (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear, Json.num(m, "fireRate", 1),
+                (int) Json.num(m, "accuracy", 100));
     }
 
     private static Map<String, Object> gearMap(Map<Gear.Effect, Double> gear) {

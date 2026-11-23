@@ -107,13 +107,18 @@ class GoodsAndRecipesTest {
             }
             made.add(r.out());
             Good g = Goods.get(r.out());
-            if (g != null && (g.kind() == Goods.Kind.POTION || g.kind() == Goods.Kind.MEAL)) {
+            if (g != null && (g.kind() == Goods.Kind.POTION || g.kind() == Goods.Kind.MEAL)
+                    || r.out().equals("blade_oil")) {
                 assertEquals(Station.CAULDRON, r.station(), r.id());
+            } else if (Set.of("iron_bar", "copper_bar", "brass_bar", "glass", "crucible", "charcoal", "whetstone")
+                    .contains(r.out())) {
+                assertEquals(Station.FURNACE, r.station(), r.id());
             } else {
                 assertEquals(Station.BENCH, r.station(), r.id());
             }
         }
-        assertEquals(Recipes.all().size(), Recipes.at(Station.BENCH).size() + Recipes.at(Station.CAULDRON).size());
+        assertEquals(Recipes.all().size(), Recipes.at(Station.BENCH).size() + Recipes.at(Station.CAULDRON).size()
+                + Recipes.at(Station.FURNACE).size());
         for (Good g : Goods.ofKind(Goods.Kind.POTION)) assertTrue(made.contains(g.id()), g.id() + " cannot be brewed");
         for (Good g : Goods.ofKind(Goods.Kind.SCROLL)) assertFalse(made.contains(g.id()), g.id() + " can be made");
         for (Good g : Goods.ofKind(Goods.Kind.EGG)) assertFalse(made.contains(g.id()), g.id() + " can be made");

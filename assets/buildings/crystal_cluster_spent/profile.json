@@ -1,0 +1,45 @@
+{
+ "key": "crystal_cluster_spent",
+ "label": "Crystal cluster (worked out)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 0.418,
+ "model": true,
+ "parts": [
+  {
+   "key": "rock",
+   "label": "Rock",
+   "colour": "#5e5866",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "crystal",
+   "label": "Crystal",
+   "colour": "#8ad8f0",
+   "texture": "smooth",
+   "glow": "always"
+  },
+  {
+   "key": "crystal2",
+   "label": "Deeper crystal",
+   "colour": "#b27ae8",
+   "texture": "smooth",
+   "glow": "always"
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.605
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

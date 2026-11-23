@@ -526,6 +526,40 @@ public final class World {
         return s;
     }
 
+    // --- the gathering spots ---------------------------------------------------------------
+
+    /**
+     * Work gathering spot {@code s} ({@link Gathering}): what it gives, and it
+     * stands worked out - its model swapped for its spent one - until it comes
+     * back; null when it is worked out already.
+     */
+    public List<Drops.Drop> gather(Spot s) {
+        List<Drops.Drop> got = Gathering.work(s, time, random);
+        if (got != null) gatherLook(s, true);
+        return got;
+    }
+
+    /** Gathering spot {@code s} drawn worked out ({@code spent}) or ready: its model swapped, when it has both. */
+    private void gatherLook(Spot s, boolean spent) {
+        Gathering.Kind k = Gathering.of(s);
+        if (k == null) return;
+        BuildingProfile p = com.larsons.game.building.BuildingCatalog.get().profile(spent ? k.spentModel() : k.model());
+        if (p == null) return;
+        Building old = takeBuilding(s.id());
+        if (old == null) return;
+        addBuilding(new Building(old.id(), p, old.position(), old.heading(), old.look(), null));
+    }
+
+    /** The gathering spots that have stood worked out long enough: back, as they were. */
+    private void regrowGathered() {
+        for (Spot s : spots) {
+            if (!Gathering.SPOT.equals(s.kind()) || !s.state().containsKey(Gathering.BACK)) continue;
+            if (Gathering.spent(s, time)) continue;
+            s.state().remove(Gathering.BACK);
+            gatherLook(s, false);
+        }
+    }
+
     /**
      * What stands in her way and no one else's: a barricade's gap, which the
      * Risen come through once its boards are down and she never goes out by.
@@ -876,10 +910,19 @@ public final class World {
         combat.sound(b != null && b.risen() ? "foes/risen_fall" : "foes/fall", at);
         kills.add(new Kill(b == null ? f.people().key() : b.key(), f.hasName() ? f.name() : null, at,
                 b != null && b.risen()));
-        if (b == null) return;
+        // what the level says it leaves (Creative Mode's "Leaves when felled"), else what its kind does
+        Drops own = Drops.parse(f.str("drops", ""));
+        Random r = new Random(Double.doubleToLongBits(at.x() * 31 + at.z() + time));
+        if (b == null) {
+            leave(own.roll(r, loot), at, 0.45);
+            return;
+        }
         earn(b.xp() * Math.max(0.6, f.size()) * f.xpTimes());
         if (b.risen() && hordeLoot != null && !hordeLoot.test(f)) return;
-        Random r = new Random(Double.doubleToLongBits(at.x() * 31 + at.z() + time));
+        if (!own.isEmpty()) {
+            leave(own.roll(r, loot), at, 0.45);
+            return;
+        }
         int coins = 1 + r.nextInt(Math.max(1, b.xp() / 4));
         spawn(Item.of(Supplies.COINS), new Vec3(at.x(), 0, at.z()), coins);
         Item w = f.weapon();
@@ -891,6 +934,28 @@ public final class World {
         else if (r.nextInt(5) == 0) {
             Item drop = loot.pick(r, Rarity.roll(r));
             if (drop != null) spawn(drop, new Vec3(at.x() + 0.4, 0, at.z() + 0.2));
+        }
+    }
+
+    /**
+     * {@code drops} on the ground round {@code at}: the first where it fell,
+     * the rest in a ring {@code reach} out (or where it fell, the ring's spot
+     * in a wall). What does not heap - a weapon, a piece to wear - lies one
+     * of each.
+     */
+    private void leave(List<Drops.Drop> drops, Vec3 at, double reach) {
+        int i = 0;
+        for (Drops.Drop d : drops) {
+            int heaps = Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+            for (int h = 0; h < heaps; h++, i++) {
+                double ang = i * 2.39996, far = i == 0 ? 0 : reach + 0.12 * (i % 3);
+                double x = at.x() + Math.cos(ang) * far, z = at.z() + Math.sin(ang) * far;
+                if (!lootFits(x, z)) {
+                    x = at.x();
+                    z = at.z();
+                }
+                spawn(d.item(), new Vec3(x, 0, z), Drops.heaps(d.item()) ? d.amount() : 1);
+            }
         }
     }
 
@@ -1328,6 +1393,7 @@ public final class World {
                 if (c.store() == null) opened(c);           // (a storage chest throws nothing out)
             }
         }
+        regrowGathered();
         for (Store s : List.copyOf(stores)) {
             s.tick(dt);
             if (s.broken()) smash(s);
@@ -1709,6 +1775,12 @@ public final class World {
         kills.add(new Kill(a.kind().key(), null, a.position(), false));
         java.util.Random r = new java.util.Random(Double.doubleToLongBits(a.position().x() * 31 + a.position().z()
                 + time));
+        // a herd the level set its own drops for ("Leaves when hunted") leaves those
+        Drops own = a.herd() == null ? Drops.NONE : Drops.parse(a.herd().drops());
+        if (!own.isEmpty()) {
+            leave(own.roll(r, loot), a.position(), a.radius() * 0.6 + 0.25);
+            return;
+        }
         int i = 0;
         for (com.larsons.game.ambient.Hunting.Drop d : com.larsons.game.ambient.Hunting.drops(a.kind())) {
             int n = d.roll(r);
@@ -1878,8 +1950,22 @@ public final class World {
         c.setLooted(true);
         if (onLooted != null) onLooted.accept(c);
         earn(com.larsons.game.cards.Hero.XP_CHEST);
-        List<Item> lot = new ArrayList<>(loot.roll(random));
+        List<Item> lot = new ArrayList<>();
         List<Integer> amounts = new ArrayList<>();
+        Drops own = Drops.parse(c.drops());
+        if (!own.isEmpty()) {
+            // the level's own pool for it (Creative Mode's "Gives"): that, and nothing else
+            for (Drops.Drop d : own.roll(random, loot)) {
+                int heaps = Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+                for (int h = 0; h < heaps; h++) {
+                    lot.add(d.item());
+                    amounts.add(Drops.heaps(d.item()) ? d.amount() : 1);
+                }
+            }
+            throwOut(c, lot, amounts);
+            return;
+        }
+        lot.addAll(loot.roll(random));
         for (int i = 0; i < lot.size(); i++) amounts.add(1);
         // and coins, and some supplies: ammunition, now and then an upgrade ingot or a reshuffle scroll
         Random extra = new Random(Double.doubleToLongBits(c.position().x() * 131 + c.position().z() * 7 + time));
@@ -1897,6 +1983,11 @@ public final class World {
             lot.add(Item.of(dye));
             amounts.add(1);
         }
+        throwOut(c, lot, amounts);
+    }
+
+    /** {@code lot} thrown out of chest {@code c}'s lid, one after another, {@code amounts} of each. */
+    private void throwOut(Chest c, List<Item> lot, List<Integer> amounts) {
         Vec3 lid = c.position().add(0, 0.55, 0);
         int n = lot.size();
         for (int i = 0; i < n; i++) {

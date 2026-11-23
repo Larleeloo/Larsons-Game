@@ -79,6 +79,12 @@ final class ModelRenderer implements AutoCloseable {
             }
             """;
 
+    /** Only how near it is: drawn into the sun's shadow map. */
+    private static final String DEPTH = """
+            #version 330 core
+            void main() {}
+            """;
+
     private static final String FRAGMENT = """
             #version 330 core
             in vec3 vPos;
@@ -120,11 +126,14 @@ final class ModelRenderer implements AutoCloseable {
                 ivec2 t = ivec2(floor(vTex.x / uTexel), floor(-vTex.y / uTexel));
                 int tone = int(texelFetch(uPatterns, ivec3(t.x & 63, t.y & 63, uLayer[k]), 0).r * 3.0 + 0.5);
                 float lit = dot(vNormal, uLight);
+                // in the sun's shadow: in the shadow band (and a little darker, the shade's colour)
+                float sh = sceneShadow(vPos);
+                if (sh > 0.5) lit = min(lit, 0.15);
                 int base = lit > 0.6 ? 4 : lit > 0.2 ? 3 : 2;
                 bool line = edge < lineW;
                 int idx = line ? 0 : clamp(base + tone - 2, 1, 5);
                 vec3 c = uRamp[k * 6 + idx];
-                vec3 col = c * sceneLight(vPos);
+                vec3 col = c * sceneLightShaded(vPos, sh, uShadow.x * 0.4);
                 float glow = min(uGlow[k], 1.0);
                 if (uGlow[k] > 1.5) {
                     col = max(col, c * 1.12);
@@ -134,6 +143,7 @@ final class ModelRenderer implements AutoCloseable {
                     col = mix(col, warm, glow);
                 }
                 col = mix(col, uMistColour, sceneMist(vPos) * (1.0 - glow * 0.7));
+                col += sceneRays(vPos);
                 if (uFog.y > 0.0) {
                     float f = clamp((vW - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     col = mix(col, uFogColor, f * f);
@@ -154,7 +164,7 @@ final class ModelRenderer implements AutoCloseable {
 
     private final BuildingCatalog catalog;
     private final PixelPalette palette;
-    private final Shader shader;
+    private final Shader shader, depth;
     private final int patterns;
     private final Map<String, Gpu> models = new HashMap<>();
     private final float[] ramp = new float[BuildingRenderer.MAX_PARTS * 6 * 3];
@@ -167,6 +177,28 @@ final class ModelRenderer implements AutoCloseable {
         this.palette = palette;
         this.patterns = patterns;
         this.shader = new Shader("models", VERTEX, FRAGMENT);
+        this.depth = new Shader("models-depth", VERTEX, DEPTH);
+    }
+
+    /**
+     * Draw those of {@code buildings} that have a model into the sun's
+     * shadow map (begun already), through {@code sunViewProj}: those within
+     * {@code reach} metres of {@code centre}, every wall standing (a house
+     * she is behind still shades the street).
+     */
+    void drawDepth(List<Building> buildings, Mat4 sunViewProj, Vec3 centre, double reach, double time) {
+        depth.use();
+        depth.set("uViewProj", sunViewProj);
+        depth.set("uShift", 0f, 0f);
+        for (Building b : buildings) {
+            BuildingProfile p = b.profile();
+            if (p.room() != null) continue;
+            Gpu g = gpu(p.key());
+            if (g == NONE) continue;
+            if (b.position().sub(centre).horizontalLength() > reach + p.reach() + 4) continue;
+            place(depth, b, g, time);
+        }
+        glBindVertexArray(0);
     }
 
     /** Whether {@code p} is drawn as a model (it has one). Reads it the first time. */
@@ -230,11 +262,17 @@ final class ModelRenderer implements AutoCloseable {
         shader.set("uPatterns", 1);
         shader.set("uFogColor", fog[0], fog[1], fog[2]);
         shader.set("uFog", fogFar * 0.35f, fogFar);
-        // the light as the views were lit: from the eye's upper left, and in front of it
+        // the light as the views were lit: from the eye's upper left, and in front of it - or, the more vibrant,
+        // from where the sun is while it is up
         Vec3 r = camera.right(), u = camera.up(), f = camera.forward();
         double lx = -0.52 * r.x() + 0.62 * u.x() - 0.58 * f.x(), ly = -0.52 * r.y() + 0.62 * u.y() - 0.58 * f.y(),
                 lz = -0.52 * r.z() + 0.62 * u.z() - 0.58 * f.z(), ll = Math.max(1e-6, Math.sqrt(lx * lx + ly * ly
                 + lz * lz));
+        double sun = Math.max(0, Math.min(1, light.vibrance * light.sunUp));
+        lx = lx / ll * (1 - sun) + light.towardSun[0] * sun;
+        ly = ly / ll * (1 - sun) + light.towardSun[1] * sun;
+        lz = lz / ll * (1 - sun) + light.towardSun[2] * sun;
+        ll = Math.max(1e-6, Math.sqrt(lx * lx + ly * ly + lz * lz));
         shader.set("uLight", (float) (lx / ll), (float) (ly / ll), (float) (lz / ll));
         Vec3 eye = camera.eye();
         Vec3 her = focus.add(0, 0.9, 0);
@@ -267,9 +305,14 @@ final class ModelRenderer implements AutoCloseable {
 
     /** {@code b} drawn, its look and place set first. */
     private void drawOne(Building b, Gpu g, float night, double time) {
+        setLook(b, night);
+        place(shader, b, g, time);
+    }
+
+    /** {@code b} drawn through {@code shader}, where it stands, its turning part turned. */
+    private static void place(Shader shader, Building b, Gpu g, double time) {
         BuildingProfile p = b.profile();
         Vec3 at = b.position();
-        setLook(b, night);
         Vec3 ax = b.axisX(), ay = b.axisY();
         shader.set("uAt", (float) at.x(), (float) at.y(), (float) at.z());
         shader.set("uAx", (float) ax.x(), (float) ax.y(), (float) ax.z());
@@ -351,5 +394,6 @@ final class ModelRenderer implements AutoCloseable {
         }
         models.clear();
         shader.close();
+        depth.close();
     }
 }

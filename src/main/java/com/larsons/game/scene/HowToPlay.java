@@ -57,7 +57,8 @@ final class HowToPlay {
                             Action.LOCK, Action.LOCK_NEXT),
                     List.of("{ATTACK} strikes with what is in your hands. Every blow rolls dice over your head in "
                                     + "the colour of the weapon's rarity, and their total is the damage: a Common "
-                                    + "weapon rolls one D20, a Mythic one six. A forged weapon can roll its own dice, "
+                                    + "weapon rolls one die, a Mythic six - bare hands a D4, a dagger a D6, a sword, axe or mace a D8, a "
+                                    + "bow or crossbow a D10, a staff or wand a D12. A forged weapon can roll its own dice, "
                                     + "even adding or multiplying them.",
                             "{HEAVY} is a heavy attack, one die more, once every ten seconds: the orange bar by the "
                                     + "hotbar fills again. {SPIN} spins and strikes all round you.",
@@ -141,7 +142,7 @@ final class HowToPlay {
                                     + "Game sets how near), and go in your purse and your pouch, not a slot.",
                             "Everything has a rarity, from Common in white to Mythic in cyan, shown in its glow. "
                                     + "Some weapons carry a rare border: Venom poisons, Mystic strikes harder for "
-                                    + "mana, Bonded grows with every foe it has struck.")),
+                                    + "mana, Bloodlust grows with every foe it has struck.")),
             new Chapter("Classes and cards", "reshuffle_scroll",
                     List.of(Action.CARDS, Action.INVENTORY),
                     List.of("Your class gives you a deck of cards: four in hand to start, and one more every few "
@@ -173,9 +174,14 @@ final class HowToPlay {
                                     + "in the inventory and on the HUD.")),
             new Chapter("Crafting and brewing", "health_potion",
                     List.of(Action.USE),
-                    List.of("At a workbench you make things: the makings, fishing rods, packs, keys, ammunition "
-                                    + "and trinkets. At a cauldron you brew potions and cook meals. {USE} by one opens "
-                                    + "it: each recipe shows what it takes, and what you have of it.",
+                    List.of("At a workbench you make things: the makings, fishing rods, packs, keys, kits "
+                                    + "and trinkets. At a furnace you smelt ore and sand into bars and glass. At a "
+                                    + "cauldron you brew potions and cook meals. {USE} by one opens it: each recipe "
+                                    + "shows what it takes, and what you have of it.",
+                            "{USE} by a vein, a seam, a crystal cluster, a sand or clay bank, fallen logs, flax or "
+                                    + "a tapped pine gathers what it gives: ore, coal, crystal, sand, clay, timber, "
+                                    + "flax, resin. It grows back after a few minutes. Bars, glass, planks and lenses "
+                                    + "make bandages, blade oil, smoke pellets, a spyglass and a lantern.",
                             "Potions are drunk from the hand: health, mana, stamina, swiftness, might, stoneskin, "
                                     + "shadow, gills and more. They are the big round flasks that bubble; dyes are the "
                                     + "small slim bottles. Scrolls are stronger, are read the same way, and are "
@@ -193,9 +199,9 @@ final class HowToPlay {
                     List.of(Action.CROUCH, Action.JUMP, Action.DODGE),
                     List.of("In deep water you swim. {CROUCH} dives under and {JUMP} comes up. Under the water a "
                                     + "breath bar shows; come up before it runs out.",
-                            "Walk into vines on a cliff to climb them: forward goes up, back goes down, and left and "
-                                    + "right go along. It costs stamina; {JUMP} lets go. Walk off the top of the vines "
-                                    + "to climb down them.")),
+                            "Walk into vines on a cliff, or a ladder, to climb them: forward goes up, back goes "
+                                    + "down, and left and right go along the vines. It costs stamina; {JUMP} lets go. "
+                                    + "Walk off the top of the vines or the ladder to climb down them.")),
             new Chapter("Horses", "saddle",
                     List.of(Action.USE, Action.RUN, Action.SPRINT),
                     List.of("With a saddle in your inventory, {USE} by a horse saddles it; {USE} again rides it. "

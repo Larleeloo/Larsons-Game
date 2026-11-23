@@ -226,7 +226,8 @@ class WaterAndBiomeTest {
 
         // what she hears: the river all round her, its sound by day, by night the same
         Map<String, Double> noon = WorldSounds.biomeMix(world, new com.larsons.game.math.Vec3(0, 0, 0), 1);
-        assertEquals(1.0, noon.values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
+        assertEquals(1.0, noon.entrySet().stream().filter(e -> !e.getKey().equals("ambient/birdsong"))
+                .mapToDouble(Map.Entry::getValue).sum(), 1e-9, "the biomes' own sounds share it; the birds sing over");
         assertTrue(noon.get("ambient/stream") > 0.1);
         Map<String, Double> night = WorldSounds.biomeMix(world, new com.larsons.game.math.Vec3(30, 0, 30), 0);
         assertEquals(1.0, night.get("ambient/crickets"), 1e-9, "the plains at night: crickets");

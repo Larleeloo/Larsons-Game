@@ -14,9 +14,10 @@ import java.util.Random;
  *       after 10 seconds.</li>
  *   <li><b>Mystic</b> (smoky purple) - +150 % damage, but the weapon uses
  *       twice the mana.</li>
- *   <li><b>Bonded</b> (pink) - +10 % damage for every living thing hit with
- *       it in the last 5 minutes: five enemies hit and all still alive is
- *       +50 % a hit.</li>
+ *   <li><b>Bloodlust</b> (pink; once called Bonded) - +10 % damage for every
+ *       living thing hit with it in the last 5 minutes: the more it has
+ *       struck and left standing, the harder it strikes - five enemies hit
+ *       and all still alive is +50 % a hit.</li>
  * </ul>
  *
  * <p>The numbers are here for the fight to use ({@link #damageOverTime},
@@ -28,7 +29,7 @@ public enum Border {
             "+50% of damage as damage over time for 10 s after the first hit"),
     MYSTIC("mystic", "Mystic", 0x636092,
             "+150% damage, but the weapon uses twice the mana"),
-    BONDED("bonded", "Bonded", 0xFD81A5,
+    BLOODLUST("bloodlust", "Bloodlust", 0xFD81A5,
             "+10% damage for each living thing hit with it in the last 5 minutes");
 
     /** The chance of each border on any item. */
@@ -38,8 +39,8 @@ public enum Border {
     public static final double VENOM_SHARE = 0.5, VENOM_SECONDS = 10;
     /** Mystic: the damage multiplier, and how many times the mana it costs. */
     public static final double MYSTIC_DAMAGE = 2.5, MYSTIC_MANA = 2;
-    /** Bonded: the bonus for each living thing hit, and how long a hit counts (seconds). */
-    public static final double BONDED_PER_HIT = 0.10, BONDED_SECONDS = 5 * 60;
+    /** Bloodlust: the bonus for each living thing hit, and how long a hit counts (seconds). */
+    public static final double BLOODLUST_PER_HIT = 0.10, BLOODLUST_SECONDS = 5 * 60;
 
     private final String key, label, effect;
     private final int rgb;
@@ -77,6 +78,7 @@ public enum Border {
     }
 
     public static Border byKey(String key) {
+        if ("bonded".equalsIgnoreCase(key)) return BLOODLUST;          // (its old name, in older saves and levels)
         for (Border b : values()) if (b.key.equalsIgnoreCase(key)) return b;
         return null;
     }

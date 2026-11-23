@@ -17,6 +17,8 @@ import com.larsons.game.story.Quests;
 import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Buffs;
+import com.larsons.game.world.Drops;
+import com.larsons.game.world.Gathering;
 import com.larsons.game.world.Goods;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
@@ -53,8 +55,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
  */
 final class Story {
 
-    /** The most slots packs can take her inventory to. */
-    static final int MOST_SLOTS = 60;
     private static final float[] QUEST = Theme.rgb(255, 210, 122, 1f), DONE = Theme.rgb(140, 220, 130, 1f);
 
     private record Option(String label, float[] colour, Runnable does) {}
@@ -353,12 +353,35 @@ final class Story {
             case FolkTypes.SUMMON -> summon(s);
             case StoryTypes.WORKBENCH -> open(Recipes.Station.BENCH);
             case StoryTypes.CAULDRON -> open(Recipes.Station.CAULDRON);
+            case StoryTypes.FURNACE -> open(Recipes.Station.FURNACE);
+            case StoryTypes.GATHER -> gather(s);
             case StoryTypes.LOCK -> unlock(s);
             default -> {
                 return props.use(s);
             }
         }
         return true;
+    }
+
+    /** Work gathering spot {@code s}: what it gives to her, said over her - or that it is worked out. */
+    private void gather(Spot s) {
+        Gathering.Kind k = Gathering.of(s);
+        if (k == null) return;
+        Player p = world.player();
+        List<Drops.Drop> got = world.gather(s);
+        if (got == null) {
+            Sounds.play(SoundKeys.ui("error"), 0.5);
+            world.combat().say("Worked out", 0xC8BCA8, p.feet(), 2.1, true);
+            return;
+        }
+        world.combat().sound(k.sound(), s.position());
+        StringBuilder said = new StringBuilder();
+        for (Drops.Drop d : got) {
+            give(d.item(), d.amount());
+            if (!said.isEmpty()) said.append(", ");
+            said.append("+").append(d.amount()).append(' ').append(d.item().name().toLowerCase(java.util.Locale.ROOT));
+        }
+        if (!said.isEmpty()) world.combat().say(said.toString(), 0xE8D8A8, p.feet(), 2.2, false);
     }
 
     /** What a summoning station calls what it summons: "Vérnees", "wild boar", "bortzal". */
@@ -387,6 +410,14 @@ final class Story {
             }
             case StoryTypes.WORKBENCH -> "Use the workbench";
             case StoryTypes.CAULDRON -> "Brew at the cauldron";
+            case StoryTypes.FURNACE -> "Smelt at the furnace";
+            case StoryTypes.GATHER -> {
+                Gathering.Kind k = Gathering.of(s);
+                double wait = Gathering.untilBack(s, world.time());
+                if (k == null) yield "Gather";
+                yield wait > 0 ? k.label() + ": worked out  (back in " + Math.max(1, Math.round(wait / 60.0))
+                        + " min)" : k.prompt();
+            }
             case StoryTypes.LOCK -> {
                 Goods.Good key = Goods.get(s.str("key", "iron_key"));
                 int cost = (int) s.num("cost", 0);
@@ -489,8 +520,10 @@ final class Story {
         List<Item> over = Recipes.make(r, world.player().inventory());
         if (over == null) return;
         for (Item i : over) world.spawn(i, world.player().ground());
-        Sounds.play(SoundKeys.ui(r.station() == Recipes.Station.CAULDRON ? "brewed" : "crafted"));
-        game.toast((r.station() == Recipes.Station.CAULDRON ? "Brewed " : "Made ")
+        Sounds.play(SoundKeys.ui(r.station() == Recipes.Station.CAULDRON ? "brewed"
+                : r.station() == Recipes.Station.FURNACE ? "smelted" : "crafted"));
+        game.toast((r.station() == Recipes.Station.CAULDRON ? "Brewed " : r.station() == Recipes.Station.FURNACE
+                ? "Smelted " : "Made ")
                 + (r.makes() > 1 ? r.makes() + " × " : "") + r.name(), Theme.OK);
     }
 
@@ -515,10 +548,11 @@ final class Story {
         if (g == null || !g.usable()) return;
         Vec3 at = p.ground();
         switch (g.kind()) {
-            case POTION, SCROLL -> {
+            case POTION, SCROLL, KIT -> {
                 if (!quaff(g)) return;
                 world.useUpHeld();
-                world.combat().sound(g.kind() == Goods.Kind.POTION ? "item/potion_drink" : "item/scroll_read", at);
+                world.combat().sound(g.kind() == Goods.Kind.POTION ? "item/potion_drink"
+                        : g.kind() == Goods.Kind.KIT ? "item/" + g.id() : "item/scroll_read", at);
                 world.combat().say(g.about(), g.rarity().rgb(), p.feet(), 2.2, false);
             }
             case EGG -> {
@@ -539,12 +573,16 @@ final class Story {
             }
             case PACK -> {
                 int more = Integer.parseInt(g.arg()), size = p.inventory().size();
-                if (size >= MOST_SLOTS) {
+                if (size >= Player.MOST_SLOTS) {
                     game.toast("You can carry no more than this", Theme.HINT);
                     return;
                 }
                 world.useUpHeld();
-                p.inventory().resize(Math.min(MOST_SLOTS, size + more));
+                // (the bag's slots go before the pack's: the pack's are always the last)
+                int pack = p.packSlots();
+                p.fitPack(0);
+                p.inventory().resize(Math.min(Player.MOST_SLOTS, p.inventory().size() + more));
+                p.fitPack(pack);
                 Sounds.play(SoundKeys.ui("equip"));
                 game.toast("Inventory: " + p.inventory().size() + " slots", Theme.OK);
             }
@@ -633,6 +671,21 @@ final class Story {
             world.combat().say("Ready in " + (int) Math.ceil(ready - now) + " s", 0xC8D2DC, p.feet(), 2.1, true);
             return;
         }
+        if (g == Goods.LANTERN) {
+            boolean lit = !p.lanternLit();
+            p.setLanternLit(lit);
+            world.combat().sound(lit ? "item/lantern_light" : "item/lantern_out", p.ground());
+            world.combat().say(lit ? "Lantern lit" : "Lantern out", 0xFFD27A, p.feet(), 2.1, true);
+            return;
+        }
+        if (g == Goods.SPYGLASS) {
+            int foes = world.foes().size();
+            world.reveal(20);
+            readyAt.put(g.id(), now + 20);
+            world.combat().sound("item/spyglass", p.ground());
+            game.toast(foes == 0 ? "No foe in sight" : foes + (foes == 1 ? " foe" : " foes") + " in sight", Theme.ACCENT);
+            return;
+        }
         if (g == Goods.CRYSTAL_BALL) {
             int foes = world.foes().size();
             world.reveal(60);
@@ -659,7 +712,8 @@ final class Story {
                     if (i >= 0 && i < options.size()) choose(options.get(i));
                 }
             }
-            case "station" -> open(arg.startsWith("c") ? Recipes.Station.CAULDRON : Recipes.Station.BENCH);
+            case "station" -> open(arg.startsWith("c") ? Recipes.Station.CAULDRON
+                    : arg.startsWith("f") ? Recipes.Station.FURNACE : Recipes.Station.BENCH);
             case "journal" -> journal = !journal;
             default -> { }
         }
@@ -822,9 +876,12 @@ final class Story {
         float x = (ui.width() - w) / 2, y = (ui.height() - h) / 2;
         ui.scrim();
         ui.panel(x, y, w, h);
-        ui.textCentered(ui.large, brew ? "The Cauldron" : "The Workbench", x + w / 2, y + 14, Theme.TITLE);
+        boolean smelt = station == Recipes.Station.FURNACE;
+        ui.textCentered(ui.large, brew ? "The Cauldron" : smelt ? "The Furnace" : "The Workbench", x + w / 2, y + 14,
+                Theme.TITLE);
         ui.textCentered(ui.small, brew ? "Potions want an empty bottle and what grows, swims and runs about."
-                : "What the hunt, the fields and the forge give you, made into what you need.", x + w / 2, y + 48,
+                : smelt ? "Ore, sand and clay from the gathering spots, and coal or charcoal to burn."
+                : "What the hunt, the fields and the furnace give you, made into what you need.", x + w / 2, y + 48,
                 Theme.HINT);
         List<Recipes.Recipe> list = Recipes.at(station);
         if (picked == null && !list.isEmpty()) {
@@ -852,7 +909,9 @@ final class Story {
                 if (sel || hot) ui.rect(lx + 2, ry, lw - 4, row - 2, sel ? Theme.BUTTON_HOVER : Theme.BUTTON);
                 float[] c = out == null ? Theme.ITEM : out.rarity().colour(can ? 1f : 0.45f);
                 ui.rect(lx + 8, ry + 6, 5, row - 14, c);
-                ui.text(ui.body, Ui.fit(ui.body, (r.makes() > 1 ? r.makes() + " × " : "") + r.name(), lw - 80), lx + 22,
+                String way = Recipes.variant(r, list);
+                ui.text(ui.body, Ui.fit(ui.body, (r.makes() > 1 ? r.makes() + " × " : "") + r.name()
+                                + (way.isEmpty() ? "" : ", " + way), lw - 80), lx + 22,
                         ry + (row - 2 - ui.body.lineHeight()) / 2, c);
                 int times = Recipes.times(r, inv);
                 if (times > 0) {

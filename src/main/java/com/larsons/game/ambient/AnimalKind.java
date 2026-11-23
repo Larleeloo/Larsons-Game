@@ -301,7 +301,7 @@ public enum AnimalKind {
     /** How many of its number are about at a time of day (0 night, 1 day): the insects by day only. */
     /**
      * Whether it is a bird: the water birds, the perching ones, those that
-     * walk, the hummingbird. (They are turned off - {@link Animals#setBirds}.)
+     * walk, the hummingbird. (They do not come by on their own: a level's flocks are placed in it.)
      */
     public boolean bird() {
         return gait == Gait.BIRD || gait == Gait.PERCH || gait == Gait.FOWL || this == HUMMINGBIRD;

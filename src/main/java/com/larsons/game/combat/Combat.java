@@ -29,8 +29,10 @@ import java.util.Random;
 import java.util.function.ToDoubleFunction;
 
 /**
- * The fighting: every swing she makes rolls the weapon's dice - a D20 for a
- * Common weapon, up to six for a Mythic ({@link CombatTuning}) - which
+ * The fighting: every swing she makes rolls the weapon's dice - one for a
+ * Common weapon, up to six for a Mythic, of its kind's sides (bare hands a
+ * D4, a dagger a D6, a sword, an axe or a mace a D8, a bow or a crossbow a
+ * D10, a staff or a wand a D12: {@link CombatTuning}) - which
  * tumble above her head ({@link #show()}) and come up as the blow lands,
  * and their total is the damage. A swing hits whatever is in reach in front
  * of her ({@link Move}); a bow, a crossbow, a casting staff or a wand sends
@@ -44,7 +46,7 @@ import java.util.function.ToDoubleFunction;
  *       cost doubled, and a weapon that casts nothing draws a swing's worth
  *       ({@link CombatTuning#mysticBaseCost}) twice over. Short of mana, a
  *       spell fizzles and a Mystic swing lands as a plain one;</li>
- *   <li><b>Bonded</b>: +10% for every living thing hit with that weapon in
+ *   <li><b>Bloodlust</b>: +10% for every living thing hit with that weapon in
  *       the last five minutes, the one it is hitting now among them - hit
  *       five and, while all five stand, every hit is +50%.</li>
  * </ul>
@@ -188,7 +190,7 @@ public final class Combat {
     private final List<Popup> popups = new ArrayList<>();
     private final List<Effect> effects = new ArrayList<>();
     private final List<Sound> sounds = new ArrayList<>();
-    /** Bonded: when each weapon last hit each thing. */
+    /** Bloodlust: when each weapon last hit each thing. */
     private final Map<Item, Map<Target, Double>> bonds = new HashMap<>();
 
     /** A foe's shot that reached her: what it was, what it carries, who loosed it. */
@@ -359,7 +361,7 @@ public final class Combat {
         if (high) n += HIGH_DICE;
         int extra = (int) Math.round(buffs.plus(Buffs.Kind.EXTRA_DICE, what));
         n += extra;
-        int sides = forged != null ? forged.sides() : tuning.sides;
+        int sides = forged != null ? forged.sides() : tuning.sides(weapon == null ? null : weapon.def());
         // hidden, a blow is a sneak attack (or a card makes it one)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
         double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
@@ -438,7 +440,7 @@ public final class Combat {
 
     /**
      * What the borders add, said under the dice, one line each ({@code also}:
-     * what it is aimed at, for Bonded's count) - a forged weapon's every effect.
+     * what it is aimed at, for Bloodlust's count) - a forged weapon's every effect.
      */
     private List<Note> notes(Strike s, Target also) {
         List<Note> out = new ArrayList<>();
@@ -446,9 +448,9 @@ public final class Combat {
             if (b == Border.MYSTIC) {
                 out.add(!s.mystic() ? new Note("Mystic: no mana, no bonus", b.rgb())
                         : new Note("Mystic ×" + trim(Border.MYSTIC_DAMAGE), b.rgb()));
-            } else if (b == Border.BONDED) {
-                int n = bondedCount(s.weapon(), also);
-                out.add(new Note("Bonded +" + Math.round(n * Border.BONDED_PER_HIT * 100) + "% (" + n + " alive)",
+            } else if (b == Border.BLOODLUST) {
+                int n = bloodlustCount(s.weapon(), also);
+                out.add(new Note("Bloodlust +" + Math.round(n * Border.BLOODLUST_PER_HIT * 100) + "% (" + n + " alive)",
                         b.rgb()));
             } else if (b == Border.VENOM) {
                 out.add(new Note("Venom +" + Math.round(Border.VENOM_SHARE * 100) + "% over "
@@ -496,7 +498,7 @@ public final class Combat {
             }
         }
         for (Target t : hit) remember(s.strike.weapon(), t);
-        // every blow's damage before any of them lands, so one felled first leaves the others' Bonded count be
+        // every blow's damage before any of them lands, so one felled first leaves the others' Bloodlust count be
         double[] dealt = new double[hit.size()];
         for (int i = 0; i < hit.size(); i++) dealt[i] = damage(s.strike, hit.get(i));
         renote(s.strike, null);
@@ -505,7 +507,7 @@ public final class Combat {
 
     /** The notes under {@code s}'s dice, again, now its targets are known. */
     private void renote(Strike s, Target also) {
-        if (show != null && show.strike() == s && s.has(Border.BONDED)) {
+        if (show != null && show.strike() == s && s.has(Border.BLOODLUST)) {
             List<Note> notes = notes(s, also);
             for (Note n : show.notes()) if (n.rgb() == HIGH_RGB) notes.add(0, n);
             show = new Show(s, show.start(), show.land(), notes);
@@ -696,9 +698,36 @@ public final class Combat {
         if (t != null) to = lead(hand, t, speed);
         else if (kind == Move.Kind.SPELL) to = hand.add(f.scale(tuning.range));
         else to = p.ground().add(f.scale(tuning.range * 0.7));     // on ahead, coming down in the grass
+        to = scatter(hand, to, accuracy(strike.weapon()));
         Vec3 v = Projectile.aim(kind, hand, to, speed);
         double life = kind == Move.Kind.SPELL ? Math.max(range, hand.distance(to) + 2) / Math.max(1e-6, speed) : 8;
         projectiles.add(new Projectile(kind, strike, spellColour(strike.weapon()), hand, v, life));
+    }
+
+    /** How far off a shot of no accuracy at all goes, degrees either way (a shot of 50% half that, at most). */
+    public static final double MOST_SPREAD = 16;
+
+    /** How true {@code weapon} shoots, percent: a forged one's accuracy, any other's 100 (as aimed). */
+    public static int accuracy(Item weapon) {
+        return weapon != null && weapon.forged() != null ? weapon.forged().accuracy() : 100;
+    }
+
+    /**
+     * Where a shot from {@code hand} at {@code to} goes for a weapon {@code
+     * accuracy} percent true: {@code to} itself at 100, else turned off it
+     * by up to {@link #MOST_SPREAD} times what it lacks, to either side and a
+     * little up or down - most shots near the mark, a few far off.
+     */
+    Vec3 scatter(Vec3 hand, Vec3 to, int accuracy) {
+        if (accuracy >= 100) return to;
+        double most = Math.toRadians(MOST_SPREAD * (100 - accuracy) / 100.0);
+        double side = most * Math.max(-1, Math.min(1, random.nextGaussian() * 0.5));
+        double up = most * 0.45 * Math.max(-1, Math.min(1, random.nextGaussian() * 0.5));
+        Vec3 d = to.sub(hand);
+        double c = Math.cos(side), sn = Math.sin(side);
+        double x = d.x() * c - d.z() * sn, z = d.x() * sn + d.z() * c;
+        double flat = Math.hypot(x, z);
+        return hand.add(new Vec3(x, d.y() + flat * Math.tan(up), z));
     }
 
     /**
@@ -806,14 +835,14 @@ public final class Combat {
 
     /**
      * What {@code s} does to {@code t}: the dice's total, ×2.5 for a Mystic
-     * weapon that had the mana, +10% for each living thing a Bonded weapon
+     * weapon that had the mana, +10% for each living thing a Bloodlust weapon
      * has hit in the last five minutes ({@code t} counted), rounded to a
      * whole number.
      */
     public double damage(Strike s, Target t) {
         double d = s.roll().total();
         if (s.mystic()) d *= Border.MYSTIC_DAMAGE;
-        if (s.has(Border.BONDED)) d *= 1 + Border.BONDED_PER_HIT * bondedCount(s.weapon(), t);
+        if (s.has(Border.BLOODLUST)) d *= 1 + Border.BLOODLUST_PER_HIT * bloodlustCount(s.weapon(), t);
         d *= s.times();
         return Math.round(d);
     }
@@ -918,9 +947,9 @@ public final class Combat {
         }
     }
 
-    /** Bonded: remember that {@code weapon} hit {@code t} now. */
+    /** Bloodlust: remember that {@code weapon} hit {@code t} now. */
     private void remember(Item weapon, Target t) {
-        if (weapon == null || !weapon.has(Border.BONDED) || !t.living()) return;
+        if (weapon == null || !weapon.has(Border.BLOODLUST) || !t.living()) return;
         bonds.computeIfAbsent(weapon, k -> new IdentityHashMap<>()).put(t, now);
     }
 
@@ -928,11 +957,11 @@ public final class Combat {
      * How many living things {@code weapon} has hit in the last five
      * minutes, counting {@code also} (the one being hit now; null: none).
      */
-    public int bondedCount(Item weapon, Target also) {
+    public int bloodlustCount(Item weapon, Target also) {
         int n = 0;
         Map<Target, Double> hits = weapon == null ? null : bonds.get(weapon);
         if (hits != null) {
-            hits.values().removeIf(at -> now - at > Border.BONDED_SECONDS);
+            hits.values().removeIf(at -> now - at > Border.BLOODLUST_SECONDS);
             for (Target t : hits.keySet()) if (t.alive() || t == also) n++;
         }
         if (also != null && (hits == null || !hits.containsKey(also))) n++;
@@ -955,9 +984,9 @@ public final class Combat {
     /**
      * Whether {@code move} with {@code weapon} is a plain blow: a wand's heavy
      * attack. Its great two-handed cast sends no spell - it is the wand
-     * brought down on whatever is in front of her - so it rolls one D20
+     * brought down on whatever is in front of her - so it rolls one die
      * ({@link CombatTuning#wandHeavyDice}) whatever the wand's rarity, costs
-     * no mana, and its border (Mystic, Venom, Bonded) adds nothing.
+     * no mana, and its border (Mystic, Venom, Bloodlust) adds nothing.
      */
     public static boolean plainBlow(Item weapon, Move move) {
         return weapon != null && move != null && move.heavy() && !move.shoots()

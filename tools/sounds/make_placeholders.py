@@ -1217,11 +1217,30 @@ def croak(k, f, d):
 
 @sound("ambient/plains", 0.2)
 def _(k):
+    # the wind in the grass (the birds sing in their own bed, ambient/birdsong, so they can be turned down)
     d = 12.0
-    out = 0.12 * k.periodic(d, band_shape(150, 900, -4))
-    for _ in range(14):
+    t = t_of(d)
+    swell = 0.55 + 0.45 * np.sin(2 * np.pi * t / d + 0.7) ** 2
+    out = 0.12 * k.periodic(d, band_shape(150, 900, -4)) * swell
+    out += 0.03 * k.periodic(d, band_shape(1800, 5000)) * swell ** 2           # the grass's own hiss
+    return out
+
+
+@sound("ambient/birdsong", 0.2)
+def _(k):
+    # the small birds singing by day, near and far, every one its own phrase; and now and then a wood pigeon
+    d = 14.0
+    out = silence(d)
+    for _ in range(16):
         f = k.uniform(2600, 4800)
         place(out, bird(k, f, 0.6, int(k.uniform(2, 6))), k.uniform(0, d), k.uniform(0.25, 0.8), wrap=True)
+    for _ in range(6):                                                    # a farther one, higher, softer
+        f = k.uniform(4200, 6000)
+        place(out, bird(k, f, 0.5, int(k.uniform(3, 7))), k.uniform(0, d), k.uniform(0.1, 0.25), wrap=True)
+    for at in (3.0, 10.4):                                                # coo-COO-coo
+        for i, (f, g) in enumerate(((420.0, 0.5), (470.0, 0.8), (400.0, 0.45))):
+            coo = osc(glide(0.32, [(0, f * 0.96), (0.3, f), (1, f * 0.9)])) * bell(0.32, 0.25, 1.3)
+            place(out, 0.3 * g * coo, at + i * 0.4, wrap=True)
     return out
 
 
@@ -1264,9 +1283,8 @@ def _(k):
     d = 12.0
     t = t_of(d)
     out = 0.08 * k.periodic(d, band_shape(3000, 9000)) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 3))
-    for _ in range(22):
-        f = k.uniform(1500, 5200)
-        place(out, bird(k, f, 0.8, int(k.uniform(2, 7))), k.uniform(0, d), k.uniform(0.2, 0.7), wrap=True)
+    out += 0.05 * k.periodic(d, band_shape(300, 1200, -3))               # the leaves
+    # (its birds sing in ambient/birdsong, as everywhere's do)
     for _ in range(4):                                                    # a whooping call far off
         f = k.uniform(500, 800)
         call = silence(1.2)
@@ -1301,8 +1319,6 @@ def _(k):
     cicada = bp(k.periodic(d, band_shape(4000, 7500)), 4000, 7500) * (0.5 + 0.5 * np.sin(2 * np.pi * 47 * t)) ** 2
     swell = 0.4 + 0.6 * np.sin(np.pi * t / d * 2) ** 2
     out = 0.5 * cicada * swell + 0.35 * k.periodic(d, band_shape(150, 900, -4))
-    for _ in range(5):
-        place(out, bird(k, k.uniform(2000, 3200), 0.5, 2), k.uniform(0, d), 0.25, wrap=True)
     return out
 
 
@@ -2383,6 +2399,122 @@ def _(k):
     for i in range(2):
         place(out, wood(640 + 90 * i, 0.1, 0.05, k) * 0.8, i * 0.16)
     return place(out, metal(1320, 0.55, 0.45, 0.5, k) * 0.6, 0.34)
+
+
+@sound("ui/smelted", 0.4)
+def _(k):
+    # the furnace roars as the bellows go, the melt poured: a hiss, then the bar rings as it cools
+    d = 1.3
+    out = silence(d)
+    place(out, whoosh(k, 0.5, 300, 900, 400, q=1.2, peak=0.5) * 0.7, 0.0)
+    place(out, bp(k.noise(0.5), 2500, 8000) * env(0.5, 0.01, 0.35) * 0.25, 0.45)
+    return place(out, metal(980, 0.6, 0.5, 0.5, k) * 0.55, 0.62)
+
+
+@sound("gather/mine", 0.45)
+def _(k):
+    # a pick on rock, twice, and stone breaking away
+    d = 0.9
+    out = silence(d)
+    for i in range(2):
+        place(out, metal(2200 + 300 * i, 0.12, 0.08, 0.9, k) * 0.5, i * 0.3)
+        place(out, crunch(k, 0.12, rate=260, lo=900, hi=4000, decay=0.04) * 0.7, i * 0.3 + 0.01)
+    return place(out, crunch(k, 0.3, rate=120, lo=400, hi=2500, decay=0.1) * 0.6, 0.6)
+
+
+@sound("gather/chip", 0.4)
+def _(k):
+    # a chisel on crystal: a ring, and the bright crack of a shard coming away
+    d = 0.9
+    out = place(silence(d), metal(3100, 0.4, 0.3, 0.8, k) * 0.4, 0.0)
+    place(out, sparkle(k, 0.4, n=8, lo=4000, hi=9000) * 0.5, 0.2)
+    return place(out, chime([2093.0, 2637.0], 0.4, 0.05, 0.4, 0.6) * 0.35, 0.3)
+
+
+@sound("gather/dig", 0.45)
+def _(k):
+    # a spade into sand or clay, and the spadeful thrown
+    d = 0.8
+    out = place(silence(d), crunch(k, 0.2, rate=400, lo=300, hi=2500, decay=0.08) * 0.9, 0.0)
+    return place(out, whoosh(k, 0.3, 400, 1500, 600, peak=0.4) * 0.4, 0.35)
+
+
+@sound("gather/chop", 0.45)
+def _(k):
+    # the axe bites the log twice; the wood splits
+    d = 1.0
+    out = silence(d)
+    for i in range(2):
+        place(out, wood(240 + 30 * i, 0.15, 0.06, k) * 0.9, i * 0.32)
+        place(out, crunch(k, 0.1, rate=300, lo=600, hi=3000, decay=0.03) * 0.4, i * 0.32)
+    return place(out, creak(k, 0.3, 160, 260, 0.5) * 0.4, 0.66)
+
+
+@sound("gather/cut", 0.4)
+def _(k):
+    # a sickle through stalks, and the sheaf gathered up
+    d = 0.8
+    out = place(silence(d), whoosh(k, 0.18, 2000, 6000, 3000, peak=0.4) * 0.6, 0.0)
+    return place(out, rustle(k, 0.5, 1500, 7000, 0.3) * 0.6, 0.2)
+
+
+@sound("gather/tap", 0.35)
+def _(k):
+    # resin scraped off the blaze into the pail: a knife on bark, a soft drip into tin
+    d = 0.9
+    out = place(silence(d), rustle(k, 0.35, 900, 4000, 0.5) * 0.5, 0.0)
+    for i in range(2):
+        place(out, metal(1700 - 200 * i, 0.15, 0.1, 0.3, k) * 0.3, 0.42 + i * 0.2)
+    return out
+
+
+@sound("items/spyglass", 0.35)
+def _(k):
+    # the brass tubes drawn out, a click as it is set to the eye
+    d = 0.6
+    out = place(silence(d), whoosh(k, 0.3, 1200, 3200, 1800, q=2.5, peak=0.6) * 0.4, 0.0)
+    return place(out, metal(2600, 0.12, 0.06, 0.9, k) * 0.5, 0.32)
+
+
+@sound("items/lantern_light", 0.35)
+def _(k):
+    # the little door opened, a match struck, the wick takes
+    d = 0.9
+    out = place(silence(d), metal(1900, 0.1, 0.05, 0.6, k) * 0.4, 0.0)
+    place(out, bp(k.noise(0.25), 1500, 6000) * env(0.25, 0.005, 0.18) * 0.6, 0.2)
+    return place(out, whoosh(k, 0.4, 200, 600, 300, peak=0.3) * 0.5, 0.42)
+
+
+@sound("items/lantern_out", 0.3)
+def _(k):
+    # a breath on the wick, the little door shut
+    d = 0.6
+    out = place(silence(d), whoosh(k, 0.25, 500, 1200, 400, peak=0.4) * 0.5, 0.0)
+    return place(out, metal(1900, 0.1, 0.05, 0.6, k) * 0.4, 0.32)
+
+
+@sound("items/bandage", 0.35)
+def _(k):
+    # cloth wound round and pulled tight
+    d = 0.8
+    out = place(silence(d), rustle(k, 0.5, 600, 3500, 0.4) * 0.7, 0.0)
+    return place(out, whoosh(k, 0.12, 900, 2500, 1200, peak=0.5) * 0.5, 0.55)
+
+
+@sound("items/smoke_pellet", 0.45)
+def _(k):
+    # a pellet cracked underfoot, and the smoke billowing out
+    d = 1.2
+    out = place(silence(d), crunch(k, 0.08, rate=500, lo=1500, hi=6000, decay=0.02) * 0.8, 0.0)
+    return place(out, lp(k.noise(1.0), 900) * env(1.0, 0.05, 0.7) * 0.6, 0.05)
+
+
+@sound("items/blade_oil", 0.3)
+def _(k):
+    # the cork out, oil wiped down the blade with a rag
+    d = 0.8
+    out = place(silence(d), thump(k, 0.08, 500, 0.4, 0.02, 0.2, 2500) * 0.6, 0.0)
+    return place(out, whoosh(k, 0.4, 1500, 4000, 2000, q=1.0, peak=0.5) * 0.45, 0.2)
 
 
 def bubbles(k, d, n, lo=260, hi=900):

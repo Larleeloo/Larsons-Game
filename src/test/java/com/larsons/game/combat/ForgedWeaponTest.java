@@ -49,7 +49,7 @@ class ForgedWeaponTest {
     private static Forged duskfang() {
         return new Forged(null, "Duskfang", "sword", Rarity.EPIC,
                 Map.of("blade", 0xB722E7, "handle", 0x231C18), 3, 8, 0x5D86FA,
-                Set.of(Border.VENOM, Border.MYSTIC, Border.BONDED));
+                Set.of(Border.VENOM, Border.MYSTIC, Border.BLOODLUST));
     }
 
     @Test
@@ -69,7 +69,7 @@ class ForgedWeaponTest {
         assertNull(item.tier());
         assertEquals("forged:duskfang", item.key());
         assertEquals(item, Item.parse(item.key()));
-        assertTrue(item.has(Border.VENOM) && item.has(Border.MYSTIC) && item.has(Border.BONDED), "all three at once");
+        assertTrue(item.has(Border.VENOM) && item.has(Border.MYSTIC) && item.has(Border.BLOODLUST), "all three at once");
         assertEquals("3d8", back.notation());
         assertNull(Item.parse("forged:no_such_thing"));
 
@@ -122,8 +122,8 @@ class ForgedWeaponTest {
             w.player().update(DT, Player.Intent.NONE, DUR);
             w.tick(DT);
         }
-        long hit = Math.round(roll.total() * Border.MYSTIC_DAMAGE * (1 + Border.BONDED_PER_HIT));
-        assertEquals(1000 - hit, d.health(), 1e-9, "Mystic ×2.5 and Bonded +10% together");
+        long hit = Math.round(roll.total() * Border.MYSTIC_DAMAGE * (1 + Border.BLOODLUST_PER_HIT));
+        assertEquals(1000 - hit, d.health(), 1e-9, "Mystic ×2.5 and Bloodlust +10% together");
         for (int i = 0; i < 12 * 60; i++) w.tick(DT);
         assertEquals(1000 - hit * (1 + Border.VENOM_SHARE), d.health(), 0.01, "and Venom's poison after it");
     }

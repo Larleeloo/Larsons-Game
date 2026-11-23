@@ -117,7 +117,6 @@ public final class Game implements AutoCloseable {
         this.settings = settings;
         // dev mode (the main menu's Codes, 1025): every cosmetic stays unlocked from run to run
         if (settings.devUnlocked) com.larsons.game.world.Wearables.setEverything(true);
-        com.larsons.game.ambient.Animals.setBirds(settings.birds);
         // (a colour of one's own - any skin, any dye - is shaded in the art's 128 colours)
         com.larsons.game.sprite.Variants.setPalette(com.larsons.game.sprite.PixelPalette.load(settings.spritesDir()));
         long t0 = System.nanoTime();
@@ -533,6 +532,7 @@ public final class Game implements AutoCloseable {
             glClearColor(Theme.BACKGROUND[0], Theme.BACKGROUND[1], Theme.BACKGROUND[2], 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             graded = false;
+            com.larsons.game.gfx.Visuals.now = settings.visuals();
             pointers.clearHint();
             // under the settings the screen is drawn, but hears nothing
             in.setMuted(settingsMenu.open());

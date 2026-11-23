@@ -11,7 +11,7 @@ import com.larsons.game.world.Rarity;
  * and whether it is a plain blow ({@link Combat#plainBlow}: a wand's heavy
  * attack, no magic in it) whose dice are all it does - its weapon's border
  * adds nothing. What it does to a target is worked out as it lands ({@link
- * Combat#damage}), since Bonded counts the living things the weapon has hit
+ * Combat#damage}), since Bloodlust counts the living things the weapon has hit
  * by then. A forged weapon's dice are its own ({@link
  * com.larsons.game.world.Forged}), as many effects as it was forged with.
  */

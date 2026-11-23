@@ -34,8 +34,8 @@ import java.util.Set;
  *   creature/frog/croak            -&gt; creatures/frog/croak.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
- *   music/dream_on                 -&gt; music/dream_on.mp3       (a song)
- *   music/main_menu                -&gt; music/main_menu.mp3, else music/dream_on.mp3
+ *   music/copper_hearts            -&gt; music/copper_hearts.mp3  (a song)
+ *   music/main_menu                -&gt; music/main_menu.mp3, else music/lanterns_over_brasswick.mp3
  * </pre>
  *
  * <p>Keys fall back from the specific to the general ({@link #chain}), as the
@@ -69,6 +69,8 @@ public final class SoundKeys {
     /** The people and beasts that fight her: noticing her, falling, coming through a portal. */
     public static final String FOES = "foes";
     public static final String FISHING = "fishing";
+    /** The gathering spots worked: mined, chipped, dug, chopped, cut, tapped. */
+    public static final String GATHER = "gather";
     /** The horde game's: the dead rising, the mystery box, the barricades, what the dead drop. */
     public static final String HORDE = "horde";
     /** Where a key from an unrecognised namespace lands. */
@@ -125,7 +127,7 @@ public final class SoundKeys {
             "select", "place", "remove", "rotate", "brush", "undo", "save", "playtest",
             "level_up", "upgrade", "card_play", "card_shuffle", "perk", "shop_open", "shop_buy", "shop_sell",
             "open", "close", "tab", "buy", "equip", "talk", "quest_new", "quest_ready", "quest_done",
-            "craft", "crafted", "brew", "brewed", "summon", "card_open", "card_draw",
+            "craft", "crafted", "brew", "brewed", "smelted", "summon", "card_open", "card_draw",
             "map_step", "map_arrive", "map_enter", "round_start", "round_end", "game_over");
 
     /** The training dummies in the world (their sprite folders under {@code assets/sprites/objects/}). */
@@ -195,7 +197,14 @@ public final class SoundKeys {
      * the crystal shield raised.
      */
     public static final List<String> GOODS_SOUNDS = List.of("potion_drink", "scroll_read", "egg_hatch", "storm",
-            "return", "horn_fill", "horn_drink", "crystal_ball", "crystal_shield");
+            "return", "horn_fill", "horn_drink", "crystal_ball", "crystal_shield", "spyglass", "lantern_light",
+            "lantern_out", "bandage", "smoke_pellet", "blade_oil");
+
+    /**
+     * The gathering spots worked: a vein or a seam mined, a crystal chipped,
+     * sand or clay dug, logs cut, flax cut, resin taken from a pine.
+     */
+    public static final List<String> GATHER_SOUNDS = List.of("mine", "chip", "dig", "chop", "cut", "tap");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -255,16 +264,17 @@ public final class SoundKeys {
      * fading into the next across its edge; and any of them placed as a
      * sound object in a level.
      */
-    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
+    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "birdsong",
+            "marsh", "frogs",
             "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal", "rain", "gale",
             "sandstorm", "snowfall", "thunder");
 
     /**
      * The places that play a song of their own, and the song each plays until
      * the player gives the place a file of its own ({@link #chain}): the main
-     * menu, Dream On. The songs themselves are {@link Songs#ALL}.
+     * menu, Lanterns Over Brasswick. The songs themselves are {@link Songs#ALL}.
      */
-    public static final Map<String, String> MUSIC_PLACES = Map.of("main_menu", "dream_on");
+    public static final Map<String, String> MUSIC_PLACES = Map.of("main_menu", "lanterns_over_brasswick");
 
     /** The moves each weapon has a sound of its own for, at its stance (the others fall back to these). */
     static final List<AnimState> WEAPON_MOVES = List.of(AnimState.ATTACK, AnimState.SPIN_ATTACK, AnimState.PARRY,
@@ -347,6 +357,7 @@ public final class SoundKeys {
         for (String c : ANIMAL_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         out.add(FOES);
         out.add(FISHING);
+        out.add(GATHER);
         out.add(HORDE);
         out.add(AMBIENT);
         out.add(MUSIC);
@@ -455,6 +466,7 @@ public final class SoundKeys {
             case "creature" -> CREATURES;
             case "foes" -> FOES;
             case "fishing" -> FISHING;
+            case "gather" -> GATHER;
             case "horde" -> HORDE;
             default -> null;
         };
@@ -603,6 +615,7 @@ public final class SoundKeys {
         out.add(row(SoundCategory.WORLD, "item/drop", "Dropping something", "drop"));
         out.add(row(SoundCategory.WORLD, "item/eat", "Eating something picked", "eat"));
         for (String s : GOODS_SOUNDS) out.add(row(SoundCategory.WORLD, "item/" + s, goodsName(s), s));
+        for (String s : GATHER_SOUNDS) out.add(row(SoundCategory.WORLD, "gather/" + s, gatherName(s), s));
         for (String s : FISHING_SOUNDS) out.add(row(SoundCategory.WORLD, "fishing/" + s, fishingName(s), s));
         for (String s : HORDE_SOUNDS) out.add(row(SoundCategory.WORLD, "horde/" + s, hordeName(s), s));
         for (String s : AMBIENT_SOUNDS) out.add(row(SoundCategory.AMBIENT, ambient(s), ambientName(s), s));
@@ -864,11 +877,12 @@ public final class SoundKeys {
             case "wind" -> "Breeze over everything (held)";
             case "stream" -> "A river or stream (held)";
             case "crickets" -> "Crickets: the plains and savannah at night (held)";
-            case "plains" -> "The plains by day: birdsong (held)";
+            case "plains" -> "The plains by day: the wind in the grass (held)";
+            case "birdsong" -> "Birdsong by day, wherever birds live: the plains, the jungle, the marsh (held)";
             case "marsh" -> "The marsh by day: insects over the water (held)";
             case "frogs" -> "The marsh at night: frogs (held)";
             case "mountains" -> "The mountains: high wind (held)";
-            case "jungle" -> "The jungle by day: birds and insects (held)";
+            case "jungle" -> "The jungle by day: insects, leaves, a far call (held)";
             case "jungle_night" -> "The jungle at night (held)";
             case "savannah" -> "The savannah by day: dry heat, cicadas (held)";
             case "ocean" -> "The sea: waves on the shore (held)";
@@ -937,6 +951,7 @@ public final class SoundKeys {
             case "crafted" -> "Workbench: made";
             case "brew" -> "Cauldron: starting a brew";
             case "brewed" -> "Cauldron: brewed";
+            case "smelted" -> "Furnace: smelted";
             case "summon" -> "A summoning station's button pressed";
             case "card_open" -> "The card table opened";
             case "card_draw" -> "A card drawn";
@@ -1003,6 +1018,24 @@ public final class SoundKeys {
             case "horn_drink" -> "Drinking from the horn";
             case "crystal_ball" -> "Looking into the crystal ball";
             case "crystal_shield" -> "The crystal shield raised";
+            case "spyglass" -> "Looking through the spyglass";
+            case "lantern_light" -> "The lantern lit";
+            case "lantern_out" -> "The lantern put out";
+            case "bandage" -> "A bandage wound on";
+            case "smoke_pellet" -> "A smoke pellet burst";
+            case "blade_oil" -> "Blade oil wiped on";
+            default -> s;
+        };
+    }
+
+    private static String gatherName(String s) {
+        return switch (s) {
+            case "mine" -> "Mining a vein or a seam";
+            case "chip" -> "Chipping crystal";
+            case "dig" -> "Digging sand or clay";
+            case "chop" -> "Cutting fallen logs";
+            case "cut" -> "Cutting flax";
+            case "tap" -> "Taking resin from a pine";
             default -> s;
         };
     }
@@ -1076,7 +1109,7 @@ public final class SoundKeys {
         return "ambient/" + name;
     }
 
-    /** A song ({@link Songs}) or a place that plays one ({@link #MUSIC_PLACES}), e.g. {@code music/dream_on}. */
+    /** A song ({@link Songs}) or a place that plays one ({@link #MUSIC_PLACES}), e.g. {@code music/copper_hearts}. */
     public static String music(String name) {
         return "music/" + name;
     }

@@ -45,7 +45,8 @@ which the game's real places are made.
   hair and clothes, and one of **nine classes** - then walk the map of **the
   Brass Vale**, eleven places to clear, from the village of Oakhollow to the
   Crystal Hollow. The game saves itself; three slots.
-- **Fighting with dice**: every blow rolls D20s over her head in the colour of
+- **Fighting with dice**: every blow rolls dice over her head - a D4 bare
+  handed up to a D12 for a staff or a wand - in the colour of
   the weapon's rarity - **eight weapons**, each with its own stance and moves,
   heavy and spin attacks, jump attacks, blocks, parries, a dash and a combat
   roll, a lock-on, sneak attacks, ammunition that wears out, upgrade tiers,
@@ -130,8 +131,8 @@ itself, the file to ask for with a bug report.
 </p>
 
 The main menu is tabs - **Play** and **Horde**, and in dev mode **Cutscene**
-and **Dev** - over your own character in the meadow, with "Dream On" playing
-for lute, harp and recorder. Your character **stands at ease** with empty
+and **Dev** - over your own character in the meadow, with the game's own tavern
+anthem, "Lanterns Over Brasswick", playing for lute, fiddle and recorder. Your character **stands at ease** with empty
 hands, weight on one leg then the other, breathing, glancing off to the side
 (the new *at rest* stance, `AnimState.REST`), and now and then takes up a
 weapon's ready stance - the blade, the staff, the bow, the mace, the dagger,
@@ -316,8 +317,21 @@ or the **Settings** button, and saves as it changes (`config/settings.json`):
   own or the system's, and whether it changes with what it is over - a hand over
   buttons, a speech mark over someone to talk to, a sword over a foe, a key
   over a lock, a coin over a shop, a beam over loot.
-- **Sounds** (with the **birds** switch: off unless switched on here),
-  **Controls** and **Colours**: below.
+<p align="center">
+  <img src="docs/screenshots/vibrant-visuals-on.png" width="49%" alt="Vibrant visuals on: a building's shadow across the grass in warm late sun">
+  <img src="docs/screenshots/vibrant-visuals-off.png" width="49%" alt="Vibrant visuals and shadows off: the flat pixel look">
+</p>
+
+- **Vibrant visuals** (Display): on as it comes, at 75 % strength (a slider
+  from none to all) - warm sunlight and cool shade, buildings lit from where
+  the sun is, richer colours, and **light rays** through the trees, past the
+  walls and in the mist, worked out from the sun and the shadows (no longer
+  something placed). **Shadows** Off, Low, Medium (as it comes) or High: every
+  placed thing - buildings, furniture, trees, rocks, folk and animals - casts
+  the sun's shadow the way the sun is, longer in the evening.
+- **Sounds**, **Controls** and **Colours**: below. The birdsong in the
+  daytime is a sound of its own, **Ambient → Birdsong**, muted or swapped
+  like any other.
 
 **F11** (or Alt+Enter) switches between the window and full screen anywhere,
 and the choice is kept for the next start.
@@ -338,9 +352,10 @@ and the choice is kept for the next start.
   animation all the way down), and **jump** gear sends her higher.
 - **Falls** of more than 3 m hurt, more for every metre. The dodge key in the
   air lands her in a roll, unhurt. Water breaks a fall.
-- **Vines** on a cliff are climbed (forward up, back down, sideways along);
-  at the top she steps up over the lip, and walking off the top of the vines
-  she turns and climbs down.
+- **Vines** on a cliff, and **ladders** (wooden, iron or rope, placed in
+  Creative Mode against anything), are climbed (forward up, back down,
+  sideways along a vine); at the top she steps up over the lip, and walking
+  off the top she turns and climbs down.
 - **Swimming**: in water deeper than she stands. **C** dives and **Space**
   comes up; under the water she swims where the camera looks, the view tinted
   and muffled, a breath bar going, and she drowns when it runs out.
@@ -372,9 +387,13 @@ moves: the **sword** (with a shield, or alone), the **battle axe**, the
 hands; an empty slot is her bare hands. A left-handed character fights
 left-handed.
 
-- **The dice.** Every blow rolls D20s over her head, in the colour of the
+- **The dice.** Every blow rolls dice over her head, in the colour of the
   weapon's rarity - **one for Common up to six for Mythic** - and their total
-  is the damage, floating up off what was struck. A **heavy attack** (X) rolls
+  is the damage, floating up off what was struck. Their sides are the
+  weapon's: bare hands **D4**, a dagger **D6**, a sword, an axe or a mace
+  **D8**, a bow or a crossbow **D10**, a staff or a wand **D12**. Over a weapon
+  in the inventory, its **damage per second** (roughly: its dice on average
+  over how long an attack takes, at its rate of fire). A **heavy attack** (X) rolls
   a die more, once every 10 seconds; the **spin** strikes all round her; a
   **jump attack** - attacking in the air - comes down on everything round her
   with a die more.
@@ -398,7 +417,7 @@ left-handed.
   or under the water she is harder to see. **Hidden** (the eye over the
   stamina bar shut), her blows are **sneak attacks**: twice the damage.
 - **Rare borders**, one weapon in a hundred: **Venom** (half the damage again
-  as poison), **Mystic** (×2.5 damage for twice the mana), **Bonded** (+10 %
+  as poison), **Mystic** (×2.5 damage for twice the mana), **Bloodlust** (+10 %
   for every living thing it has struck in five minutes).
 - **Ammunition**: every weapon wears something out - whetstones for the sword
   and dagger, iron wedges for the axe, studs for the mace, arrow and bolt
@@ -529,8 +548,12 @@ shows every card there is, by class and rarity, and where each is had;
 lattice on oak and leather, the **hotbar's** five along the bottom. Click to
 take up and put down, right-click to move to or from the hotbar (or to see a
 weapon's tiers), click outside to drop; **A–Z** and **Rarity** sort it.
-Satchels, backpacks and explorer's packs add slots for good. Pickings, meat
-and makings stack.
+Pickings, meat and makings stack. **Backpacks** are worn on the back (the
+wardrobe's Back slot): the leather backpack adds 5 slots, and one made in the
+Tailor adds what its maker set; satchels and explorer's packs still add slots
+for good. A bigger inventory **scrolls** (the wheel, or the scroll bar), and
+taking off a backpack never loses a thing - what no longer fits waits in the
+slots past the end until there is room.
 
 **Coins and ammunition never take a slot.** Coins go in her **purse**, and
 whetstones, wedges, studs, crystals, arrows and bolts in her **pouch** - both
@@ -715,8 +738,21 @@ chooses which with *Follow*.
   rods**, **packs**, meals, and the makings - bottles, parchment, ink, twine,
   gears, iron bars, crystal dust, leather, cloth.
 - **Crafting and brewing** (`world/Recipes`): at a **workbench**, the makings,
-  rods, packs, keys, ammunition and trinkets; at a **cauldron**, potions and
-  meals. Each recipe shows what it takes and what she has.
+  rods, packs, keys, kits and trinkets; at a **furnace**, ore and sand to
+  iron, copper and brass bars, glass and a crucible (with coal or with
+  charcoal); at a **cauldron**, potions and meals. Each recipe shows what it
+  takes and what she has, and two ways to make one thing say which is which.
+  Nothing used in crafting is ammunition.
+- **Gathering** (`world/Gathering`): nine spots to work with **E** - an iron
+  vein, a copper vein, a coal seam, a crystal cluster, a sand bank, a clay
+  bank, fallen logs, flax and a tapped pine - each giving its makings and
+  growing back after a few minutes. They make the new things: **iron, copper
+  and brass bars, glass, planks, lenses, a crucible**, and from those the
+  **bandage** (+15 health and more over 15 seconds), **blade oil** (every blow
+  poisons for 90 seconds), the **smoke pellet** (half as easily noticed for
+  30 seconds), the **brass spyglass** (every foe in sight marked for 20
+  seconds) and the **brass lantern** (light round her in the dark). Placed in
+  Creative Mode like anything else; Oakhollow has a few to try.
 - **Fishing** (`scene/Fishing`): cast, strike when the float dips, then keep
   the fish inside the catch on the gauge until it is in. A better rod, a
   longer moment and rarer fish.
@@ -800,6 +836,20 @@ the camera and her drop away so she is never hidden.
 beds, tables, hearths, shops, a laboratory's boilers and coils - with stairs
 between its floors, lit by its candles and fire. Furniture is 3D too: a
 hundred kinds from beds and bathtubs to hay bales and weapon racks.
+
+<p align="center">
+  <img src="docs/screenshots/moving-cauldron.png" width="49%" alt="A cauldron's green brew bubbling over its fire, a wisp of steam off it">
+  <img src="docs/screenshots/moving-lightning-coil.png" width="49%" alt="A lightning coil at night, arcs crackling off its crown">
+</p>
+
+**What would move, moves** (`building/PropMotion`, `world/PropMotionRenderer`):
+a cauldron's brew **bubbles** over its fire, a lightning coil **crackles**
+with arcs off its crown, a fire's flames flicker and send up embers, each
+candle on a candelabra wavers, every chimney and a stove **smoke** (drifting
+with the wind), a boiler **steams**, a fountain's water **leaps** from its
+spout and falls back, crystals glint, bees go round a hive. Read off each
+model's own parts, so a thing placed anywhere, turned or scaled, moves where
+its parts are; only what is near is drawn.
 
 **The City shelf** (Place → Build → *City: steam-age streets*) adds **53
 more** in the game's steampunk-meets-medieval look: brick terraces, stucco
@@ -929,11 +979,18 @@ yours** (or a file dropped on its row), muted or reset. The sounds in
 (`tools/sounds/make_placeholders.py`); `SOUND_KEYS.txt` lists every one to
 replace.
 
-**Music**: medieval covers - lute, harp, recorder, fiddle, organ drone, hand
-drum - of the songs on the roadmap, not for sale, each a seamless loop
+<p align="center">
+  <img src="docs/screenshots/level-playlist.png" width="70%" alt="The Level tool's music as a playlist: Copper Hearts, Tavern Lights, Sky Portals, each with up, down and remove, and Add to playlist under the player">
+</p>
+
+**Music**: twenty songs of the game's own, written like pop songs (verses, a
+chorus that comes back bigger, a bridge) and played by a medieval band - lute,
+harp, recorder, fiddle, dulcimer, shawm, organ, hand drums, monks - none of
+them a copy of anyone's song, not for sale, each a seamless loop
 (`assets/sounds/music/`) with its MIDI in [`music/`](music/README.md) for FL
-Studio. The main menu plays "Dream On"; each level plays the song its maker
-picked, or shuffles them all.
+Studio. The main menu plays "Lanterns Over Brasswick"; each level plays the
+song its maker picked, a **playlist** of several in turn (looping round), or
+shuffles them all.
 
 ## Colours
 
@@ -969,15 +1026,15 @@ played, what you are about to place standing under the pointer.
 | **1 Place** | the palette, by category: **World** (scenery, rocks, life), **Build** (buildings, the town, walls and rooms, doors and locks), **Furnish** (furniture, kitchen, decor, plants, farm, clutter, lights), **Story** (people, quests, spots), **Fight** (foes, bands, summoning stations, sky portals, dummies), **Items** (weapons, wearables, goods, chests), **Zombies** (the horde's) and **Other** |
 | **2 Select** | click, Shift+click, drag a box; move, turn, delete, duplicate, copy and paste, save as a template |
 | **3 Sculpt** | raise, lower, smooth, flatten |
-| **4 Paint** | sixteen grounds - and roads of cobbles, flagstones, brick and packed earth - and the **biome** brush |
+| **4 Paint** | sixteen grounds and **bare rock** - and roads of cobbles, flagstones, brick and packed earth - and the **biome** brush |
 | **5 Scatter** | plants, trees and rocks: one, a mix, a biome's, or a brush of your own |
 | **6 Sky** | the sky's colours, the fog, **beyond the edge** (the country round the level in 3D: its theme, near land, far reach, density, hills, haze), distant backgrounds round the horizon, open sky, inside or a cave |
-| **7 Time** | the hour it starts at, the day's length, the planet, clouds, stars, aurora, mist, light rays, and the weather: none, fixed, by biome, or **your own events** (how often each kind comes, how much of the time, how long a spell) |
-| **8 Level** | name, size (64 m to 2048 m), the walls in the way, the music |
+| **7 Time** | the hour it starts at, the day's length, the planet, clouds, stars, aurora, mist, and the weather: none, fixed, by biome, or **your own events** (how often each kind comes, how much of the time, how long a spell) |
+| **8 Level** | name, size (64 m to 2048 m), the walls in the way, the music: none, every song shuffled, one song, or a **playlist** played in turn and round again (each song moved up or down or taken out, *Add to playlist* under the player) |
 | **9 Water** | ponds, streams, swamp, crystal water, the sea |
 | **0 Life** | how many critters and of each animal |
 | **Forge** | weapons of your own |
-| **Tailor** | what every piece of clothing and armour gives, tier by tier; armour and clothes of your own |
+| **Tailor** | armour, clothes and **backpacks** of your own, with their tiers |
 
 **Ctrl+F searches everything there is to place**, by name, across every
 category. **Every number** - size, tint strength, health, how many, facing,
@@ -986,6 +1043,23 @@ lift - is a **slider with a box to type in**. Sculpt, Paint and Scatter have
 water). Ctrl+Z / Ctrl+Y undo and redo (one step per drag), Ctrl+S saves,
 **F5 play-tests** from the spawn (Shift+F5: from the pointer) and **F5** again
 comes back.
+
+**With a controller**, the left stick is the pointer everywhere - over the
+world and the panels - and **A** places, paints or presses; **X** a plain
+pointer (nothing in hand), **B** back; over the world the **right stick**
+turns the view, **LT / RT** zoom and the **d-pad** flies; **LB / RB** turn
+what is placed 15° (with a brush: its size), **Y** the next tool, **View**
+hides the panels and **R3** flies to the selection. Over a panel the sticks
+and the d-pad scroll and step as in the menus.
+
+**Placed herds and critters stay put** while the pointer moves over the
+level: they stand where they were placed until it is played.
+
+**Loot pools**: a foe, a person, a herd of animals or a loot chest has a
+**Drops** list of its own - rows of an item, its tier, from how many to how
+many, and the chance - each row rolled by itself (a person who drops 1 to 5
+gold coins and, one time in five, a dye). Left blank, it drops what its kind
+always did.
 
 **People, shops and quests are made by picking, not typing**
 (`level/Rows`, `editor/Widgets`):
@@ -1055,8 +1129,10 @@ furnish and play-test from inside.
 The **Forge** makes weapons of your own: a name, which of the eight weapons
 it is made from (its look, stance and moves), its rarity, its colours part by
 part (a sword's blade, fittings and handle; the dice), its dice and their
-operators, its borders' effects, how long its ammunition lasts, and its
-upgrade tiers (each a name, rarity, dice, colours, its price in ingots, or a
+operators, its borders' effects (Venom, Mystic, Bloodlust), how long its
+ammunition lasts, for a bow, a crossbow, a staff or a wand its **rate of
+fire** (×0.25 to ×3) and **accuracy** (how far a shot may stray), the damage
+per second it comes to, and its upgrade tiers (each a name, rarity, dice, colours, its price in ingots, or a
 mystery shown as ???). Saved in `assets/forge/<name>.json`, placed from
 **Items → Weapons** and sold in shops and on horde boards like any weapon
 (`forged:<id>`). Armour and clothes of your own are made in the Tailor.
@@ -1064,59 +1140,30 @@ mystery shown as ???). Saved in `assets/forge/<name>.json`, placed from
 ### The Tailor
 
 <p align="center">
-  <img src="docs/screenshots/tailor-every-piece.png" width="49%" alt="The Tailor: the wizard's hat's fourth tier giving +60 mana and +30% jump, and every tier's gifts on the right">
   <img src="docs/screenshots/tailor-own-tiers.png" width="49%" alt="The Tailor's own pieces: Springheel boots' third tier, what it gives worn, and every tier's gifts">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/tailor-upgrades.png" width="49%" alt="A garment's upgrade tiers in the inventory, each with what it gives">
   <img src="docs/screenshots/forge-gear-effects.png" width="49%" alt="The Effects page for the Wyrmguard gorget: health boost +50, health regen +2/s, stamina absorb 10%">
 </p>
 
-**Every piece of clothing and armour climbs tiers** from the rarity it is
-found as to Mythic (`world/Tier`): armour Reinforced, Riveted, Tempered,
-Perfect, Mythic; clothes - shirts, hats, boots, belts, jewellery, the
-wings - Fine, Superior, Masterwork, Perfect, Mythic. A tier up costs upgrade
-ingots (right-click it in the inventory: every tier, what it blocks with and
-what it gives). A clothes tier never recolours a garment: a dye still colours
-it at every tier; armour's tiers darken its metal, and a dye still goes over
-that.
+**Only gear of your own has tiers.** The clothing and armour the game comes
+with is what it is as found - no tiers to climb, no upgrade ingots to spend on
+it; a dye still colours it. The **Tailor** (Creative Mode's tab after the
+Forge, `editor/TailorPanel`) makes armour, clothes and **backpacks** of your
+own, as the Forge makes a weapon: a name, which piece of armour, which
+garment or which pack it is made from (where it is worn and, for armour, what
+it rolls to block), its rarity, its colours part by part (what no dye takes:
+the metal, the trim), what it gives worn, and its tiers - each with its name,
+rarity, dice to block (armour), price and **what it gives worn**: its own, or
+as the tier before. A tier added gives half as much again of each. Saved in
+`assets/forge/<name>.json`.
 
-The **Tailor** (Creative Mode's tab after the Forge, `editor/TailorPanel`,
-`world/Tailor`) has two pages:
-
-- **Every piece** - pick any piece the game has (the list is searchable),
-  then a tier: its name (blank: the tier's own, "Fine baggy shirt") and what
-  it gives worn - any of **more health, mana or stamina**, **health, mana or
-  stamina regen** (a second), **health, mana or stamina drawn from her
-  blows** (a share of the damage), **higher jumps**, a **double jump**, a
-  **sooner heavy attack** and **more speed** (`world/Gear`), each switched on
-  and set with its - / +. **Same up the tiers** gives every tier above the
-  same; **Grow up the tiers** gives each as much again; **Its default** puts
-  the piece back. The right panel shows the piece and every tier with what it
-  gives. Kept as it is changed, one file a piece in
-  `assets/tailor/<id>.json`, for every level.
-- **Your own** - armour and clothes of your own, made as the Forge makes a
-  weapon: a name, which piece of armour or which garment it is made from
-  (where it is worn and, for armour, what it rolls to block), its rarity, its
-  colours part by part (what no dye takes: the metal, the trim), its gifts,
-  and its tiers - each with its name, rarity, dice to block (armour), price
-  and **what it gives worn**: its own, or as the tier before. A tier added
-  gives half as much again of each. Saved in `assets/forge/<name>.json`.
-
-**By default** a piece gives nothing as it is found, and one gift that grows
-with each tier's rarity (an Uncommon tier once, a Mythic one five times):
-helmets, leg armour and chest armour more health; gauntlets and bracers
-health from her blows; sabatons stamina; hats and the robe more mana; eyewear
-and necklaces mana regen; earrings mana from her blows; shirts, belts and the
-backpack more stamina; trousers and the scarf stamina regen; shoes more speed;
-gloves and the sheath a sooner heavy attack; wrist bands stamina from her
-blows; the clockwork wings higher jumps; underwear and mantles health regen.
-
-Each tier says all it gives (it is not added to the tiers below). Everything
-she wears adds up, the clothes under her armour too, each at the best tier of
-it she carries; a pair of bracers or wrist bands counts once. The gifts are
-hers only, not the folk's or the foes'.
+What a piece can give: **more health, mana or stamina**, **health, mana or
+stamina regen** (a second), **health, mana or stamina drawn from her blows**
+(a share of the damage), **higher jumps**, a **double jump**, a **sooner
+heavy attack**, **more speed** (`world/Gear`), and for a pack its **carry
+space** - how many more inventory slots she has while she wears it (more at
+each tier, if its tiers say so). Everything she wears adds up, the clothes
+under her armour too; a pair of bracers or wrist bands counts once. The
+gifts are hers only, not the folk's or the foes'.
 
 ### The map editor and the horde editor
 

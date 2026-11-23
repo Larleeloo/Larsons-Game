@@ -75,6 +75,8 @@ public final class Music {
     /** A playlist being played (empty: one song, looping), and where in it. */
     private static final List<String> playlist = new ArrayList<>();
     private static int at;
+    /** Whether the playlist goes round in a new order each time ({@link #shuffle}), or as it was given ({@link #playlist}). */
+    private static boolean shuffled = true;
     /** Silent songs skipped in a row: a playlist all of silence stops looking. */
     private static int silentRun;
     private static Random random = new Random();
@@ -107,11 +109,12 @@ public final class Music {
             stop();
             return;
         }
-        if (new ArrayList<>(playlist).stream().sorted().toList().equals(order.stream().sorted().toList())
+        if (shuffled && new ArrayList<>(playlist).stream().sorted().toList().equals(order.stream().sorted().toList())
                 && playlist.contains(wanted)) {
             return;                                     // the same playlist: go on as it was
         }
         asked();
+        shuffled = true;
         Collections.shuffle(order, random);
         if (order.contains(current)) {                  // carry on with the song playing
             order.remove(current);
@@ -121,6 +124,28 @@ public final class Music {
         playlist.addAll(order);
         at = 0;
         want(playlist.get(0));
+    }
+
+    /**
+     * Play {@code keys} one after another in the order given, each once
+     * through, then round again from the first - at {@code volume}. Already
+     * playing this same list, it carries on where it is.
+     */
+    public static synchronized void playlist(List<String> keys, double volume) {
+        List<String> order = new ArrayList<>(keys == null ? List.of() : keys);
+        order.removeIf(k -> k == null || k.isBlank());
+        setScale(volume);
+        if (order.isEmpty()) {
+            stop();
+            return;
+        }
+        if (!shuffled && playlist.equals(order) && playlist.contains(wanted)) return;   // the same list: go on
+        asked();
+        playlist.clear();
+        playlist.addAll(order);
+        shuffled = false;
+        at = Math.max(0, playlist.indexOf(current));                  // carry on with the song playing
+        want(playlist.get(at));
     }
 
     /** Fade the music out. */
@@ -262,6 +287,7 @@ public final class Music {
 
     /** Round again: a new order, not starting with the song that just played. */
     private static void reshuffle() {
+        if (!shuffled) return;                                      // a playlist in its own order: as it was
         String last = playlist.get(playlist.size() - 1);
         Collections.shuffle(playlist, random);
         if (playlist.size() > 1 && playlist.get(0).equals(last)) Collections.swap(playlist, 0, playlist.size() - 1);
@@ -274,6 +300,7 @@ public final class Music {
         wanted = current = pendingKey = silent = "";
         pending = null;
         playlist.clear();
+        shuffled = true;
         at = silentRun = 0;
         fade = gain = elapsed = length = 0;
         scale = 1;

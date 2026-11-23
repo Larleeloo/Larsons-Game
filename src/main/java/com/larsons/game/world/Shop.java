@@ -288,7 +288,7 @@ public final class Shop {
             };
         }
         // a weapon, a garment, a piece of tack: by how rare it is (each step a little over twice the last, as
-        // the potions, rods and packs are priced), half again with a border (venom, mystic, bonded)
+        // the potions, rods and packs are priced), half again with a border (venom, mystic, bloodlust)
         int base = switch (item.rarity()) {
             case COMMON -> 40;
             case UNCOMMON -> 90;

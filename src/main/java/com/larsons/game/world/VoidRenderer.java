@@ -626,6 +626,7 @@ public final class VoidRenderer implements AutoCloseable {
                 vec3 c = uGroundTile > 0.0 ? grass : studioFloor(p);
                 c *= sceneLight(p);
                 c = mix(c, uMistColour, sceneMist(p));
+                c += sceneRays(p);
                 float fog = 1.0 - exp(-pow(t / uFogDistance, 2.0));
                 // beyond the edges, behind the backdrops, the far plain is all in the haze
                 if (edges && (p.x < uEdges.x || p.x > uEdges.y || p.z < uEdges.z || p.z > uEdges.w)) fog = 1.0;

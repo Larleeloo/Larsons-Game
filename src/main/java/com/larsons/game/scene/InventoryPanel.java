@@ -135,6 +135,8 @@ final class InventoryPanel {
     /** Beside the inventory instead of a store: the tiers of the weapon in this slot (-1: none). */
     private int tiersOf = -1;
     private final SidePanels side;
+    /** How many rows the inventory's lattice, and a store's, is scrolled down (when they do not all fit). */
+    private int invScroll, storeScroll;
     /** The shop open beside the inventory, or null; how far down its stock is scrolled. */
     private Shop shop;
     private boolean carried;
@@ -351,24 +353,123 @@ final class InventoryPanel {
         return new float[][]{{x, y, w, h}, {x + w + gap, y, w, h}};
     }
 
+    /** How small a slot's diamond gets, of a hotbar slot's, before the lattice scrolls instead of shrinking. */
+    static final float LEAST = 0.6f;
+
+    /**
+     * Some slots in a lattice that may be too many to see at once: the
+     * spots of those in view, how many rows the whole lattice has, how many
+     * are in view, and the box they are seen in ({@code x, y, w, h}).
+     */
+    record Scrolled(List<Spot> spots, int rows, int shown, int first, float[] box) {
+        /** Whether there are more rows than are in view. */
+        boolean scrolls() { return rows > shown; }
+    }
+
+    /**
+     * Slots {@code first} ... in a lattice inside {@code (x, y, w, h)}: as
+     * big as fits ({@link #lattice}) if that is no smaller than {@code
+     * least}; else at {@code least}, as many rows in view as fit, from row
+     * {@code scroll} (kept to an even row, so the lattice interlocks as it
+     * did) - the inventory grows without its diamonds shrinking to nothing.
+     */
+    static Scrolled scrolled(int first, int count, float x, float y, float w, float h, float maxStep, float least,
+                             int scroll) {
+        float[] box = {x, y, w, h};
+        List<Spot> fit = lattice(first, count, x, y, w, h, maxStep);
+        float step = fit.isEmpty() ? maxStep : stepOf(fit, maxStep);
+        if (count <= 0 || step >= least - 1e-3) {
+            int rows = fit.isEmpty() ? 0 : Math.round((fit.get(fit.size() - 1).y() - fit.get(0).y()) / (step / 2)) + 1;
+            return new Scrolled(fit, rows, rows, 0, box);
+        }
+        step = least;
+        int c = Math.max(2, (int) Math.floor(w / step));
+        int rows = rowsFor(count, c);
+        int shown = Math.max(1, (int) Math.floor((h - step) / (step / 2)) + 1);
+        int most = Math.max(0, rows - shown);
+        int top = Math.max(0, Math.min(most + (most % 2), scroll));
+        top -= top % 2;
+        float r = step / 2 - Math.max(2, step * 0.06f);
+        List<Spot> out = new ArrayList<>();
+        int slot = first;
+        for (int row = 0; row < rows && slot < first + count; row++) {
+            int full = row % 2 == 0 ? c : c - 1;
+            int inRow = Math.min(full, first + count - slot);
+            int skip = (full - inRow) / 2;
+            float cx0 = x + w / 2 - (full - 1) * step / 2;
+            boolean seen = row >= top && row < top + shown;
+            for (int i = 0; i < inRow; i++, slot++) {
+                if (seen) out.add(new Spot(slot, cx0 + (skip + i) * step, y + step / 2 + (row - top) * step / 2, r));
+            }
+        }
+        return new Scrolled(out, rows, shown, top, box);
+    }
+
+    /** The distance between neighbouring diamonds of a lattice ({@code fallback} for one alone). */
+    private static float stepOf(List<Spot> spots, float fallback) {
+        if (spots.size() < 2) return fallback;
+        Spot a = spots.get(0), b = spots.get(1);
+        if (Math.abs(a.y() - b.y()) < 1e-3) return Math.abs(b.x() - a.x());
+        return 2 * Math.abs(b.y() - a.y());
+    }
+
     /** A store's slots on its panel at {@code (px, py, pw, ph)}: in the lattice's box, no bigger than a hotbar slot. */
     static List<Spot> storeSpots(int size, float px, float py, float pw, float ph) {
+        return storeLattice(size, px, py, pw, ph, 0).spots();
+    }
+
+    static Scrolled storeLattice(int size, float px, float py, float pw, float ph, int scroll) {
         float step = pw * 0.86f / Inventory.HOTBAR;
-        return lattice(0, size, px + pw * 0.07f, py + ph * 0.11f, pw * 0.86f, ph * 0.63f, step);
+        return scrolled(0, size, px + pw * 0.07f, py + ph * 0.11f, pw * 0.86f, ph * 0.63f, step, step * LEAST, scroll);
     }
 
     /** Every slot's spot on the panel at {@code (px, py, pw, ph)}: the hotbar's along the bottom, the rest above. */
     static List<Spot> spots(int size, float px, float py, float pw, float ph) {
+        List<Spot> out = new ArrayList<>(lattice(size, px, py, pw, ph, 0).spots());
+        out.addAll(hotbar(px, py, pw, ph));
+        return out;
+    }
+
+    /** The rest of the inventory's slots on the panel, scrolled down {@code scroll} rows (when they do not all fit). */
+    static Scrolled lattice(int size, float px, float py, float pw, float ph, int scroll) {
         float step = pw * 0.86f / Inventory.HOTBAR;
-        // the inventory's diamonds no bigger than the hotbar's
-        List<Spot> out = new ArrayList<>(lattice(Inventory.HOTBAR, size - Inventory.HOTBAR,
-                px + pw * 0.07f, py + ph * 0.11f, pw * 0.86f, ph * 0.63f, step));
+        // the inventory's diamonds no bigger than the hotbar's, and no smaller than LEAST of them: then it scrolls
+        return scrolled(Inventory.HOTBAR, size - Inventory.HOTBAR, px + pw * 0.07f, py + ph * 0.11f, pw * 0.86f,
+                ph * 0.63f, step, step * LEAST, scroll);
+    }
+
+    /** The hotbar's five slots along the bottom of the panel. */
+    static List<Spot> hotbar(float px, float py, float pw, float ph) {
+        float step = pw * 0.86f / Inventory.HOTBAR;
         float r = Math.min(step / 2 - 4, ph * 0.08f);
         float cy = py + ph * 0.87f;
+        List<Spot> out = new ArrayList<>();
         for (int i = 0; i < Inventory.HOTBAR; i++) {
             out.add(new Spot(i, px + pw * 0.07f + step * (i + 0.5f), cy, r));
         }
         return out;
+    }
+
+    /**
+     * Scroll {@code s} with the wheel (or the gamepad's right stick) while
+     * the pointer is over its box - two rows a turn, so the lattice keeps
+     * its interlock - and draw its bar at the box's right edge. Returns the
+     * row to show from next frame.
+     */
+    private static int scrollLattice(Ui ui, Scrolled s, int scroll) {
+        if (!s.scrolls()) return 0;
+        float[] b = s.box();
+        float wheel = (float) ui.input().scroll();
+        if (wheel != 0 && ui.hover(b[0], b[1], b[2], b[3])) scroll -= 2 * (int) Math.signum(wheel);
+        int most = s.rows() - s.shown();
+        scroll = Math.max(0, Math.min(most + (most % 2), scroll));
+        // the bar: how much of it is in view, and where
+        float bx = b[0] + b[2] + 4, bh = b[3];
+        ui.rect(bx, b[1], 4, bh, Theme.withAlpha(Theme.ITEM_DISABLED, 0.35f));
+        float part = Math.max(0.08f, s.shown() / (float) s.rows());
+        float at = most <= 0 ? 0 : Math.min(1, s.first() / (float) most);
+        ui.rect(bx, b[1] + (bh - bh * part) * at, 4, bh * part, Theme.ACCENT);
+        return scroll;
     }
 
     // --- drawing ---------------------------------------------------------------------
@@ -394,7 +495,14 @@ final class InventoryPanel {
                 Theme.ITEM_DISABLED);
         sortButtons(ui, inv, px, py, pw, ph);
 
-        List<Spot> spots = spots(inv.size(), px, py, pw, ph);
+        Scrolled rest = lattice(inv.size(), px, py, pw, ph, invScroll);
+        invScroll = scrollLattice(ui, rest, invScroll);
+        List<Spot> spots = new ArrayList<>(rest.spots());
+        spots.addAll(hotbar(px, py, pw, ph));
+        if (rest.scrolls()) {
+            ui.textCentered(ui.small, "scroll for more", px + pw / 2, rest.box()[1] + rest.box()[3] + 2,
+                    Theme.ITEM_DISABLED);
+        }
         if (fresh) {
             fresh = false;
             if (ui.input().usingPad()) {
@@ -427,7 +535,9 @@ final class InventoryPanel {
             ui.textCentered(ui.large, store.kind().label(), qx + qw / 2, qy + qh * 0.035f, Theme.TITLE);
             ui.textCentered(ui.small, held.count() + " / " + held.size(), qx + qw / 2, qy + qh * 0.035f + 30,
                     Theme.ITEM_DISABLED);
-            for (Spot s : storeSpots(held.size(), qx, qy, qw, qh)) {
+            Scrolled kept = storeLattice(held.size(), qx, qy, qw, qh, storeScroll);
+            storeScroll = scrollLattice(ui, kept, storeScroll);
+            for (Spot s : kept.spots()) {
                 ui.target(s.x() - s.r() * 0.5f, s.y() - s.r() * 0.5f, s.r(), s.r(), Ui.Kind.BUTTON);
                 boolean hot = ui.hoverDiamond(s.x(), s.y(), s.r());
                 if (hot) hoveredStore = s.slot();
@@ -919,7 +1029,7 @@ final class InventoryPanel {
             out.add(switch (b) {
                 case VENOM -> "poison";
                 case MYSTIC -> "×2.5 for double mana";
-                case BONDED -> "+10% a living thing hit";
+                case BLOODLUST -> "+10% a living thing hit";
             });
         }
         return f.effectsText() + ": " + String.join(", ", out);
@@ -1105,11 +1215,24 @@ final class InventoryPanel {
         // what a piece worn gives at its tier, a line each in its colour (more health in red, mana in blue ...)
         List<Map.Entry<com.larsons.game.world.Gear.Effect, Double>> gear =
                 new ArrayList<>(com.larsons.game.world.Gear.of(item).entrySet());
+        // a weapon's damage a second, roughly - and how fast and how true a forged one shoots
+        List<String> stats = new ArrayList<>();
+        boolean weapon = forged != null ? !forged.worn() : com.larsons.game.world.ItemDef.ALL.contains(item.def());
+        if (weapon) {
+            com.larsons.game.combat.WeaponStats.Dps dps = com.larsons.game.combat.WeaponStats.of(item,
+                    world.combat().tuning());
+            stats.add(dps.line());
+            if (forged != null && forged.ranged() && (forged.fireRate() != 1 || forged.accuracy() != 100)) {
+                stats.add("Rate of fire ×" + com.larsons.game.combat.WeaponStats.num(forged.fireRate()) + " · "
+                        + forged.accuracy() + "% accurate");
+            }
+        }
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
+        for (String st : stats) w = Math.max(w, ui.small.width(st));
         for (var g : gear) w = Math.max(w, ui.small.width(g.getKey().said(g.getValue())));
         w += 20;
-        float h = (effect == null ? 70 : 92) + 20 * gear.size();
+        float h = (effect == null ? 70 : 92) + 20 * gear.size() + 20 * stats.size();
         x = Math.min(x, ui.width() - w - 4);
         y = Math.min(y, ui.height() - h - 4);
         ui.rect(x, y, w, h, Theme.withAlpha(Theme.PANEL, 0.95f));
@@ -1123,6 +1246,10 @@ final class InventoryPanel {
         }
         for (var g : gear) {
             ui.text(ui.small, g.getKey().said(g.getValue()), x + 10, hy, Theme.hex(g.getKey().rgb(), 1f));
+            hy += 20;
+        }
+        for (String st : stats) {
+            ui.text(ui.small, st, x + 10, hy, Theme.TITLE);
             hy += 20;
         }
         ui.text(ui.small, hint, x + 10, hy, Theme.ITEM_DISABLED);

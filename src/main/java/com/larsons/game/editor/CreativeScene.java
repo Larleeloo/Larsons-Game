@@ -19,6 +19,7 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.input.Pad;
 import com.larsons.game.level.FolkTypes;
 import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
@@ -129,8 +130,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /**
      * The paint brush's materials: grass (paints the others away), then
-     * {@link GroundMap}'s twelve, then bare rock (takes the paint off the
-     * steep faces, so the rock shows again).
+     * {@link GroundMap}'s sixteen, then bare rock (the rock's grey stone,
+     * painted anywhere - and the paint taken off the steep faces, so the
+     * rock shows there again).
      */
     static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
             "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal", "Cobbles", "Flagstones", "Brick path",
@@ -210,9 +212,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * makes a piece - each swapped in with its tool.
      */
     private Forged otherForging = Forged.freshWorn("New piece");
-    /** The Tailor's page: every piece the game has (false), or the pieces of your own (true). */
-    private boolean tailorOwn;
-    private TailorPanel tailor;
     private int forgeColour;
     /** The Forge's page: 0 the weapon, 1 its dice and ammunition, 2 its upgrade tiers; and the tier being edited. */
     private int forgePage, forgeTier = 1, tierColour;
@@ -475,6 +474,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         if (!widgets.typing()) keys(in, dt, ctrl, shift);
         if (game.scene() != this) return;               // (a key took us to the play-test or the menu)
+        // the gamepad drives the editor as a menu with a pointer: its stick moves the pointer everywhere
+        in.setUiMode(true);
+        game.ui().wantPointer();
+        if (in.usingPad() && !widgets.typing()) pad(in, dt, overUi);
 
         // --- a right-click (not a drag, which turns the view): a plain pointer, or back to the tool
         if (in.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)) {
@@ -533,6 +536,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             // vines show where they will hang: on the face under the pointer
             if (g.type().equals(ObjectTypes.VINES) && g.bool("fit", true)) LevelWorld.fitVines(g, level.heights());
+            if (g.type().equals(ObjectTypes.LADDER) && g.bool("fit", true)) LevelWorld.fitLadder(g, level.heights());
             view.setGhost(g);
         } else {
             view.setGhost(null);
@@ -626,14 +630,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (in.down(GLFW_KEY_A)) r -= 1;
             if (in.down(GLFW_KEY_SPACE)) u += 1;
             if (in.down(GLFW_KEY_C)) u -= 1;
-            double speed = (4 + camera.distance() * 0.9) * (shift ? 2.5 : 1);
-            if (f != 0 || r != 0) {
-                Vec3 move = camera.groundForward().scale(f).add(camera.right().scale(r)).normalize().scale(speed * dt);
-                double h = level.half() + 20;
-                focus = new Vec3(Math.max(-h, Math.min(h, focus.x() + move.x())), 0,
-                        Math.max(-h, Math.min(h, focus.z() + move.z())));
-            }
-            if (u != 0) focusLift = Math.max(0, Math.min(80, focusLift + u * speed * 0.6 * dt));
+            fly(f, r, u, dt, shift);
         }
         double orbit = 0, tilt = 0;
         if (in.down(GLFW_KEY_LEFT)) orbit += 1;
@@ -643,6 +640,71 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
         if (in.repeated(GLFW_KEY_EQUAL) || in.repeated(GLFW_KEY_KP_ADD)) camera.zoom(1);
         if (in.repeated(GLFW_KEY_MINUS) || in.repeated(GLFW_KEY_KP_SUBTRACT)) camera.zoom(-1);
+    }
+
+    /** The view flies: {@code f} ahead, {@code r} right, {@code u} up (each -1 to 1), faster {@code fast}. */
+    private void fly(double f, double r, double u, double dt, boolean fast) {
+        double speed = (4 + camera.distance() * 0.9) * (fast ? 2.5 : 1);
+        if (f != 0 || r != 0) {
+            Vec3 move = camera.groundForward().scale(f).add(camera.right().scale(r)).normalize().scale(speed * dt);
+            double h = level.half() + 20;
+            focus = new Vec3(Math.max(-h, Math.min(h, focus.x() + move.x())), 0,
+                    Math.max(-h, Math.min(h, focus.z() + move.z())));
+        }
+        if (u != 0) focusLift = Math.max(0, Math.min(80, focusLift + u * speed * 0.6 * dt));
+    }
+
+    /** How long until a held bumper turns the piece (or sizes the brush) again, seconds. */
+    private double padRepeat;
+
+    /**
+     * The gamepad, as a pointer and a view. The left stick moves the pointer
+     * everywhere - A clicks, places, paints and drags, X is the right button
+     * (a plain pointer), B goes back - and the d-pad steps between a panel's
+     * buttons. Over the world, not a panel, the right stick turns the view,
+     * the triggers zoom and the d-pad flies it over the ground. LB / RB turn
+     * what is placed or picked 15° (a brush: its size), Y is the next tool,
+     * R3 flies to what is picked, View hides the panels.
+     */
+    private void pad(Input in, double dt, boolean overUi) {
+        in.setPadView(!overUi);
+        if (!overUi) {
+            double orbit = in.padValue(Pad.RS_LEFT) - in.padValue(Pad.RS_RIGHT);
+            double tilt = in.padValue(Pad.RS_UP) - in.padValue(Pad.RS_DOWN);
+            if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
+            double zoom = in.padValue(Pad.RT) - in.padValue(Pad.LT);
+            if (Math.abs(zoom) > 0.05) camera.zoom(zoom * dt * 9);
+            double f = (in.padDown(Pad.DPAD_UP) ? 1 : 0) - (in.padDown(Pad.DPAD_DOWN) ? 1 : 0);
+            double r = (in.padDown(Pad.DPAD_RIGHT) ? 1 : 0) - (in.padDown(Pad.DPAD_LEFT) ? 1 : 0);
+            fly(f, r, 0, dt, false);
+        }
+        if (lookTarget == null && colourPick == null) {
+            // (the bumpers are the editor's here, not a tab's: the wardrobe over it keeps them)
+            in.takeTab();
+            int way = in.padDown(Pad.RB) ? 1 : in.padDown(Pad.LB) ? -1 : 0;
+            if (in.padPressed(Pad.LB) || in.padPressed(Pad.RB)) {
+                padRepeat = 0.4;
+                bumper(way);
+            } else if (way != 0 && (padRepeat -= dt) <= 0) {
+                padRepeat = 0.12;
+                bumper(way);
+            }
+            if (in.padPressed(Pad.Y)) {
+                List<Tool> shown = tools();
+                Tool next = shown.get((shown.indexOf(tool) + 1) % shown.size());
+                setTool(next);
+                game.toast(next.label, Theme.HINT);
+            }
+            if (in.padPressed(Pad.RS)) frameSelection();
+        }
+        if (in.padPressed(Pad.VIEW)) hideUi = !hideUi;
+    }
+
+    /** A bumper: turn what is placed or picked 15° that way - a brush, made bigger or smaller. */
+    private void bumper(int way) {
+        if (way == 0) return;
+        if (brushTool() && !pointer) radius = clampRadius(way > 0 ? radius * 1.15 : radius / 1.15);
+        else turn(Math.toRadians(-way * TURN));
     }
 
     /** What the camera looks at: the spot it flies over, on the ground there, lifted. */
@@ -1007,6 +1069,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * is); {@code tell}: a toast when there is no face there.
      */
     private boolean fitVines(LevelObject o, boolean tell) {
+        if (o != null && o.type().equals(ObjectTypes.LADDER) && o.bool("fit", true)) {
+            // (a ladder fits as vines do - and stands where it is put when there is no face: a ladder on its own)
+            boolean fitted = LevelWorld.fitLadder(o, level.heights());
+            if (fitted) changed();
+            return fitted;
+        }
         if (o == null || !o.type().equals(ObjectTypes.VINES) || !o.bool("fit", true)) return false;
         boolean fitted = LevelWorld.fitVines(o, level.heights());
         if (fitted) changed();
@@ -1175,10 +1243,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (tinting) {
             ground.tint(cursor.x(), cursor.z(), radius, amount, shift ? -1 : tintColour, tintAmount);
         } else if (!biomes && material == BARE_ROCK) {
-            // bare the rock faces again (Shift: paint over them)
-            ground.cover(cursor.x(), cursor.z(), radius, amount, shift);
+            // bare rock, on the flat as well, and the rock faces bared again (Shift: the rock taken off)
+            ground.rock(cursor.x(), cursor.z(), radius, amount, !shift);
+            if (!shift) ground.cover(cursor.x(), cursor.z(), radius, amount, false);
         } else if (shift || !biomes) {
             ground.paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+            ground.rock(cursor.x(), cursor.z(), radius, amount, false);       // (painted over the bare rock)
             if (overRock && !shift) ground.cover(cursor.x(), cursor.z(), radius, amount, true);
         } else {
             ground.paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
@@ -1537,6 +1607,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.line(wall.x0(), wall.z0(), wall.x1(), wall.z1(), 0.18, c, 0.9f);
                     arrow(o, c, 1.2);
                 }
+                case ObjectTypes.LADDER -> {
+                    Terrain.Wall wall = LevelWorld.ladder(o, level.heights());
+                    gizmos.line(wall.x0(), wall.z0(), wall.x1(), wall.z1(), 0.12, c, 0.9f);
+                    arrow(o, c, 0.9);
+                }
                 case ObjectTypes.SOUND -> {
                     gizmos.post(foot, 1.0, c, 0.9f, camera);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -1662,6 +1737,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case ObjectTypes.SPAWN -> "Spawn";
                 case ObjectTypes.MARKER -> o.str("name", "spot");
                 case ObjectTypes.VINES -> "Vines";
+                case ObjectTypes.LADDER -> null;
                 case ObjectTypes.SOUND -> "Sound: " + ObjectTypes.readable(o.str("sound", "?"));
                 case ObjectTypes.LIGHT -> "Light";
                 case ObjectTypes.RAYS -> "Light rays";
@@ -1897,15 +1973,19 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: what it is made from, name and rarity, its dice, its borders, "
                     + "its colours, its upgrade tiers · Save it, then Place it · armour and clothes: the Tailor";
-            case TAILOR -> tailorOwn ? "Make armour or clothes of your own: what it is made from, name and rarity, its "
-                    + "dice to block, its colours, its tiers - each with what it gives worn · Save it, then Place it"
-                    : "Every piece of clothing and armour, tier by tier: what each tier gives worn (more health, mana, "
-                    + "stamina, speed ...) · kept as you change it · upgraded with ingots in the inventory";
+            case TAILOR -> "Make armour, clothes or a backpack of your own: what it is made from, name and rarity, its "
+                    + "dice to block, its colours, its tiers - each with what it gives worn, a pack's carry space · "
+                    + "Save it, then Place it · only pieces of your own have tiers";
             case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
                 + "Ctrl+Z / Y undo, redo · Ctrl+S save · F5 play · H hide · Esc menu";
+        if (ui.input().usingPad()) {
+            h = padHelp();
+            all = "   ·   Left stick: pointer · right stick: turn the view · LT / RT: zoom · D-pad: fly (over a panel: "
+                    + "its buttons) · X: plain pointer · Y: next tool · View: hide panels · B: back";
+        }
         float y = ui.height() - HELP_H;
         ui.rect(0, y, ui.width(), HELP_H, Theme.withAlpha(Theme.PANEL, 0.92f));
         // whole hints dropped from the end until it fits
@@ -1914,6 +1994,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             text = text.substring(0, text.lastIndexOf(" · ")).stripTrailing();
         }
         ui.text(ui.small, text, 10, y + (HELP_H - ui.small.lineHeight()) / 2, Theme.HINT);
+    }
+
+    /** What the gamepad does with the tool in hand: the first half of the help along the bottom. */
+    private String padHelp() {
+        if (pointer || tool == Tool.SELECT) {
+            return "A: pick · hold A and move: drag it (on the ground: a box) · LB / RB: turn 15° · R3: fly to it · "
+                    + "Delete and Duplicate: the panel on the left";
+        }
+        return switch (tool) {
+            case PLACE -> draws() ? "Hold A and move: draw it, end to end · A: place it as set · LB / RB: turn 15°"
+                    : "A: place · LB / RB: turn 15° · it sits on what is under the pointer";
+            case SCULPT -> "Hold A: sculpt · LB / RB: brush size · the panel: raise, lower, flatten, smooth";
+            case PAINT -> "Hold A: paint · LB / RB: brush size · the panel: what to paint";
+            case SCATTER -> "Hold A: scatter · LB / RB: brush size";
+            case WATER -> "Hold A: water · LB / RB: brush size";
+            default -> "A: press what the pointer is on · the d-pad steps between the panel's buttons";
+        };
     }
 
     // --- the left panel: the tool's own -------------------------------------------------------------
@@ -2215,7 +2312,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /**
      * The Forge: a weapon of Larson's own - one of the weapons, named and
      * given a rarity, its dice (how many, d4 to d20 or d%) in a colour of
-     * their own, any of the three effects (Venom, Mystic, Bonded - together if
+     * their own, any of the three effects (Venom, Mystic, Bloodlust - together if
      * wanted) and each part in a colour of the palette. Or a piece of armour
      * or clothing: its dice to block (armour), and in place of the weapon's
      * three effects the gear's ({@link com.larsons.game.world.Gear.Effect}:
@@ -2242,30 +2339,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     /**
-     * The Tailor: every piece of clothing and armour the game has, tier by
-     * tier - what each tier gives worn ({@link TailorPanel}) - or the pieces
-     * of your own, made as the Forge makes a weapon, each tier giving what
-     * it is made with.
+     * The Tailor: clothes and armour of your own - backpacks too - made as
+     * the Forge makes a weapon, each with tiers of its own, each tier giving
+     * what it is made with. (The pieces the game comes with have no tiers.)
      */
     private void tailorPanel(Ui ui, float x, float y, float w) {
-        y = heading(ui, "Tailor clothing and armour", x, y);
-        int own = 0;
-        for (Forged f : Forged.all()) if (f.worn()) own++;
-        float bw = (w - 4) / 2;
-        if (ui.button("Every piece", x, y, bw, 28, !tailorOwn, true)) tailorOwn = false;
-        if (ui.button("Your own (" + own + ")", x + bw + 4, y, bw, 28, tailorOwn, true)) tailorOwn = true;
-        y += 38;
-        if (tailorOwn) {
-            forgingWorn(true);
-            forgeWork(ui, x, y, w, true);
-        } else {
-            tailor().panel(ui, x, y, w);
-        }
-    }
-
-    private TailorPanel tailor() {
-        if (tailor == null) tailor = new TailorPanel(game, widgets, () -> view.world().combat().tuning().armour);
-        return tailor;
+        y = heading(ui, "Tailor clothing, armour and packs", x, y);
+        forgingWorn(true);
+        forgeWork(ui, x, y, w, true);
     }
 
     /**
@@ -2333,7 +2414,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         int b = widgets.choice(ui, "Made from", bases, bi, x, y, w, 0.36f);
         if (b != bi) {
+            // (a weapon still rolling the dice of what it was made from rolls the new one's)
+            Integer was = com.larsons.game.combat.CombatTuning.SIDES.get(forging.base());
             forging = forging.withBase(made.get(b).id());
+            Integer now = com.larsons.game.combat.CombatTuning.SIDES.get(forging.base());
+            if (!worn && now != null && (was == null || was == forging.sides() || forging.sides() == 20)) {
+                forging = forging.withSides(now);
+            }
             forgeColour = 0;
         }
         y += 36;
@@ -2378,6 +2465,21 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
             }
             y += 38;
+            // a bow, a crossbow, a staff or a wand: how fast it shoots, and how true
+            if (forging.ranged()) {
+                double rate = widgets.stepper(ui, "Rate of fire", forging.fireRate(), 0.25, Forged.MIN_RATE,
+                        Forged.MAX_RATE, "×%.2f", x, y, w);
+                if (Math.abs(rate - forging.fireRate()) > 1e-9) forging = forging.withFireRate(rate);
+                y += 34;
+                int acc = (int) Math.round(widgets.stepper(ui, "Accuracy", forging.accuracy(), 5,
+                        Forged.MIN_ACCURACY, 100, "%.0f%%", x, y, w));
+                if (acc != forging.accuracy()) forging = forging.withAccuracy(acc);
+                y += 34;
+            }
+            var dps = com.larsons.game.combat.WeaponStats.of(forging.item(), view.world().combat().tuning());
+            y += ui.paragraph(ui.small, dps.line() + (dps.ranged() && dps.accuracy() < 100
+                    ? " · shots stray up to " + Math.round(com.larsons.game.combat.Combat.MOST_SPREAD
+                    * (100 - dps.accuracy()) / 100.0) + "°" : ""), x, y, w, Theme.ACCENT) + 8;
         }
 
         // the colours: of a part (or all of it), or of the dice (clothes roll none)
@@ -2447,7 +2549,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         y += ui.paragraph(ui.small, "What it does at its first tier for whoever wears it, under other clothes or "
                 + "armour too. Several pieces add up; a dye still colours it. Each tier after: the Tiers page.", x, y, w,
                 Theme.ITEM_DISABLED) + 10;
-        Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, forging.baseGear(), x, y, w);
+        boolean pack = com.larsons.game.world.Gear.isPack(forging.def());
+        if (pack) {
+            y += ui.paragraph(ui.small, "A pack: its Carry space is how many more inventory slots she has while she "
+                    + "wears it (more at each tier, if the Tiers page says so).", x, y, w, Theme.HINT) + 8;
+        }
+        Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, forging.baseGear(), pack, x, y,
+                w);
         if (!g.equals(forging.baseGear())) {
             Forged f = forging;
             for (com.larsons.game.world.Gear.Effect e : com.larsons.game.world.Gear.Effect.values()) {
@@ -2455,7 +2563,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             forging = f;
         }
-        y += TailorPanel.gearRowsHeight() + 8;
+        y += TailorPanel.gearRowsHeight(pack) + 8;
         forgeButtons(ui, x, y, w);
     }
 
@@ -2615,13 +2723,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (ui.button("As tier " + forgeTier, x + bw + 4, y, bw, 26, u.gear() == null, true)) u = u.withGear(null);
             y += 32;
             if (u.gear() == null) {
-                String said = new com.larsons.game.world.Tailor.Rung("", before).shortText();
+                String said = com.larsons.game.world.Gear.shortText(before);
                 y += ui.paragraph(ui.small, "As tier " + forgeTier + ": " + (said.isEmpty() ? "nothing" : said) + ".",
                         x, y, w, Theme.ITEM_DISABLED) + 8;
             } else {
-                Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, u.gear(), x, y, w);
+                boolean pack = com.larsons.game.world.Gear.isPack(forging.def());
+                Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, u.gear(), pack, x, y, w);
                 if (!g.equals(u.gear())) u = u.withGear(g);
-                y += TailorPanel.gearRowsHeight() + 6;
+                y += TailorPanel.gearRowsHeight(pack) + 6;
             }
         }
         // its colours: a part (or all of it) recoloured as it reaches this tier, or its dice
@@ -2681,7 +2790,6 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private void forgeIn(Forged f) {
         Tool want = f.worn() ? Tool.TAILOR : Tool.FORGE;
         if (tool != want) setTool(want);
-        if (f.worn()) tailorOwn = true;
         forging = f;
     }
 
@@ -2875,7 +2983,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y = brushSliders(ui, x, y + 10, w, false);
             ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen. "
                     + "Over rock faces: the paint shows on ground too steep to walk, instead of the rock "
-                    + "(Bare rock takes it off again).", x, y, w, Theme.HINT);
+                    + "(Bare rock takes it off again). Bare rock paints the grey stone anywhere, the flat too; "
+                    + "Shift takes it off.", x, y, w, Theme.HINT);
             return;
         }
         if (paintTab == 2) {
@@ -3754,22 +3863,33 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     /**
-     * The level's music - none, every song shuffled, or one song looping -
-     * and a player to listen to any song first: play or pause, a timeline to
-     * drag to anywhere in it, where it is of how long, and "Use this song".
-     * Returns the y below it.
+     * The level's music - none, every song shuffled, one song looping, or a
+     * playlist of songs played in turn and round again (each row moved up or
+     * down or taken out) - and a player to listen to any song first: play or
+     * pause, a timeline to drag to anywhere in it, where it is of how long,
+     * and "Use this song" (or, for a playlist, "Add to playlist"). Returns the
+     * y below it.
      */
     private float musicSection(Ui ui, float x, float y, float w) {
-        List<String> shown = new ArrayList<>(List.of("None", "Shuffle all"));
+        List<Songs.Song> list = Songs.playlist(level.music());
+        boolean asList = list.size() > 1 || playlistFor == level;
+        List<String> shown = new ArrayList<>(List.of("None", "Shuffle all", "Playlist"));
         for (Songs.Song song : Songs.ALL) shown.add(song.title());
-        int cur = musicIndex(level.music());
+        int cur = asList ? MUSIC_PLAYLIST : musicIndex(level.music());
         int pick = widgets.choice(ui, "Music", shown, cur, x, y, w, MUSIC_LABEL);
-        if (pick != cur) setMusic(pick == 0 ? Songs.NONE : pick == 1 ? Songs.SHUFFLE : Songs.ALL.get(pick - 2).id());
+        if (pick != cur) {
+            playlistFor = pick == MUSIC_PLAYLIST ? level : null;
+            if (pick == MUSIC_PLAYLIST) setMusic(Songs.choice(startPlaylist()));
+            else setMusic(pick == 0 ? Songs.NONE : pick == 1 ? Songs.SHUFFLE : Songs.ALL.get(pick - 3).id());
+            return y + 34;
+        }
         y += 34;
         if (Songs.ALL.isEmpty()) return y + 6;
         if (Songs.byId(listening) == null) {
-            listening = Songs.byId(level.music()) != null ? level.music() : Songs.ALL.get(0).id();
+            listening = Songs.byId(level.music()) != null ? level.music()
+                    : !list.isEmpty() ? list.get(0).id() : Songs.ALL.get(0).id();
         }
+        if (asList) y = playlistRows(ui, x, y, w);
         List<String> titles = Songs.ALL.stream().map(Songs.Song::title).toList();
         int li = Songs.ALL.indexOf(Songs.byId(listening));
         int lp = widgets.choice(ui, "Listen to", titles, li, x, y, w, MUSIC_LABEL);
@@ -3793,7 +3913,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         String clock = preview.loading() ? "Reading the song…" : !ready ? "No sound file for this song"
                 : clock(preview.position()) + " / " + clock(len);
         ui.text(ui.small, clock, x, y + 6, ready ? Theme.ITEM : Theme.HINT);
-        if (song.id().equals(level.music())) {
+        if (asList) {
+            if (ui.button("Add to playlist", x + w - 130, y, 130, 26, false, list.size() < MOST_IN_PLAYLIST)) {
+                List<Songs.Song> next = new ArrayList<>(list);
+                next.add(song);
+                setMusic(Songs.choice(next));
+            }
+        } else if (song.id().equals(level.music())) {
             String in = "In this level";
             ui.text(ui.small, in, x + w - ui.small.width(in) - 6, y + 6, Theme.TITLE);
         } else if (ui.button("Use this song", x + w - 120, y, 120, 26)) {
@@ -3803,14 +3929,73 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return y + ui.paragraph(ui.small, song.label(), x, y, w, Theme.ITEM_DISABLED) + 10;
     }
 
+    /**
+     * A level's playlist, a row a song in the order they play: a row pressed
+     * is listened to, its arrows move it up or down, × takes it out. Returns
+     * the y below it.
+     */
+    private float playlistRows(Ui ui, float x, float y, float w) {
+        List<Songs.Song> list = new ArrayList<>(Songs.playlist(level.music()));
+        ui.text(ui.tiny, list.isEmpty() ? "Empty: listen to a song below and add it"
+                : "Played in turn, then round again from the first", x, y, Theme.HINT);
+        y += 16;
+        int from = -1, to = -1, remove = -1;
+        for (int i = 0; i < list.size(); i++) {
+            Songs.Song s = list.get(i);
+            float rw = w - 30 - 2 * 26;
+            if (ui.button((i + 1) + ". " + s.title(), x, y, rw, 26, s.id().equals(listening), true)) listen(s.id());
+            if (ui.button("↑", x + rw + 4, y, 22, 26, false, i > 0)) {
+                from = i;
+                to = i - 1;
+            }
+            if (ui.button("↓", x + rw + 30, y, 22, 26, false, i < list.size() - 1)) {
+                from = i;
+                to = i + 1;
+            }
+            if (ui.button("×", x + w - 26, y, 26, 26)) remove = i;
+            y += 30;
+        }
+        if (from >= 0) {
+            java.util.Collections.swap(list, from, to);
+            setMusic(Songs.choice(list));
+        } else if (remove >= 0) {
+            list.remove(remove);
+            setMusic(Songs.choice(list));
+        }
+        return y + 4;
+    }
+
+    /**
+     * A new playlist: the level's song (if it had one) and the one being
+     * listened to, else that and the song after it - two to start with.
+     */
+    private List<Songs.Song> startPlaylist() {
+        List<Songs.Song> out = new ArrayList<>(Songs.playlist(level.music()));
+        Songs.Song heard = Songs.byId(listening);
+        if (heard != null && !out.contains(heard)) out.add(heard);
+        for (int i = 0; out.size() < 2 && i < Songs.ALL.size(); i++) {
+            Songs.Song s = Songs.ALL.get((Math.max(0, Songs.ALL.indexOf(out.isEmpty() ? null : out.get(0))) + i)
+                    % Songs.ALL.size());
+            if (!out.contains(s)) out.add(s);
+        }
+        return out;
+    }
+
     /** The music rows' labels are short: more of the row for the song's title. */
     private static final float MUSIC_LABEL = 0.3f;
+    /** Where "Playlist" is in the Music choice. */
+    private static final int MUSIC_PLAYLIST = 2;
+    /** The most songs a level's playlist holds. */
+    static final int MOST_IN_PLAYLIST = 20;
+    /** The level whose playlist is being made (shown as one even while it holds a single song, or none). */
+    private Level playlistFor;
 
-    /** Where {@code music} is in the Music choice: none, shuffle, then the songs (unknown: none). */
+    /** Where {@code music} is in the Music choice: none, shuffle, playlist, then the songs (unknown: none). */
     private static int musicIndex(String music) {
         if (Songs.SHUFFLE.equals(music)) return 1;
+        if (Songs.isPlaylist(music)) return MUSIC_PLAYLIST;
         Songs.Song song = Songs.byId(music);
-        return song == null ? 0 : 2 + Songs.ALL.indexOf(song);
+        return song == null ? 0 : MUSIC_PLAYLIST + 1 + Songs.ALL.indexOf(song);
     }
 
     /** The level's music from now on, as one undo step; a song chosen is the one listened to. */
@@ -3855,12 +4040,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private void rightPanelContent(Ui ui, float px, float py, float pw, float y, float h) {
-        if (tool == Tool.FORGE || tool == Tool.TAILOR && tailorOwn) {
+        if (tool == Tool.FORGE || tool == Tool.TAILOR) {
             forgePreview(ui, px, py, pw);
-            return;
-        }
-        if (tool == Tool.TAILOR) {
-            tailor().preview(ui, px, py, pw, view.world().time());
             return;
         }
         if (placingShown()) {
@@ -4822,7 +5003,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "forge" -> {
-                // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> |
+                // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> | rate <x> | accuracy <%> |
                 // effect <key> on|off | gear <effect> <amount|on|off> | tint <part> <#rgb|none> |
                 // dicecolour <#rgb|none> | colour <n> | page <n> | save | place
                 String what = a[0], rest = argument.trim().substring(what.length()).trim();
@@ -4838,6 +5019,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case "rarity" -> forging = forging.withRarity(Rarity.byKey(rest));
                     case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
                     case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
+                    case "rate" -> forging = forging.withFireRate(Double.parseDouble(rest));
+                    case "accuracy" -> forging = forging.withAccuracy(Integer.parseInt(rest.replace("%", "")));
                     case "effect" -> forging = forging.withEffect(Border.byKey(a[1]), a.length < 3 || a[2].equals("on"));
                     case "gear" -> {
                         // gear <effect> <amount|on|off>: armour's and clothes' special effects
@@ -4900,45 +5083,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "tailor" -> {
-                // tailor own | tailor every | tailor piece <id> [tier from 1] | tailor tier <n from 1> |
-                // tailor gear <effect> <amount|on|off> | tailor name <name> | tailor grow | tailor same | tailor reset
-                String what = a[0], rest = argument.trim().substring(what.length()).trim();
-                TailorPanel tp = tailor();
-                ItemDef d = tp.def();
-                List<com.larsons.game.world.Tier> tiers = com.larsons.game.world.Tailor.tiers(d);
-                int at = Math.max(0, Math.min(tiers.size() - 1, tp.tier()));
-                List<com.larsons.game.world.Tailor.Rung> rungs = new ArrayList<>(com.larsons.game.world.Tailor.rungs(d));
-                try {
-                    switch (what) {
-                        case "own" -> tailorOwn = true;
-                        case "every" -> tailorOwn = false;
-                        case "piece" -> {
-                            if (!tp.pick(a[1], a.length > 2 ? Integer.parseInt(a[2]) - 1 : 0)) return false;
-                            tailorOwn = false;
-                        }
-                        case "tier" -> tp.tier(Integer.parseInt(rest) - 1);
-                        case "gear" -> {
-                            var e = com.larsons.game.world.Gear.Effect.byKey(a[1]);
-                            if (e == null) return false;
-                            String v = a.length < 3 ? "on" : a[2];
-                            double amount = v.equals("off") ? 0 : v.equals("on") ? e.fallback() : Double.parseDouble(v);
-                            rungs.set(at, rungs.get(at).withGear(e, amount));
-                            com.larsons.game.world.Tailor.save(d, rungs);
-                        }
-                        case "name" -> {
-                            rungs.set(at, rungs.get(at).withName(rest));
-                            com.larsons.game.world.Tailor.save(d, rungs);
-                        }
-                        case "grow", "same" -> com.larsons.game.world.Tailor.save(d,
-                                com.larsons.game.world.Tailor.upTheTiers(rungs, at, what.equals("grow")));
-                        case "reset" -> com.larsons.game.world.Tailor.reset(d);
-                        default -> {
-                            return false;
-                        }
-                    }
-                } catch (java.io.IOException e) {
-                    return false;
-                }
+                // tailor: the Tailor, on a piece of your own (forge new|base|gear ... make it, as for a weapon)
+                setTool(Tool.TAILOR);
             }
             case "listen" -> {
                 // listen <song> [seconds] [play]: the Level tool's player on a song, at a time, playing

@@ -163,6 +163,7 @@ public final class Batch implements AutoCloseable {
                     if (vColor.a > 0.0) c.rgb *= sceneLight(vWorld);
                     float m = sceneMist(vWorld);
                     c.rgb = vColor.a > 0.0 ? mix(c.rgb, uMistColour * c.a, m) : c.rgb * (1.0 - m);
+                    if (vColor.a > 0.0) c.rgb += sceneRays(vWorld) * c.a;
                 }
                 if (uFog.y > 0.0) {
                     float f = clamp((vDepth - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
@@ -193,6 +194,14 @@ public final class Batch implements AutoCloseable {
     private float floor;
     /** The light the world's batches are drawn in ({@link #useSceneLight}); null: as drawn. */
     private SceneLight sceneLight;
+    /**
+     * How far towards the sun what is drawn looks itself up in the sun's
+     * shadows, metres: what casts no shadow of its own (a figure, an item)
+     * a little, a tree - which does - past its own leaves.
+     */
+    private float shadowBias = SPRITE_SHADOW_BIAS;
+    /** {@link #shadowBias} as it is unless changed: what a figure is. */
+    public static final float SPRITE_SHADOW_BIAS = 0.45f;
 
     public Batch() {
         shader = new Shader("batch", VERTEX, FRAGMENT);
@@ -264,7 +273,7 @@ public final class Batch implements AutoCloseable {
         }
         boolean lit = fogColor != null && sceneLight != null;
         shader.set("uSceneLit", lit ? 1 : 0);
-        if (lit) sceneLight.bind(shader);
+        if (lit) sceneLight.bind(shader, shadowBias);
         glBindVertexArray(vao);
     }
 
@@ -277,6 +286,15 @@ public final class Batch implements AutoCloseable {
      */
     public void useSceneLight(SceneLight light) {
         sceneLight = light;
+    }
+
+    /**
+     * How far towards the sun the batches begun from now on look what they
+     * draw up in the sun's shadows ({@link #SPRITE_SHADOW_BIAS} as it comes):
+     * far enough that a tree is not in the shadow of its own leaves.
+     */
+    public void shadowBias(float metres) {
+        shadowBias = metres;
     }
 
     /** For UI and shadows: no fog. */

@@ -57,6 +57,8 @@ public final class SaveGame {
     private Wardrobe wardrobe = new Wardrobe();
     private Map<String, Object> hero = new LinkedHashMap<>();
     private int inventorySize = Inventory.DEFAULT_SLOTS, selected;
+    /** The slots the pack she wore added (counted in {@link #inventorySize}'s place apart). */
+    private int packSlots;
     private final List<Stack> items = new ArrayList<>();
     private int coins;
     /** The ammunition in her pouch, by its id. */
@@ -137,7 +139,11 @@ public final class SaveGame {
         coins = Math.max(0, n);
     }
 
-    public int inventorySize() { return inventorySize; }
+    /** Her inventory's slots, the pack's she wore included (what a world for her is made with). */
+    public int inventorySize() { return inventorySize + packSlots; }
+
+    /** The slots the pack she wore added. */
+    public int packSlots() { return packSlots; }
 
     public void setInventorySize(int n) {
         inventorySize = Math.max(Inventory.HOTBAR, n);
@@ -206,7 +212,8 @@ public final class SaveGame {
     /** Write {@code p} down as she is: what she carries, her purse, her health, her cards. */
     public void take(Player p) {
         Inventory inv = p.inventory();
-        inventorySize = inv.size();
+        inventorySize = p.baseSlots();
+        packSlots = p.packSlots();
         selected = inv.selected();
         items.clear();
         for (int i = 0; i < inv.size(); i++) {
@@ -238,6 +245,7 @@ public final class SaveGame {
         for (Map.Entry<String, Integer> e : pouch.entrySet()) inv.setPouched(e.getKey(), e.getValue());
         inv.pouchAmmo();                    // (a save from before the pouch: its ammunition out of its slots)
         inv.select(Math.max(0, Math.min(Inventory.HOTBAR - 1, selected)));
+        p.setPackSlots(packSlots);
         p.setCoins(coins);
         p.setHealth(health <= 0 ? Player.MAX_HEALTH : health);
         p.hero().read(hero, p);
@@ -258,6 +266,7 @@ public final class SaveGame {
         j.put("hero", hero);
         Map<String, Object> inv = new LinkedHashMap<>();
         inv.put("size", (double) inventorySize);
+        if (packSlots > 0) inv.put("pack", (double) packSlots);
         inv.put("selected", (double) selected);
         List<Object> slots = new ArrayList<>();
         for (Stack s : items) {
@@ -302,6 +311,7 @@ public final class SaveGame {
         if (j.get("inventory") instanceof Map<?, ?> m) {
             Map<String, Object> inv = (Map<String, Object>) m;
             s.setInventorySize((int) Json.num(inv, "size", Inventory.DEFAULT_SLOTS));
+            s.packSlots = Math.max(0, (int) Json.num(inv, "pack", 0));
             s.selected = (int) Json.num(inv, "selected", 0);
             if (inv.get("pouch") instanceof Map<?, ?> pm) {
                 for (Map.Entry<?, ?> e : pm.entrySet()) {

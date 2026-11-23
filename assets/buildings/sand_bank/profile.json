@@ -1,0 +1,60 @@
+{
+ "key": "sand_bank",
+ "label": "Sand bank",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 1.344,
+ "model": true,
+ "parts": [
+  {
+   "key": "soil",
+   "label": "Sand",
+   "colour": "#d8c08a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "wet",
+   "label": "Dug face",
+   "colour": "#b8a070",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "stones",
+   "label": "Stones",
+   "colour": "#8a867e",
+   "texture": "fieldstone",
+   "glow": false
+  },
+  {
+   "key": "spade",
+   "label": "Spade",
+   "colour": "#5a5a60",
+   "texture": "metal",
+   "glow": false
+  },
+  {
+   "key": "handle",
+   "label": "Handle",
+   "colour": "#8a6038",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "box",
+   0.0,
+   0.0,
+   2.42,
+   1.98
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "clutter"
+}

@@ -240,7 +240,9 @@ public final class Critters {
         for (Critter c : live) {
             if (c.spot == null && Math.hypot(c.x - focus.x(), c.z - focus.z()) > REACH + 6) c.gone = true;
         }
-        // the placed ones: round their spots, while she is anywhere near (a spot taken away: they go)
+        // the placed ones: round their spots, while she is anywhere near - a spot moved (the editor's ghost under
+        // the pointer) takes them along as they were; a spot taken away: they go
+        followMoved(place);
         for (Critter c : live) if (c.spot != null && !spots.contains(c.spot)) c.leaving = true;
         for (Spot s : spots) {
             boolean near = Math.hypot(s.at().x() - focus.x(), s.at().z() - focus.z()) < SPOT_REACH;
@@ -259,6 +261,43 @@ public final class Critters {
             } else if (have > want && extra != null) {
                 extra.leaving = true;
             }
+        }
+    }
+
+    /** A spot that is the same but somewhere else now takes its critters along, each where it was from its middle. */
+    private void followMoved(Place place) {
+        java.util.Set<Spot> manned = new java.util.HashSet<>();
+        for (Critter c : live) if (c.spot != null && !c.leaving && spots.contains(c.spot)) manned.add(c.spot);
+        java.util.Map<Spot, Spot> to = new java.util.HashMap<>();
+        for (Critter c : live) {
+            Spot old = c.spot;
+            if (old == null || c.leaving || c.gone || spots.contains(old)) continue;
+            Spot now = to.get(old);
+            if (now == null && !to.containsKey(old)) {
+                for (Spot s : spots) {
+                    if (!manned.contains(s) && !to.containsValue(s) && s.kind() == old.kind()
+                            && s.count() == old.count() && s.radius() == old.radius() && s.when() == old.when()) {
+                        now = s;
+                        break;
+                    }
+                }
+                to.put(old, now);
+            }
+            if (now == null) continue;
+            double dx = now.at().x() - old.at().x(), dz = now.at().z() - old.at().z();
+            double dy = place.ground(c.x + dx, c.z + dz) - place.ground(c.x, c.z);
+            c.x += dx;
+            c.z += dz;
+            c.y += dy;
+            c.homeX += dx;
+            c.homeZ += dz;
+            c.fromX += dx;
+            c.fromZ += dz;
+            c.fromY += dy;
+            c.toX += dx;
+            c.toZ += dz;
+            c.toY += dy;
+            c.spot = now;
         }
     }
 

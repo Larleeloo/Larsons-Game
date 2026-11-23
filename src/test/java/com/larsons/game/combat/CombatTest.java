@@ -63,11 +63,15 @@ class CombatTest {
     // --- the dice -----------------------------------------------------------------------
 
     @Test
-    void eachRarityRollsOneMoreD20ThanTheLast() {
+    void eachRarityRollsOneMoreDieThanTheLastAndEachWeaponItsOwnDie() {
         CombatTuning t = CombatTuning.defaults();
         int n = 1;
         for (Rarity r : Rarity.values()) assertEquals(n++, t.dice(r), r.label());
-        assertEquals(20, t.sides);
+        assertEquals(4, t.sides(null), "bare hands: a D4");
+        assertEquals(6, t.sides(ItemDef.DAGGER));
+        for (ItemDef d : List.of(ItemDef.SWORD, ItemDef.BATTLE_AXE, ItemDef.MACE)) assertEquals(8, t.sides(d), d.id());
+        for (ItemDef d : List.of(ItemDef.LONGBOW, ItemDef.CROSSBOW)) assertEquals(10, t.sides(d), d.id());
+        for (ItemDef d : List.of(ItemDef.CRYSTAL_STAFF, ItemDef.WAND)) assertEquals(12, t.sides(d), d.id());
         assertEquals(1, t.heavyExtra);
     }
 
@@ -246,19 +250,19 @@ class CombatTest {
     }
 
     @Test
-    void oneBondedBlowOnTwoDummiesCountsBothWhicheverFalls() {
-        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER).withBorder(Border.BONDED);
+    void oneBloodlustBlowOnTwoDummiesCountsBothWhicheverFalls() {
+        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER).withBorder(Border.BLOODLUST);
         World w = holding(axe);
         Dummy weak = w.addDummy(new Dummy(new Vec3(-0.4, 0, -1.2), 0, 1, 6));
         Dummy strong = w.addDummy(new Dummy(new Vec3(0.4, 0, -1.2), 0, 1000, 6));
         play(w, ATTACK, 2);
         Combat.Show show = w.combat().show();
         int roll = show.strike().roll().total();
-        assertEquals("Bonded +10% (1 alive)", show.notes().get(0).text(), "the one it is aimed at counts");
+        assertEquals("Bloodlust +10% (1 alive)", show.notes().get(0).text(), "the one it is aimed at counts");
         idle(w, 1.5);
         assertFalse(weak.alive());
         assertEquals(1000 - Math.round(roll * 1.2), strong.health(), 1e-9, "both were standing when it struck");
-        assertEquals("Bonded +20% (2 alive)", w.combat().show().notes().get(0).text(), "the note says what it did");
+        assertEquals("Bloodlust +20% (2 alive)", w.combat().show().notes().get(0).text(), "the note says what it did");
     }
 
     @Test
@@ -266,7 +270,7 @@ class CombatTest {
         CombatTuning t = CombatTuning.parse("{\"dice\": {\"sides\": 0, \"heavyExtra\": -2}, \"mana\": {\"max\": -5},"
                 + " \"projectiles\": {\"arrowSpeed\": 0, \"range\": -1, \"aimAssistDegrees\": 400},"
                 + " \"dummy\": {\"health\": 0}}");
-        assertEquals(2, t.sides);
+        assertEquals(4, t.sides, "the nearest die there is: a D4");
         assertEquals(0, t.heavyExtra);
         assertEquals(0, t.maxMana);
         assertEquals(1, t.arrowSpeed);
@@ -513,13 +517,13 @@ class CombatTest {
 
     @Test
     void bondedIsTenPercentMoreForEachLivingThingTheWeaponHasHit() {
-        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER).withBorder(Border.BONDED);
+        Item axe = Item.of(ItemDef.BATTLE_AXE, Tier.SHARPER).withBorder(Border.BLOODLUST);
         World w = holding(axe);
         Combat c = w.combat();
         Dummy a = w.addDummy(new Dummy(new Vec3(0, 0, -1.2), 0, 1000, 6));
         Dummy b = w.addDummy(new Dummy(new Vec3(30, 0, 0), 0, 1000, 6));
         Dummy e = w.addDummy(new Dummy(new Vec3(-30, 0, 0), 0, 1000, 6));
-        assertEquals(1, c.bondedCount(axe, a), "the one it is hitting counts");
+        assertEquals(1, c.bloodlustCount(axe, a), "the one it is hitting counts");
         play(w, ATTACK, 2);
         int first = c.show().strike().roll().total();
         idle(w, 1.5);
@@ -535,10 +539,10 @@ class CombatTest {
         idle(w, 1.5);
         assertEquals(1000 - Math.round(third * 1.3), e.health(), 1e-9, "a, b and e itself");
         w.player().setPosition(Vec3.ZERO);
-        assertEquals(3, c.bondedCount(axe, a));
+        assertEquals(3, c.bloodlustCount(axe, a));
         e.hurt(5000, null, false);
         assertFalse(e.alive(), "e has been knocked down");
-        assertEquals(2, c.bondedCount(axe, a), "and no longer counts");
+        assertEquals(2, c.bloodlustCount(axe, a), "and no longer counts");
         double before = a.health();
         play(w, ATTACK, 2);
         int roll = c.show().strike().roll().total();
@@ -548,15 +552,15 @@ class CombatTest {
 
     @Test
     void bondedForgetsAfterFiveMinutes() {
-        Item axe = Item.of(ItemDef.BATTLE_AXE).withBorder(Border.BONDED);
+        Item axe = Item.of(ItemDef.BATTLE_AXE).withBorder(Border.BLOODLUST);
         World w = holding(axe);
         Dummy a = ahead(w, 1.2, 1000);
         Dummy far = w.addDummy(new Dummy(new Vec3(40, 0, 0), 0, 1000, 6));
         play(w, ATTACK, 60);
-        assertEquals(1, w.combat().bondedCount(axe, null));
-        assertEquals(2, w.combat().bondedCount(axe, far));
-        idle(w, Border.BONDED_SECONDS + 1);
-        assertEquals(0, w.combat().bondedCount(axe, null));
+        assertEquals(1, w.combat().bloodlustCount(axe, null));
+        assertEquals(2, w.combat().bloodlustCount(axe, far));
+        idle(w, Border.BLOODLUST_SECONDS + 1);
+        assertEquals(0, w.combat().bloodlustCount(axe, null));
         assertTrue(a.alive());
     }
 

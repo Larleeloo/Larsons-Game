@@ -1,17 +1,17 @@
-"""Shorthand for writing the covers: chord symbols, tunes as text, and the
+"""Shorthand for writing the songs: chord symbols, tunes as text, and the
 band's usual ways of playing (picking, strumming, a bass line, the hand
 drum's patterns), on top of medieval.py.
 
-A song script (california_dreamin.py, ...) makes a Band, writes each section
-as chords and a tune, and plays them in its own order with whichever
-instruments it likes:
+A song (originals.py builds each from its plan) makes a Band, writes each
+section as chords and a tune, and plays them in its own order with
+whichever instruments it likes:
 
-    band = Band("California Dreamin' (medieval)", bpm=112, key="Am", credit=...)
+    band = Band("Copper Hearts (medieval)", bpm=82, key="Am", credit=...)
     verse = band.chords(5, "Am G | F G | Esus4 | E")       # bars 5-8
     band.arp(verse, 64)                                     # the lute picks through them
     band.lead(5, "rs E4s A4e A4 G4 A4 C5q.", 84)            # the recorder sings
     band.drums(5, 4, "D...t.t.D.t.t...", vel=.8)            # the hand drum
-    band.save("california_dreamin")
+    band.save("copper_hearts")
 
 Tunes
     Notes are a name, an octave (C4 is middle C) and a length: w h q e s

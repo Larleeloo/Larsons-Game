@@ -92,14 +92,10 @@ class ItemLookTest {
         int[] dot = ItemRenderer.dotPixels(32);
         assertEquals(0, a(dot[0]));
         assertTrue(a(dot[16 * 32 + 16]) > 240);
-        int[] heart = ItemRenderer.heartPixels(32);
-        for (int y = 0; y < 32; y++) {
-            for (int x = 0; x < 16; x++) {
-                assertEquals(a(heart[y * 32 + x]), a(heart[y * 32 + 31 - x]), "a heart is the same both sides");
-            }
-        }
-        assertTrue(a(heart[18 * 32 + 16]) == 255, "filled in the middle");
-        assertEquals(0, a(heart[3 * 32 + 16]), "the notch at its top");
+        int[] ember = ItemRenderer.emberPixels(32);
+        assertTrue(a(ember[22 * 32 + 16]) == 255, "filled round below");
+        assertTrue(a(ember[4 * 32 + 15]) + a(ember[4 * 32 + 16]) + a(ember[4 * 32 + 17]) > 0, "to a point above");
+        assertEquals(0, a(ember[4 * 32 + 3]), "nothing beside the point");
         int[] star = ItemRenderer.starPixels(32);
         assertTrue(a(star[16 * 32 + 3]) > a(star[3 * 32 + 3]), "a ray, not a disc");
     }

@@ -389,6 +389,16 @@ public final class Player {
     private Stance stance = Stance.SWORD;
     private boolean handsEmpty;
     private boolean crouched;
+    /** Whether her brass lantern is lit (it lights the dark round her: {@code WorldRenderer}). */
+    private boolean lanternLit;
+
+    public boolean lanternLit() {
+        return lanternLit && inventory.total(Goods.item(Goods.LANTERN)) > 0;
+    }
+
+    public void setLanternLit(boolean on) {
+        lanternLit = on;
+    }
     private boolean jumping, launched;
     /** In the air in a jump attack (until she lands), and in the air loosing a shot. */
     private boolean plunging, aerial;
@@ -433,6 +443,10 @@ public final class Player {
     private double health = MAX_HEALTH, stamina = MAX_STAMINA;
     /** What her clothes and armour do for her ({@link Gear}), and when it was last worked out. */
     private Gear.Totals gear = Gear.Totals.NONE;
+    /** The inventory slots the pack she wears adds now (its {@link Gear.Effect#CARRY}): the last of her slots. */
+    private int packSlots;
+    /** What no longer fitted when a pack came off, for the world to drop at her feet. */
+    private final java.util.List<Item> spilled = new java.util.ArrayList<>();
     private int gearVersion = Integer.MIN_VALUE;
     private double gearAge = Double.MAX_VALUE;
     /** Whether she has used her gear's second jump since she left the ground. */
@@ -489,6 +503,7 @@ public final class Player {
         hero.deck().tick(dt);
         if (gearAge < Double.MAX_VALUE) gearAge += dt;
         Gear.Totals worn = gear();
+        fitPack((int) Math.round(worn.get(Gear.Effect.CARRY)));
         double maxHealth = maxHealth(), maxStamina = maxStamina();
         // (gear taken off: no more than she can hold now)
         health = Math.min(health, maxHealth);
@@ -722,7 +737,8 @@ public final class Player {
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
         else next = st.idle(crouched);
         setState(next);
-        stateTime += dt;
+        // (a shot of a weapon forged to shoot faster or slower: its draw and loose played that much faster)
+        stateTime += dt * (action != null && shooting(action) ? fireRate() : 1);
         if (plunging) {
             // the draw over her head, then down: held on the drop until she lands
             if (stateTime >= plungeAt(PLUNGE_DIVE)) vy = Math.min(vy, -PLUNGE_SPEED);
@@ -1390,7 +1406,7 @@ public final class Player {
         setState(AnimState.CLIMB);
         stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
 
-        if (climbY >= w.top() - LEDGE_RISE - 1e-6 && up > 0.1) {
+        if (climbY >= w.top() - LEDGE_RISE - 1e-6 && up > 0.1 && terrain.topOut(w, along)) {
             // her hands at the lip: up over it
             startLedge(AnimState.LEDGE_UP, w, along);
             return;
@@ -1627,6 +1643,22 @@ public final class Player {
         actionDuration = durations.applyAsDouble(s);
         setState(s);
         stateTime = 0;
+    }
+
+    /** Whether {@code s} is a shot: a bow drawn or loosed, a crossbow fired, a spell cast. */
+    static boolean shooting(AnimState s) {
+        return switch (s) {
+            case BOW_DRAW, BOW_DRAW_UP, BOW_CROUCH_DRAW, BOW_FIRE, BOW_FIRE_UP, BOW_CROUCH_FIRE, CROSSBOW_FIRE,
+                 CROSSBOW_FIRE_UP, CROSSBOW_CROUCH_FIRE, STAFF_ATTACK, STAFF_ATTACK_UP, WAND_ATTACK, WAND_ATTACK_UP,
+                 WAND_CROUCH_ATTACK -> true;
+            default -> false;
+        };
+    }
+
+    /** How much faster than its kind the weapon in her hand shoots (a forged one's rate of fire; else 1). */
+    public double fireRate() {
+        Item w = inventory.held();
+        return w != null && w.forged() != null ? w.forged().fireRate() : 1;
     }
 
     private static boolean isEmote(AnimState s) {
@@ -1919,6 +1951,42 @@ public final class Player {
             gearAge = 0;
         }
         return gear;
+    }
+
+    /** The most slots an inventory grows to, with every pack and bag there is. */
+    public static final int MOST_SLOTS = 240;
+
+    /**
+     * Her inventory as big as the pack she wears says: its slots added at the
+     * end, or - the pack off - taken away again, what was in them packed into
+     * the slots left and anything that does not fit put down at her feet.
+     */
+    public void fitPack(int slots) {
+        slots = Math.max(0, slots);
+        if (slots == packSlots) return;
+        int base = inventory.size() - packSlots;
+        int size = Math.max(Inventory.HOTBAR, Math.min(MOST_SLOTS, base + slots));
+        spilled.addAll(inventory.resize(size));
+        packSlots = size - base;
+    }
+
+    /** The slots the pack she wears adds now. */
+    public int packSlots() { return packSlots; }
+
+    /** Her slots without the pack's: what the bags she has used have given her for good. */
+    public int baseSlots() { return inventory.size() - packSlots; }
+
+    /** Take what a pack coming off left with no slot (the world puts it down at her feet). */
+    public java.util.List<Item> takeSpilled() {
+        if (spilled.isEmpty()) return java.util.List.of();
+        java.util.List<Item> out = java.util.List.copyOf(spilled);
+        spilled.clear();
+        return out;
+    }
+
+    /** Her inventory is {@code slots} bigger than its base already (a save made with the pack on). */
+    public void setPackSlots(int slots) {
+        packSlots = Math.max(0, Math.min(slots, inventory.size() - Inventory.HOTBAR));
     }
 
     /** Whether she can jump again now, in the air: her gear gives her the second jump and she has not used it. */

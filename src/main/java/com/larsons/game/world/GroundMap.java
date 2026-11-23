@@ -214,6 +214,32 @@ public final class GroundMap {
     }
 
     /**
+     * Paint bare rock round {@code (x, z)} ({@code on}) - the grey stone of
+     * the rock faces, on flat ground as well - or ({@code !on}) take it off,
+     * so the ground painted there shows again. Kept in the second channel
+     * of {@link #COVER}.
+     */
+    public GroundMap rock(double x, double z, double radius, double strength, boolean on) {
+        double k = Math.max(0, Math.min(1, strength));
+        float[] a = group(COVER);
+        groupVersion[COVER]++;
+        empty[COVER] = false;
+        return shape(x, z, x, z, radius, (i, v) -> {
+            double now = on ? Math.min(1, a[i + 1] + v * k) : Math.max(0, a[i + 1] - v * k);
+            a[i + 1] = (float) now;
+        });
+    }
+
+    /** How much bare rock is painted at {@code (x, z)}, 0 to 1. */
+    public double rock(double x, double z) {
+        float[] a = w[COVER];
+        if (a == null) return 0;
+        int c = cell(x), r = cell(z);
+        if (c < 0 || r < 0 || c >= cells || r >= cells) return 0;
+        return a[(r * cells + c) * 4 + 1];
+    }
+
+    /**
      * Tint the ground round {@code (x, z)} {@code rgb} ({@code 0xRRGGBB}) -
      * {@code amount} (0 to 1) of the way to it, at the brush's middle - or,
      * {@code rgb} -1, take the tint off.

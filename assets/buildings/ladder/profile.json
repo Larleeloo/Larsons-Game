@@ -1,0 +1,38 @@
+{
+ "key": "ladder",
+ "label": "Ladder",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 3.377,
+ "model": true,
+ "parts": [
+  {
+   "key": "rails",
+   "label": "Rails",
+   "colour": "#7a5030",
+   "texture": "timber",
+   "glow": false
+  },
+  {
+   "key": "rungs",
+   "label": "Rungs",
+   "colour": "#9a6a3a",
+   "texture": "boards",
+   "glow": false
+  },
+  {
+   "key": "pegs",
+   "label": "Pegs",
+   "colour": "#5a3a22",
+   "texture": "timber",
+   "glow": false
+  }
+ ],
+ "footprint": [],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

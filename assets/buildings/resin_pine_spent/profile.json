@@ -1,0 +1,52 @@
+{
+ "key": "resin_pine_spent",
+ "label": "Pine tapped for resin (pail empty)",
+ "group": "furniture",
+ "pixel": 0.01875,
+ "texel": 0.01875,
+ "height": 2.42,
+ "model": true,
+ "parts": [
+  {
+   "key": "bark",
+   "label": "Bark",
+   "colour": "#5a4232",
+   "texture": "logs",
+   "glow": false
+  },
+  {
+   "key": "blaze",
+   "label": "Cut bark",
+   "colour": "#d8b070",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "resin",
+   "label": "Resin",
+   "colour": "#d08a2a",
+   "texture": "smooth",
+   "glow": false
+  },
+  {
+   "key": "tin",
+   "label": "Spout and pail",
+   "colour": "#9a9aa2",
+   "texture": "metal",
+   "glow": false
+  }
+ ],
+ "footprint": [
+  [
+   "circle",
+   0.0,
+   0.0,
+   0.396
+  ]
+ ],
+ "steps": [],
+ "door": null,
+ "interior": false,
+ "anim": null,
+ "shelf": "hidden"
+}

@@ -134,6 +134,7 @@ public final class TerrainRenderer implements AutoCloseable {
                 c *= mix(shade, max(shade, 0.9), v.a);          // the vines catch the light out on the face
                 c *= sceneLight(vPos);
                 c = mix(c, uMistColour, sceneMist(vPos));
+                c += sceneRays(vPos);
 
                 float dist = length(vPos - uEye);
                 float fog = 1.0 - exp(-pow(dist / uFogDistance, 2.0));
@@ -310,7 +311,9 @@ public final class TerrainRenderer implements AutoCloseable {
         shader.set("uFogDistance", fogDistance);
         shader.set("uDepthBack", DEPTH_BACK);
         shader.set("uSun", (float) SUN.x(), (float) SUN.y(), (float) SUN.z());
-        List<Terrain.Wall> walls = t.walls();
+        // (the vines' walls: a ladder is a model of its own, standing in the world)
+        List<Terrain.Wall> walls = new java.util.ArrayList<>();
+        for (Terrain.Wall w : t.walls()) if (!w.ladder()) walls.add(w);
         int n = Math.min(MAX_WALLS, walls.size());
         for (int i = 0; i < n; i++) {
             Terrain.Wall w = walls.get(i);

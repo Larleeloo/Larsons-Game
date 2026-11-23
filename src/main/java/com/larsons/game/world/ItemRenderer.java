@@ -30,8 +30,8 @@ import java.util.Map;
  *       its rarity - a soft glow
  *       and a brighter one hugging its outline; a rare border, if it has one,
  *       as a crisp outline in the border's colour with what comes off it
- *       (Venom's lime drips, Mystic's smoky purple puffs, Bonded's pink
- *       hearts); and, when it came out of a chest, a Borderlands beam of light
+ *       (Venom's lime drips, Mystic's smoky purple puffs, Bloodlust's pink
+ *       embers); and, when it came out of a chest, a Borderlands beam of light
  *       in its rarity's colour round it and up into the air above it,
  *       pulsing, with sparks rising in it.</li>
  * </ul>
@@ -60,7 +60,7 @@ final class ItemRenderer implements AutoCloseable {
     private final Batch batch;
     private final SpriteLibrary sprites;
     private final ItemSprites items;
-    private final Texture beam, dot, star, heart;
+    private final Texture beam, dot, star, ember;
     /** The last sheet each item was drawn from: drawn again while the one it wants now loads. */
     private final Map<String, SheetTexture> shown = new HashMap<>();
 
@@ -71,7 +71,7 @@ final class ItemRenderer implements AutoCloseable {
         this.beam = Texture.upload(PixelData.of(beamPixels(32, 128), 32, 128), false);
         this.dot = Texture.upload(PixelData.of(dotPixels(32), 32, 32), false);
         this.star = Texture.upload(PixelData.of(starPixels(32), 32, 32), false);
-        this.heart = Texture.upload(PixelData.of(heartPixels(32), 32, 32), false);
+        this.ember = Texture.upload(PixelData.of(emberPixels(32), 32, 32), false);
     }
 
     // --- the passes --------------------------------------------------------------------
@@ -262,8 +262,8 @@ final class ItemRenderer implements AutoCloseable {
                 }
                 case MYSTIC -> batch.quad(dot, corner(at, right, up, s), right.scale(s), up.scale(-s),
                         0, 0, 1, 1, bc[0], bc[1], bc[2], (float) m.alpha());
-                case BONDED -> {
-                    batch.quad(heart, corner(at, right, up, s), right.scale(s), up.scale(-s),
+                case BLOODLUST -> {
+                    batch.quad(ember, corner(at, right, up, s), right.scale(s), up.scale(-s),
                             0, 0, 1, 1, bc[0], bc[1], bc[2], (float) m.alpha());
                     double ss = s * 0.9;
                     Vec3 twinkle = at.add(right.scale(s * 0.9)).add(up.scale(s * 0.5));
@@ -318,7 +318,7 @@ final class ItemRenderer implements AutoCloseable {
     /**
      * Mote {@code i} {@code border} gives off at time {@code t} round an item
      * {@code length} long, measured from its centre: Venom's drips fall from
-     * it, Mystic's puffs rise and spread, Bonded's hearts float up and sway.
+     * it, Mystic's puffs rise and spread, Bloodlust's embers float up and sway.
      */
     static Mote mote(Border border, int i, double t, double phase, double length) {
         double half = length / 2, across = Math.max(0.12, length * 0.22);
@@ -338,7 +338,7 @@ final class ItemRenderer implements AutoCloseable {
                 double y = (hash(i, 24) - 0.5) * half + 0.5 * f;
                 yield new Mote(x, y, 0.12 + 0.28 * f, 0.55 * Math.sin(Math.PI * f));
             }
-            case BONDED -> {
+            case BLOODLUST -> {
                 double period = 2.2 + 0.6 * hash(i, 31);
                 double f = fract(t / period + hash(i, 32) + phase * 0.19);
                 double x = (hash(i, 33) - 0.5) * 2 * across + 0.07 * Math.sin(t * 2.4 + i * 1.7);
@@ -417,18 +417,20 @@ final class ItemRenderer implements AutoCloseable {
         return argb;
     }
 
-    /** A heart, its edge smoothed (each pixel sampled 4 x 4). */
-    static int[] heartPixels(int n) {
+    /** An ember (Bloodlust's), its edge smoothed (each pixel sampled 4 x 4). */
+    static int[] emberPixels(int n) {
         int[] argb = new int[n * n];
         for (int y = 0; y < n; y++) {
             for (int x = 0; x < n; x++) {
                 int in = 0;
                 for (int sy = 0; sy < 4; sy++) {
                     for (int sx = 0; sx < 4; sx++) {
-                        double u = ((x + (sx + 0.5) / 4) / n * 2 - 1) * 1.3;
-                        double v = -((y + (sy + 0.5) / 4) / n * 2 - 1) * 1.3 + 0.15;
-                        double a = u * u + v * v - 1;
-                        if (a * a * a - u * u * v * v * v <= 0) in++;
+                        // an ember: a flame's teardrop, round below, to a point above
+                        double u = (x + (sx + 0.5) / 4) / n * 2 - 1;
+                        double v = -((y + (sy + 0.5) / 4) / n * 2 - 1);
+                        boolean round = u * u + (v + 0.35) * (v + 0.35) <= 0.55 * 0.55;
+                        boolean tip = v >= -0.35 && v <= 0.95 && Math.abs(u + 0.12 * Math.sin(v * 3)) <= 0.55 * (0.95 - v) / 1.3;
+                        if (round || tip) in++;
                     }
                 }
                 argb[y * n + x] = alpha(in / 16.0);
@@ -456,6 +458,6 @@ final class ItemRenderer implements AutoCloseable {
         beam.close();
         dot.close();
         star.close();
-        heart.close();
+        ember.close();
     }
 }
