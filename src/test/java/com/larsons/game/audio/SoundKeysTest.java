@@ -132,11 +132,11 @@ class SoundKeysTest {
     }
 
     @Test
-    void theMainMenusSongIsAHeldRowOfTheMusicTabThatFallsBackToDreamOn() {
+    void theMainMenusSongIsAHeldRowOfTheMusicTabThatFallsBackToTheTavernAnthem() {
         String key = SoundKeys.music("main_menu");
         assertEquals("music/main_menu", key);
         assertEquals("music/main_menu.mp3", SoundKeys.preferredFile(key));
-        assertEquals(List.of(key, "music/dream_on"), SoundKeys.chain(key), "the player's own file, else the song");
+        assertEquals(List.of(key, "music/lanterns_over_brasswick"), SoundKeys.chain(key), "the player's own file, else the song");
         assertTrue(SoundKeys.isLooping(key));
         assertTrue(SoundKeys.in(SoundCategory.MUSIC).stream().anyMatch(e -> e.key().equals(key) && e.looping()));
         assertTrue(SoundKeys.folders().contains(SoundKeys.MUSIC));
@@ -164,10 +164,34 @@ class SoundKeysTest {
         assertEquals("None", Songs.describe(""));
         assertEquals("None", Songs.describe(null));
         assertEquals("Shuffle every song", Songs.describe(Songs.SHUFFLE));
-        assertEquals("Dream On (Aerosmith)", Songs.describe("dream_on"));
+        assertEquals("Copper Hearts (a slow ballad)", Songs.describe("copper_hearts"));
+        assertEquals("2 songs in turn: Tavern Lights, Copper Hearts", Songs.describe("tavern_lights,copper_hearts"));
         assertEquals("lost_song (not in this game)", Songs.describe("lost_song"));
         assertEquals(Songs.ALL.size(), Songs.keys().size());
         assertNull(Songs.byId("lost_song"));
+    }
+
+    @Test
+    void twentySongsOfTheGamesOwnAndNoCovers() {
+        assertEquals(20, Songs.ALL.size());
+        for (Songs.Song s : Songs.ALL) assertFalse(s.about().isBlank(), s.id());
+        for (String cover : List.of("dream_on", "wonderwall", "thunder", "espresso", "we_are_the_champions"))
+            assertNull(Songs.byId(cover), cover);
+    }
+
+    @Test
+    void aPlaylistIsItsSongsInTurnAndKeptAsTheirIds() {
+        Songs.Song a = Songs.byId("copper_hearts"), b = Songs.byId("tavern_lights");
+        String choice = Songs.choice(List.of(a, b));
+        assertEquals("copper_hearts,tavern_lights", choice);
+        assertEquals(List.of(a, b), Songs.playlist(choice));
+        assertTrue(Songs.isPlaylist(choice));
+        assertFalse(Songs.isPlaylist("copper_hearts"));
+        assertFalse(Songs.isPlaylist(Songs.SHUFFLE));
+        assertEquals("copper_hearts", Songs.choice(List.of(a)), "one song is just its id");
+        assertEquals(Songs.NONE, Songs.choice(List.of()));
+        assertEquals(List.of(a), Songs.playlist("lost_song,copper_hearts"), "songs this game does not have are left out");
+        assertTrue(Songs.playlist(Songs.SHUFFLE).isEmpty());
     }
 
     @Test
@@ -257,9 +281,9 @@ class SoundKeysTest {
         assertEquals(8 * 44100, wind.frames());
         PcmClip click = Mp3Decoder.decode(readPack("ui/click.mp3"));
         assertEquals(Math.round(0.06 * 44100), click.frames());
-        // the songs: stereo, at least a minute (Dream On exactly its 40 bars at 80 bpm), and where each loops
-        // round no bigger a step than from one sample to the next just before it and just after
-        assertEquals(120 * 44100, Mp3Decoder.decode(readPack("music/dream_on.mp3")).frames());
+        // the songs: stereo, at least a minute (Farewell, Fair Moon exactly its 40 bars at 80 bpm), and where
+        // each loops round no bigger a step than from one sample to the next just before it and just after
+        assertEquals(120 * 44100, Mp3Decoder.decode(readPack("music/farewell_fair_moon.mp3")).frames());
         for (Songs.Song s : Songs.ALL) {
             PcmClip song = Mp3Decoder.decode(readPack("music/" + s.id() + ".mp3"));
             assertEquals(2, song.channels(), s.id());

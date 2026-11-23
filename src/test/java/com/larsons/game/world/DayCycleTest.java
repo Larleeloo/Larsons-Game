@@ -152,8 +152,9 @@ class DayCycleTest {
         assertEquals(1, lights.size());
         assertEquals(0x7FE8FF, lights.get(0).rgb());
         assertEquals(7, lights.get(0).radius(), 1e-9);
-        assertEquals(1, w.raySpots().size());
-        assertEquals(6, w.raySpots().get(0).count());
+        assertTrue(w.raySpots().isEmpty(), "light rays are worked out from the sun now: an old placed one makes none");
+        assertEquals(1, back.objects().stream().filter(o -> o.type().equals(ObjectTypes.RAYS)).count(),
+                "but it is kept in the level's file");
     }
 
     @Test

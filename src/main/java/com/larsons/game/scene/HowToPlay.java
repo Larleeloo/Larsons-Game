@@ -174,9 +174,14 @@ final class HowToPlay {
                                     + "in the inventory and on the HUD.")),
             new Chapter("Crafting and brewing", "health_potion",
                     List.of(Action.USE),
-                    List.of("At a workbench you make things: the makings, fishing rods, packs, keys, ammunition "
-                                    + "and trinkets. At a cauldron you brew potions and cook meals. {USE} by one opens "
-                                    + "it: each recipe shows what it takes, and what you have of it.",
+                    List.of("At a workbench you make things: the makings, fishing rods, packs, keys, kits "
+                                    + "and trinkets. At a furnace you smelt ore and sand into bars and glass. At a "
+                                    + "cauldron you brew potions and cook meals. {USE} by one opens it: each recipe "
+                                    + "shows what it takes, and what you have of it.",
+                            "{USE} by a vein, a seam, a crystal cluster, a sand or clay bank, fallen logs, flax or "
+                                    + "a tapped pine gathers what it gives: ore, coal, crystal, sand, clay, timber, "
+                                    + "flax, resin. It grows back after a few minutes. Bars, glass, planks and lenses "
+                                    + "make bandages, blade oil, smoke pellets, a spyglass and a lantern.",
                             "Potions are drunk from the hand: health, mana, stamina, swiftness, might, stoneskin, "
                                     + "shadow, gills and more. They are the big round flasks that bubble; dyes are the "
                                     + "small slim bottles. Scrolls are stronger, are read the same way, and are "
@@ -194,9 +199,9 @@ final class HowToPlay {
                     List.of(Action.CROUCH, Action.JUMP, Action.DODGE),
                     List.of("In deep water you swim. {CROUCH} dives under and {JUMP} comes up. Under the water a "
                                     + "breath bar shows; come up before it runs out.",
-                            "Walk into vines on a cliff to climb them: forward goes up, back goes down, and left and "
-                                    + "right go along. It costs stamina; {JUMP} lets go. Walk off the top of the vines "
-                                    + "to climb down them.")),
+                            "Walk into vines on a cliff, or a ladder, to climb them: forward goes up, back goes "
+                                    + "down, and left and right go along the vines. It costs stamina; {JUMP} lets go. "
+                                    + "Walk off the top of the vines or the ladder to climb down them.")),
             new Chapter("Horses", "saddle",
                     List.of(Action.USE, Action.RUN, Action.SPRINT),
                     List.of("With a saddle in your inventory, {USE} by a horse saddles it; {USE} again rides it. "

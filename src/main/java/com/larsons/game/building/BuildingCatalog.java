@@ -96,7 +96,12 @@ public final class BuildingCatalog {
             "barricade_12",
             // the lights' fittings
             "candlestick", "candle", "candelabra", "standing_candelabra", "chandelier", "wall_sconce", "lantern",
-            "lantern_post", "gas_lamp", "gas_lamp_double");
+            "lantern_post", "gas_lamp", "gas_lamp_double",
+            // climbing, smelting and the gathering spots (each with its spent look, worked out)
+            "ladder", "smelter", "iron_vein", "copper_vein", "coal_seam", "crystal_cluster", "sand_bank",
+            "clay_bank", "log_pile", "flax_patch", "resin_pine", "iron_vein_spent", "copper_vein_spent",
+            "coal_seam_spent", "crystal_cluster_spent", "sand_bank_spent", "clay_bank_spent", "log_pile_spent",
+            "flax_patch_spent", "resin_pine_spent");
 
     /** Read {@code root}: each folder with a profile, and the patterns. Never fails: what cannot be read is left out. */
     public static BuildingCatalog load(Path root) {

@@ -1,48 +1,37 @@
 # Music
 
 The game's songs as MIDI files, to open, play with and rearrange in FL Studio
-(or any DAW). Each is a medieval-style arrangement of a song from the
-roadmap's Sound milestone, made for this game and not for sale.
-
-The tunes are played by ear, from the songs' chords and how they go, not
-copied from sheet music - so a note here and there will not be the
-record's. Fix it in the piano roll (or in the song's script, below).
+(or any DAW). There are twenty, all written for this game: each is shaped
+like a pop song (an intro, verses, a chorus that comes back bigger, a bridge
+or a break) and played by a medieval band. None of them copies another song;
+the tunes and the way they go together are their own. Made for this game and
+not for sale.
 
 | File | Song | Key, tempo, length | How it goes |
 |---|---|---|---|
-| `dream_on_medieval.mid` | "Dream On" (Aerosmith) | F minor, 80 bpm, 2:00 | the lute on the falling bass, the recorder singing; the main menu's song |
-| `california_dreamin_medieval.mid` | "California Dreamin'" (The Mamas & the Papas) | A minor, 112 bpm, 2:00 | the recorder sings each line and the monks answer it; a wooden flute for the flute solo |
-| `wonderwall_medieval.mid` | "Wonderwall" (Oasis) | F sharp minor, 87 bpm, 2:01 | the lute strummed in sixteenths, a bass viol for the cello |
-| `wake_me_up_medieval.mid` | "Wake Me Up" (Avicii) | B minor, 124 bpm, 1:41 | a folk song, and the drop as a reel for fiddle and recorder |
-| `dreams_medieval.mid` | "Dreams" (Fleetwood Mac) | A minor, 120 bpm, 1:36 | F and G rocking under the lute and a hammered dulcimer |
-| `dont_fear_the_reaper_medieval.mid` | "(Don't Fear) The Reaper" (Blue Öyster Cult) | A minor, 140 bpm, 1:29 | the picked riff on the lute, the monks' "don't fear the reaper", a shawm solo, and more bell |
-| `livin_on_a_prayer_medieval.mid` | "Livin' On A Prayer" (Bon Jovi) | E minor, 123 bpm, 1:34 | the pulsing bass on a bass viol, the talk box's riff on a shawm, the last chorus a step up |
-| `vienna_medieval.mid` | "Vienna" (Billy Joel) | B flat major, 80 bpm, 2:12 | the piano on a harpsichord, the mandolin on a dulcimer, the organ as the accordion |
-| `the_less_i_know_the_better_medieval.mid` | "The Less I Know The Better" (Tame Impala) | E minor, 117 bpm, 1:38 | the strutting bass line on the viol, a dance beat, a shimmering psaltery |
-| `nine_to_five_medieval.mid` | "9 to 5" (Dolly Parton) | A major, 108 bpm, 2:04 | a country-dance lute, the fiddle singing, the typewriter on wood blocks, a bagpipe chorus |
-| `how_you_remind_me_medieval.mid` | "How You Remind Me" (Nickelback) | E minor, 86 bpm, 1:52 | a quiet picked verse, then the chorus crashing in on the tabor |
-| `die_young_medieval.mid` | "Die Young" (Kesha) | C sharp minor, 128 bpm, 1:45 | a revel: the tabor and hands clapped, the monks shouting the chorus back, a fiddle jig |
-| `sunflower_medieval.mid` | "Sunflower" (Post Malone and Swae Lee) | D major, 90 bpm, 1:47 | lazy, sunny chords on a psaltery and a lute |
-| `thunder_medieval.mid` | "Thunder" (Imagine Dragons) | C major, 84 bpm, 1:54 | a war song: the great tabor's boom and the hands' clap, the monks for "thunder" |
-| `beat_it_medieval.mid` | "Beat It" (Michael Jackson) | E minor, 138 bpm, 1:37 | the guitar riff on a fiddle and a bass viol together, a shawm solo |
-| `basket_case_medieval.mid` | "Basket Case" (Green Day) | E flat major, 172 bpm, 1:29 | a punk jig: the lute flat out, the tabor at a gallop, a bagpipe chorus |
-| `espresso_medieval.mid` | "Espresso" (Sabrina Carpenter) | A minor, 104 bpm, 1:51 | sly funk on a dulcimer's stabs and a bass viol, a psaltery bridge |
-| `everlong_medieval.mid` | "Everlong" (Foo Fighters) | D major, 158 bpm, 1:37 | restless eighths on the lute over a drone on D, a quiet harp break |
-| `pompeii_medieval.mid` | "Pompeii" (Bastille) | A major, 128 bpm, 1:45 | the monks' "eh-eh-oh" chant, pounding toms on the tabor, a bagpipe chorus |
-| `ride_medieval.mid` | "Ride" (Twenty One Pilots) | G minor, 75 bpm, 1:55 | an easy reggae lilt: the lute's chords on the offbeats |
-| `fast_car_medieval.mid` | "Fast Car" (Tracy Chapman) | D major, 104 bpm, 1:51 | the picked riff on the lute in running sixteenths |
-| `something_just_like_this_medieval.mid` | "Something Just Like This" (The Chainsmokers and Coldplay) | B major, 103 bpm, 1:52 | a harpsichord verse, the plucked drop on a psaltery and a dulcimer |
-| `crazy_medieval.mid` | "Crazy" (Gnarls Barkley) | C minor, 112 bpm, 1:43 | spaghetti-western swagger on a bass viol and a plucked harp, the monks' "crazy" |
-| `like_a_prayer_medieval.mid` | "Like a Prayer" (Madonna) | D minor and D major, 112 bpm, 1:51 | the monks and the organ open it in church, then it dances; bells at the end |
-| `misery_business_medieval.mid` | "Misery Business" (Paramore) | E major, 172 bpm, 1:29 | the chattering guitar on a fiddle, the lute and the tabor flat out |
-| `rocket_man_medieval.mid` | "Rocket Man" (Elton John) | G minor and B flat major, 68 bpm, 1:53 | the piano on a harpsichord, the slide guitar on a fiddle, bells in the chorus |
-| `apt_medieval.mid` | "APT." (ROSÉ and Bruno Mars) | C major, 149 bpm, 1:43 | a drinking song: the monks shout "apateu" over hands clapped, a fiddle reel |
-| `we_are_the_champions_medieval.mid` | "We Are The Champions" (Queen) | C minor and F major, 64 bpm (in triplets, the record's 6/8), 1:45 | an anthem: the monks sing the chorus over the organ, the bells and the great tabor |
-| `i_wanna_be_yours_medieval.mid` | "I Wanna Be Yours" (Arctic Monkeys) | B flat minor, 67 bpm, 1:40 | a slow sway on a bass viol and a harp, the fiddle answering |
-| `empire_state_of_mind_medieval.mid` | "Empire State Of Mind" (Jay-Z and Alicia Keys) | F sharp major, 87 bpm, 1:50 | the piano loop on a harpsichord, the rhymes as a fiddle rhythm, the chorus on the recorder and the monks |
+| `lanterns_over_brasswick_medieval.mid` | Lanterns Over Brasswick, a tavern anthem | D major, 116 bpm, 1:39 | the recorder and the fiddle trade the tune over a strummed lute, the organ under the last chorus; the main menu's song |
+| `the_millers_daughter_medieval.mid` | The Miller's Daughter, a country waltz | G major in 3/4, 126 bpm, 1:20 | a wooden flute and the fiddle, the dulcimer on the bridge |
+| `copper_hearts_medieval.mid` | Copper Hearts, a slow ballad | A minor, 82 bpm, 1:57 | the harp picked, the flute and the fiddle singing |
+| `clockwork_heart_medieval.mid` | Clockwork Heart, a clockwork dance | E minor, 122 bpm, 1:42 | the dulcimer's ticking riff alone, a fiddle verse, the recorder in the chorus |
+| `ride_out_at_dawn_medieval.mid` | Ride Out at Dawn, a galloping rock song | B minor, 144 bpm, 1:33 | the tabor at a gallop, the fiddle and the shawm, the recorder in the chorus |
+| `moonlit_market_medieval.mid` | Moonlit Market, a sly market groove | F major, 104 bpm, 2:00 | stabs on the lute and a walking bass viol, the psaltery and the fiddle |
+| `ember_and_ash_medieval.mid` | Ember and Ash, a power ballad | C minor, 74 bpm, 2:10 | a hushed flute verse, then the chorus crashing in on the tabor |
+| `tavern_lights_medieval.mid` | Tavern Lights, a pub singalong | C major, 128 bpm, 1:30 | the fiddle's verse, and the monks singing the last chorus |
+| `the_long_road_home_medieval.mid` | The Long Road Home, a country road song | G major, 94 bpm, 1:42 | a boom-chick lute under the fiddle and the recorder |
+| `sky_portals_medieval.mid` | Sky Portals, an epic march | D minor, 112 bpm, 1:43 | the shawm and the sackbut, the great tabor, the monks and the organ |
+| `starlit_courtyard_medieval.mid` | Starlit Courtyard, a starlit lullaby | E flat major, 76 bpm, 2:06 | a wooden flute and the psaltery over a slow harp |
+| `iron_and_ivy_medieval.mid` | Iron and Ivy, a punk jig | E major, 168 bpm, 1:20 | the lute flat out, the shawm, a fiddle chorus |
+| `dancing_on_the_drawbridge_medieval.mid` | Dancing on the Drawbridge, a dance-floor romp | A minor, 118 bpm, 1:46 | four on the floor on the tabor, the fiddle and the shawm, a dulcimer break |
+| `golden_fields_medieval.mid` | Golden Fields, a sunny lilt | A major, 90 bpm, 1:47 | an easy swaying lute, the recorder and the fiddle |
+| `the_crystal_cave_medieval.mid` | The Crystal Cave, a crystal-cave mystery | F sharp minor, 100 bpm, 1:36 | a drone, a wooden flute, the dulcimer ringing high |
+| `two_candles_medieval.mid` | Two Candles, a candlelit love song | B flat major, 76 bpm (in triplets), 2:06 | the harp rolling in triplets under the recorder, the flute and the fiddle |
+| `steam_and_sails_medieval.mid` | Steam and Sails, a sea-shanty stomp | D minor, 106 bpm, 1:49 | a stamping shanty: the fiddle, the shawm, the monks for the last chorus |
+| `heroes_of_the_hollow_medieval.mid` | Heroes of the Hollow, a stadium anthem | E major, 120 bpm, 1:36 | a fiddle verse building to the monks' chorus over hands clapped |
+| `feather_and_flame_medieval.mid` | Feather and Flame, a bright, bouncing pop song | G minor, 126 bpm, 1:31 | the recorder and the fiddle bouncing, a break for the bells |
+| `farewell_fair_moon_medieval.mid` | Farewell, Fair Moon, a farewell song | F major, 80 bpm, 2:00 | the recorder and the fiddle, slow, to close the night |
 
 Each file has markers naming its sections (Intro, Verse, Chorus ...); the
-song's script in `tools/music/` lists them with their bars.
+song's plan in `tools/music/originals.py` lists them in order.
 
 ## The band
 
@@ -78,31 +67,34 @@ and pattern, at the song's tempo.
 ## From the MIDI to the game
 
 The game plays `assets/sounds/music/<song>.mp3`, rendered from the MIDI by
-the song's script in `tools/music/`:
+`tools/music/originals.py`, which holds every song's plan:
 
 ```
-python3 tools/music/wonderwall.py            # music/wonderwall_medieval.mid, and the game's MP3 from it
-python3 tools/music/wonderwall.py --midi     # just the MIDI
-python3 tools/music/wonderwall.py --wav x.wav   # also a WAV, to listen to
-python3 tools/music/all.py                   # every song (all.py --midi: every MIDI)
+python3 tools/music/originals.py                  # every song: its MIDI and the game's MP3
+python3 tools/music/originals.py copper_hearts    # just this one
+python3 tools/music/originals.py --midi           # just the MIDI files
+python3 tools/music/originals.py --list           # the songs, their keys, tempos and lengths
 ```
 
 Rendering needs FluidSynth with the FluidR3 General MIDI SoundFont and ffmpeg
 (`sudo apt install fluidsynth fluid-soundfont-gm ffmpeg`) and
 `pip install numpy scipy mido`; the MIDI alone needs only mido. A new song is
-a new script beside the others, its MP3 in `assets/sounds/music/`, and a line
+a new plan in `originals.py`, its MP3 in `assets/sounds/music/`, and a line
 in `audio/Songs.java`.
 
-The arrangement itself lives in that script - the chords as chord names
-(`"F#m7 | A | Esus4 | B7sus4"`), the tunes as note names
-(`"A4e C#5q. B4e A4q."`, see `tools/music/arrange.py`) - so a change made
-there comes out in both files. A change made in FL Studio goes the other
-way: export the song from FL Studio as a WAV or MP3 and put it in the game
-over `assets/sounds/music/<song>.mp3` - make it exactly as long as the song's
-bars, with the reverb's tail mixed back over the start, so it loops without
-a gap. You can also try any MP3 in the game without touching the
-repository: **Pause → Sounds → Music → Choose…** on the song.
+A song's plan is its sections in order, each with its chords as chord names
+(`"Am | F | C | G"`), its tune as note names (`"A4e C5q. B4e A4q."`, see
+`tools/music/arrange.py`), how hard the band plays (0 to 3) and who carries
+the tune; its style says what the lute, the bass, the drums and the rest do
+at each strength. A change made there comes out in both files. A change made
+in FL Studio goes the other way: export the song from FL Studio as a WAV or
+MP3 and put it in the game over `assets/sounds/music/<song>.mp3` - make it
+exactly as long as the song's bars, with the reverb's tail mixed back over
+the start, so it loops without a gap. You can also try any MP3 in the game
+without touching the repository: **Pause → Sounds → Music → Choose…** on the
+song.
 
-Where the songs play: the main menu plays Dream On; a level plays the song
-picked for it in Creative Mode's Level tool, or all of them shuffled (the
-demo, and a new level), or none.
+Where the songs play: the main menu plays Lanterns Over Brasswick; a level
+plays what was picked for it in Creative Mode's Level tool: one song, a
+playlist of several played in turn and round again, all of them shuffled
+(the demo, and a new level), or none.

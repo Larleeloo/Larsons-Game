@@ -40,3 +40,6 @@ bin/
 /config/
 # F12 screenshots.
 /screenshots/
+
+### Python ###
+__pycache__/

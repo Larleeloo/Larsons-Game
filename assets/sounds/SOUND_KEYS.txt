@@ -600,12 +600,12 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   items/bandage.mp3                              A bandage wound on                               item/bandage
   items/smoke_pellet.mp3                         A smoke pellet burst                             item/smoke_pellet
   items/blade_oil.mp3                            Blade oil wiped on                               item/blade_oil
-  other/gather_mine.mp3                          Mining a vein or a seam                          gather/mine
-  other/gather_chip.mp3                          Chipping crystal                                 gather/chip
-  other/gather_dig.mp3                           Digging sand or clay                             gather/dig
-  other/gather_chop.mp3                          Cutting fallen logs                              gather/chop
-  other/gather_cut.mp3                           Cutting flax                                     gather/cut
-  other/gather_tap.mp3                           Taking resin from a pine                         gather/tap
+  gather/mine.mp3                                Mining a vein or a seam                          gather/mine
+  gather/chip.mp3                                Chipping crystal                                 gather/chip
+  gather/dig.mp3                                 Digging sand or clay                             gather/dig
+  gather/chop.mp3                                Cutting fallen logs                              gather/chop
+  gather/cut.mp3                                 Cutting flax                                     gather/cut
+  gather/tap.mp3                                 Taking resin from a pine                         gather/tap
   fishing/cast.mp3                               Fishing: the cast                                fishing/cast
   fishing/plop.mp3                               Fishing: the float landing                       fishing/plop
   fishing/bite.mp3                               Fishing: a bite                                  fishing/bite
@@ -684,36 +684,26 @@ MUSIC
 The songs: the main menu's, and the medieval covers the levels play, one or all shuffled.
 
   music/main_menu.mp3                            On the main menu (held)                          music/main_menu
-  music/dream_on.mp3                             Dream On (Aerosmith) (held)                      music/dream_on
-  music/california_dreamin.mp3                   California Dreamin' (The Mamas & the Papas) (held) music/california_dreamin
-  music/wonderwall.mp3                           Wonderwall (Oasis) (held)                        music/wonderwall
-  music/wake_me_up.mp3                           Wake Me Up (Avicii) (held)                       music/wake_me_up
-  music/dreams.mp3                               Dreams (Fleetwood Mac) (held)                    music/dreams
-  music/dont_fear_the_reaper.mp3                 (Don't Fear) The Reaper (Blue Öyster Cult) (held) music/dont_fear_the_reaper
-  music/livin_on_a_prayer.mp3                    Livin' On A Prayer (Bon Jovi) (held)             music/livin_on_a_prayer
-  music/vienna.mp3                               Vienna (Billy Joel) (held)                       music/vienna
-  music/the_less_i_know_the_better.mp3           The Less I Know The Better (Tame Impala) (held)  music/the_less_i_know_the_better
-  music/nine_to_five.mp3                         9 to 5 (Dolly Parton) (held)                     music/nine_to_five
-  music/how_you_remind_me.mp3                    How You Remind Me (Nickelback) (held)            music/how_you_remind_me
-  music/die_young.mp3                            Die Young (Kesha) (held)                         music/die_young
-  music/sunflower.mp3                            Sunflower (Post Malone and Swae Lee) (held)      music/sunflower
-  music/thunder.mp3                              Thunder (Imagine Dragons) (held)                 music/thunder
-  music/beat_it.mp3                              Beat It (Michael Jackson) (held)                 music/beat_it
-  music/basket_case.mp3                          Basket Case (Green Day) (held)                   music/basket_case
-  music/espresso.mp3                             Espresso (Sabrina Carpenter) (held)              music/espresso
-  music/everlong.mp3                             Everlong (Foo Fighters) (held)                   music/everlong
-  music/pompeii.mp3                              Pompeii (Bastille) (held)                        music/pompeii
-  music/ride.mp3                                 Ride (Twenty One Pilots) (held)                  music/ride
-  music/fast_car.mp3                             Fast Car (Tracy Chapman) (held)                  music/fast_car
-  music/something_just_like_this.mp3             Something Just Like This (The Chainsmokers and Coldplay) (held) music/something_just_like_this
-  music/crazy.mp3                                Crazy (Gnarls Barkley) (held)                    music/crazy
-  music/like_a_prayer.mp3                        Like a Prayer (Madonna) (held)                   music/like_a_prayer
-  music/misery_business.mp3                      Misery Business (Paramore) (held)                music/misery_business
-  music/rocket_man.mp3                           Rocket Man (Elton John) (held)                   music/rocket_man
-  music/apt.mp3                                  APT. (ROSÉ and Bruno Mars) (held)                music/apt
-  music/we_are_the_champions.mp3                 We Are The Champions (Queen) (held)              music/we_are_the_champions
-  music/i_wanna_be_yours.mp3                     I Wanna Be Yours (Arctic Monkeys) (held)         music/i_wanna_be_yours
-  music/empire_state_of_mind.mp3                 Empire State Of Mind (Jay-Z and Alicia Keys) (held) music/empire_state_of_mind
+  music/lanterns_over_brasswick.mp3              Lanterns Over Brasswick (a tavern anthem) (held) music/lanterns_over_brasswick
+  music/the_millers_daughter.mp3                 The Miller's Daughter (a country waltz) (held)   music/the_millers_daughter
+  music/copper_hearts.mp3                        Copper Hearts (a slow ballad) (held)             music/copper_hearts
+  music/clockwork_heart.mp3                      Clockwork Heart (a clockwork dance) (held)       music/clockwork_heart
+  music/ride_out_at_dawn.mp3                     Ride Out at Dawn (a galloping rock song) (held)  music/ride_out_at_dawn
+  music/moonlit_market.mp3                       Moonlit Market (a sly market groove) (held)      music/moonlit_market
+  music/ember_and_ash.mp3                        Ember and Ash (a power ballad) (held)            music/ember_and_ash
+  music/tavern_lights.mp3                        Tavern Lights (a pub singalong) (held)           music/tavern_lights
+  music/the_long_road_home.mp3                   The Long Road Home (a country road song) (held)  music/the_long_road_home
+  music/sky_portals.mp3                          Sky Portals (an epic march) (held)               music/sky_portals
+  music/starlit_courtyard.mp3                    Starlit Courtyard (a starlit lullaby) (held)     music/starlit_courtyard
+  music/iron_and_ivy.mp3                         Iron and Ivy (a punk jig) (held)                 music/iron_and_ivy
+  music/dancing_on_the_drawbridge.mp3            Dancing on the Drawbridge (a dance-floor romp) (held) music/dancing_on_the_drawbridge
+  music/golden_fields.mp3                        Golden Fields (a sunny lilt) (held)              music/golden_fields
+  music/the_crystal_cave.mp3                     The Crystal Cave (a crystal-cave mystery) (held) music/the_crystal_cave
+  music/two_candles.mp3                          Two Candles (a candlelit love song) (held)       music/two_candles
+  music/steam_and_sails.mp3                      Steam and Sails (a sea-shanty stomp) (held)      music/steam_and_sails
+  music/heroes_of_the_hollow.mp3                 Heroes of the Hollow (a stadium anthem) (held)   music/heroes_of_the_hollow
+  music/feather_and_flame.mp3                    Feather and Flame (a bright, bouncing pop song) (held) music/feather_and_flame
+  music/farewell_fair_moon.mp3                   Farewell, Fair Moon (a farewell song) (held)     music/farewell_fair_moon
 
 
 INTERFACE

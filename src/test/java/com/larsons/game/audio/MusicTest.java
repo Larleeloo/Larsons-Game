@@ -84,6 +84,32 @@ class MusicTest {
     }
 
     @Test
+    void aLevelsPlaylistPlaysItsSongsInTurnAndGoesRound() {
+        Music.playlist(List.of(C, A, B), 1);
+        assertEquals(List.of(C, A, B), Music.playlist(), "in the order given, not shuffled");
+        assertEquals(C, Music.wanted());
+        assertEquals(List.of(C, A, B, C, A, B, C), heard(7), "each once, then round again in the same order");
+    }
+
+    @Test
+    void theSamePlaylistGivenAgainCarriesOnAndTheSongPlayingCarriesOnIntoIt() {
+        Music.play(B);
+        settle();
+        Music.update(Music.FADE_IN + 1);
+        Music.playlist(List.of(A, B, C), 1);
+        assertEquals(B, Music.current(), "the song playing goes on");
+        assertEquals(1, Music.level(), 1e-9, "no fade");
+        double at = Music.elapsed();
+        Music.playlist(List.of(A, B, C), 1);                    // the level entered again
+        assertEquals(at, Music.elapsed(), 1e-9, "not started over");
+        assertEquals(List.of(A, B, C), Music.playlist());
+        Music.shuffle(List.of(A, B, C), 1);                     // the same songs shuffled are another choice
+        Music.playlist(List.of(C, B, A), 1);
+        assertEquals(List.of(C, B, A), Music.playlist());
+        assertEquals(B, Music.current());
+    }
+
+    @Test
     void theSongPlayingCarriesOnIntoAPlaylistWithItAndTheSamePlaylistIsNotRestarted() {
         Music.play(B);
         settle();
@@ -130,15 +156,18 @@ class MusicTest {
     }
 
     @Test
-    void aLevelsChoicePlaysOneSongEverySongOrNone() {
-        Songs.playChoice("dream_on", 0.7);
-        assertEquals("music/dream_on", Music.wanted());
+    void aLevelsChoicePlaysOneSongAPlaylistEverySongOrNone() {
+        Songs.playChoice("copper_hearts", 0.7);
+        assertEquals("music/copper_hearts", Music.wanted());
         assertTrue(Music.playlist().isEmpty(), "one song, looping");
+        Songs.playChoice("tavern_lights,copper_hearts,a_song_from_a_later_game", 0.7);
+        assertEquals(List.of("music/tavern_lights", "music/copper_hearts"), Music.playlist(),
+                "a playlist in its order, without songs this game does not have");
         Songs.playChoice(Songs.SHUFFLE, 0.7);
         assertEquals(new HashSet<>(Songs.keys()), new HashSet<>(Music.playlist()));
         Songs.playChoice(Songs.NONE, 0.7);
         assertEquals("", Music.wanted());
-        Songs.playChoice("dream_on", 0.7);
+        Songs.playChoice("copper_hearts", 0.7);
         Songs.playChoice("a_song_from_a_later_game", 0.7);
         assertEquals("", Music.wanted());
     }

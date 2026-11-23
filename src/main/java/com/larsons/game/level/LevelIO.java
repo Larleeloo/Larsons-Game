@@ -50,7 +50,7 @@ import java.util.stream.Stream;
  *   "name": "The old mill",
  *   "size": 128,
  *   "sky": {"zenith": "#5C78A3", "horizon": "#BDC9DB", "fog": 70, "backdrops": [...]},
- *   "music": "dream_on",
+ *   "music": "copper_hearts,tavern_lights",
  *   "life": {"critters": {"firefly": 2, "frog": 0}, "regrow": 0.5, "yield": 1},
  *   "surroundings": {"theme": "forest", "far": 1600, "density": 1, "height": 1, "seed": 1, "haze": 0.35},
  *   "objects": [

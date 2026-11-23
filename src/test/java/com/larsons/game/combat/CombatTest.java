@@ -63,11 +63,15 @@ class CombatTest {
     // --- the dice -----------------------------------------------------------------------
 
     @Test
-    void eachRarityRollsOneMoreD20ThanTheLast() {
+    void eachRarityRollsOneMoreDieThanTheLastAndEachWeaponItsOwnDie() {
         CombatTuning t = CombatTuning.defaults();
         int n = 1;
         for (Rarity r : Rarity.values()) assertEquals(n++, t.dice(r), r.label());
-        assertEquals(20, t.sides);
+        assertEquals(4, t.sides(null), "bare hands: a D4");
+        assertEquals(6, t.sides(ItemDef.DAGGER));
+        for (ItemDef d : List.of(ItemDef.SWORD, ItemDef.BATTLE_AXE, ItemDef.MACE)) assertEquals(8, t.sides(d), d.id());
+        for (ItemDef d : List.of(ItemDef.LONGBOW, ItemDef.CROSSBOW)) assertEquals(10, t.sides(d), d.id());
+        for (ItemDef d : List.of(ItemDef.CRYSTAL_STAFF, ItemDef.WAND)) assertEquals(12, t.sides(d), d.id());
         assertEquals(1, t.heavyExtra);
     }
 
@@ -266,7 +270,7 @@ class CombatTest {
         CombatTuning t = CombatTuning.parse("{\"dice\": {\"sides\": 0, \"heavyExtra\": -2}, \"mana\": {\"max\": -5},"
                 + " \"projectiles\": {\"arrowSpeed\": 0, \"range\": -1, \"aimAssistDegrees\": 400},"
                 + " \"dummy\": {\"health\": 0}}");
-        assertEquals(2, t.sides);
+        assertEquals(4, t.sides, "the nearest die there is: a D4");
         assertEquals(0, t.heavyExtra);
         assertEquals(0, t.maxMana);
         assertEquals(1, t.arrowSpeed);

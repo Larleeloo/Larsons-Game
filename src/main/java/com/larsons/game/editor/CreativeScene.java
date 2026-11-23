@@ -3863,22 +3863,33 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     /**
-     * The level's music - none, every song shuffled, or one song looping -
-     * and a player to listen to any song first: play or pause, a timeline to
-     * drag to anywhere in it, where it is of how long, and "Use this song".
-     * Returns the y below it.
+     * The level's music - none, every song shuffled, one song looping, or a
+     * playlist of songs played in turn and round again (each row moved up or
+     * down or taken out) - and a player to listen to any song first: play or
+     * pause, a timeline to drag to anywhere in it, where it is of how long,
+     * and "Use this song" (or, for a playlist, "Add to playlist"). Returns the
+     * y below it.
      */
     private float musicSection(Ui ui, float x, float y, float w) {
-        List<String> shown = new ArrayList<>(List.of("None", "Shuffle all"));
+        List<Songs.Song> list = Songs.playlist(level.music());
+        boolean asList = list.size() > 1 || playlistFor == level;
+        List<String> shown = new ArrayList<>(List.of("None", "Shuffle all", "Playlist"));
         for (Songs.Song song : Songs.ALL) shown.add(song.title());
-        int cur = musicIndex(level.music());
+        int cur = asList ? MUSIC_PLAYLIST : musicIndex(level.music());
         int pick = widgets.choice(ui, "Music", shown, cur, x, y, w, MUSIC_LABEL);
-        if (pick != cur) setMusic(pick == 0 ? Songs.NONE : pick == 1 ? Songs.SHUFFLE : Songs.ALL.get(pick - 2).id());
+        if (pick != cur) {
+            playlistFor = pick == MUSIC_PLAYLIST ? level : null;
+            if (pick == MUSIC_PLAYLIST) setMusic(Songs.choice(startPlaylist()));
+            else setMusic(pick == 0 ? Songs.NONE : pick == 1 ? Songs.SHUFFLE : Songs.ALL.get(pick - 3).id());
+            return y + 34;
+        }
         y += 34;
         if (Songs.ALL.isEmpty()) return y + 6;
         if (Songs.byId(listening) == null) {
-            listening = Songs.byId(level.music()) != null ? level.music() : Songs.ALL.get(0).id();
+            listening = Songs.byId(level.music()) != null ? level.music()
+                    : !list.isEmpty() ? list.get(0).id() : Songs.ALL.get(0).id();
         }
+        if (asList) y = playlistRows(ui, x, y, w);
         List<String> titles = Songs.ALL.stream().map(Songs.Song::title).toList();
         int li = Songs.ALL.indexOf(Songs.byId(listening));
         int lp = widgets.choice(ui, "Listen to", titles, li, x, y, w, MUSIC_LABEL);
@@ -3902,7 +3913,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         String clock = preview.loading() ? "Reading the song…" : !ready ? "No sound file for this song"
                 : clock(preview.position()) + " / " + clock(len);
         ui.text(ui.small, clock, x, y + 6, ready ? Theme.ITEM : Theme.HINT);
-        if (song.id().equals(level.music())) {
+        if (asList) {
+            if (ui.button("Add to playlist", x + w - 130, y, 130, 26, false, list.size() < MOST_IN_PLAYLIST)) {
+                List<Songs.Song> next = new ArrayList<>(list);
+                next.add(song);
+                setMusic(Songs.choice(next));
+            }
+        } else if (song.id().equals(level.music())) {
             String in = "In this level";
             ui.text(ui.small, in, x + w - ui.small.width(in) - 6, y + 6, Theme.TITLE);
         } else if (ui.button("Use this song", x + w - 120, y, 120, 26)) {
@@ -3912,14 +3929,73 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         return y + ui.paragraph(ui.small, song.label(), x, y, w, Theme.ITEM_DISABLED) + 10;
     }
 
+    /**
+     * A level's playlist, a row a song in the order they play: a row pressed
+     * is listened to, its arrows move it up or down, × takes it out. Returns
+     * the y below it.
+     */
+    private float playlistRows(Ui ui, float x, float y, float w) {
+        List<Songs.Song> list = new ArrayList<>(Songs.playlist(level.music()));
+        ui.text(ui.tiny, list.isEmpty() ? "Empty: listen to a song below and add it"
+                : "Played in turn, then round again from the first", x, y, Theme.HINT);
+        y += 16;
+        int from = -1, to = -1, remove = -1;
+        for (int i = 0; i < list.size(); i++) {
+            Songs.Song s = list.get(i);
+            float rw = w - 30 - 2 * 26;
+            if (ui.button((i + 1) + ". " + s.title(), x, y, rw, 26, s.id().equals(listening), true)) listen(s.id());
+            if (ui.button("↑", x + rw + 4, y, 22, 26, false, i > 0)) {
+                from = i;
+                to = i - 1;
+            }
+            if (ui.button("↓", x + rw + 30, y, 22, 26, false, i < list.size() - 1)) {
+                from = i;
+                to = i + 1;
+            }
+            if (ui.button("×", x + w - 26, y, 26, 26)) remove = i;
+            y += 30;
+        }
+        if (from >= 0) {
+            java.util.Collections.swap(list, from, to);
+            setMusic(Songs.choice(list));
+        } else if (remove >= 0) {
+            list.remove(remove);
+            setMusic(Songs.choice(list));
+        }
+        return y + 4;
+    }
+
+    /**
+     * A new playlist: the level's song (if it had one) and the one being
+     * listened to, else that and the song after it - two to start with.
+     */
+    private List<Songs.Song> startPlaylist() {
+        List<Songs.Song> out = new ArrayList<>(Songs.playlist(level.music()));
+        Songs.Song heard = Songs.byId(listening);
+        if (heard != null && !out.contains(heard)) out.add(heard);
+        for (int i = 0; out.size() < 2 && i < Songs.ALL.size(); i++) {
+            Songs.Song s = Songs.ALL.get((Math.max(0, Songs.ALL.indexOf(out.isEmpty() ? null : out.get(0))) + i)
+                    % Songs.ALL.size());
+            if (!out.contains(s)) out.add(s);
+        }
+        return out;
+    }
+
     /** The music rows' labels are short: more of the row for the song's title. */
     private static final float MUSIC_LABEL = 0.3f;
+    /** Where "Playlist" is in the Music choice. */
+    private static final int MUSIC_PLAYLIST = 2;
+    /** The most songs a level's playlist holds. */
+    static final int MOST_IN_PLAYLIST = 20;
+    /** The level whose playlist is being made (shown as one even while it holds a single song, or none). */
+    private Level playlistFor;
 
-    /** Where {@code music} is in the Music choice: none, shuffle, then the songs (unknown: none). */
+    /** Where {@code music} is in the Music choice: none, shuffle, playlist, then the songs (unknown: none). */
     private static int musicIndex(String music) {
         if (Songs.SHUFFLE.equals(music)) return 1;
+        if (Songs.isPlaylist(music)) return MUSIC_PLAYLIST;
         Songs.Song song = Songs.byId(music);
-        return song == null ? 0 : 2 + Songs.ALL.indexOf(song);
+        return song == null ? 0 : MUSIC_PLAYLIST + 1 + Songs.ALL.indexOf(song);
     }
 
     /** The level's music from now on, as one undo step; a song chosen is the one listened to. */

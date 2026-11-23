@@ -2468,7 +2468,7 @@ def _(k):
     return out
 
 
-@sound("item/spyglass", 0.35)
+@sound("items/spyglass", 0.35)
 def _(k):
     # the brass tubes drawn out, a click as it is set to the eye
     d = 0.6
@@ -2476,7 +2476,7 @@ def _(k):
     return place(out, metal(2600, 0.12, 0.06, 0.9, k) * 0.5, 0.32)
 
 
-@sound("item/lantern_light", 0.35)
+@sound("items/lantern_light", 0.35)
 def _(k):
     # the little door opened, a match struck, the wick takes
     d = 0.9
@@ -2485,7 +2485,7 @@ def _(k):
     return place(out, whoosh(k, 0.4, 200, 600, 300, peak=0.3) * 0.5, 0.42)
 
 
-@sound("item/lantern_out", 0.3)
+@sound("items/lantern_out", 0.3)
 def _(k):
     # a breath on the wick, the little door shut
     d = 0.6
@@ -2493,7 +2493,7 @@ def _(k):
     return place(out, metal(1900, 0.1, 0.05, 0.6, k) * 0.4, 0.32)
 
 
-@sound("item/bandage", 0.35)
+@sound("items/bandage", 0.35)
 def _(k):
     # cloth wound round and pulled tight
     d = 0.8
@@ -2501,7 +2501,7 @@ def _(k):
     return place(out, whoosh(k, 0.12, 900, 2500, 1200, peak=0.5) * 0.5, 0.55)
 
 
-@sound("item/smoke_pellet", 0.45)
+@sound("items/smoke_pellet", 0.45)
 def _(k):
     # a pellet cracked underfoot, and the smoke billowing out
     d = 1.2
@@ -2509,7 +2509,7 @@ def _(k):
     return place(out, lp(k.noise(1.0), 900) * env(1.0, 0.05, 0.7) * 0.6, 0.05)
 
 
-@sound("item/blade_oil", 0.3)
+@sound("items/blade_oil", 0.3)
 def _(k):
     # the cork out, oil wiped down the blade with a rag
     d = 0.8

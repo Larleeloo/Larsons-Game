@@ -2,9 +2,9 @@
 as parts of notes, save it as a MIDI file (for FL Studio, or any DAW), and
 render it to a looping MP3 for the game.
 
-A song is a script beside this one (dream_on.py) that builds a Song out of
+A song is built (by originals.py, through arrange.py) as a Song out of
 Parts - a lute, a recorder, a harp, a hand drum - note by note, bar by bar,
-and calls song.save(...). The MIDI it writes is a type-1 file with one
+and then song.save(...). The MIDI it writes is a type-1 file with one
 track per instrument, named, panned and set to the General MIDI sound
 nearest a medieval one, so FL Studio opens it with every part on its own
 channel ready to be given a better instrument.

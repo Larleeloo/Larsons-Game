@@ -155,6 +155,7 @@ public final class WorldRenderer implements AutoCloseable {
         this.objects = objects;
         this.items = items;
         this.itemRenderer = new ItemRenderer(batch, sprites, items);
+        this.motion = new PropMotionRenderer(batch);
         this.shadow = Texture.upload(shadowPixels(64), false);
         this.glow = Texture.upload(glowPixels(64), false);
         this.ray = Texture.upload(LightRays.pixels(), true);
@@ -915,6 +916,16 @@ public final class WorldRenderer implements AutoCloseable {
             for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
             batch.end();
         }
+        // --- what moves on the things that stand about: bubbles, sparks, flames, smoke, steam, spray ---
+        {
+            batch.begin(viewProj, fog, 0, fogFar);
+            Weather.Now wx = world.weatherNow();
+            double gust = wx == null ? 0 : wx.of(Weather.Kind.WIND) + wx.of(Weather.Kind.SANDSTORM)
+                    + 0.6 * wx.of(Weather.Kind.THUNDERSTORM);
+            Vec3 wind = new Vec3(0.35 + 1.4 * gust, 0, 0.12 + 0.5 * gust);
+            motion.draw(world, camera.target(), right, up, world.time(), indoors ? 0.85 : light.day(), wind);
+            batch.end();
+        }
         // --- the weather: rain, snow, sand, the wind's dust, falling round the camera (not under a roof) ---
         if (!indoors) weather.draw(batch, world.weatherNow(), camera, viewProj, fog, fogFar, light, world.time());
         batch.useSceneLight(null);
@@ -926,6 +937,8 @@ public final class WorldRenderer implements AutoCloseable {
         }
     }
 
+    /** What moves on the things standing about: a brew's bubbles, a coil's sparks, smoke, spray. */
+    private final PropMotionRenderer motion;
     /** The sun's shadow map ({@link #sunShadows}); made the first time there are shadows. */
     private ShadowMap shadowMap;
     /** The vibrant look's pass over the picture; made the first time it is on. */
@@ -1542,6 +1555,7 @@ public final class WorldRenderer implements AutoCloseable {
     @Override
     public void close() {
         itemRenderer.close();
+        motion.close();
         shadow.close();
         glow.close();
         ray.close();

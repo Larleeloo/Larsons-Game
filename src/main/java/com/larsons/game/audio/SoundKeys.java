@@ -34,8 +34,8 @@ import java.util.Set;
  *   creature/frog/croak            -&gt; creatures/frog/croak.mp3
  *   world/loot_rare                -&gt; world/loot_rare.mp3
  *   ambient/wind                   -&gt; ambient/wind.mp3
- *   music/dream_on                 -&gt; music/dream_on.mp3       (a song)
- *   music/main_menu                -&gt; music/main_menu.mp3, else music/dream_on.mp3
+ *   music/copper_hearts            -&gt; music/copper_hearts.mp3  (a song)
+ *   music/main_menu                -&gt; music/main_menu.mp3, else music/lanterns_over_brasswick.mp3
  * </pre>
  *
  * <p>Keys fall back from the specific to the general ({@link #chain}), as the
@@ -69,6 +69,8 @@ public final class SoundKeys {
     /** The people and beasts that fight her: noticing her, falling, coming through a portal. */
     public static final String FOES = "foes";
     public static final String FISHING = "fishing";
+    /** The gathering spots worked: mined, chipped, dug, chopped, cut, tapped. */
+    public static final String GATHER = "gather";
     /** The horde game's: the dead rising, the mystery box, the barricades, what the dead drop. */
     public static final String HORDE = "horde";
     /** Where a key from an unrecognised namespace lands. */
@@ -270,9 +272,9 @@ public final class SoundKeys {
     /**
      * The places that play a song of their own, and the song each plays until
      * the player gives the place a file of its own ({@link #chain}): the main
-     * menu, Dream On. The songs themselves are {@link Songs#ALL}.
+     * menu, Lanterns Over Brasswick. The songs themselves are {@link Songs#ALL}.
      */
-    public static final Map<String, String> MUSIC_PLACES = Map.of("main_menu", "dream_on");
+    public static final Map<String, String> MUSIC_PLACES = Map.of("main_menu", "lanterns_over_brasswick");
 
     /** The moves each weapon has a sound of its own for, at its stance (the others fall back to these). */
     static final List<AnimState> WEAPON_MOVES = List.of(AnimState.ATTACK, AnimState.SPIN_ATTACK, AnimState.PARRY,
@@ -355,6 +357,7 @@ public final class SoundKeys {
         for (String c : ANIMAL_SOUNDS.keySet()) out.add(CREATURES + "/" + c);
         out.add(FOES);
         out.add(FISHING);
+        out.add(GATHER);
         out.add(HORDE);
         out.add(AMBIENT);
         out.add(MUSIC);
@@ -463,6 +466,7 @@ public final class SoundKeys {
             case "creature" -> CREATURES;
             case "foes" -> FOES;
             case "fishing" -> FISHING;
+            case "gather" -> GATHER;
             case "horde" -> HORDE;
             default -> null;
         };
@@ -1105,7 +1109,7 @@ public final class SoundKeys {
         return "ambient/" + name;
     }
 
-    /** A song ({@link Songs}) or a place that plays one ({@link #MUSIC_PLACES}), e.g. {@code music/dream_on}. */
+    /** A song ({@link Songs}) or a place that plays one ({@link #MUSIC_PLACES}), e.g. {@code music/copper_hearts}. */
     public static String music(String name) {
         return "music/" + name;
     }

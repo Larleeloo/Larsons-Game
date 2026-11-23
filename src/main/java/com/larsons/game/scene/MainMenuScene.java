@@ -58,8 +58,8 @@ import static org.lwjgl.glfw.GLFW.*;
  *
  * <p>Left and right (or Q and E) change tab; up, down and Enter choose.
  *
- * <p>The menu's own song ({@link #MUSIC}: "Dream On" for lute, recorder and
- * harp, {@code assets/sounds/music/main_menu.mp3}) loops behind every tab,
+ * <p>The menu's own song ({@link #MUSIC}: Lanterns Over Brasswick, the
+ * game's tavern anthem, or the player's own {@code music/main_menu.mp3}) loops behind every tab,
  * fading in as the menu opens and out as it is left ({@link Music}).
  */
 public final class MainMenuScene implements Scene {
