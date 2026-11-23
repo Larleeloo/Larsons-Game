@@ -2287,10 +2287,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     g.apply(com.larsons.game.grade.Preset.byKey(a[0]));
                 } else return false;
             }
-            // a weapon's tiers: tiers <slot 1-n>; tiers <slot> up (upgraded once)
+            // a weapon's tiers (or a piece of armour's or clothing's): tiers <slot 1-n | item id>; tiers <slot> up
             case "tiers" -> {
                 String[] a = argument.trim().split("\\s+");
-                int slot = Integer.parseInt(a[0]) - 1;
+                int slot = -1;
+                if (a[0].matches("\\d+")) {
+                    slot = Integer.parseInt(a[0]) - 1;
+                } else {
+                    for (int i = 0; i < p.inventory().size() && slot < 0; i++) {
+                        Item it = p.inventory().get(i);
+                        if (it != null && it.def().id().equals(a[0])) slot = i;
+                    }
+                    if (slot < 0) return false;
+                }
                 if (!com.larsons.game.world.Upgrades.has(p.inventory().get(slot))) return false;
                 if (a.length > 1 && a[1].equals("up")) com.larsons.game.world.Upgrades.upgrade(p.inventory(), slot);
                 else inventory.showTiers(slot);

@@ -58,10 +58,14 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
      * "Duskfang +2"), how rare, the dice it rolls then and their colour, its
      * parts' colours (empty: as before), how many swings or shots one of its
      * ammunition lasts ({@link Ammo}), how many {@link Ammo#INGOT}s it costs
-     * to reach, and whether it is a mystery until it is reached (shown as ???).
+     * to reach, whether it is a mystery until it is reached (shown as ???) -
+     * and, for a piece of armour or clothing, what it gives at that tier
+     * ({@code gear}: every effect it has then, not added to the tiers below;
+     * null: as the tier before).
      */
     public record Upgrade(String name, Rarity rarity, int dice, int sides, List<DiceRoll.Group> extra, int diceRgb,
-                          Map<String, Integer> tints, int ammoEvery, int cost, boolean mystery) {
+                          Map<String, Integer> tints, int ammoEvery, int cost, boolean mystery,
+                          Map<Gear.Effect, Double> gear) {
         public Upgrade {
             name = name == null ? "" : name.strip();
             if (rarity == null) rarity = Rarity.EPIC;
@@ -72,49 +76,61 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
             tints = tints == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(tints));
             ammoEvery = Math.max(1, ammoEvery);
             cost = Math.max(0, cost);
+            if (gear != null) gear = Tailor.clean(gear);
+        }
+
+        /** One with what it gives as the tier before (a weapon's, which gives nothing). */
+        public Upgrade(String name, Rarity rarity, int dice, int sides, List<DiceRoll.Group> extra, int diceRgb,
+                       Map<String, Integer> tints, int ammoEvery, int cost, boolean mystery) {
+            this(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery, null);
         }
 
         public Upgrade withName(String n) {
-            return new Upgrade(n, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+            return new Upgrade(n, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withRarity(Rarity r) {
-            return new Upgrade(name, r, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+            return new Upgrade(name, r, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withDice(int n) {
-            return new Upgrade(name, rarity, n, sides, extra, diceRgb, tints, ammoEvery, cost, mystery);
+            return new Upgrade(name, rarity, n, sides, extra, diceRgb, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withSides(int x) {
-            return new Upgrade(name, rarity, dice, x, extra, diceRgb, tints, ammoEvery, cost, mystery);
+            return new Upgrade(name, rarity, dice, x, extra, diceRgb, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withExtra(List<DiceRoll.Group> e) {
-            return new Upgrade(name, rarity, dice, sides, e, diceRgb, tints, ammoEvery, cost, mystery);
+            return new Upgrade(name, rarity, dice, sides, e, diceRgb, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withDiceRgb(int c) {
-            return new Upgrade(name, rarity, dice, sides, extra, c, tints, ammoEvery, cost, mystery);
+            return new Upgrade(name, rarity, dice, sides, extra, c, tints, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withTint(String part, int rgb) {
             Map<String, Integer> t = new LinkedHashMap<>(tints);
             if (rgb < 0) t.remove(part);
             else t.put(part, rgb);
-            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, t, ammoEvery, cost, mystery);
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, t, ammoEvery, cost, mystery, gear);
         }
 
         public Upgrade withAmmoEvery(int n) {
-            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, n, cost, mystery);
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, n, cost, mystery, gear);
         }
 
         public Upgrade withCost(int c) {
-            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, c, mystery);
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, c, mystery, gear);
         }
 
         public Upgrade withMystery(boolean m) {
-            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, m);
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, m, gear);
+        }
+
+        /** Giving {@code g} at this tier (null: as the tier before). */
+        public Upgrade withGear(Map<Gear.Effect, Double> g) {
+            return new Upgrade(name, rarity, dice, sides, extra, diceRgb, tints, ammoEvery, cost, mystery, g);
         }
     }
 
@@ -169,6 +185,12 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         ammoEvery = ammoEvery <= 0 ? AMMO_EVERY : ammoEvery;
         upgrades = upgrades == null ? List.of()
                 : List.copyOf(upgrades.size() > MAX_TIERS - 1 ? upgrades.subList(0, MAX_TIERS - 1) : upgrades);
+        if (!worn) {
+            // (a weapon's tiers give none of the gear's effects either)
+            List<Upgrade> plain = new ArrayList<>();
+            for (Upgrade u : upgrades) plain.add(u.gear() == null ? u : u.withGear(null));
+            upgrades = List.copyOf(plain);
+        }
         level = Math.max(0, Math.min(upgrades.size(), level));
     }
 
@@ -227,12 +249,26 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 level, g);
     }
 
-    /** Its special effects, as the inventory says them: "+25 max health", "A second jump in the air". */
+    /** Its special effects at its tier now, as the inventory says them: "+25 max health", "A second jump in the air". */
     public List<String> gearText() {
         List<String> out = new ArrayList<>();
-        for (Map.Entry<Gear.Effect, Double> e : gear.entrySet()) out.add(e.getKey().said(e.getValue()));
+        for (Map.Entry<Gear.Effect, Double> e : gear().entrySet()) out.add(e.getKey().said(e.getValue()));
         return out;
     }
+
+    /**
+     * What it gives at its tier now: what its tier was made with, else the
+     * tier before's ... down to what it was forged with (its first tier's).
+     */
+    @Override
+    public Map<Gear.Effect, Double> gear() {
+        Map<Gear.Effect, Double> g = gear;
+        for (int i = 0; i < level; i++) if (upgrades.get(i).gear() != null) g = upgrades.get(i).gear();
+        return g;
+    }
+
+    /** What it gives as forged, at its first tier (what the Effects page sets). */
+    public Map<Gear.Effect, Double> baseGear() { return gear; }
 
     // --- its tier now (level 0: as forged; n: its n-th upgrade) ----------------------
 
@@ -321,6 +357,13 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     /** A new one: an Epic sword rolling one d20, in its own colours, with no effects. */
     public static Forged fresh(String name) {
         return new Forged(null, name, ItemDef.SWORD.id(), Rarity.EPIC, Map.of(), 1, 20, -1, Set.of());
+    }
+
+    /** A new piece of armour: an Epic iron helmet blocking with two d8s, in its own colours, giving nothing yet. */
+    public static Forged freshWorn(String name) {
+        ItemDef d = Wearables.byId("iron_helmet");
+        if (d == null) return fresh(name);
+        return new Forged(null, name, d.id(), Rarity.EPIC, Map.of(), 2, Math.max(4, Armour.sides(d)), -1, Set.of());
     }
 
     /** Whether there are dice of {@code sides}. */
@@ -460,11 +503,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
-        if (!f.gear().isEmpty()) {
-            Map<String, Object> g = new LinkedHashMap<>();
-            for (Map.Entry<Gear.Effect, Double> x : f.gear().entrySet()) g.put(x.getKey().key(), x.getValue());
-            m.put("gear", g);
-        }
+        if (!f.gear().isEmpty()) m.put("gear", gearMap(f.gear()));
         m.put("tints", tintMap(f.tints()));
         if (!f.upgrades().isEmpty()) {
             List<Object> ups = new ArrayList<>();
@@ -480,6 +519,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 um.put("ammoEvery", u.ammoEvery());
                 um.put("cost", u.cost());
                 if (u.mystery()) um.put("mystery", true);
+                if (u.gear() != null) um.put("gear", gearMap(u.gear()));
                 ups.add(um);
             }
             m.put("upgrades", ups);
@@ -501,14 +541,8 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 if (b != null) effects.add(b);
             }
         }
-        EnumMap<Gear.Effect, Double> gear = new EnumMap<>(Gear.Effect.class);
-        Map<String, Object> gm = Json.obj(m, "gear");
-        if (gm != null) {
-            for (Map.Entry<String, Object> x : gm.entrySet()) {
-                Gear.Effect ge = Gear.Effect.byKey(x.getKey());
-                if (ge != null && x.getValue() instanceof Number n) gear.put(ge, n.doubleValue());
-            }
-        }
+        Map<Gear.Effect, Double> gear = gearOf(Json.obj(m, "gear"));
+        if (gear == null) gear = Map.of();
         String dc = Json.str(m, "diceColour", "");
         List<Upgrade> ups = new ArrayList<>();
         if (m.get("upgrades") instanceof List<?> l) {
@@ -521,13 +555,31 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 ups.add(new Upgrade(Json.str(um, "name", ""), Rarity.byKey(Json.str(um, "rarity", "epic")),
                         (int) Json.num(um, "dice", 1), (int) Json.num(um, "sides", 20), groups(um.get("moreDice")),
                         udc.isEmpty() ? -1 : rgb(udc), ut, (int) Json.num(um, "ammoEvery", AMMO_EVERY),
-                        (int) Json.num(um, "cost", 1), Boolean.TRUE.equals(um.get("mystery"))));
+                        (int) Json.num(um, "cost", 1), Boolean.TRUE.equals(um.get("mystery")),
+                        gearOf(Json.obj(um, "gear"))));
             }
         }
         return new Forged(id, Json.str(m, "name", id), Json.str(m, "base", "sword"),
                 Rarity.byKey(Json.str(m, "rarity", "epic")), tints, (int) Json.num(m, "dice", 1),
                 (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
                 (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear);
+    }
+
+    private static Map<String, Object> gearMap(Map<Gear.Effect, Double> gear) {
+        Map<String, Object> g = new LinkedHashMap<>();
+        for (Map.Entry<Gear.Effect, Double> x : gear.entrySet()) g.put(x.getKey().key(), x.getValue());
+        return g;
+    }
+
+    /** The effects a file's {@code gear} names (null: there is none). */
+    private static Map<Gear.Effect, Double> gearOf(Map<String, Object> gm) {
+        if (gm == null) return null;
+        EnumMap<Gear.Effect, Double> gear = new EnumMap<>(Gear.Effect.class);
+        for (Map.Entry<String, Object> x : gm.entrySet()) {
+            Gear.Effect ge = Gear.Effect.byKey(x.getKey());
+            if (ge != null && x.getValue() instanceof Number n) gear.put(ge, n.doubleValue());
+        }
+        return gear;
     }
 
     private static List<Object> groups(List<DiceRoll.Group> gs) {

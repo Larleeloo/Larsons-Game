@@ -114,7 +114,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /** The tools along the top. */
     enum Tool {
         PLACE("Place"), SELECT("Select"), SCULPT("Sculpt"), PAINT("Paint"), SCATTER("Scatter"), SKY("Sky"),
-        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge"), HORDE("Horde");
+        TIME("Time"), LEVEL("Level"), WATER("Water"), LIFE("Life"), FORGE("Forge"), TAILOR("Tailor"),
+        HORDE("Horde");
 
         final String label;
 
@@ -203,6 +204,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private boolean snap;
     // --- the forge: the weapon being made, and which of its parts (or its dice) the swatches colour
     private Forged forging = Forged.fresh("New weapon");
+    /**
+     * What the other of the Forge and the Tailor is making: a piece of armour
+     * or clothing while the Forge makes a weapon, a weapon while the Tailor
+     * makes a piece - each swapped in with its tool.
+     */
+    private Forged otherForging = Forged.freshWorn("New piece");
+    /** The Tailor's page: every piece the game has (false), or the pieces of your own (true). */
+    private boolean tailorOwn;
+    private TailorPanel tailor;
     private int forgeColour;
     /** The Forge's page: 0 the weapon, 1 its dice and ammunition, 2 its upgrade tiers; and the tier being edited. */
     private int forgePage, forgeTier = 1, tierColour;
@@ -652,6 +662,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     private void setTool(Tool t) {
         if (t == tool || !tools().contains(t)) return;
         if (tool == Tool.LEVEL) preview.pause();
+        // the Forge makes weapons, the Tailor armour and clothes: each keeps its own piece being made
+        if (t == Tool.FORGE || t == Tool.TAILOR) forgingWorn(t == Tool.TAILOR);
         tool = t;
         pointer = false;
         drawFrom = null;
@@ -661,7 +673,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /** Whether a right-click can put a plain pointer over the tool: one that works in the world, not Select's own. */
     private boolean pointerFits() {
-        return tool != Tool.SELECT && tool != Tool.FORGE;
+        return tool != Tool.SELECT && tool != Tool.FORGE && tool != Tool.TAILOR;
     }
 
     /** A plain pointer over the tool ({@code on}), or back to the tool. */
@@ -1675,7 +1687,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private boolean rightPanelShown() {
-        return placingShown() || selecting() && !selection.isEmpty() || tool == Tool.FORGE;
+        return placingShown() || selecting() && !selection.isEmpty() || tool == Tool.FORGE || tool == Tool.TAILOR;
     }
 
     private void topBar(Ui ui) {
@@ -1883,8 +1895,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> "Name the level, choose its size, save it · F5: play from the spawn · Shift+F5: from the pointer";
             case LIFE -> "How thick the little creatures and the animals live here, how fast the bushes grow back · "
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
-            case FORGE -> "Make a weapon, armour or clothes of your own: what it is made from, name and rarity, its dice, "
-                    + "its effects (a weapon's borders, worn gear's gifts), its colours, its upgrade tiers · Save it, then Place it";
+            case FORGE -> "Make a weapon of your own: what it is made from, name and rarity, its dice, its borders, "
+                    + "its colours, its upgrade tiers · Save it, then Place it · armour and clothes: the Tailor";
+            case TAILOR -> tailorOwn ? "Make armour or clothes of your own: what it is made from, name and rarity, its "
+                    + "dice to block, its colours, its tiers - each with what it gives worn · Save it, then Place it"
+                    : "Every piece of clothing and armour, tier by tier: what each tier gives worn (more health, mana, "
+                    + "stamina, speed ...) · kept as you change it · upgraded with ingots in the inventory";
             case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
         };
@@ -1964,6 +1980,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case LEVEL -> levelPanel(ui, px, py, pw);
             case LIFE -> lifePanel(ui, px, py, pw);
             case FORGE -> forgePanel(ui, px, py, pw);
+            case TAILOR -> tailorPanel(ui, px, py, pw);
             case HORDE -> hordePanel(ui, px, py, pw);
         }
     }
@@ -2208,10 +2225,59 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * {@code assets/forge/} for every level, and placed from Place → Items.
      */
     private void forgePanel(Ui ui, float x, float y, float w) {
-        y = heading(ui, "Forge weapons and gear", x, y);
-        List<Forged> all = Forged.all();
+        y = heading(ui, "Forge weapons", x, y);
+        forgingWorn(false);
+        forgeWork(ui, x, y, w, false);
+    }
+
+    /** Make sure what is being made is a piece worn ({@code worn}) or a weapon: the other one swapped in, else a new one. */
+    private void forgingWorn(boolean worn) {
+        if (forging.worn() == worn) return;
+        Forged f = forging;
+        forging = otherForging.worn() == worn ? otherForging : worn ? Forged.freshWorn("New piece")
+                : Forged.fresh("New weapon");
+        otherForging = f;
+        forgePage = PAGE_MAIN;
+        forgeColour = 0;
+    }
+
+    /**
+     * The Tailor: every piece of clothing and armour the game has, tier by
+     * tier - what each tier gives worn ({@link TailorPanel}) - or the pieces
+     * of your own, made as the Forge makes a weapon, each tier giving what
+     * it is made with.
+     */
+    private void tailorPanel(Ui ui, float x, float y, float w) {
+        y = heading(ui, "Tailor clothing and armour", x, y);
+        int own = 0;
+        for (Forged f : Forged.all()) if (f.worn()) own++;
+        float bw = (w - 4) / 2;
+        if (ui.button("Every piece", x, y, bw, 28, !tailorOwn, true)) tailorOwn = false;
+        if (ui.button("Your own (" + own + ")", x + bw + 4, y, bw, 28, tailorOwn, true)) tailorOwn = true;
+        y += 38;
+        if (tailorOwn) {
+            forgingWorn(true);
+            forgeWork(ui, x, y, w, true);
+        } else {
+            tailor().panel(ui, x, y, w);
+        }
+    }
+
+    private TailorPanel tailor() {
+        if (tailor == null) tailor = new TailorPanel(game, widgets, () -> view.world().combat().tuning().armour);
+        return tailor;
+    }
+
+    /**
+     * The Forge's pages, for a weapon ({@code worn} false: the Forge) or for
+     * armour and clothes ({@code worn}: the Tailor's own pieces): what is
+     * worked on - a new one, or one made before - and its pages.
+     */
+    private void forgeWork(Ui ui, float x, float y, float w, boolean worn) {
+        List<Forged> all = new ArrayList<>();
+        for (Forged f : Forged.all()) if (f.worn() == worn) all.add(f);
         List<String> names = new ArrayList<>();
-        names.add("A new weapon");
+        names.add(worn ? "A new piece" : "A new weapon");
         int at = 0;
         for (int i = 0; i < all.size(); i++) {
             names.add(all.get(i).name());
@@ -2219,12 +2285,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         }
         int pick = widgets.choice(ui, "Working on", names, at, x, y, w, 0.36f);
         if (pick != at) {
-            forging = pick == 0 ? Forged.fresh("New weapon") : all.get(pick - 1);
+            forging = pick > 0 ? all.get(pick - 1) : worn ? Forged.freshWorn("New piece") : Forged.fresh("New weapon");
             forgeColour = 0;
         }
         y += 36;
         boolean armour = com.larsons.game.world.Armour.sides(forging.def()) > 0;
-        boolean worn = forging.worn();
         // its pages: a weapon's, armour's (its effects, its dice), or clothing's (its effects)
         List<Integer> kinds = worn ? armour ? List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_DICE, PAGE_TIERS)
                 : List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_TIERS) : List.of(PAGE_MAIN, PAGE_DICE, PAGE_TIERS);
@@ -2256,8 +2321,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         String name = widgets.text(ui, "forge-name", "Name", forging.name(), x, y, w);
         if (!name.strip().equals(forging.name()) && !name.isBlank()) forging = forging.withName(name);
         y += 36;
-        // what it is made from: a weapon, or a piece of armour (whose dice block a blow instead)
-        List<ItemDef> made = forgeBases();
+        // what it is made from: a weapon - or for the Tailor a piece of armour (whose dice block a blow), or clothes
+        List<ItemDef> made = forgeBases(worn);
         List<String> bases = new ArrayList<>();
         int bi = 0;
         for (int i = 0; i < made.size(); i++) {
@@ -2315,15 +2380,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += 38;
         }
 
-        // the colours: of a part (or all of it), or of the dice
+        // the colours: of a part (or all of it), or of the dice (clothes roll none)
         List<String> parts = game.items().parts(forging.base());
         List<String> targets = new ArrayList<>();
         for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
-        targets.add("The dice");
+        if (!worn || armour) targets.add("The dice");
         forgeColour = Math.floorMod(forgeColour, targets.size());
         forgeColour = widgets.choice(ui, "Colour", targets, forgeColour, x, y, w, 0.36f);
         y += 34;
-        boolean dice = forgeColour == targets.size() - 1;
+        boolean dice = forgeColour == parts.size();
         String part = dice ? null : parts.get(forgeColour);
         int current = dice ? forging.diceRgb() : forging.tints().getOrDefault(part, -1);
         int cols = 16;
@@ -2335,8 +2400,17 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             forging = dice ? forging.withDiceRgb(-1) : forging.withTint(part, -1);
         }
         y += 34;
+        if (worn) {
+            y += ui.paragraph(ui.small, "A dye still colours it, as any piece: these colours are for what no dye "
+                    + "takes (its metal, its trim).", x, y, w, Theme.ITEM_DISABLED) + 8;
+        }
 
         forgeButtons(ui, x, y, w);
+        if (!worn) {
+            y += 40;
+            ui.paragraph(ui.small, "Armour and clothes of your own are made in the Tailor (its Your own page).", x, y, w,
+                    Theme.ITEM_DISABLED);
+        }
     }
 
     /** The Forge's pages: what it is, its special effects (armour and clothes), its dice, its tiers. */
@@ -2350,8 +2424,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * hat, a necklace, a ring ...), which block nothing but can be given
      * special effects as armour can.
      */
-    static List<ItemDef> forgeBases() {
-        List<ItemDef> out = new ArrayList<>(ItemDef.ALL);
+    /** What the Forge makes weapons from ({@code worn} false), or the Tailor its own pieces: the armour, then the clothes. */
+    static List<ItemDef> forgeBases(boolean worn) {
+        if (!worn) return new ArrayList<>(ItemDef.ALL);
+        List<ItemDef> out = new ArrayList<>();
         for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
             if (com.larsons.game.world.Armour.sides(d) > 0) out.add(d);
         }
@@ -2364,42 +2440,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     /**
      * The Forge's effects page, for armour and clothes: each of the gear's
      * special effects on or off, and how much of it - added up with
-     * everything else she wears.
+     * everything else she wears. What it gives at its first tier, as made;
+     * each tier after gives what the Tiers page says.
      */
     private void forgeEffects(Ui ui, float x, float y, float w) {
-        y += ui.paragraph(ui.small, "What it does for whoever wears it, under other clothes or armour too. Several "
-                + "pieces add up; a dye still colours it.", x, y, w, Theme.ITEM_DISABLED) + 10;
-        float bw = (float) Math.floor(w * 0.52f);
-        for (com.larsons.game.world.Gear.Effect e : com.larsons.game.world.Gear.Effect.values()) {
-            Double amount = forging.gear().get(e);
-            boolean on = amount != null;
-            // (the small font on every one, so a short name is not drawn bigger than a long one)
-            if (ui.button("", x, y, bw, 28, on, true)) forging = forging.withGear(e, on ? 0 : e.fallback());
-            ui.textCentered(ui.small, fitSmall(ui, e.label(), bw - 8), x + bw / 2, y + 7, on ? Theme.TITLE : Theme.ITEM);
-            ui.rect(x + 4, y + 24, bw - 8, 3, Theme.hex(e.rgb(), on ? 1f : 0.3f));
-            float sx = x + bw + 6, sw = w - bw - 6;
-            if (on && !e.onOff()) {
-                double v = amount;
-                if (ui.button("-", sx, y, 26, 28)) v = e.clamp(v - e.step());
-                if (ui.button("+", sx + sw - 26, y, 26, 28)) v = e.clamp(v + e.step());
-                ui.textCentered(ui.small, fitSmall(ui, e.amount(v), sw - 56), sx + sw / 2, y + 7, Theme.TITLE);
-                if (v != amount) forging = forging.withGear(e, v);
-            } else {
-                ui.text(ui.small, fitSmall(ui, on ? "On" : "Off", sw), sx + 4, y + 7,
-                        on ? Theme.TITLE : Theme.ITEM_DISABLED);
+        y += ui.paragraph(ui.small, "What it does at its first tier for whoever wears it, under other clothes or "
+                + "armour too. Several pieces add up; a dye still colours it. Each tier after: the Tiers page.", x, y, w,
+                Theme.ITEM_DISABLED) + 10;
+        Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, forging.baseGear(), x, y, w);
+        if (!g.equals(forging.baseGear())) {
+            Forged f = forging;
+            for (com.larsons.game.world.Gear.Effect e : com.larsons.game.world.Gear.Effect.values()) {
+                f = f.withGear(e, g.getOrDefault(e, 0.0));
             }
-            y += 31;
+            forging = f;
         }
-        y += 8;
+        y += TailorPanel.gearRowsHeight() + 8;
         forgeButtons(ui, x, y, w);
-    }
-
-    /** {@code s} cut to {@code width} in the small font, with an ellipsis. */
-    private static String fitSmall(Ui ui, String s, float width) {
-        if (ui.small.width(s) <= width) return s;
-        String out = s;
-        while (out.length() > 1 && ui.small.width(out + "…") > width) out = out.substring(0, out.length() - 1);
-        return out + "…";
     }
 
     /** The Forge's Save, Place it and Delete buttons, at {@code y}. */
@@ -2469,32 +2526,41 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * The Forge's third page: its upgrade tiers, 1 (as forged) to 10 - each
      * after the first with its own name, rarity, dice, colours, ammunition
      * and price in upgrade ingots, and whether it is a mystery (???) in the
-     * inventory until it is reached.
+     * inventory until it is reached. A piece of armour or clothing (the
+     * Tailor's) has no ammunition - clothes no dice either - and each tier
+     * gives what it is made with worn (more health, speed ...), or what the
+     * tier before gave.
      */
     private void forgeTiers(Ui ui, float x, float y, float w) {
+        boolean worn = forging.worn();
+        boolean blocks = com.larsons.game.world.Armour.sides(forging.def()) > 0;
         List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
         int n = (int) Math.round(widgets.stepper(ui, "Tiers", ups.size() + 1, 1, 1, Forged.MAX_TIERS, "%.0f", x, y, w));
         while (ups.size() + 1 < n) {
-            // a tier more: the one before it, a rarity rarer, a die more, a little dearer
-            Forged last = forging.at(ups.size());
+            // a tier more: the one before it, a rarity rarer, a die more, a little dearer - worn, giving more
+            Forged last = forging.withUpgrades(ups).at(ups.size());
             Rarity r = Rarity.values()[Math.min(Rarity.values().length - 1, last.rarity().ordinal() + 1)];
-            ups.add(new Forged.Upgrade("", r, Math.min(Forged.MAX_DICE, last.dice() + 1), last.sides(), last.extra(),
-                    last.diceRgb(), Map.of(), last.ammoEvery() + com.larsons.game.world.Ammo.EVERY_STEP,
-                    com.larsons.game.world.Upgrades.cost(r), false));
+            ups.add(new Forged.Upgrade("", r, Math.min(Forged.MAX_DICE, last.dice() + (worn && !blocks ? 0 : 1)),
+                    last.sides(), last.extra(), last.diceRgb(), Map.of(),
+                    last.ammoEvery() + com.larsons.game.world.Ammo.EVERY_STEP, com.larsons.game.world.Upgrades.cost(r),
+                    false, worn ? grown(last.gear(), forging.baseGear()) : null));
         }
         while (ups.size() + 1 > n) ups.remove(ups.size() - 1);
         if (!ups.equals(forging.upgrades())) forging = forging.withUpgrades(ups);
         y += 36;
         if (ups.isEmpty()) {
             ui.paragraph(ui.small, "One tier: it stays as forged. Add tiers to let it be upgraded with upgrade ingots "
-                    + "(right-click it in the inventory to see them all).", x, y, w, Theme.ITEM_DISABLED);
+                    + "(right-click it in the inventory to see them all)" + (worn ? ", each giving more worn." : "."),
+                    x, y, w, Theme.ITEM_DISABLED);
             forgeButtons(ui, x, y + 60, w);
             return;
         }
         forgeTier = Math.max(1, Math.min(ups.size(), forgeTier));
         float tw = Math.min(40, (w - (ups.size() - 1) * 3) / ups.size());
         for (int i = 1; i <= ups.size(); i++) {
-            if (ui.button(String.valueOf(i + 1), x + (i - 1) * (tw + 3), y, tw, 26, forgeTier == i, true)) forgeTier = i;
+            float bx = x + (i - 1) * (tw + 3);
+            if (ui.button(String.valueOf(i + 1), bx, y, tw, 26, forgeTier == i, true)) forgeTier = i;
+            ui.rect(bx + 4, y + 22, tw - 8, 3, ups.get(i - 1).rarity().colour(forgeTier == i ? 1f : 0.45f));
         }
         y += 34;
         Forged.Upgrade u = ups.get(forgeTier - 1);
@@ -2510,34 +2576,63 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         int ri = widgets.choice(ui, "Rarity", rarities, u.rarity().ordinal(), x, y, w, 0.36f);
         if (ri != u.rarity().ordinal()) u = u.withRarity(Rarity.values()[ri]);
         y += 34;
-        int dn = (int) Math.round(widgets.stepper(ui, "Dice", u.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
-        if (dn != u.dice()) u = u.withDice(dn);
-        y += 32;
-        int kinds = Forged.SIDES.length;
-        float dw = (w - (kinds - 1) * 3) / kinds;
-        for (int i = 0; i < kinds; i++) {
-            if (ui.button(Forged.die(Forged.SIDES[i]), x + i * (dw + 3), y, dw, 26, u.sides() == Forged.SIDES[i], true)) {
-                u = u.withSides(Forged.SIDES[i]);
+        // its dice: a weapon's to strike, armour's to block (clothes roll none)
+        if (!worn || blocks) {
+            int dn = (int) Math.round(widgets.stepper(ui, worn ? "Dice to block" : "Dice", u.dice(), 1, 1,
+                    Forged.MAX_DICE, "%.0f", x, y, w));
+            if (dn != u.dice()) u = u.withDice(dn);
+            y += 32;
+            int kinds = Forged.SIDES.length;
+            float dw = (w - (kinds - 1) * 3) / kinds;
+            for (int i = 0; i < kinds; i++) {
+                if (ui.button(Forged.die(Forged.SIDES[i]), x + i * (dw + 3), y, dw, 26, u.sides() == Forged.SIDES[i],
+                        true)) {
+                    u = u.withSides(Forged.SIDES[i]);
+                }
             }
+            y += 32;
         }
-        y += 32;
         int cost = (int) Math.round(widgets.stepper(ui, "Costs", u.cost(), 1, 0, 99, "%.0f ingots", x, y, w));
         if (cost != u.cost()) u = u.withCost(cost);
         y += 32;
-        int every = (int) Math.round(widgets.stepper(ui, "Ammo lasts", u.ammoEvery(), 1, 1, 200, "%.0f uses", x, y, w));
-        if (every != u.ammoEvery()) u = u.withAmmoEvery(every);
-        y += 32;
+        if (!worn) {
+            int every = (int) Math.round(widgets.stepper(ui, "Ammo lasts", u.ammoEvery(), 1, 1, 200, "%.0f uses", x, y,
+                    w));
+            if (every != u.ammoEvery()) u = u.withAmmoEvery(every);
+            y += 32;
+        }
         if (widgets.toggle(ui, "Mystery (???)", u.mystery(), x, y, w)) u = u.withMystery(!u.mystery());
         y += 34;
+        if (worn) {
+            // what it gives worn at this tier: its own, or what the tier before gave
+            Map<com.larsons.game.world.Gear.Effect, Double> before = forging.withUpgrades(ups).at(forgeTier - 1).gear();
+            ui.text(ui.small, "What it gives worn at tier " + (forgeTier + 1), x, y, Theme.ACCENT);
+            y += 22;
+            float bw = (w - 4) / 2;
+            if (ui.button("Its own", x, y, bw, 26, u.gear() != null, true) && u.gear() == null) {
+                u = u.withGear(grown(before, forging.baseGear()));
+            }
+            if (ui.button("As tier " + forgeTier, x + bw + 4, y, bw, 26, u.gear() == null, true)) u = u.withGear(null);
+            y += 32;
+            if (u.gear() == null) {
+                String said = new com.larsons.game.world.Tailor.Rung("", before).shortText();
+                y += ui.paragraph(ui.small, "As tier " + forgeTier + ": " + (said.isEmpty() ? "nothing" : said) + ".",
+                        x, y, w, Theme.ITEM_DISABLED) + 8;
+            } else {
+                Map<com.larsons.game.world.Gear.Effect, Double> g = TailorPanel.gearRows(ui, u.gear(), x, y, w);
+                if (!g.equals(u.gear())) u = u.withGear(g);
+                y += TailorPanel.gearRowsHeight() + 6;
+            }
+        }
         // its colours: a part (or all of it) recoloured as it reaches this tier, or its dice
         List<String> parts = game.items().parts(forging.base());
         List<String> targets = new ArrayList<>();
         for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
-        targets.add("The dice");
+        if (!worn || blocks) targets.add("The dice");
         tierColour = Math.floorMod(tierColour, targets.size());
         tierColour = widgets.choice(ui, "Colour", targets, tierColour, x, y, w, 0.36f);
         y += 32;
-        boolean dice = tierColour == targets.size() - 1;
+        boolean dice = tierColour == parts.size();
         String part = dice ? null : parts.get(tierColour);
         int current = dice ? u.diceRgb() : u.tints().getOrDefault(part, -1);
         int cols = 16;
@@ -2549,11 +2644,45 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             u = dice ? u.withDiceRgb(-1) : u.withTint(part, -1);
         }
         y += 32;
+        if (worn) {
+            y += ui.paragraph(ui.small, "A dye still colours it at every tier: its colours here are for what no dye "
+                    + "takes (its metal, its trim).", x, y, w, Theme.ITEM_DISABLED) + 8;
+        }
         if (!u.equals(was)) {
             ups.set(forgeTier - 1, u);
             forging = forging.withUpgrades(ups);
         }
         forgeButtons(ui, x, y, w);
+    }
+
+    /**
+     * What a worn piece's next tier gives at first: {@code last} (what the
+     * tier before gives), each amount up by half of what it was made with
+     * ({@code first}; at least a step of it) - +25 health a tier for a piece
+     * made with +50.
+     */
+    static Map<com.larsons.game.world.Gear.Effect, Double> grown(Map<com.larsons.game.world.Gear.Effect, Double> last,
+                                                                Map<com.larsons.game.world.Gear.Effect, Double> first) {
+        Map<com.larsons.game.world.Gear.Effect, Double> out = new java.util.EnumMap<>(
+                com.larsons.game.world.Gear.Effect.class);
+        for (var e : last.entrySet()) {
+            com.larsons.game.world.Gear.Effect fx = e.getKey();
+            if (fx.onOff()) {
+                out.put(fx, 1.0);
+                continue;
+            }
+            double add = Math.max(fx.step(), Math.round(first.getOrDefault(fx, e.getValue()) * 0.5 / fx.step()) * fx.step());
+            out.put(fx, fx.clamp(e.getValue() + add));
+        }
+        return out;
+    }
+
+    /** Work on {@code f} in the tool that makes its kind: the Forge for a weapon, the Tailor's own pieces for armour and clothes. */
+    private void forgeIn(Forged f) {
+        Tool want = f.worn() ? Tool.TAILOR : Tool.FORGE;
+        if (tool != want) setTool(want);
+        if (f.worn()) tailorOwn = true;
+        forging = f;
     }
 
     /** Keep the weapon being forged; {@code place}: and take up placing it. */
@@ -2584,15 +2713,20 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             palette = ObjectTypes.palette();
             game.toast("Deleted " + forging.name(), Theme.HINT);
             Sounds.play(SoundKeys.ui("remove"));
-            forging = Forged.fresh("New weapon");
+            forging = forging.worn() ? Forged.freshWorn("New piece") : Forged.fresh("New weapon");
         } catch (java.io.IOException e) {
             game.toast("Could not delete it: " + e.getMessage(), Theme.WARNING);
         }
     }
 
-    /** The weapon being forged as it will look: turning, its name and rarity, its dice as they come up, its effects. */
+    /**
+     * The weapon being forged as it will look: turning, its name and rarity,
+     * its dice as they come up, its effects - at the tier being made on the
+     * Tiers page; a piece worn (the Tailor's) with what every tier gives.
+     */
     private void forgePreview(Ui ui, float x, float y, float w) {
-        Forged f = forging;
+        Forged f = forgePage == PAGE_TIERS && forging.tiers() > 1
+                ? forging.at(Math.max(1, Math.min(forging.tiers() - 1, forgeTier))) : forging;
         y = heading(ui, "As it will be", x, y);
         ItemSprites items = game.items();
         // (armour and clothes as they lie about: a shield or a shirt on a hanger, in its rarity's colour)
@@ -2633,6 +2767,13 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += ui.paragraph(ui.small, g.getKey().said(g.getValue()), x, y, w, Theme.hex(g.getKey().rgb(), 1f)) + 2;
         }
         y += 8;
+        if (f.worn() && f.tiers() > 1) {
+            // every tier, and what it gives
+            y = TailorPanel.ladder(ui, f.tiers(), n -> {
+                Forged a = forging.at(n);
+                return new TailorPanel.Rungs(a.name(), a.rarity().colour(1f), a.gear());
+            }, f.level(), x, y, w) + 8;
+        }
         if (!rolls) return;
         // its dice, come up highest (a d% as its tens and its ones), and any more doing their sums
         com.larsons.game.combat.DiceRoll roll = highest(f);
@@ -3714,8 +3855,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
     }
 
     private void rightPanelContent(Ui ui, float px, float py, float pw, float y, float h) {
-        if (tool == Tool.FORGE) {
+        if (tool == Tool.FORGE || tool == Tool.TAILOR && tailorOwn) {
             forgePreview(ui, px, py, pw);
+            return;
+        }
+        if (tool == Tool.TAILOR) {
+            tailor().preview(ui, px, py, pw, view.world().time());
             return;
         }
         if (placingShown()) {
@@ -4682,13 +4827,14 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 // dicecolour <#rgb|none> | colour <n> | page <n> | save | place
                 String what = a[0], rest = argument.trim().substring(what.length()).trim();
                 switch (what) {
-                    case "new" -> forging = Forged.fresh(rest.isEmpty() ? "New weapon" : rest);
+                    case "new" -> forging = tool == Tool.TAILOR ? Forged.freshWorn(rest.isEmpty() ? "New piece" : rest)
+                            : Forged.fresh(rest.isEmpty() ? "New weapon" : rest);
                     case "open" -> {
                         Forged f = Forged.byId(rest);
-                        if (f != null) forging = f;
+                        if (f != null) forgeIn(f);
                     }
                     case "name" -> forging = forging.withName(rest);
-                    case "base" -> forging = forging.withBase(rest);
+                    case "base" -> forgeIn(forging.withBase(rest));
                     case "rarity" -> forging = forging.withRarity(Rarity.byKey(rest));
                     case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
                     case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
@@ -4703,6 +4849,46 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                         }
                     }
                     case "page" -> forgePage = Integer.parseInt(rest);
+                    case "tier" -> forgeTier = Integer.parseInt(rest);
+                    case "tiers" -> {
+                        // tiers <n>: so many, each added as the Tiers page adds one (worn: giving more)
+                        int n = Math.max(1, Math.min(Forged.MAX_TIERS, Integer.parseInt(rest)));
+                        List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
+                        boolean worn = forging.worn();
+                        boolean blocks = com.larsons.game.world.Armour.sides(forging.def()) > 0;
+                        while (ups.size() + 1 < n) {
+                            Forged last = forging.withUpgrades(ups).at(ups.size());
+                            Rarity r = Rarity.values()[Math.min(Rarity.values().length - 1, last.rarity().ordinal() + 1)];
+                            ups.add(new Forged.Upgrade("", r, Math.min(Forged.MAX_DICE, last.dice()
+                                    + (worn && !blocks ? 0 : 1)), last.sides(), last.extra(), last.diceRgb(), Map.of(),
+                                    last.ammoEvery(), com.larsons.game.world.Upgrades.cost(r), false,
+                                    worn ? grown(last.gear(), forging.baseGear()) : null));
+                        }
+                        while (ups.size() + 1 > n) ups.remove(ups.size() - 1);
+                        forging = forging.withUpgrades(ups);
+                    }
+                    case "tiergear" -> {
+                        // tiergear <tier from 2> <effect> <amount|off> | tiergear <tier> before: what a tier gives worn
+                        int t = Integer.parseInt(a[1]) - 1;
+                        List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
+                        if (t < 1 || t > ups.size()) return false;
+                        Forged.Upgrade u = ups.get(t - 1);
+                        if (a[2].equals("before")) {
+                            u = u.withGear(null);
+                        } else {
+                            var e = com.larsons.game.world.Gear.Effect.byKey(a[2]);
+                            if (e == null) return false;
+                            var g = new java.util.EnumMap<com.larsons.game.world.Gear.Effect, Double>(
+                                    com.larsons.game.world.Gear.Effect.class);
+                            g.putAll(u.gear() != null ? u.gear() : forging.withUpgrades(ups).at(t - 1).gear());
+                            String v = a.length < 4 ? "on" : a[3];
+                            if (v.equals("off")) g.remove(e);
+                            else g.put(e, v.equals("on") ? e.fallback() : Double.parseDouble(v));
+                            u = u.withGear(g);
+                        }
+                        ups.set(t - 1, u);
+                        forging = forging.withUpgrades(ups);
+                    }
                     case "tint" -> forging = forging.withTint(a[1], a[2].equals("none") ? -1
                             : Integer.parseInt(a[2].replace("#", ""), 16));
                     case "dicecolour" -> forging = forging.withDiceRgb(rest.equals("none") ? -1
@@ -4711,6 +4897,47 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case "save" -> saveForged(false);
                     case "place" -> saveForged(true);
                     default -> { }
+                }
+            }
+            case "tailor" -> {
+                // tailor own | tailor every | tailor piece <id> [tier from 1] | tailor tier <n from 1> |
+                // tailor gear <effect> <amount|on|off> | tailor name <name> | tailor grow | tailor same | tailor reset
+                String what = a[0], rest = argument.trim().substring(what.length()).trim();
+                TailorPanel tp = tailor();
+                ItemDef d = tp.def();
+                List<com.larsons.game.world.Tier> tiers = com.larsons.game.world.Tailor.tiers(d);
+                int at = Math.max(0, Math.min(tiers.size() - 1, tp.tier()));
+                List<com.larsons.game.world.Tailor.Rung> rungs = new ArrayList<>(com.larsons.game.world.Tailor.rungs(d));
+                try {
+                    switch (what) {
+                        case "own" -> tailorOwn = true;
+                        case "every" -> tailorOwn = false;
+                        case "piece" -> {
+                            if (!tp.pick(a[1], a.length > 2 ? Integer.parseInt(a[2]) - 1 : 0)) return false;
+                            tailorOwn = false;
+                        }
+                        case "tier" -> tp.tier(Integer.parseInt(rest) - 1);
+                        case "gear" -> {
+                            var e = com.larsons.game.world.Gear.Effect.byKey(a[1]);
+                            if (e == null) return false;
+                            String v = a.length < 3 ? "on" : a[2];
+                            double amount = v.equals("off") ? 0 : v.equals("on") ? e.fallback() : Double.parseDouble(v);
+                            rungs.set(at, rungs.get(at).withGear(e, amount));
+                            com.larsons.game.world.Tailor.save(d, rungs);
+                        }
+                        case "name" -> {
+                            rungs.set(at, rungs.get(at).withName(rest));
+                            com.larsons.game.world.Tailor.save(d, rungs);
+                        }
+                        case "grow", "same" -> com.larsons.game.world.Tailor.save(d,
+                                com.larsons.game.world.Tailor.upTheTiers(rungs, at, what.equals("grow")));
+                        case "reset" -> com.larsons.game.world.Tailor.reset(d);
+                        default -> {
+                            return false;
+                        }
+                    }
+                } catch (java.io.IOException e) {
+                    return false;
                 }
             }
             case "listen" -> {

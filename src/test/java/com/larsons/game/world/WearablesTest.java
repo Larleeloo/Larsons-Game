@@ -49,9 +49,13 @@ class WearablesTest {
         assertEquals("Long waves hairstyle", Item.parse("hair_long_waves").name());
         assertEquals("Arched eyebrows", Item.parse("eyebrows_arched").name());
         assertEquals("Noir makeup", Item.parse("makeup_noir").name());
+        // a garment of another rarity is its tier of that rarity (the clothes have tiers, as the armour has)
         Item epicBelt = Item.parse("belt epic venom");
-        assertEquals("belt:epic:venom", epicBelt.key(), "another rarity is written down");
+        assertEquals("belt:honed:venom", epicBelt.key(), "another rarity is written down: its tier");
+        assertEquals(Rarity.EPIC, epicBelt.rarity());
+        assertEquals("Masterwork belt", epicBelt.name());
         assertEquals(epicBelt, Item.parse(epicBelt.key()));
+        assertEquals(epicBelt, Item.parse("belt:epic:venom"), "as an older save wrote it");
         assertEquals("sword", Item.of(ItemDef.SWORD).key(), "the weapons are as they were");
     }
 

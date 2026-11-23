@@ -553,14 +553,14 @@ final class InventoryPanel {
         }
         String help = pad ? (shop != null ? "A on its button: buy · X on an item of yours: sell one · B: close"
                 : store != null ? "A: pick up / put down · X: move between them · Y: drop what you hold · B: close"
-                : "A: pick up / put down · X: eat, a weapon's tiers, or to / from the hotbar · Y: drop what you hold · "
+                : "A: pick up / put down · X: eat, its tiers, or to / from the hotbar · Y: drop what you hold · "
                 + "LB / RB: more · B: close")
                 : shop != null
                 ? "Buy: its button · Right-click or Shift-click an item of yours: sell one · E, I or Esc: close"
                 : store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "
                 + "E, I or Esc: close"
-                : "Click: pick up / put down · Right-click: eat, or a weapon's tiers · Shift-click: to / from the hotbar · "
+                : "Click: pick up / put down · Right-click: eat, or its tiers · Shift-click: to / from the hotbar · "
                 + "Click outside: drop · J: cards · I or Esc: close";
         // (under the panel, and never off the bottom of the window)
         ui.textCentered(ui.small, Ui.fit(ui.small, help, ui.width() - 24), ui.width() / 2f,
@@ -1093,8 +1093,7 @@ final class InventoryPanel {
                         + (forged.worn() && com.larsons.game.world.Armour.sides(item.def()) <= 0 ? ""
                         : ", rolls " + forged.notation())
                 : item.rarity().label() + (item.tier() == null ? ""
-                        : " - " + (com.larsons.game.world.Armour.sides(item.def()) > 0
-                        ? com.larsons.game.world.Tier.armourLabel(item.tier()) : item.tier().label()) + " tier");
+                        : " - " + com.larsons.game.world.Tier.label(item.def(), item.tier()) + " tier");
         Border border = item.border();
         String effect = item.def().edible() ? "Eat: " + item.def().food().effect()
                 : item.def().isFood() ? "An ingredient, for the crafting to come"
@@ -1103,9 +1102,9 @@ final class InventoryPanel {
                         ? com.larsons.game.world.Armour.describe(item, world.player().armourRules())
                 : forged != null ? (forged.effects().isEmpty() ? null : effects(forged))
                 : border == null ? null : border.label() + " border: " + border.effect();
-        // a forged piece's special effects, a line each in its colour (more health in red, mana in blue ...)
-        List<Map.Entry<com.larsons.game.world.Gear.Effect, Double>> gear = forged == null ? List.of()
-                : new ArrayList<>(forged.gear().entrySet());
+        // what a piece worn gives at its tier, a line each in its colour (more health in red, mana in blue ...)
+        List<Map.Entry<com.larsons.game.world.Gear.Effect, Double>> gear =
+                new ArrayList<>(com.larsons.game.world.Gear.of(item).entrySet());
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
         for (var g : gear) w = Math.max(w, ui.small.width(g.getKey().said(g.getValue())));
