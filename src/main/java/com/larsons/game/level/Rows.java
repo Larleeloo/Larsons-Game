@@ -185,6 +185,89 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
         return s.toString();
     }
 
+    // --- what a chest, a barrel or a house holds -------------------------------------------
+
+    /**
+     * What a chest, a barrel, a crate or a house holds ({@code contents}):
+     * item (each picked from every item there is - the Forge's among them),
+     * tier, how many; written as the text the game has always read ("health_potion
+     * x6, wild_berries, longbow:perfect").
+     */
+    public static Rows contents() {
+        return new Rows(List.of(
+                Column.choice("Item", 0.52f, "health_potion", (o, row) -> withCurrent(holdable(), row, 0), Rows::itemLabel),
+                Column.choice("Tier", 0.24f, "", (o, row) -> withCurrent(tiers(row.get(0)), row, 1), Rows::tierLabel),
+                Column.number("How many", 0.24f, "1", 1, 999, 1, v -> v)),
+                "+ Add something to it", "Holds nothing", Rows::readReward, Rows::writeReward,
+                "Pick each item from the list (type in it to find one); how many of it is the last column.");
+    }
+
+    /** What a chest can hold: every item there is (coins are carried in a purse, not kept in a chest). */
+    static List<String> holdable() {
+        List<String> out = new ArrayList<>();
+        for (String id : ObjectTypes.itemIds()) if (!id.equals("coins")) out.add(id);
+        return out;
+    }
+
+    // --- what a horde's mystery box can stop on -------------------------------------------
+
+    /** A pool row's tier when the weapon comes at every one of its tiers. */
+    public static final String EVERY_TIER = "*";
+
+    /**
+     * What a mystery box can stop on ({@code pool}): each weapon - the Forge's
+     * among them - at one tier or at every tier; written "sword:*, longbow:perfect".
+     * No rows: every weapon, at every tier.
+     */
+    public static Rows pool() {
+        return new Rows(List.of(
+                Column.choice("Weapon", 0.6f, "sword", (o, row) -> withCurrent(weapons(), row, 0), Rows::itemLabel),
+                Column.choice("Tier", 0.4f, EVERY_TIER, (o, row) -> withCurrent(poolTiers(row.get(0)), row, 1),
+                        t -> EVERY_TIER.equals(t) ? "Every tier" : tierLabel(t))),
+                "+ Add a weapon", "Every weapon, at every tier", Rows::readPool, Rows::writePool,
+                "The box stops on one of these, the rarer the less often.");
+    }
+
+    /** Every weapon: the eight and the Forge's (not its armour or clothes). */
+    static List<String> weapons() {
+        List<String> out = new ArrayList<>();
+        for (ItemDef d : ItemDef.ALL) out.add(d.id());
+        for (Forged f : Forged.all()) if (!f.worn()) out.add(f.key());
+        return out;
+    }
+
+    static List<String> poolTiers(String id) {
+        List<String> out = new ArrayList<>(List.of(EVERY_TIER));
+        for (String t : tiers(id)) if (!t.isBlank()) out.add(t);
+        return out;
+    }
+
+    static List<List<String>> readPool(String text) {
+        List<List<String>> out = new ArrayList<>();
+        if (text == null) return out;
+        for (String part : text.split(",")) {
+            String s = part.strip();
+            if (s.isEmpty()) continue;
+            if (s.endsWith(":" + EVERY_TIER)) {
+                out.add(new ArrayList<>(List.of(s.substring(0, s.length() - 2).strip(), EVERY_TIER)));
+                continue;
+            }
+            String[] it = item(s);
+            out.add(new ArrayList<>(List.of(it[0], it[1])));
+        }
+        return out;
+    }
+
+    static String writePool(List<List<String>> rows) {
+        StringBuilder s = new StringBuilder();
+        for (List<String> r : rows) {
+            if (r.get(0).isBlank()) continue;
+            if (!s.isEmpty()) s.append(", ");
+            s.append(key(r.get(0), r.get(1)));
+        }
+        return s.toString();
+    }
+
     // --- what someone can be asked -------------------------------------------------------
 
     /** What can be asked of someone: the topic, and her answer (| starts a new page). */

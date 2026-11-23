@@ -251,6 +251,7 @@ public final class Portrait {
     private void face(Ui ui, float x, float y, float w, float h, Wardrobe wd) {
         if (closeUp == null) closeUp = new CloseUp(game);
         if (closeUp.draw(ui, x, y, w, h, wd, null, facing, time, zoom) >= 0) return;
+        wd = wd.drawn();
         // (that close-up is from the front-left: turned to the right, it is seen in a mirror)
         boolean mirrored = facing.key().endsWith("w");
         SpriteLibrary lib = game.sprites();

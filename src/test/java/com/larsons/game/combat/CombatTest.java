@@ -137,6 +137,64 @@ class CombatTest {
     }
 
     @Test
+    void eachBlowCostsStaminaAndWithoutItTheBlowIsTired() {
+        World w = holding(Item.of(ItemDef.SWORD));
+        Dummy d = ahead(w, 1.2, 100000);
+        Player p = w.player();
+        CombatTuning t = CombatTuning.defaults();
+        play(w, ATTACK, 2);
+        assertEquals(Player.MAX_STAMINA - t.staminaSwing, p.stamina(), 1e-6, "a swing's stamina");
+        assertEquals(1, w.combat().show().strike().times(), 1e-9);
+        idle(w, 1.5);
+        p.setStamina(1);
+        play(w, ATTACK, 2);
+        Combat.Show show = w.combat().show();
+        assertEquals(t.tiredDamage, show.strike().times(), 1e-9, "out of stamina: 70%");
+        assertEquals(0.7, t.tiredDamage, 1e-9);
+        assertTrue(show.notes().stream().anyMatch(n -> n.text().startsWith("Tired")), "said under the dice");
+        assertEquals(0, p.stamina(), 1e-9);
+        double before = d.health();
+        idle(w, 0.6);
+        assertEquals(Math.round(show.strike().roll().total() * t.tiredDamage), before - d.health(), 1e-9);
+        // a heavy attack costs more, a spin and a jump attack their own
+        Move heavy = new Move(Move.Kind.SWING, 0.4, 1.7, 120, true);
+        assertEquals(t.staminaHeavy, w.combat().staminaCost(heavy, AnimState.AXE_HEAVY_ATTACK), 1e-9);
+        Move spin = Move.of(AnimState.SPIN_ATTACK, Item.of(ItemDef.SWORD));
+        assertEquals(t.staminaSpin, w.combat().staminaCost(spin, AnimState.SPIN_ATTACK), 1e-9);
+        assertEquals(t.staminaJumpAttack, w.combat().staminaCost(Move.of(AnimState.JUMP_ATTACK, Item.of(ItemDef.SWORD)),
+                AnimState.JUMP_ATTACK), 1e-9);
+    }
+
+    @Test
+    void gearDrawsBackHealthManaAndStaminaFromHerBlows() {
+        World w = holding(Item.of(ItemDef.SWORD, Rarity.MYTHIC));
+        Dummy d = ahead(w, 1.2, 100000);
+        Player p = w.player();
+        var gear = new com.larsons.game.world.Forged("leech", "Leech shirt", "baggy_shirt", Rarity.EPIC,
+                java.util.Map.of(), 1, 6, -1, java.util.Set.of(), List.of(), com.larsons.game.world.Forged.AMMO_EVERY,
+                List.of(), 0, java.util.Map.of(com.larsons.game.world.Gear.Effect.HEALTH_ABSORB, 50.0,
+                com.larsons.game.world.Gear.Effect.MANA_ABSORB, 100.0,
+                com.larsons.game.world.Gear.Effect.STAMINA_ABSORB, 100.0,
+                com.larsons.game.world.Gear.Effect.MANA, 50.0));
+        p.inventory().add(gear.item());
+        p.wardrobe().wear(Slot.SHIRT, false, "plaid_flannel");
+        p.wardrobe().setId(Slot.SHIRT, false, com.larsons.game.world.Armour.forgedLook(gear));
+        p.setHealth(11);
+        p.hurt(1);                                  // (no health of her own coming back for a while)
+        play(w, Player.Intent.NONE, 2);
+        assertEquals(150, w.combat().maxMana(), 1e-9, "the gear's mana on top of the pool");
+        w.combat().setMana(0);
+        p.setStamina(30);
+        play(w, ATTACK, 2);
+        idle(w, 0.6);
+        double dealt = 100000 - d.health();
+        assertTrue(dealt > 0);
+        assertEquals(Math.min(p.maxHealth(), 10 + dealt * 0.5), p.health(), 0.6);
+        assertTrue(w.combat().mana() >= Math.min(150, dealt) - 1e-6, "mana: " + w.combat().mana());
+        assertTrue(p.stamina() >= Math.min(p.maxStamina(), 30 - CombatTuning.defaults().staminaSwing + dealt) - 1e-6);
+    }
+
+    @Test
     void aSwingMissesWhatIsBehindHerOrOutOfReach() {
         World w = holding(Item.of(ItemDef.SWORD));
         Dummy behind = w.addDummy(new Dummy(new Vec3(0, 0, 1.2), 0, 1000, 6));

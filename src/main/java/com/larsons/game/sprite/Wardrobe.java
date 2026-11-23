@@ -152,6 +152,26 @@ public final class Wardrobe {
 
     private final EnumMap<Slot, String> items = new EnumMap<>(Slot.class);
     private final EnumMap<Slot, String> colours = new EnumMap<>(Slot.class);
+    /**
+     * What each slot's folder is worn as, where its folder and colour alone
+     * would not say: the wearable's id ({@code bronze_helmet}, {@code
+     * moonsilk_gown}) or a forged piece's ({@code forged:<id>}) - so a dye
+     * can colour it and it stays what it is ({@link #id}).
+     */
+    private final EnumMap<Slot, String> ids = new EnumMap<>(Slot.class);
+    /**
+     * The clothes worn under the armour in a slot the two share (a hat under
+     * a helmet, a necklace under a gorget, a shirt under a gambeson ...):
+     * worn - what they do still counts - but not drawn while the armour is
+     * ({@link #get(Slot, boolean)}), and drawn when it is hidden ({@link #drawn}).
+     */
+    private final EnumMap<Slot, String> under = new EnumMap<>(Slot.class);
+    private final EnumMap<Slot, String> underColours = new EnumMap<>(Slot.class);
+    private final EnumMap<Slot, String> underIds = new EnumMap<>(Slot.class);
+    /** Goes up with every change: what is drawn from it is made again ({@link #drawn}). */
+    private int version;
+    private Wardrobe drawn;
+    private int drawnVersion = -1;
     /** The colours dyes have unlocked: {@code "<slot>/<item>"} to its colour options. */
     private final Map<String, Set<String>> unlocked = new TreeMap<>();
     private Style style = Style.PIXEL_128;
@@ -164,12 +184,169 @@ public final class Wardrobe {
     }
 
     public void set(Slot slot, String item) {
-        if (item == null || item.isBlank()) items.remove(slot);
+        if (item != null && item.isBlank()) item = null;
+        // (another folder is another thing: what it was worn as goes)
+        if (!java.util.Objects.equals(items.get(slot), item)) ids.remove(slot);
+        if (item == null) items.remove(slot);
         else items.put(slot, item);
+        version++;
     }
 
     public void clear(Slot slot) {
-        items.remove(slot);
+        set(slot, null);
+    }
+
+    // --- armour over clothes -------------------------------------------------------------
+
+    /** Whether {@code folder} is armour ({@link #ARMOUR}): it goes over the clothes of its slot. */
+    public static boolean isArmour(String folder) {
+        return in(ARMOUR, folder);
+    }
+
+    /**
+     * What is worn in {@code slot} as armour ({@code armour}) - its top layer
+     * when that is armour - or as clothes: the top layer when it is not
+     * armour, else what is worn under the armour. Null: nothing.
+     */
+    public String get(Slot slot, boolean armour) {
+        String top = items.get(slot);
+        boolean plated = isArmour(top);
+        if (armour) return plated ? top : null;
+        return plated ? under.get(slot) : top;
+    }
+
+    /** The colour of what {@link #get(Slot, boolean)} gives. */
+    public String colour(Slot slot, boolean armour) {
+        boolean plated = isArmour(items.get(slot));
+        if (armour) return plated ? colours.get(slot) : null;
+        return plated ? underColours.get(slot) : colours.get(slot);
+    }
+
+    /** What {@link #get(Slot, boolean)} gives is worn as ({@link #id}), or null. */
+    public String id(Slot slot, boolean armour) {
+        boolean plated = isArmour(items.get(slot));
+        if (armour) return plated ? ids.get(slot) : null;
+        return plated ? underIds.get(slot) : ids.get(slot);
+    }
+
+    /**
+     * Wear {@code folder} in {@code slot} as armour or as clothes, the other
+     * left on: armour goes over the clothes there (they are kept under it),
+     * clothes go under the armour there. Null takes that one off - the
+     * armour's clothes come back on top. Its colour is kept for the same
+     * folder, and what it is worn as goes for another.
+     */
+    public void wear(Slot slot, boolean armour, String folder) {
+        if (folder != null && folder.isBlank()) folder = null;
+        String top = items.get(slot);
+        boolean plated = isArmour(top);
+        if (armour) {
+            if (folder == null) {
+                if (!plated) return;
+                // off with the armour: the clothes under it come back up
+                String u = under.remove(slot), uc = underColours.remove(slot), ui = underIds.remove(slot);
+                items.remove(slot);
+                colours.remove(slot);
+                ids.remove(slot);
+                if (u != null) {
+                    items.put(slot, u);
+                    if (uc != null) colours.put(slot, uc);
+                    if (ui != null) ids.put(slot, ui);
+                }
+            } else if (plated) {
+                set(slot, folder);
+            } else {
+                // the clothes there go under it
+                if (top != null) {
+                    under.put(slot, top);
+                    put(underColours, slot, colours.get(slot));
+                    put(underIds, slot, ids.get(slot));
+                }
+                items.put(slot, folder);
+                colours.remove(slot);
+                ids.remove(slot);
+            }
+        } else if (plated) {
+            if (!java.util.Objects.equals(under.get(slot), folder)) underIds.remove(slot);
+            if (folder == null) {
+                under.remove(slot);
+                underColours.remove(slot);
+            } else {
+                under.put(slot, folder);
+            }
+        } else {
+            set(slot, folder);
+        }
+        version++;
+    }
+
+    /** Put {@code colour} on what {@link #get(Slot, boolean)} gives (null: its own colours). */
+    public void setColour(Slot slot, boolean armour, String colour) {
+        boolean plated = isArmour(items.get(slot));
+        if (armour && !plated) return;
+        if (!armour && plated) put(underColours, slot, colour);
+        else setColour(slot, colour);
+        version++;
+    }
+
+    /** Say what {@link #get(Slot, boolean)} gives is worn as ({@link #id}; null: by its folder and colour). */
+    public void setId(Slot slot, boolean armour, String id) {
+        boolean plated = isArmour(items.get(slot));
+        if (armour && !plated) return;
+        if (!armour && plated) put(underIds, slot, id);
+        else put(ids, slot, id);
+        version++;
+    }
+
+    /** What the top layer of {@code slot} is worn as: a wearable's id, {@code forged:<id>}, or null. */
+    public String id(Slot slot) {
+        return ids.get(slot);
+    }
+
+    /** Say what the top layer of {@code slot} is worn as (null: by its folder and colour). */
+    public void setId(Slot slot, String id) {
+        put(ids, slot, id);
+        version++;
+    }
+
+    private static void put(EnumMap<Slot, String> map, Slot slot, String v) {
+        if (v == null || v.isBlank()) map.remove(slot);
+        else map.put(slot, v);
+    }
+
+    /**
+     * What is drawn of it: itself while the armour shows; with the armour
+     * hidden ({@link #armourHidden}), a wardrobe with the clothes under the
+     * armour where the armour was, and no armour - so nothing is covered.
+     * The same object until it changes.
+     */
+    public Wardrobe drawn() {
+        if (!armourHidden) return this;
+        if (drawn != null && drawnVersion == version) return drawn;
+        Wardrobe w = copy();
+        w.armourHidden = false;
+        w.under.clear();
+        w.underColours.clear();
+        w.underIds.clear();
+        for (Slot s : Slot.values()) {
+            if (!isArmour(items.get(s))) continue;
+            w.items.remove(s);
+            w.colours.remove(s);
+            w.ids.remove(s);
+            String u = under.get(s);
+            if (u == null) continue;
+            w.items.put(s, u);
+            put(w.colours, s, underColours.get(s));
+            put(w.ids, s, underIds.get(s));
+        }
+        drawn = w;
+        drawnVersion = version;
+        return w;
+    }
+
+    /** How many times it has been changed: what is worked out from it is worked out again when this moves on. */
+    public int version() {
+        return version;
     }
 
     public boolean wearing(Slot slot, String item) {
@@ -242,6 +419,7 @@ public final class Wardrobe {
 
     public void setStyle(Style style) {
         this.style = style == null ? Style.PIXEL_128 : style;
+        version++;
     }
 
     /**
@@ -257,6 +435,7 @@ public final class Wardrobe {
     public void setColour(Slot slot, String colour) {
         if (colour == null || colour.isBlank()) colours.remove(slot);
         else colours.put(slot, colour);
+        version++;
     }
 
     /** The skin tone: the body's colour. */
@@ -274,6 +453,7 @@ public final class Wardrobe {
     public void unlock(Slot slot, String item, String colour) {
         if (item == null || colour == null || colour.isBlank()) return;
         unlocked.computeIfAbsent(slot.key() + "/" + item, k -> new TreeSet<>()).add(colour);
+        version++;
     }
 
     /** Every colour dyes have unlocked: {@code "<slot>/<item>"} to its colours. */
@@ -289,6 +469,7 @@ public final class Wardrobe {
 
     public void setHand(Hand hand) {
         this.hand = hand == null ? Hand.AUTO : hand;
+        version++;
     }
 
     /** Whether the character is drawn left-handed (see {@link Hand}). */
@@ -304,6 +485,10 @@ public final class Wardrobe {
         Wardrobe w = new Wardrobe();
         w.items.putAll(items);
         w.colours.putAll(colours);
+        w.ids.putAll(ids);
+        w.under.putAll(under);
+        w.underColours.putAll(underColours);
+        w.underIds.putAll(underIds);
         for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) w.unlocked.put(e.getKey(), new TreeSet<>(e.getValue()));
         w.style = style;
         w.hand = hand;
@@ -314,7 +499,10 @@ public final class Wardrobe {
     /** Whether the armour worn is out of sight: worn, rolling its dice, but not drawn (nor hiding anything). */
     public boolean armourHidden() { return armourHidden; }
 
-    public void setArmourHidden(boolean on) { armourHidden = on; }
+    public void setArmourHidden(boolean on) {
+        armourHidden = on;
+        version++;
+    }
 
     /**
      * Wear what {@code other} wears, in its colours, its style and its hand -
@@ -325,10 +513,15 @@ public final class Wardrobe {
             if (s.carried()) continue;
             set(s, other.get(s));
             setColour(s, other.colour(s));
+            put(ids, s, other.ids.get(s));
+            put(under, s, other.under.get(s));
+            put(underColours, s, other.underColours.get(s));
+            put(underIds, s, other.underIds.get(s));
         }
         style = other.style;
         hand = other.hand;
         armourHidden = other.armourHidden;
+        version++;
     }
 
     public Map<String, Object> toJson() {
@@ -342,6 +535,10 @@ public final class Wardrobe {
             for (Map.Entry<Slot, String> e : colours.entrySet()) c.put(e.getKey().key(), e.getValue());
             out.put("colours", c);
         }
+        putMap(out, "ids", ids);
+        putMap(out, "under", under);
+        putMap(out, "underColours", underColours);
+        putMap(out, "underIds", underIds);
         if (!unlocked.isEmpty()) {
             Map<String, Object> u = new LinkedHashMap<>();
             for (Map.Entry<String, Set<String>> e : unlocked.entrySet()) u.put(e.getKey(), new ArrayList<>(e.getValue()));
@@ -349,6 +546,24 @@ public final class Wardrobe {
         }
         return out;
     }
+
+    private static void putMap(Map<String, Object> out, String key, EnumMap<Slot, String> map) {
+        if (map.isEmpty()) return;
+        Map<String, Object> m = new LinkedHashMap<>();
+        for (Map.Entry<Slot, String> e : map.entrySet()) m.put(e.getKey().key(), e.getValue());
+        out.put(key, m);
+    }
+
+    private static void readMap(Map<String, Object> json, String key, EnumMap<Slot, String> into) {
+        if (!(json.get(key) instanceof Map<?, ?> c)) return;
+        for (Map.Entry<?, ?> e : c.entrySet()) {
+            Slot slot = Slot.byKey(String.valueOf(e.getKey()));
+            if (slot != null && e.getValue() instanceof String s && !s.isBlank()) into.put(slot, s);
+        }
+    }
+
+    /** What a forged piece was worn in before it had an id of its own: its look, {@code forged:<id>}, as its colour. */
+    private static final String FORGED = "forged:";
 
     public static Wardrobe fromJson(Map<String, Object> json) {
         Wardrobe w = new Wardrobe();
@@ -365,6 +580,30 @@ public final class Wardrobe {
                 Slot slot = Slot.byKey(String.valueOf(e.getKey()));
                 if (slot != null && e.getValue() instanceof String s) w.setColour(slot, s);
             }
+        }
+        readMap(json, "ids", w.ids);
+        readMap(json, "under", w.under);
+        readMap(json, "underColours", w.underColours);
+        readMap(json, "underIds", w.underIds);
+        // (a forged piece saved before: its look was its colour - now what it is worn as, and its colour free to dye)
+        for (Slot s : Slot.values()) {
+            String c = w.colours.get(s);
+            if (c != null && c.startsWith(FORGED)) {
+                w.colours.remove(s);
+                w.ids.putIfAbsent(s, c);
+            }
+        }
+        // (clothes under something that is not armour: the clothes are the top)
+        for (Slot s : Slot.values()) {
+            if (!w.under.containsKey(s) || isArmour(w.items.get(s))) continue;
+            if (!w.items.containsKey(s)) {
+                w.items.put(s, w.under.get(s));
+                put(w.colours, s, w.underColours.get(s));
+                put(w.ids, s, w.underIds.get(s));
+            }
+            w.under.remove(s);
+            w.underColours.remove(s);
+            w.underIds.remove(s);
         }
         if (json.get("unlocked") instanceof Map<?, ?> u) {
             for (Map.Entry<?, ?> e : u.entrySet()) {

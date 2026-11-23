@@ -858,7 +858,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 break;
             }
         }
-        if (p.health() > 0 && p.health() < Player.MAX_HEALTH * 0.35) tips.offer("hurt");
+        if (p.health() > 0 && p.health() < p.maxHealth() * 0.35) tips.offer("hurt");
         Item held = p.inventory().held();
         if (held != null && world.ammo().enabled() && com.larsons.game.world.Ammo.of(held.def()) != null
                 && world.ammo().left(held) == 0 && world.ammo().carried(held, p.inventory()) == 0) {
@@ -2603,6 +2603,12 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 }
             }
             case "dropitem" -> drop();
+            // lay <item>: an item put down on the ground before her, from nowhere (for screenshots)
+            case "lay" -> {
+                Item item = Item.parse(argument.trim());
+                if (item == null) return false;
+                world.dropItem(item);
+            }
             case "pause" -> pause.open(PauseMenu.Page.valueOf(
                     argument.isBlank() ? "MAIN" : argument.toUpperCase()));
             case "resume" -> pause.close();
@@ -2619,7 +2625,21 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 String[] a = argument.trim().split("\\s+", 2);
                 com.larsons.game.sprite.Slot slot = com.larsons.game.sprite.Slot.byKey(a[0]);
                 if (slot == null) return false;
-                p.wardrobe().set(slot, a.length > 1 ? a[1] : null);
+                String item = a.length > 1 ? a[1].trim() : null;
+                if (item == null) {
+                    p.wardrobe().set(slot, null);
+                } else if (item.startsWith(com.larsons.game.world.Forged.PREFIX)) {
+                    // wear <slot> forged:<id>: a piece of the Forge's, worn as itself (armour over the clothes)
+                    var f = com.larsons.game.world.Forged.byId(item.substring(com.larsons.game.world.Forged.PREFIX.length()));
+                    if (f == null || !f.item().def().isWearable()) return false;
+                    String folder = f.item().def().wearable().folders().get(0);
+                    boolean armour = Wardrobe.isArmour(folder);
+                    p.wardrobe().wear(slot, armour, folder);
+                    p.wardrobe().setId(slot, armour, item);
+                } else {
+                    // armour goes over what is worn there, clothes under any armour
+                    p.wardrobe().wear(slot, Wardrobe.isArmour(item), item);
+                }
             }
             case "colour", "color" -> {
                 // colour <slot> [option]: the slot's colour (body: the skin), or its own

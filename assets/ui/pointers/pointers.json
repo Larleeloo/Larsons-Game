@@ -35,6 +35,10 @@
     "holy_symbol": [
       1,
       1
+    ],
+    "gear_arrow": [
+      1,
+      1
     ]
   },
   "order": [
@@ -46,6 +50,7 @@
     "leafy_branch",
     "dagger",
     "arrow",
-    "holy_symbol"
+    "holy_symbol",
+    "gear_arrow"
   ]
 }

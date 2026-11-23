@@ -7,13 +7,13 @@
   "glass": [
    1
   ],
-  "cork": [
+  "brass": [
    2
   ]
  },
  "materials": [
   "liquid",
   "glass",
-  "cork"
+  "brass"
  ]
 }

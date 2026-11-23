@@ -194,8 +194,8 @@ public final class Armour {
     }
 
     /**
-     * The look of a forged piece worn ({@link Wardrobe#colour} of its slot):
-     * {@code forged:<id>}, the id of what the Forge made.
+     * What a forged piece is worn as ({@link Wardrobe#id} of its slot; in an
+     * older save, its colour): {@code forged:<id>}, the id of what the Forge made.
      */
     public static String forgedLook(Forged f) {
         return Forged.PREFIX + f.id();
@@ -243,12 +243,34 @@ public final class Armour {
         return out;
     }
 
-    /** The item worn in {@code slot} (see {@link #worn}), or null when nothing is worn there or no item is it. */
+    /** The item worn on top in {@code slot} (see {@link #worn}), or null when nothing is worn there or no item is it. */
     public static Item item(Wardrobe wardrobe, Inventory inventory, Slot slot) {
-        String folder = wardrobe.get(slot);
+        return item(inventory, slot, wardrobe.get(slot), wardrobe.colour(slot), wardrobe.id(slot));
+    }
+
+    /**
+     * The item worn in {@code slot} as its armour ({@code armour}) or as its
+     * clothes ({@link Wardrobe#get(Slot, boolean)}: a necklace under a gorget
+     * is worn too), or null.
+     */
+    public static Item item(Wardrobe wardrobe, Inventory inventory, Slot slot, boolean armour) {
+        return item(inventory, slot, wardrobe.get(slot, armour), wardrobe.colour(slot, armour),
+                wardrobe.id(slot, armour));
+    }
+
+    /**
+     * The item {@code folder} worn in {@code slot} in {@code colour} is - as
+     * {@code id} says it is worn (a wearable's id, {@code forged:<id>}), else
+     * by its folder and colour - as the best of it in {@code inventory}.
+     */
+    public static Item item(Inventory inventory, Slot slot, String folder, String colour, String id) {
         if (folder == null) return null;
-        String colour = wardrobe.colour(slot);
-        String forged = forgedId(colour);
+        String forged = forgedId(id != null ? id : colour);
+        if (forged == null && id != null) {
+            // worn as a wearable of its own (a bronze helmet dyed red is still the bronze helmet)
+            ItemDef own = Wearables.byId(id);
+            if (own != null && own.wearable().puts(slot, folder)) return best(inventory, own);
+        }
         if (forged != null) {
             Item best = null;
             if (inventory != null) {
@@ -265,6 +287,11 @@ public final class Armour {
         }
         ItemDef d = Wearables.wornAs(slot, folder, forged != null ? null : colour);
         if (d == null) return null;
+        return best(inventory, d);
+    }
+
+    /** The best of {@code d} (not forged) in {@code inventory}: its highest tier, else rarity - or as it is found. */
+    private static Item best(Inventory inventory, ItemDef d) {
         Item best = null;
         if (inventory != null) {
             for (Item i : inventory) {

@@ -120,23 +120,38 @@ public final class LookEditor {
             if (lib.entry(body, slot, lib.styled(body, slot, folder, wardrobe.style())) == null) continue;
             out.add(new WardrobePanel.Option(folder, d, f.at(0)));
         }
-        String worn = wardrobe.get(slot);
-        if (worn != null && WardrobePanel.current(out, slot, wardrobe) < 0) {
-            out.add(new WardrobePanel.Option(worn, null));
+        // what is worn there that is none of these (the armour, the clothes under it)
+        for (boolean armour : new boolean[]{true, false}) {
+            String worn = wardrobe.get(slot, armour);
+            if (worn != null && WardrobePanel.current(out, slot, wardrobe, armour) < 0) {
+                out.add(new WardrobePanel.Option(worn, null));
+            }
         }
         return out;
     }
 
     /** The colours of what is worn in {@code slot}: its own options, then the palette's; unlocked or not. */
     public List<Wearables.Colour> colours(Slot slot, Wardrobe wardrobe, Player player) {
+        return colours(slot, wardrobe, player, null);
+    }
+
+    /**
+     * The colours of what is worn in {@code slot}'s {@code layer} (the armour,
+     * the clothes under it; null: what is on top) - armour and a forged piece
+     * in any colour of the palette.
+     */
+    public List<Wearables.Colour> colours(Slot slot, Wardrobe wardrobe, Player player, Boolean layer) {
         SpriteLibrary lib = game.sprites();
-        if (!everything && player != null) return WardrobePanel.colours(lib, slot, player);
-        String item = wardrobe.get(slot);
+        if (!everything && player != null) return WardrobePanel.colours(lib, slot, player, layer);
+        String item = WardrobePanel.worn(wardrobe, slot, layer);
         List<Wearables.Colour> out = new ArrayList<>();
-        if (item == null || Wearables.metal(slot, item)) return out;
+        boolean forged = com.larsons.game.world.Armour.forgedId(WardrobePanel.wornId(wardrobe, slot, layer)) != null;
+        if (item == null || Wearables.metal(slot, item) && !forged) return out;
         List<String> all = lib.colourOptions(wardrobe.get(Slot.BODY), slot, item, wardrobe.style());
         for (String c : all) out.add(new Wearables.Colour(c, true));
-        if (!all.isEmpty()) for (String c : Wearables.PALETTE) out.add(new Wearables.Colour(c, true));
+        if (!all.isEmpty() || Wardrobe.isArmour(item) || forged) {
+            for (String c : Wearables.PALETTE) out.add(new Wearables.Colour(c, true));
+        }
         return out;
     }
 

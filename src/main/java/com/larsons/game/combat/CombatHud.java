@@ -472,11 +472,11 @@ public final class CombatHud {
     public void drawVitals(Ui ui, Player player, float cy) {
         float w = 150, h = 10;
         float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44;
-        bar(ui, x, y, w, h, player.health() / Player.MAX_HEALTH, HEALTH_RGB, HEALTH_LIGHT,
+        bar(ui, x, y, w, h, player.health() / player.maxHealth(), HEALTH_RGB, HEALTH_LIGHT,
                 "Health " + (int) Math.ceil(player.health()), player.sinceHurt() < 0.3, "heart", false);
         float sx = ui.width() / 2f + 2 * 64 + 28 + 26;
-        if (player.stamina() < Player.MAX_STAMINA - 0.5 || player.climbing() != null) {
-            bar(ui, sx, y, w, h, player.stamina() / Player.MAX_STAMINA, STAMINA_RGB, STAMINA_LIGHT,
+        if (player.stamina() < player.maxStamina() - 0.5 || player.climbing() != null) {
+            bar(ui, sx, y, w, h, player.stamina() / player.maxStamina(), STAMINA_RGB, STAMINA_LIGHT,
                     "Stamina " + (int) Math.ceil(player.stamina()), player.stamina() < Player.CLIMB_MIN, "stamina", true);
         }
         if (player.underWater() || player.breath() < Player.MAX_BREATH - 0.05) {

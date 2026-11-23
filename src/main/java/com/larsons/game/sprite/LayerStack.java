@@ -213,6 +213,8 @@ public final class LayerStack {
     public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                  double time, SpriteView view, Memory memory, boolean handsEmpty,
                                  Stance holding) {
+        // (the armour hidden: the clothes under it drawn in its place)
+        wardrobe = wardrobe.drawn();
         Elevation elev = view.elevation();
         Facing facing = view.facing();
         boolean missing = false;

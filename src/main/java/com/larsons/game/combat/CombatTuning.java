@@ -56,6 +56,15 @@ public final class CombatTuning {
      */
     public final double mysticBaseCost;
 
+    /**
+     * The stamina a blow costs ({@code stamina}): a swing, a heavy attack, a
+     * spin, a jump attack, a shot (an arrow, a bolt) and a spell; and what a
+     * blow does when she has not the stamina for it, times ({@code
+     * stamina.tiredDamage}: 0.7, 70%).
+     */
+    public final double staminaSwing, staminaHeavy, staminaSpin, staminaJumpAttack, staminaShot, staminaSpell,
+            tiredDamage;
+
     /** Projectile speeds, metres a second. */
     public final double arrowSpeed, boltSpeed, spellSpeed;
     /** How far a shot looks for a target and a spell flies, in metres. */
@@ -100,6 +109,15 @@ public final class CombatTuning {
         manaRegen = Math.max(0, Json.num(m, "regenPerSecond", 5));
         spellCost = Math.max(0, Json.num(m, "spellCost", 10));
         mysticBaseCost = Math.max(0, Json.num(m, "mysticBaseCost", 5));
+
+        Map<String, Object> st = Json.obj(json, "stamina");
+        staminaSwing = Math.max(0, Json.num(st, "swing", 6));
+        staminaHeavy = Math.max(0, Json.num(st, "heavy", 14));
+        staminaSpin = Math.max(0, Json.num(st, "spin", 12));
+        staminaJumpAttack = Math.max(0, Json.num(st, "jumpAttack", 10));
+        staminaShot = Math.max(0, Json.num(st, "shot", 4));
+        staminaSpell = Math.max(0, Json.num(st, "spell", 3));
+        tiredDamage = Math.max(0, Math.min(1, Json.num(st, "tiredDamage", 0.7)));
 
         Map<String, Object> p = Json.obj(json, "projectiles");
         arrowSpeed = Math.max(1, Json.num(p, "arrowSpeed", 30));

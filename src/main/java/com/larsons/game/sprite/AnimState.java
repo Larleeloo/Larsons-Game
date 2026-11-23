@@ -213,7 +213,13 @@ public enum AnimState {
     // --- at rest, empty hands (feminine_model_moves.py author_rest): standing easy, the
     // weight shifting from one foot to the other, a breath, a look about - the main menu's,
     // the map's, the wardrobe's, and any townsfolk's who hold nothing
-    REST("rest", "At rest", true, 90, Stance.FREE, 0, "idle");
+    REST("rest", "At rest", true, 90, Stance.FREE, 0, "idle"),
+    // --- in the air, with whatever is in her hands (feminine_model_air.py): the second jump a
+    // piece of gear gives her (Gear.Effect.DOUBLE_JUMP) - a kick off nothing and a tucked
+    // front flip - and the fall, looping, her legs treading and her arms out, off a ledge or
+    // after the top of a jump
+    DOUBLE_JUMP("double_jump", "Double jump", false, 20, Stance.ALL, 0, "jump"),
+    FALL("fall", "Fall", true, 20, Stance.ALL, 0, "jump");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

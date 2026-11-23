@@ -165,7 +165,7 @@ public final class ObjectTypes {
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
                 List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE)),
                         Prop.toggle("loot", "Throws out loot", true),
-                        Prop.text("contents", "Holds (e.g. apple x6, bread)", "")), Chest.RADIUS, 0.9,
+                        Prop.rows("contents", "Holds", "", Rows.contents())), Chest.RADIUS, 0.9,
                 0xC89A50, false,
                 (o, b) -> {
                     // a chest for keeping things in is the 3D storage chest (a loot chest stays the sprite it was)
@@ -273,7 +273,7 @@ public final class ObjectTypes {
         // (a barrel or a crate holds things too - and breaks: Store)
         register(new ObjectType(BUILDING, "Building", Category.BUILDINGS,
                 List.of(Prop.choice("kind", "Building", "cottage", o -> BuildingCatalog.get().keys()),
-                        Prop.text("contents", "Holds (e.g. apple x6, bread)", ""),
+                        Prop.rows("contents", "Holds", "", Rows.contents()),
                         Prop.number("width", "Width ×", 1, 0.25, 4, 0.05),
                         Prop.number("depth", "Depth ×", 1, 0.25, 4, 0.05),
                         Prop.number("height", "Height ×", 1, 0.25, 4, 0.05),

@@ -64,6 +64,7 @@ final class CloseUp {
     int draw(Ui ui, float x, float y, float w, float h, Wardrobe wd, Inventory inventory, Facing facing, double time,
              double zoom) {
         if (!has(wd)) return -1;
+        wd = wd.drawn();
         SpriteLibrary lib = game.sprites();
         CloseupLibrary closeups = game.wardrobeCloseups();
         String root = lib.rootOf(wd.get(Slot.BODY));

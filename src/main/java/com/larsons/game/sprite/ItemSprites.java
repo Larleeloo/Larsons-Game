@@ -272,7 +272,11 @@ public final class ItemSprites implements AutoCloseable {
 
     /** The parts of weapon {@code id} a forged one can colour: its in-hand sheets' (and {@code all}). */
     public java.util.List<String> parts(String id) {
-        if (com.larsons.game.world.Armour.sides(com.larsons.game.world.ItemDef.byId(id)) > 0) return ARMOUR_PARTS;
+        com.larsons.game.world.ItemDef worn = com.larsons.game.world.ItemDef.byId(id);
+        // (armour, and any clothes the Forge makes: the materials of its art no colour channel takes)
+        if (com.larsons.game.world.Armour.sides(worn) > 0 || com.larsons.game.world.Forged.wornBase(worn)) {
+            return ARMOUR_PARTS;
+        }
         java.util.List<String> out = new java.util.ArrayList<>();
         out.add(TierLook.ALL);
         Map<String, int[]> c = tiers.carried(id);

@@ -1853,6 +1853,11 @@ public final class World {
                     player.respawn(spawnPoint);
                     combat.lock(null);
                 }
+                case DOUBLE_JUMPED -> combat.sound(SoundKeys.player(body, "jump"), at);
+                case WINDED -> {
+                    combat.say("Out of breath", 0xFFD27A, at, 2.1, true);
+                    combat.sound(SoundKeys.player(body, "out_of_breath"), at);
+                }
                 case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
                 case ARMOUR_HELD -> { }        // (said where the blow came from: hurtSaid)
             }
@@ -2076,8 +2081,8 @@ public final class World {
         Item item = player.inventory().get(slot);
         if (item == null || !item.def().edible()) return null;
         Food f = item.def().food();
-        double h = Math.min(f.health(), Player.MAX_HEALTH - player.health());
-        double s = Math.min(f.stamina(), Player.MAX_STAMINA - player.stamina());
+        double h = Math.min(f.health(), player.maxHealth() - player.health());
+        double s = Math.min(f.stamina(), player.maxStamina() - player.stamina());
         double m = Math.min(f.mana(), combat.maxMana() - combat.mana());
         Eaten e = new Eaten(item, Math.max(0, h), Math.max(0, s), Math.max(0, m));
         if (!e.ate()) return e;
@@ -2220,7 +2225,7 @@ public final class World {
     public boolean sleep() {
         if (!bedtime() || foesIn(new Area("bed", player.ground(), 18)) > 0) return false;
         clock.setHour(MORNING);
-        player.heal(Player.MAX_HEALTH);
+        player.heal(player.maxHealth());
         return true;
     }
 

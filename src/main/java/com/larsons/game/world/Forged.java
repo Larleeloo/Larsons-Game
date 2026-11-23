@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,7 +50,7 @@ import java.util.stream.Stream;
  */
 public record Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints,
                      int dice, int sides, int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra,
-                     int ammoEvery, List<Upgrade> upgrades, int level) {
+                     int ammoEvery, List<Upgrade> upgrades, int level, Map<Gear.Effect, Double> gear) {
 
     /**
      * One of a forged weapon's upgrade tiers after its first (the weapon as
@@ -134,7 +135,20 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     public Forged {
         name = name == null || name.isBlank() ? "Forged weapon" : name.strip();
         ItemDef d = ItemDef.byId(base);
-        if (d == null || !ItemDef.ALL.contains(d) && Armour.sides(d) <= 0) base = ItemDef.SWORD.id();
+        if (!forgeable(d)) {
+            base = ItemDef.SWORD.id();
+            d = ItemDef.SWORD;
+        }
+        // what is worn has the gear's effects, a weapon the borders' (Venom, Mystic, Bonded): never the other's
+        boolean worn = d.isWearable();
+        EnumMap<Gear.Effect, Double> g = new EnumMap<>(Gear.Effect.class);
+        if (gear != null && worn) {
+            for (Map.Entry<Gear.Effect, Double> e : gear.entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) g.put(e.getKey(), e.getKey().clamp(e.getValue()));
+            }
+        }
+        gear = Collections.unmodifiableMap(g);
+        if (worn) effects = Set.of();
         if (rarity == null) rarity = Rarity.EPIC;
         Map<String, Integer> t = new LinkedHashMap<>();
         if (tints != null) {
@@ -161,7 +175,63 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     /** One as the Forge made them before upgrades: its first tier only. */
     public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
                   int diceRgb, Set<Border> effects) {
-        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, List.of(), AMMO_EVERY, List.of(), 0);
+        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, List.of(), AMMO_EVERY, List.of(), 0,
+                Map.of());
+    }
+
+    /** One with no special effects of the gear's. */
+    public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
+                  int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra, int ammoEvery, List<Upgrade> upgrades,
+                  int level) {
+        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, Map.of());
+    }
+
+    /**
+     * Whether the Forge can make something of {@code d}: a weapon, or
+     * anything worn as clothes or armour ({@link #wornBase}) - not a dye,
+     * a hair style, the eyebrows or the makeup.
+     */
+    public static boolean forgeable(ItemDef d) {
+        return d != null && (ItemDef.ALL.contains(d) || wornBase(d));
+    }
+
+    /** Whether {@code d} is clothes or armour the Forge can make a piece of. */
+    public static boolean wornBase(ItemDef d) {
+        if (d == null || !d.isWearable() || d.wearable().slots().isEmpty() || d.wearable().folders().isEmpty()) {
+            return false;
+        }
+        for (com.larsons.game.sprite.Slot s : d.wearable().slots()) {
+            switch (s) {
+                case HAIR, EYEBROWS, MAKEUP, MOUTH, BODY, EARS, EYES, NOSE, HORNS, TAIL -> {
+                    return false;
+                }
+                default -> { }
+            }
+        }
+        return true;
+    }
+
+    /** Whether it is worn (clothes or armour), not a weapon. */
+    public boolean worn() {
+        ItemDef d = def();
+        return d != null && d.isWearable();
+    }
+
+    /** With {@code e} at {@code amount}, or without it (a negative amount, or 0). */
+    public Forged withGear(Gear.Effect e, double amount) {
+        EnumMap<Gear.Effect, Double> g = new EnumMap<>(Gear.Effect.class);
+        g.putAll(gear);
+        if (amount <= 0) g.remove(e);
+        else g.put(e, amount);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
+                level, g);
+    }
+
+    /** Its special effects, as the inventory says them: "+25 max health", "A second jump in the air". */
+    public List<String> gearText() {
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<Gear.Effect, Double> e : gear.entrySet()) out.add(e.getKey().said(e.getValue()));
+        return out;
     }
 
     // --- its tier now (level 0: as forged; n: its n-th upgrade) ----------------------
@@ -216,7 +286,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
 
     /** It at tier {@code n} (0: as forged), held within its tiers. */
     public Forged at(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n, gear);
     }
 
     /** It one tier up, or null at its last. */
@@ -237,15 +307,15 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     }
 
     public Forged withExtra(List<DiceRoll.Group> e) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0, gear);
     }
 
     public Forged withAmmoEvery(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0, gear);
     }
 
     public Forged withUpgrades(List<Upgrade> u) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0, gear);
     }
 
     /** A new one: an Epic sword rolling one d20, in its own colours, with no effects. */
@@ -291,27 +361,27 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return String.join(", ", out);
     }
 
-    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
-    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
     /** Made from another weapon: the colours of parts it does not have dropped. */
-    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
-    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
-    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
-    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level, gear); }
 
-    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level); }
+    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level, gear); }
 
     /** {@code part} in {@code rgb} (-1: as it is drawn). */
     public Forged withTint(String part, int rgb) {
         Map<String, Integer> t = new LinkedHashMap<>(tints);
         if (rgb < 0) t.remove(part);
         else t.put(part, rgb);
-        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level);
+        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear);
     }
 
     /** With {@code b}'s effect, or without it. */
@@ -319,7 +389,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         EnumSet<Border> e = effects.isEmpty() ? EnumSet.noneOf(Border.class) : EnumSet.copyOf(effects);
         if (on) e.add(b);
         else e.remove(b);
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level, gear);
     }
 
     // --- the forge's files ------------------------------------------------------------
@@ -390,6 +460,11 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
+        if (!f.gear().isEmpty()) {
+            Map<String, Object> g = new LinkedHashMap<>();
+            for (Map.Entry<Gear.Effect, Double> x : f.gear().entrySet()) g.put(x.getKey().key(), x.getValue());
+            m.put("gear", g);
+        }
         m.put("tints", tintMap(f.tints()));
         if (!f.upgrades().isEmpty()) {
             List<Object> ups = new ArrayList<>();
@@ -426,6 +501,14 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 if (b != null) effects.add(b);
             }
         }
+        EnumMap<Gear.Effect, Double> gear = new EnumMap<>(Gear.Effect.class);
+        Map<String, Object> gm = Json.obj(m, "gear");
+        if (gm != null) {
+            for (Map.Entry<String, Object> x : gm.entrySet()) {
+                Gear.Effect ge = Gear.Effect.byKey(x.getKey());
+                if (ge != null && x.getValue() instanceof Number n) gear.put(ge, n.doubleValue());
+            }
+        }
         String dc = Json.str(m, "diceColour", "");
         List<Upgrade> ups = new ArrayList<>();
         if (m.get("upgrades") instanceof List<?> l) {
@@ -444,7 +527,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return new Forged(id, Json.str(m, "name", id), Json.str(m, "base", "sword"),
                 Rarity.byKey(Json.str(m, "rarity", "epic")), tints, (int) Json.num(m, "dice", 1),
                 (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
-                (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0);
+                (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear);
     }
 
     private static List<Object> groups(List<DiceRoll.Group> gs) {

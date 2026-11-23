@@ -557,8 +557,8 @@ final class Story {
     private boolean quaff(Goods.Good g) {
         Player p = world.player();
         boolean only = g.helps().isEmpty() && g.arg() == null;
-        double h = Math.min(g.health(), Player.MAX_HEALTH - p.health());
-        double s = Math.min(g.stamina(), Player.MAX_STAMINA - p.stamina());
+        double h = Math.min(g.health(), p.maxHealth() - p.health());
+        double s = Math.min(g.stamina(), p.maxStamina() - p.stamina());
         double m = Math.min(g.mana(), world.combat().maxMana() - world.combat().mana());
         if (only && h <= 0 && s <= 0 && m <= 0) {
             Sounds.play(SoundKeys.ui("error"), 0.6);
@@ -620,8 +620,8 @@ final class Story {
                 return;
             }
             swigs--;
-            if (p.health() > 0) p.setHealth(Math.min(Player.MAX_HEALTH, p.health() + g.health()));
-            p.setStamina(Math.min(Player.MAX_STAMINA, p.stamina() + g.stamina()));
+            if (p.health() > 0) p.setHealth(Math.min(p.maxHealth(), p.health() + g.health()));
+            p.setStamina(Math.min(p.maxStamina(), p.stamina() + g.stamina()));
             world.combat().say("+" + (int) g.stamina() + " stamina  (" + swigs + " left)", 0x4AC850, p.feet(), 2.1,
                     false);
             world.combat().sound("item/horn_drink", at);

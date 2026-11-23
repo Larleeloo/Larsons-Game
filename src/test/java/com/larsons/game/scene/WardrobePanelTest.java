@@ -399,4 +399,96 @@ class WardrobePanelTest {
         assertTrue(w.hidden(Slot.SHIRT));
         assertFalse(Wardrobe.fromJson(w.toJson()).armourHidden());
     }
+    // --- armour over clothes, by the part of the body ------------------------------------------
+
+    private static WardrobePanel.Row row(List<WardrobePanel.Row> rows, Slot slot) {
+        for (WardrobePanel.Row r : rows) if (r.slot() == slot) return r;
+        throw new AssertionError(slot + " has no row");
+    }
+
+    @Test
+    void theArmourRowsAreSetOutByThePartOfTheBodyTheyGuard() {
+        java.util.Map<com.larsons.game.world.Armour.Location, List<String>> by = new java.util.LinkedHashMap<>();
+        int n = 0;
+        for (var at : com.larsons.game.world.Armour.Location.values()) {
+            List<String> labels = WardrobePanel.armourOf(at).stream().map(WardrobePanel.Row::label).toList();
+            by.put(at, labels);
+            n += labels.size();
+        }
+        assertEquals(List.of("Helmet", "Gorget"), by.get(com.larsons.game.world.Armour.Location.HEAD));
+        assertEquals(List.of("Gambeson · jerkin", "Mail shirt", "Chestplate"),
+                by.get(com.larsons.game.world.Armour.Location.TORSO));
+        assertEquals(List.of("Gauntlets", "Right bracer", "Left bracer"),
+                by.get(com.larsons.game.world.Armour.Location.ARMS));
+        assertEquals(List.of("Mail leggings", "Leg plating"), by.get(com.larsons.game.world.Armour.Location.LEGS));
+        assertEquals(List.of("Sabatons"), by.get(com.larsons.game.world.Armour.Location.FEET));
+        assertEquals(WardrobePanel.ARMOUR.size(), n, "every armour row in one of them");
+        for (WardrobePanel.Row r : WardrobePanel.ARMOUR) assertEquals(Boolean.TRUE, r.layer(), r.label());
+    }
+
+    @Test
+    void aGorgetIsWornOverANecklaceAndNeitherTakesTheOtherOff() {
+        player.inventory().add(Item.of(w("gorget")));
+        player.inventory().add(Item.of(w("silver_necklace")));
+        Wardrobe wr = player.wardrobe();
+        WardrobePanel.Row gorget = row(WardrobePanel.ARMOUR, Slot.NECKLACE);
+        WardrobePanel.Row necklace = row(WardrobePanel.CLOTHING, Slot.NECKLACE);
+        List<WardrobePanel.Option> plates = WardrobePanel.rowOptions(lib, gorget, player);
+        List<WardrobePanel.Option> chains = WardrobePanel.rowOptions(lib, necklace, player);
+        assertEquals(List.of("None", "Steel gorget"), plates.stream().map(o -> o.label(Slot.NECKLACE)).toList());
+        assertEquals(List.of("None", "Silver necklace"), chains.stream().map(o -> o.label(Slot.NECKLACE)).toList());
+
+        WardrobePanel.chooseIn(wr, necklace, chains.get(1));
+        WardrobePanel.chooseIn(wr, gorget, plates.get(1));
+        assertEquals("gorget", wr.get(Slot.NECKLACE), "the gorget is drawn");
+        assertEquals("gold_pendant", wr.get(Slot.NECKLACE, false), "the necklace is still worn, under it");
+        assertEquals("silver", wr.colour(Slot.NECKLACE, false));
+        assertEquals(1, WardrobePanel.current(WardrobePanel.rowOptions(lib, gorget, player), Slot.NECKLACE, wr,
+                gorget.layer()));
+        assertEquals(1, WardrobePanel.current(WardrobePanel.rowOptions(lib, necklace, player), Slot.NECKLACE, wr,
+                necklace.layer()));
+        assertEquals("Steel gorget", WardrobePanel.over(WardrobePanel.options(lib, Slot.NECKLACE, player), necklace,
+                wr));
+        // another necklace goes on under the gorget; the gorget off brings it back up
+        WardrobePanel.chooseIn(wr, necklace, chains.get(0));
+        assertEquals("gorget", wr.get(Slot.NECKLACE));
+        assertNull(wr.get(Slot.NECKLACE, false));
+        WardrobePanel.chooseIn(wr, necklace, chains.get(1));
+        WardrobePanel.chooseIn(wr, gorget, plates.get(0));
+        assertEquals("gold_pendant", wr.get(Slot.NECKLACE));
+        assertEquals("silver", wr.colour(Slot.NECKLACE));
+        assertNull(WardrobePanel.over(WardrobePanel.options(lib, Slot.NECKLACE, player), necklace, wr));
+    }
+
+    @Test
+    void aDyedPieceIsStillItselfAndAForgedOneIsDyedLikeAnyOther() {
+        player.inventory().add(Item.of(w("bronze_helmet")));
+        Wardrobe wr = player.wardrobe();
+        WardrobePanel.Row helmet = row(WardrobePanel.ARMOUR, Slot.HAT);
+        List<WardrobePanel.Option> opts = WardrobePanel.rowOptions(lib, helmet, player);
+        WardrobePanel.chooseIn(wr, helmet, opts.get(1));
+        assertEquals("bronze_helmet", wr.id(Slot.HAT, true));
+        wr.setColour(Slot.HAT, true, "#3c6cc4");
+        assertEquals(1, WardrobePanel.current(opts, Slot.HAT, wr, true), "dyed blue, still the bronze helmet");
+        assertEquals(w("bronze_helmet"), com.larsons.game.world.Armour.item(wr, player.inventory(), Slot.HAT)
+                .def());
+
+        // a forged gorget: listed by its name, worn as itself, and the palette's colours to dye it
+        var forged = new com.larsons.game.world.Forged("my_gorget", "Wyrm collar", "gorget",
+                com.larsons.game.world.Rarity.EPIC, java.util.Map.of(), 1, 6, -1, Set.of());
+        player.inventory().add(forged.item());
+        WardrobePanel.Row gorget = row(WardrobePanel.ARMOUR, Slot.NECKLACE);
+        List<WardrobePanel.Option> plates = WardrobePanel.rowOptions(lib, gorget, player);
+        List<String> labels = plates.stream().map(o -> o.label(Slot.NECKLACE)).toList();
+        int wyrm = labels.indexOf("Wyrm collar (forged)");
+        assertTrue(wyrm > 0, "listed by its name: " + labels);
+        WardrobePanel.chooseIn(wr, gorget, plates.get(wyrm));
+        assertEquals("forged:my_gorget", wr.id(Slot.NECKLACE, true));
+        assertNull(wr.colour(Slot.NECKLACE, true), "in its own look");
+        assertEquals(wyrm, WardrobePanel.current(plates, Slot.NECKLACE, wr, true));
+        int steel = labels.indexOf("Steel gorget");
+        if (steel > 0) assertNotEquals(steel, WardrobePanel.current(plates, Slot.NECKLACE, wr, true),
+                "the forged gorget is not taken for the steel one it is made from");
+        assertFalse(WardrobePanel.colours(lib, Slot.NECKLACE, player, true).isEmpty(), "dyed like any other");
+    }
 }

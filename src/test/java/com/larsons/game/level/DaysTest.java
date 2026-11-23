@@ -207,4 +207,24 @@ class DaysTest {
         d.add(List.of("05:15", "tend", "well"));
         assertTrue(day.write().apply(d).startsWith("05:15=tend@well; 06:30=stand@post"));
     }
+
+    @Test
+    void whatAChestOrAHouseHoldsIsPickedFromTheListNotTypedOut() {
+        Rows holds = Rows.contents();
+        List<List<String>> rows = holds.read().apply("health potion x6, wild_berries, longbow:perfect x2");
+        assertEquals(List.of("health_potion", "", "6"), rows.get(0));
+        assertEquals("perfect", rows.get(2).get(1), "a weapon's tier kept");
+        assertEquals("health_potion x6, wild_berries, " + rows.get(2).get(0) + ":perfect x2",
+                holds.write().apply(rows));
+        assertTrue(holds.read().apply("").isEmpty(), "holding nothing");
+        assertFalse(Rows.holdable().contains("coins"), "coins go in a purse, not a chest");
+        assertTrue(Rows.holdable().containsAll(List.of("health_potion", "wild_berries", "longbow", "dye_royal_blue")),
+                "every item there is to pick from: " + Rows.holdable().size());
+        for (String type : List.of(ObjectTypes.CHEST, ObjectTypes.BUILDING)) {
+            ObjectType.Prop p = ObjectTypes.get(type).props().stream()
+                    .filter(q -> q.key().equals("contents")).findFirst().orElseThrow();
+            assertEquals(ObjectType.Prop.Kind.ROWS, p.kind(), type + " holds a list picked row by row");
+            assertNotNull(p.rows());
+        }
+    }
 }

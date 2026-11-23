@@ -160,6 +160,20 @@ final class HordeProps {
         String text = s.str("pool", "").strip();
         if (!text.isEmpty()) {
             for (String part : text.split(",")) {
+                String p = part.strip().toLowerCase(Locale.ROOT);
+                if (p.endsWith(":" + com.larsons.game.level.Rows.EVERY_TIER)) {
+                    // a weapon at every tier it comes in
+                    String id = p.substring(0, p.length() - 2).strip().replace(' ', '_');
+                    Tier.Row row = Tier.row(id);
+                    if (row == null) {
+                        Item i = Item.parse(id);
+                        if (i != null) out.add(i);
+                    } else {
+                        ItemDef d = com.larsons.game.level.ObjectTypes.itemDef(id);
+                        if (d != null) for (Tier t : row.tiers()) out.add(Item.of(d, t));
+                    }
+                    continue;
+                }
                 Item i = Item.parse(part.strip().toLowerCase(Locale.ROOT).replace(' ', '_'));
                 if (i == null) i = Item.parse(part.strip().toLowerCase(Locale.ROOT));
                 if (i != null) out.add(i);

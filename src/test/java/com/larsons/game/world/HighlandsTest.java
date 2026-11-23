@@ -93,7 +93,7 @@ class HighlandsTest {
             said |= w.combat().popups().stream().anyMatch(pp -> pp.text().startsWith("Hard landing"));
         }
         assertTrue(fell, "off the edge into the air");
-        assertEquals(AnimState.BLADE_JUMP, pose, "the stance's jump, held as she falls");
+        assertEquals(AnimState.FALL, pose, "the fall, as she drops");
         assertTrue(p.ground().x() < 0, "below the ledge");
         assertEquals(0, p.height(), 1e-9, "landed");
         double drop = Terrain.PLATEAU_HEIGHT - p.ground().y();
