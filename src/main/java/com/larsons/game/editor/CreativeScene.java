@@ -19,6 +19,7 @@ import com.larsons.game.core.Autopilot;
 import com.larsons.game.core.Game;
 import com.larsons.game.core.Scene;
 import com.larsons.game.input.Input;
+import com.larsons.game.input.Pad;
 import com.larsons.game.level.FolkTypes;
 import com.larsons.game.level.Interiors;
 import com.larsons.game.level.Level;
@@ -473,6 +474,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         if (!widgets.typing()) keys(in, dt, ctrl, shift);
         if (game.scene() != this) return;               // (a key took us to the play-test or the menu)
+        // the gamepad drives the editor as a menu with a pointer: its stick moves the pointer everywhere
+        in.setUiMode(true);
+        game.ui().wantPointer();
+        if (in.usingPad() && !widgets.typing()) pad(in, dt, overUi);
 
         // --- a right-click (not a drag, which turns the view): a plain pointer, or back to the tool
         if (in.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)) {
@@ -625,14 +630,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (in.down(GLFW_KEY_A)) r -= 1;
             if (in.down(GLFW_KEY_SPACE)) u += 1;
             if (in.down(GLFW_KEY_C)) u -= 1;
-            double speed = (4 + camera.distance() * 0.9) * (shift ? 2.5 : 1);
-            if (f != 0 || r != 0) {
-                Vec3 move = camera.groundForward().scale(f).add(camera.right().scale(r)).normalize().scale(speed * dt);
-                double h = level.half() + 20;
-                focus = new Vec3(Math.max(-h, Math.min(h, focus.x() + move.x())), 0,
-                        Math.max(-h, Math.min(h, focus.z() + move.z())));
-            }
-            if (u != 0) focusLift = Math.max(0, Math.min(80, focusLift + u * speed * 0.6 * dt));
+            fly(f, r, u, dt, shift);
         }
         double orbit = 0, tilt = 0;
         if (in.down(GLFW_KEY_LEFT)) orbit += 1;
@@ -642,6 +640,71 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
         if (in.repeated(GLFW_KEY_EQUAL) || in.repeated(GLFW_KEY_KP_ADD)) camera.zoom(1);
         if (in.repeated(GLFW_KEY_MINUS) || in.repeated(GLFW_KEY_KP_SUBTRACT)) camera.zoom(-1);
+    }
+
+    /** The view flies: {@code f} ahead, {@code r} right, {@code u} up (each -1 to 1), faster {@code fast}. */
+    private void fly(double f, double r, double u, double dt, boolean fast) {
+        double speed = (4 + camera.distance() * 0.9) * (fast ? 2.5 : 1);
+        if (f != 0 || r != 0) {
+            Vec3 move = camera.groundForward().scale(f).add(camera.right().scale(r)).normalize().scale(speed * dt);
+            double h = level.half() + 20;
+            focus = new Vec3(Math.max(-h, Math.min(h, focus.x() + move.x())), 0,
+                    Math.max(-h, Math.min(h, focus.z() + move.z())));
+        }
+        if (u != 0) focusLift = Math.max(0, Math.min(80, focusLift + u * speed * 0.6 * dt));
+    }
+
+    /** How long until a held bumper turns the piece (or sizes the brush) again, seconds. */
+    private double padRepeat;
+
+    /**
+     * The gamepad, as a pointer and a view. The left stick moves the pointer
+     * everywhere - A clicks, places, paints and drags, X is the right button
+     * (a plain pointer), B goes back - and the d-pad steps between a panel's
+     * buttons. Over the world, not a panel, the right stick turns the view,
+     * the triggers zoom and the d-pad flies it over the ground. LB / RB turn
+     * what is placed or picked 15° (a brush: its size), Y is the next tool,
+     * R3 flies to what is picked, View hides the panels.
+     */
+    private void pad(Input in, double dt, boolean overUi) {
+        in.setPadView(!overUi);
+        if (!overUi) {
+            double orbit = in.padValue(Pad.RS_LEFT) - in.padValue(Pad.RS_RIGHT);
+            double tilt = in.padValue(Pad.RS_UP) - in.padValue(Pad.RS_DOWN);
+            if (orbit != 0 || tilt != 0) camera.rotate(orbit * dt * 1.6, tilt * dt * 1.1);
+            double zoom = in.padValue(Pad.RT) - in.padValue(Pad.LT);
+            if (Math.abs(zoom) > 0.05) camera.zoom(zoom * dt * 9);
+            double f = (in.padDown(Pad.DPAD_UP) ? 1 : 0) - (in.padDown(Pad.DPAD_DOWN) ? 1 : 0);
+            double r = (in.padDown(Pad.DPAD_RIGHT) ? 1 : 0) - (in.padDown(Pad.DPAD_LEFT) ? 1 : 0);
+            fly(f, r, 0, dt, false);
+        }
+        if (lookTarget == null && colourPick == null) {
+            // (the bumpers are the editor's here, not a tab's: the wardrobe over it keeps them)
+            in.takeTab();
+            int way = in.padDown(Pad.RB) ? 1 : in.padDown(Pad.LB) ? -1 : 0;
+            if (in.padPressed(Pad.LB) || in.padPressed(Pad.RB)) {
+                padRepeat = 0.4;
+                bumper(way);
+            } else if (way != 0 && (padRepeat -= dt) <= 0) {
+                padRepeat = 0.12;
+                bumper(way);
+            }
+            if (in.padPressed(Pad.Y)) {
+                List<Tool> shown = tools();
+                Tool next = shown.get((shown.indexOf(tool) + 1) % shown.size());
+                setTool(next);
+                game.toast(next.label, Theme.HINT);
+            }
+            if (in.padPressed(Pad.RS)) frameSelection();
+        }
+        if (in.padPressed(Pad.VIEW)) hideUi = !hideUi;
+    }
+
+    /** A bumper: turn what is placed or picked 15° that way - a brush, made bigger or smaller. */
+    private void bumper(int way) {
+        if (way == 0) return;
+        if (brushTool() && !pointer) radius = clampRadius(way > 0 ? radius * 1.15 : radius / 1.15);
+        else turn(Math.toRadians(-way * TURN));
     }
 
     /** What the camera looks at: the spot it flies over, on the ground there, lifted. */
@@ -1918,6 +1981,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         };
         String all = "   ·   WASD fly · Space / C up, down · right-drag turn · right-click pointer · wheel zoom · "
                 + "Ctrl+Z / Y undo, redo · Ctrl+S save · F5 play · H hide · Esc menu";
+        if (ui.input().usingPad()) {
+            h = padHelp();
+            all = "   ·   Left stick: pointer · right stick: turn the view · LT / RT: zoom · D-pad: fly (over a panel: "
+                    + "its buttons) · X: plain pointer · Y: next tool · View: hide panels · B: back";
+        }
         float y = ui.height() - HELP_H;
         ui.rect(0, y, ui.width(), HELP_H, Theme.withAlpha(Theme.PANEL, 0.92f));
         // whole hints dropped from the end until it fits
@@ -1926,6 +1994,23 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             text = text.substring(0, text.lastIndexOf(" · ")).stripTrailing();
         }
         ui.text(ui.small, text, 10, y + (HELP_H - ui.small.lineHeight()) / 2, Theme.HINT);
+    }
+
+    /** What the gamepad does with the tool in hand: the first half of the help along the bottom. */
+    private String padHelp() {
+        if (pointer || tool == Tool.SELECT) {
+            return "A: pick · hold A and move: drag it (on the ground: a box) · LB / RB: turn 15° · R3: fly to it · "
+                    + "Delete and Duplicate: the panel on the left";
+        }
+        return switch (tool) {
+            case PLACE -> draws() ? "Hold A and move: draw it, end to end · A: place it as set · LB / RB: turn 15°"
+                    : "A: place · LB / RB: turn 15° · it sits on what is under the pointer";
+            case SCULPT -> "Hold A: sculpt · LB / RB: brush size · the panel: raise, lower, flatten, smooth";
+            case PAINT -> "Hold A: paint · LB / RB: brush size · the panel: what to paint";
+            case SCATTER -> "Hold A: scatter · LB / RB: brush size";
+            case WATER -> "Hold A: water · LB / RB: brush size";
+            default -> "A: press what the pointer is on · the d-pad steps between the panel's buttons";
+        };
     }
 
     // --- the left panel: the tool's own -------------------------------------------------------------

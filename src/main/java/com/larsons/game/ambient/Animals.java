@@ -148,15 +148,25 @@ public final class Animals {
      * drawn; none: all as drawn), {@code sizeMin} to {@code sizeMax} times its
      * kind's size. A {@code single} one is one animal, put just where it
      * stands, facing {@code heading}, wandering no further than {@code radius}.
+     * One hunted down leaves {@code drops} ({@code world/Drops}: blank, what
+     * its kind leaves - its meat, its hide).
      */
     public record Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
                        Critters.When when, boolean saddled, List<Integer> colours, double sizeMin, double sizeMax,
-                       boolean single, double heading) {
+                       boolean single, double heading, String drops) {
 
         public Herd {
             colours = colours == null ? List.of() : List.copyOf(colours);
             sizeMin = Math.max(0.2, sizeMin);
             sizeMax = Math.max(sizeMin, sizeMax);
+            drops = drops == null ? "" : drops;
+        }
+
+        /** A herd that leaves what its kind leaves. */
+        public Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
+                    Critters.When when, boolean saddled, List<Integer> colours, double sizeMin, double sizeMax,
+                    boolean single, double heading) {
+            this(kind, at, count, radius, temperament, when, saddled, colours, sizeMin, sizeMax, single, heading, "");
         }
 
         /** A herd of its kind's colours and size. */
@@ -168,7 +178,7 @@ public final class Animals {
         /** The same herd, standing at {@code there}. */
         public Herd at(Vec3 there) {
             return new Herd(kind, there, count, radius, temperament, when, saddled, colours, sizeMin, sizeMax, single,
-                    heading);
+                    heading, drops);
         }
 
         /** A herd without the saddle on (any but horses are never saddled). */

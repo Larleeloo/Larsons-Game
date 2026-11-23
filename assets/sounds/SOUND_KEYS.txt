@@ -649,11 +649,12 @@ Sounds of the place itself, looping quietly: the breeze over the meadow, and mor
   ambient/wind.mp3                               Breeze over everything (held) (held)             ambient/wind
   ambient/stream.mp3                             A river or stream (held) (held)                  ambient/stream
   ambient/crickets.mp3                           Crickets: the plains and savannah at night (held) (held) ambient/crickets
-  ambient/plains.mp3                             The plains by day: birdsong (held) (held)        ambient/plains
+  ambient/plains.mp3                             The plains by day: the wind in the grass (held) (held) ambient/plains
+  ambient/birdsong.mp3                           Birdsong by day, wherever birds live: the plains, the jungle, the marsh (held) (held) ambient/birdsong
   ambient/marsh.mp3                              The marsh by day: insects over the water (held) (held) ambient/marsh
   ambient/frogs.mp3                              The marsh at night: frogs (held) (held)          ambient/frogs
   ambient/mountains.mp3                          The mountains: high wind (held) (held)           ambient/mountains
-  ambient/jungle.mp3                             The jungle by day: birds and insects (held) (held) ambient/jungle
+  ambient/jungle.mp3                             The jungle by day: insects, leaves, a far call (held) (held) ambient/jungle
   ambient/jungle_night.mp3                       The jungle at night (held) (held)                ambient/jungle_night
   ambient/savannah.mp3                           The savannah by day: dry heat, cicadas (held) (held) ambient/savannah
   ambient/ocean.mp3                              The sea: waves on the shore (held) (held)        ambient/ocean

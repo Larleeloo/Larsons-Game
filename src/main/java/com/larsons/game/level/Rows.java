@@ -3,6 +3,7 @@ package com.larsons.game.level;
 import com.larsons.game.actor.Schedule;
 import com.larsons.game.cards.Card;
 import com.larsons.game.cards.CardBook;
+import com.larsons.game.world.Drops;
 import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
@@ -207,6 +208,62 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
         List<String> out = new ArrayList<>();
         for (String id : ObjectTypes.itemIds()) if (!id.equals("coins")) out.add(id);
         return out;
+    }
+
+    // --- what something leaves: a foe or a person felled, an animal hunted, a loot chest ----------
+
+    /**
+     * A loot pool of the level's own ({@code drops}, {@link Drops}): item -
+     * coins, any item there is, a dye drawn at random, one of the chests'
+     * drops - its tier, from how many to how many, and the chance it comes;
+     * written "coins x1-5, any_dye 25%". No rows: {@code empty} (what it
+     * always gives).
+     */
+    public static Rows drops(String empty) {
+        return new Rows(List.of(
+                Column.choice("Item", 0.34f, "coins", (o, row) -> withCurrent(droppable(), row, 0), Rows::dropLabel),
+                Column.choice("Tier", 0.17f, "", (o, row) -> withCurrent(tiers(row.get(0)), row, 1), Rows::tierLabel),
+                Column.number("From", 0.15f, "1", 1, Drops.MOST, 1, v -> v),
+                Column.number("To", 0.15f, "1", 1, Drops.MOST, 1, v -> v),
+                Column.number("Chance", 0.19f, "100", 1, 100, 5, v -> v + "%")),
+                "+ Add to what it leaves", empty, Rows::readDrops, Rows::writeDrops,
+                "Each row is rolled by itself: its chance, then from - to of it. A dye: any one, drawn as a chest's "
+                        + "are. Chest loot: one of the things chests give, its rarity rolled.");
+    }
+
+    /** What a pool can give: coins, a dye or a chest's drop drawn, then every item there is. */
+    static List<String> droppable() {
+        List<String> out = new ArrayList<>(List.of("coins", Drops.ANY_DYE, Drops.ANY_LOOT));
+        for (String id : ObjectTypes.itemIds()) if (!out.contains(id)) out.add(id);
+        return out;
+    }
+
+    static String dropLabel(String id) {
+        if (Drops.ANY_DYE.equals(id)) return "A dye (any)";
+        if (Drops.ANY_LOOT.equals(id)) return "Chest loot (any)";
+        return itemLabel(id);
+    }
+
+    static List<List<String>> readDrops(String text) {
+        List<List<String>> out = new ArrayList<>();
+        for (Drops.Line l : Drops.parse(text).lines()) {
+            String[] it = l.item().equals(Drops.ANY_DYE) || l.item().equals(Drops.ANY_LOOT)
+                    ? new String[]{l.item(), ""} : item(l.item());
+            out.add(new ArrayList<>(List.of(it[0], it[1], String.valueOf(l.min()), String.valueOf(l.max()),
+                    String.valueOf((long) Math.round(l.chance())))));
+        }
+        return out;
+    }
+
+    static String writeDrops(List<List<String>> rows) {
+        List<Drops.Line> lines = new ArrayList<>();
+        for (List<String> r : rows) {
+            if (r.get(0).isBlank()) continue;
+            int min = (int) Math.max(1, num(r.get(2))), max = (int) Math.max(min, num(r.get(3)));
+            double chance = r.size() > 4 && !r.get(4).isBlank() ? num(r.get(4)) : 100;
+            lines.add(new Drops.Line(key(r.get(0), r.get(1)), min, max, chance <= 0 ? 100 : chance));
+        }
+        return Drops.of(lines).text();
     }
 
     // --- what a horde's mystery box can stop on -------------------------------------------

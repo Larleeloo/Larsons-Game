@@ -244,6 +244,12 @@ public final class Input {
     private boolean navigable;
     /** The left stick moves a free pointer (L3 turns it on and off, or the screen asks: a map, the editor's view). */
     private boolean freePointer, screenWantsPointer;
+    /**
+     * The screen turns its own view with the right stick, the triggers and
+     * the d-pad this frame (the editor, the pointer over its world): they
+     * neither scroll nor step a focus.
+     */
+    private boolean screenView;
     /** The way the left stick was last flicked, and when it repeats. */
     private int stickWay;
     private double stickTimer;
@@ -298,10 +304,10 @@ public final class Input {
                 }
             }
             double ry = Pad.value(Pad.RS_UP, padButtons, padAxes) - Pad.value(Pad.RS_DOWN, padButtons, padAxes);
-            if (ry != 0) scroll += ry * dt * 14;
+            if (ry != 0 && !screenView) scroll += ry * dt * 14;
             // the triggers: a page at a time, repeating while held
-            int page = padDown[Pad.LT] ? 1 : padDown[Pad.RT] ? -1 : 0;
-            if (padPressed[Pad.LT] || padPressed[Pad.RT]) {
+            int page = screenView ? 0 : padDown[Pad.LT] ? 1 : padDown[Pad.RT] ? -1 : 0;
+            if (page != 0 && (padPressed[Pad.LT] || padPressed[Pad.RT])) {
                 scroll += page * 5;
                 triggerTimer = 0.4;
             } else if (page != 0) {
@@ -331,7 +337,7 @@ public final class Input {
             }
 
             // the d-pad: the focus's steps where there is a focus, else the arrow keys; repeating while held
-            int held = padDown[Pad.DPAD_UP] ? GLFW_KEY_UP : padDown[Pad.DPAD_DOWN] ? GLFW_KEY_DOWN
+            int held = screenView ? -1 : padDown[Pad.DPAD_UP] ? GLFW_KEY_UP : padDown[Pad.DPAD_DOWN] ? GLFW_KEY_DOWN
                     : padDown[Pad.DPAD_LEFT] ? GLFW_KEY_LEFT : padDown[Pad.DPAD_RIGHT] ? GLFW_KEY_RIGHT : -1;
             boolean steps = keyboard || navigable && !freePointer;
             if (held != repeatKey) {
@@ -422,6 +428,11 @@ public final class Input {
     /** The screen wants a free pointer for the gamepad's left stick this frame (a map, the editor's view). */
     public void setWantsPointer(boolean on) {
         screenWantsPointer = on;
+    }
+
+    /** The screen turns its own view with the right stick, the triggers and the d-pad this frame (or not). */
+    public void setPadView(boolean on) {
+        screenView = on;
     }
 
     /** Whether the gamepad is moving a focus about a menu (not a pointer, not playing). */

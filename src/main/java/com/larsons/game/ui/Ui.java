@@ -665,6 +665,7 @@ public final class Ui implements AutoCloseable {
         Input in = input();
         boolean pointer = in.padPointer();
         in.setWantsPointer(false);
+        in.setPadView(false);
         in.setNavigable(!last.isEmpty());
         if (keyboard.open()) {
             keyboard.update(this, in);

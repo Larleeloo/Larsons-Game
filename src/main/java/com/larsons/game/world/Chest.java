@@ -140,6 +140,16 @@ public final class Chest {
 
     public int object() { return object; }
 
+    /** What it gives, as the level set it ({@link Drops}): blank, a chest's usual lot ({@link Loot}). */
+    private String drops = "";
+
+    public Chest drops(String text) {
+        drops = text == null ? "" : text;
+        return this;
+    }
+
+    public String drops() { return drops; }
+
     public boolean looted() { return looted; }
 
     public void setLooted(boolean on) { looted = on; }

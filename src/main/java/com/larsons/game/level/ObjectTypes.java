@@ -166,6 +166,8 @@ public final class ObjectTypes {
         register(new ObjectType(CHEST, "Treasure chest", Category.LOOT,
                 List.of(Prop.choice("sprite", "Sprite", CHEST_SPRITE, o -> List.of(CHEST_SPRITE)),
                         Prop.toggle("loot", "Throws out loot", true),
+                        Prop.rows("drops", "Gives", "", Rows.drops("The usual: 3 to 7 things, one at least Rare, "
+                                + "coins, ammunition or a scroll or an ingot, a dye or two")),
                         Prop.rows("contents", "Holds", "", Rows.contents())), Chest.RADIUS, 0.9,
                 0xC89A50, false,
                 (o, b) -> {
@@ -180,7 +182,7 @@ public final class ObjectTypes {
                         return;
                     }
                     Chest c = b.world().addChest(new Chest(o.str("sprite", CHEST_SPRITE), b.onGround(o), o.yaw())
-                            .object(o.id()));
+                            .object(o.id()).drops(o.str("drops", "")));
                     if (o.bool("loot", true)) return;
                     Store s = new Store(o.id(), Store.Kind.CHEST, c.position(), o.yaw());
                     s.fill(o.str("contents", ""));
@@ -274,7 +276,9 @@ public final class ObjectTypes {
                         Prop.toggle("single", "One animal, just here", false),
                         Prop.colours("colours", "Colours"),
                         Prop.number("size", "Size", 1, 0.3, 3, 0.05),
-                        Prop.number("vary", "Sizes vary (±)", 0, 0, 0.6, 0.05)),
+                        Prop.number("vary", "Sizes vary (±)", 0, 0, 0.6, 0.05),
+                        Prop.rows("drops", "Leaves when hunted", "",
+                                Rows.drops("What its kind leaves: its meat, its hide, its feathers"))),
                 0.6, 1.2, 0xE8B070, false,
                 (o, b) -> {
                     AnimalKind k = AnimalKind.byKey(o.str("kind", AnimalKind.COW.key()));
@@ -286,7 +290,7 @@ public final class ObjectTypes {
                             Temperament.byKey(o.str("temperament", OWN)),
                             Critters.When.byKey(o.str("when", Critters.When.ITS_TIME.key())),
                             k == AnimalKind.HORSE && o.bool("saddled", false), herdColours(o),
-                            size * (1 - vary), size * (1 + vary), single, o.yaw()));
+                            size * (1 - vary), size * (1 + vary), single, o.yaw(), o.str("drops", "")));
                 }));
     }
 
@@ -438,6 +442,7 @@ public final class ObjectTypes {
      */
     public static boolean applies(LevelObject o, Prop p) {
         return switch (p.key()) {
+            case "drops" -> !o.type().equals(CHEST) || o.bool("loot", true);
             case "contents" -> o.type().equals(CHEST) ? !o.bool("loot", true)
                     : Store.Kind.ofBuilding(o.str("kind", "")) != null;
             case "saddled" -> o.type().equals(ANIMALS) && AnimalKind.HORSE.key().equals(o.str("kind", ""));

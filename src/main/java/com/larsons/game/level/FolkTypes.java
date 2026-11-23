@@ -325,7 +325,9 @@ public final class FolkTypes {
                         Prop.number("sight", "Sees within (m) (0: as its kind)", 0, 0, 80, 1),
                         Prop.number("guard", "Guard × ", 1, 0, 5, 0.1),
                         Prop.number("xp", "Experience × ", 1, 0, 10, 0.1),
-                        Prop.toggle("armour", "Its armour blocks (rolls dice)", false)),
+                        Prop.toggle("armour", "Its armour blocks (rolls dice)", false),
+                        Prop.rows("drops", "Leaves when felled", "", Rows.drops("What its kind leaves: coins, now "
+                                + "and then a dye, its weapon or something a chest might give"))),
                 0.45, 1.8, 0xE0503A, false, (o, b) -> {
             Breed breed = Breed.byKey(o.str("breed", Breed.BANDIT.key()));
             if (breed == null) return;
@@ -355,7 +357,8 @@ public final class FolkTypes {
                         Prop.number("damage", "Damage × (struck, they fight back)", 1, 0.1, 20, 0.1),
                         Prop.number("pace", "Attack speed × ", 1, 0.25, 4, 0.05),
                         Prop.number("speed", "Move speed × ", 1, 0.25, 3, 0.05),
-                        Prop.toggle("armour", "Their armour blocks (rolls dice)", false)),
+                        Prop.toggle("armour", "Their armour blocks (rolls dice)", false),
+                        Prop.rows("drops", "Leaves when felled", "", Rows.drops("Nothing: they are not foes"))),
                 0.4, 1.8, 0x7FE8FF, false, (o, b) -> {
             People people = People.byKey(o.str("people", People.HUMAN.key()));
             if (people == null) people = People.HUMAN;
