@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "stalks": [
+   0
+  ],
+  "twine": [
+   1
+  ]
+ },
+ "materials": [
+  "stalks",
+  "twine"
+ ]
+}

@@ -2,15 +2,13 @@
  "labelsPerMaterial": 6,
  "parts": {
   "crystal": [
-   0,
-   1
+   0
   ],
   "rock": [
-   2
+   1
   ]
  },
  "materials": [
-  "crystal",
   "crystal",
   "rock"
  ]

@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "shell": [
+   0
+  ],
+  "fuse": [
+   1
+  ],
+  "smoke": [
+   2
+  ]
+ },
+ "materials": [
+  "shell",
+  "fuse",
+  "smoke"
+ ]
+}

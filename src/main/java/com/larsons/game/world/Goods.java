@@ -88,7 +88,7 @@ public final class Goods {
     public static final String P_ORE = "mat_ore", P_LOGS = "mat_logs", P_HEAP = "mat_heap", P_SHARD = "mat_shard",
             P_SHEAF = "mat_sheaf", P_RESIN = "mat_resin", P_BAR = "mat_bar", P_GLASS = "mat_glass",
             P_PLANKS = "mat_planks", P_CRUCIBLE = "mat_crucible", P_LENS = "mat_lens", P_BANDAGE = "kit_bandage",
-            P_PELLET = "kit_pellet", P_SPYGLASS = "craft_spyglass", P_LANTERN = "craft_lantern";
+            P_PELLET = "kit_pellet", P_SPYGLASS = "craft_spyglass", P_LANTERN = "craft_lantern", P_GEAR = "mat_gear";
 
     private static final Map<String, Good> BY_ID = new LinkedHashMap<>();
     private static final List<ItemDef> DEFS = new ArrayList<>();
@@ -377,7 +377,7 @@ public final class Goods {
     public static final Good FISH_HOOK = making("fish_hook", "Fish hook", Rarity.COMMON, 4, "For a rod", P_KEY,
             "metal", 0x9A9590);
     public static final Good BRASS_GEAR = making("brass_gear", "Brass gear", Rarity.UNCOMMON, 14,
-            "Clockwork's first need", P_INGOT, "metal", 0xD6AA5C);
+            "Clockwork's first need", P_GEAR, "metal", 0xD6AA5C);
     public static final Good IRON_BAR = making("iron_bar", "Iron bar", Rarity.COMMON, 10,
             "Smelted iron: keys, hooks, arrowheads, fittings", P_BAR, "metal", 0x6E7480);
     public static final Good CRYSTAL_DUST = making("crystal_dust", "Crystal dust", Rarity.RARE, 30,

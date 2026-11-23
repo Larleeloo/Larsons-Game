@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "glass": [
+   0
+  ],
+  "rim": [
+   1
+  ]
+ },
+ "materials": [
+  "glass",
+  "rim"
+ ]
+}
