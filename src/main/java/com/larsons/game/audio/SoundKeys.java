@@ -270,6 +270,14 @@ public final class SoundKeys {
             "sandstorm", "snowfall", "thunder");
 
     /**
+     * The ambient sounds that ring out once rather than loop: the thunder
+     * after a bolt of lightning (played where it strikes and left to die
+     * away, so it must not loop - a looping clap nobody holds would roll on
+     * for ever, into the menus and the editor).
+     */
+    public static final java.util.Set<String> AMBIENT_ONE_SHOTS = java.util.Set.of("thunder");
+
+    /**
      * The places that play a song of their own, and the song each plays until
      * the player gives the place a file of its own ({@link #chain}): the main
      * menu, Lanterns Over Brasswick. The songs themselves are {@link Songs#ALL}.
@@ -1135,7 +1143,8 @@ public final class SoundKeys {
             }
             case "chest" -> state.equals("idle") || state.equals("opened");
             case "combat" -> parts.length >= 3 && state.equals("fly");
-            case "ambient", "music" -> true;
+            case "ambient" -> !(parts.length == 2 && AMBIENT_ONE_SHOTS.contains(state));
+            case "music" -> true;
             default -> false;
         };
     }

@@ -136,8 +136,8 @@ public final class WorldRenderer implements AutoCloseable {
     /** A frame of the player left behind by a dodge, fading. */
     private record Ghost(LayerStack.Result stack, Vec3 feet, Vec3 ground, double born) { }
 
-    /** How much nearer the camera each layer of her, seen under the water, is drawn than the one under it, metres. */
-    static final double LAYER_STEP = 0.01;
+    /** How opaque a texel of her must be to hide the layers under it, seen under the water. */
+    static final float SOLID = 0.9f;
     private final java.util.ArrayDeque<Ghost> ghosts = new java.util.ArrayDeque<>();
     private double lastGhost = Double.NEGATIVE_INFINITY;
     /** Each layer palette's silhouette ({@link #silhouette}), made once. */
@@ -882,27 +882,56 @@ public final class WorldRenderer implements AutoCloseable {
             double surface = world.water().surface(feet.x(), feet.z(), ground.height(feet.x(), feet.z()));
             if (!Double.isNaN(surface)) {
                 float deep = (float) Math.min(1, p.diveDepth() / 6);
-                // Each pixel of her once, in its topmost layer's colour. The layers are drawn front to
-                // back, each on a plane a centimetre nearer the camera than the one under it, writing the
-                // depth: where one in front has been drawn, those under it are not. (Drawn see-through one
-                // over another on the one plane, her body showed through her clothes, and the layers -
-                // a hair apart in depth from one pixel to the next - fought over it and flickered.)
+                // Her layers as they are above the water - none under her clothes showing through - in
+                // two goes, through the stencil: first, drawing nothing, each pixel is marked with the
+                // topmost layer that is solid there; then the layers are drawn bottom to top as ever,
+                // each only where no solid layer above it is (so a wisp of hair still lies over what is
+                // under it). (Telling them apart by depth - each layer on a plane a centimetre nearer than
+                // the one under it - did not hold under water: her pixels are all below the plane's floor,
+                // the water's surface, so every layer was tested where its rays meet that floor, at one
+                // and the same depth. Her body and what she wears under her clothes, a hair apart from
+                // pixel to pixel, won many of them and showed through her clothes, flickering as she
+                // swam.) She is drawn at her own size, as she is above the water, so what is seen
+                // through the water lies on her exactly.
                 List<LayerStack.Layer> layers = stack.layers();
+                int n = Math.min(layers.size(), 255);
                 Vec3 anchor = new Vec3(feet.x(), surface + 0.25, feet.z());   // (just over the water: drawn over it)
                 float alpha = 0.85f - 0.35f * deep;
-                glDepthMask(true);
-                glDepthFunc(GL_LESS);
+                float size = (float) p.size();
+                Vec3 sRight = size == 1f ? right : right.scale(size), sUp = size == 1f ? up : up.scale(size);
+                glDepthMask(false);
+                glEnable(GL_STENCIL_TEST);
+                glStencilMask(0xFF);
+                glClearStencil(0);
+                glClear(GL_STENCIL_BUFFER_BIT);
                 batch.begin(viewProj, fog, 0, fogFar);
                 batch.setDepthPlane(eye, upright);
-                batch.tint(((int) (40 + 100 * deep) << 24) | 0x1E5A78);
-                for (int k = layers.size() - 1; k >= 0; k--) {
-                    batch.depthAnchor(anchor.sub(upright.scale(LAYER_STEP * (k + 1))));
+                batch.depthAnchor(anchor);
+                // 1: the topmost solid layer at each pixel (layer k marks k + 1), nothing drawn
+                glColorMask(false, false, false, false);
+                glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                batch.setAlphaCut(SOLID);
+                for (int k = 0; k < n; k++) {
+                    glStencilFunc(GL_ALWAYS, k + 1, 0xFF);
                     LayerStack.drawBillboard(batch, List.of(layers.get(k)), stack.framing(), stack.view().elevation(),
-                            feet, right, up, alpha);
+                            feet, sRight, sUp, 1f);
+                    batch.flush();
+                }
+                // 2: bottom to top, each layer only where it is that one or over it, in the water's colour
+                glColorMask(true, true, true, true);
+                glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+                batch.setAlphaCut(com.larsons.game.gfx.Batch.DEFAULT_ALPHA_CUT);
+                batch.tint(((int) (40 + 100 * deep) << 24) | 0x1E5A78);
+                for (int k = 0; k < n; k++) {
+                    glStencilFunc(GL_GEQUAL, k + 1, 0xFF);
+                    LayerStack.drawBillboard(batch, List.of(layers.get(k)), stack.framing(), stack.view().elevation(),
+                            feet, sRight, sUp, alpha);
+                    batch.flush();
                 }
                 batch.tint(0);
                 batch.end();
-                glDepthFunc(GL_LEQUAL);
+                glStencilFunc(GL_ALWAYS, 0, 0xFF);
+                glDisable(GL_STENCIL_TEST);
             }
         }
 
