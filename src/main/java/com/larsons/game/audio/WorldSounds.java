@@ -361,13 +361,55 @@ public final class WorldSounds {
         return Sounds.placement(across, d.horizontalLength(), HALF_WIDTH);
     }
 
-    /** Silence everything this started (leaving the scene). */
+    /**
+     * Silence everything this started and forget it (leaving the scene - back
+     * to the editor from a play-test, to the menu, to the map): the breeze,
+     * every biome's bed and the birdsong, the weather, the sound spots, the
+     * chests, dummies and fliers. Nothing it held keeps sounding after, and
+     * the next {@link #update} starts afresh, the biomes fading in again.
+     */
     public void stop() {
         player.stop();
         for (AnimationSound s : chests.values()) s.stop();
+        chests.clear();
         for (AnimationSound s : dummies.values()) s.stop();
+        dummies.clear();
         for (SoundEmitter e : wings.values()) e.stop();
+        wings.clear();
+        fliers.clear();
         wind.stop();
         for (SoundEmitter e : spots.values()) e.stop();
+        spots = new IdentityHashMap<>();
+        for (SoundEmitter e : beds.values()) e.stop();
+        beds.clear();
+        bedLevels.clear();
+        for (SoundEmitter e : weatherBeds) e.stop();
+        loot = new IdentityHashMap<>();
+        lastTime = Double.NaN;
+        stepState = null;
+        crouched = null;
+        heavyWaiting = false;
+        hoofSheet = null;
+    }
+
+    /**
+     * The keys of every held sound still sounding - the breeze, the biome
+     * beds and birdsong, the weather, the sound spots, the player's and each
+     * chest's, dummy's and flier's loop - empty once {@link #stop}ped.
+     */
+    public java.util.List<String> held() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        java.util.function.Consumer<String> add = k -> {
+            if (k != null && !k.isEmpty()) out.add(k);
+        };
+        add.accept(player.key());
+        for (AnimationSound s : chests.values()) add.accept(s.key());
+        for (AnimationSound s : dummies.values()) add.accept(s.key());
+        for (SoundEmitter e : wings.values()) add.accept(e.key());
+        add.accept(wind.key());
+        for (SoundEmitter e : spots.values()) add.accept(e.key());
+        for (SoundEmitter e : beds.values()) add.accept(e.key());
+        for (SoundEmitter e : weatherBeds) add.accept(e.key());
+        return out;
     }
 }
