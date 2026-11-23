@@ -88,7 +88,9 @@ public enum Tier {
     /** {@code item}'s row of the chart, or null for an item with no tiers. */
     public static Row row(String item) {
         Row r = CHART.get(item);
-        return r != null ? r : item == null ? null : ArmourRows.ROWS.get(item);
+        if (r != null || item == null) return r;
+        r = ArmourRows.ROWS.get(item);
+        return r != null ? r : ClothingRows.ROWS.get(item);
     }
 
     /**
@@ -115,32 +117,89 @@ public enum Tier {
         };
     }
 
+    /**
+     * The clothes' tiers - every garment, hat, piece of jewellery, belt and
+     * pair of boots that is not armour ({@link Forged#wornBase}): like the
+     * armour's, from the rarity it is found as to Mythic - Fine, Superior,
+     * Masterwork, Perfect, Mythic - each a rarity up, upgraded with ingots.
+     * A garment's tiers never recolour it: a dye still colours it. What each
+     * tier gives (more health, speed ...) is the Tailor's ({@link Tailor}).
+     */
+    public static Map<String, Row> clothing() {
+        return ClothingRows.ROWS;
+    }
+
+    /** What a tier is called on clothes: Fine, Superior, Masterwork, Perfect, Mythic (Basic: as it is). */
+    public static String clothingLabel(Tier t) {
+        return switch (t) {
+            case BASIC -> "Plain";
+            case SHARPER -> "Fine";
+            case MAGIC, CRAFTED -> "Superior";
+            case HONED, CRYSTAL -> "Masterwork";
+            case PERFECT -> "Perfect";
+            case MYTHIC -> "Mythic";
+        };
+    }
+
+    /** What {@code t} is called on {@code d}: armour's word for it, the clothes', else the weapons'. */
+    public static String label(ItemDef d, Tier t) {
+        if (t == null) return "";
+        if (d != null && ArmourRows.ROWS.containsKey(d.id())) return armourLabel(t);
+        if (d != null && ClothingRows.ROWS.containsKey(d.id())) return clothingLabel(t);
+        return t.label();
+    }
+
+    /** The tiers every piece of armour and every garment climbs, lowest first (from the one it is found as). */
+    private static final Tier[] CLIMB = {BASIC, SHARPER, CRAFTED, HONED, PERFECT, MYTHIC};
+
+    /** {@code d}'s row: its tiers from the rarity it is found as up, the first named as it is, the rest by {@code label}. */
+    private static Row worn(ItemDef d, java.util.function.Function<Tier, String> label) {
+        Map<Tier, String> names = new LinkedHashMap<>();
+        Rarity from = d.wearable().rarity();
+        String low = d.name().substring(0, 1).toLowerCase(java.util.Locale.ROOT) + d.name().substring(1);
+        for (Tier t : CLIMB) {
+            if (t.rarity.ordinal() < from.ordinal()) continue;
+            names.put(t, names.isEmpty() ? d.name() : label.apply(t) + " " + low);
+        }
+        return new Row(d.id(), java.util.Collections.unmodifiableMap(names));
+    }
+
     /** The armour's rows, made the first time they are asked for (the wearables are made first). */
     private static final class ArmourRows {
         static final Map<String, Row> ROWS = make();
 
         private static Map<String, Row> make() {
-            Tier[] climb = {BASIC, SHARPER, CRAFTED, HONED, PERFECT, MYTHIC};
             Map<String, Row> out = new LinkedHashMap<>();
             for (ItemDef d : Wearables.ALL) {
-                if (Armour.sides(d) <= 0) continue;
-                Map<Tier, String> names = new LinkedHashMap<>();
-                Rarity from = d.wearable().rarity();
-                String low = d.name().substring(0, 1).toLowerCase(java.util.Locale.ROOT) + d.name().substring(1);
-                for (Tier t : climb) {
-                    if (t.rarity.ordinal() < from.ordinal()) continue;
-                    names.put(t, names.isEmpty() ? d.name() : armourLabel(t) + " " + low);
-                }
-                out.put(d.id(), new Row(d.id(), java.util.Collections.unmodifiableMap(names)));
+                if (Armour.sides(d) > 0) out.put(d.id(), worn(d, Tier::armourLabel));
             }
             return java.util.Collections.unmodifiableMap(out);
         }
     }
 
-    /** What {@code item} is called in {@code tier} ("Perfect Bow"), or null when it has no such tier. */
+    /** The clothes' rows, made the first time they are asked for. */
+    private static final class ClothingRows {
+        static final Map<String, Row> ROWS = make();
+
+        private static Map<String, Row> make() {
+            Map<String, Row> out = new LinkedHashMap<>();
+            for (ItemDef d : Wearables.ALL) {
+                if (Armour.sides(d) <= 0 && Forged.wornBase(d)) out.put(d.id(), worn(d, Tier::clothingLabel));
+            }
+            return java.util.Collections.unmodifiableMap(out);
+        }
+    }
+
+    /**
+     * What {@code item} is called in {@code tier} ("Perfect Bow", "Fine
+     * baggy shirt") - a name the Tailor gave that tier first ({@link
+     * Tailor#name}) - or null when it has no such tier.
+     */
     public static String name(String item, Tier tier) {
         Row r = row(item);
-        return r == null || tier == null ? null : r.names().get(tier);
+        if (r == null || tier == null || !r.names().containsKey(tier)) return null;
+        String own = Tailor.name(item, tier);
+        return own != null ? own : r.names().get(tier);
     }
 
     private static RowBuilder tiers(String item, String noun, Tier... tiers) {

@@ -111,8 +111,11 @@ final class HowToPlay {
                                     + "d6, iron a d8, steel a d10, and two or three dice when it is Epic or rarer. "
                                     + "Its total comes off the blow; roll as much as the blow and \"Armour held!\".",
                             "Armour has tiers like a weapon: Plain, Reinforced, Riveted, Tempered, Perfect and "
-                                    + "Mythic, each a rarity up and darker, harder metal. Right-click a piece in the "
-                                    + "inventory to see them and upgrade it with upgrade ingots.",
+                                    + "Mythic, each a rarity up and darker, harder metal. Clothes do too: Fine, "
+                                    + "Superior, Masterwork, Perfect and Mythic. Each tier up gives more when worn - a "
+                                    + "helmet more health, a hat more mana, boots more speed. Right-click a piece in "
+                                    + "the inventory to see every tier and what it gives, and upgrade it with upgrade "
+                                    + "ingots. A dye still colours it at every tier.",
                             "Pause, then Wardrobe, dresses you. Its three tabs (LB and RB) are Looks, Clothing and "
                                     + "Armour - the armour plated in iron, each piece with the die it rolls. Every "
                                     + "layer is a list to drop down - a long one scrolls with the wheel or its bar; on "
@@ -248,11 +251,12 @@ final class HowToPlay {
                                     + "reward and what a chest, a barrel or a house holds are rows to pick from, and a person's day is set hour by hour. People "
                                     + "and foes are dressed in the wardrobe, hold forged weapons, and have their "
                                     + "health, damage and speed set.",
-                            "The Forge makes weapons, armour and clothes of your own: their look, colours, dice, "
-                                    + "effects and tiers. Armour and clothes are forged with gifts instead: more "
-                                    + "health, mana or stamina, faster regen, health drawn from your blows, higher "
-                                    + "jumps, a double jump, a sooner heavy attack, more speed. Forged pieces can still "
-                                    + "be dyed. The "
+                            "The Forge makes weapons of your own: their look, colours, dice, borders and tiers. "
+                                    + "The Tailor sets what every piece of clothing and armour gives at each of its "
+                                    + "tiers - more health, mana or stamina, faster regen, health drawn from your "
+                                    + "blows, higher jumps, a double jump, a sooner heavy attack, more speed - and "
+                                    + "makes pieces of your own, each tier giving what you make it with. They can "
+                                    + "still be dyed. The "
                                     + "map editor draws world maps - on its tiles or a picture of your own, with "
                                     + "marks and roads, Ctrl+Z to undo - and the horde editor the horde maps.")),
             new Chapter("Settings and controls", null,

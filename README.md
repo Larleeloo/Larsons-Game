@@ -410,13 +410,15 @@ left-handed.
   Sharper, Crystal, Perfect, Mythic; the staff Basic, Magic, Honed, Perfect,
   Mythic; and so on (`world/Tier`) - each its own look, drawn by recolouring
   the same sprites. A forged weapon's tiers (2 to 10) are upgraded with
-  **upgrade ingots**: right-click it in the inventory.
+  **upgrade ingots**: right-click it in the inventory. **Every piece of
+  clothing and armour has tiers too**, and gives more at each
+  ([the Tailor](#the-tailor)).
 - **Forged weapons** ([the Forge](#the-forge)): any of the eight with its own
   name, rarity, colours part by part, dice - how many of a **d4, d6, d8, d10,
   d%, d12 or d20**, and up to four more groups that **add, subtract,
   multiply, divide or scale** the total - and any of the three borders.
-  Borders are for weapons only; forged armour and clothes take **gifts**
-  ([below](#the-forge)).
+  Borders are for weapons only; armour and clothes give **gifts**
+  ([the Tailor](#the-tailor)).
 - **Armour rolls to block** (`world/Armour`): a blow lands on her **head,
   torso, arms, legs or feet** (torso most often), and what she wears there
   rolls its dice **just above the hotbar** - leather and padding a **d4**,
@@ -425,8 +427,9 @@ left-handed.
   for Epic and Legendary, three for Mythic. The total comes off the blow;
   roll as much as it and **"Armour held!"**. Armour has **tiers** too
   (Plain, Reinforced, Riveted, Tempered, Perfect, Mythic: each a rarity up,
-  and darker, harder metal), upgraded with ingots like a weapon, and the
-  Forge makes armour of its own. `assets/combat/combat.json`'s `armour`
+  and darker, harder metal), upgraded with ingots like a weapon, each tier
+  giving more worn ([the Tailor](#the-tailor)), and the Tailor makes armour
+  of its own. `assets/combat/combat.json`'s `armour`
   sets the dice per rarity, how often each place is struck, a minimum blow,
   and `everyPieceRolls` - every piece she wears rolling at once.
 
@@ -590,9 +593,9 @@ in its mirror, turning through every view and state.
   clothes beneath are not, but **both are worn** - both count for what they
   were forged with - and the clothes row says "under the gorget". Take the
   armour off, or hide it, and the clothes show again.
-- **Gifts** - the button by **Back** (there when anything she wears was
-  forged with one) lists what everything she wears gives, forged armour and
-  clothes alike ([the Forge](#the-forge)), each in its colour.
+- **Gifts** - the button by **Back** (there when anything she wears gives
+  one) lists what everything she wears gives at its tier, upgraded pieces and
+  her own alike ([the Tailor](#the-tailor)), each in its colour.
 - **The armour bands** say what each part rolls to block ("2d10", or *bare*)
   and how often a blow lands there (torso 40 %, legs 20 %, head 15 % ...).
   Its header has **Armour: shown / hidden** - hidden, the armour is still
@@ -974,6 +977,7 @@ played, what you are about to place standing under the pointer.
 | **9 Water** | ponds, streams, swamp, crystal water, the sea |
 | **0 Life** | how many critters and of each animal |
 | **Forge** | weapons of your own |
+| **Tailor** | what every piece of clothing and armour gives, tier by tier; armour and clothes of your own |
 
 **Ctrl+F searches everything there is to place**, by name, across every
 category. **Every number** - size, tint strength, health, how many, facing,
@@ -1046,26 +1050,73 @@ furnish and play-test from inside.
 
 <p align="center">
   <img src="docs/screenshots/creative-forge.png" width="49%" alt="The Forge: a weapon of your own, its colours, dice and effects">
-  <img src="docs/screenshots/forge-gear-effects.png" width="49%" alt="The Forge's Effects page for the Wyrmguard gorget: health boost +50, health regen +2/s, stamina absorb 10%">
 </p>
 
-The **Forge** makes weapons, armour and clothes of your own: a name, which of the
-eight weapons, which piece of armour or which garment it is made from (its look, stance and
-moves; for armour, where it is worn and what it rolls to block), its rarity, its colours part by part (a sword's
-blade, fittings and handle; the dice), its dice and their operators, its
-effects, how long its ammunition lasts, and its upgrade tiers (each a name,
-rarity, dice, colours, its price in ingots, or a mystery shown as ???).
+The **Forge** makes weapons of your own: a name, which of the eight weapons
+it is made from (its look, stance and moves), its rarity, its colours part by
+part (a sword's blade, fittings and handle; the dice), its dice and their
+operators, its borders' effects, how long its ammunition lasts, and its
+upgrade tiers (each a name, rarity, dice, colours, its price in ingots, or a
+mystery shown as ???). Saved in `assets/forge/<name>.json`, placed from
+**Items → Weapons** and sold in shops and on horde boards like any weapon
+(`forged:<id>`). Armour and clothes of your own are made in the Tailor.
 
-Armour and clothes have an **Effects** page instead of borders (Venom, Mystic
-and Bonded are weapons' only): any of **more health, mana or stamina**,
-**health, mana or stamina regen** (a second), **health, mana or stamina drawn
-from her blows** (a share of the damage), **higher jumps**, a **double
-jump**, a **sooner heavy attack** and **more speed** - each switched on and
-set with its - / + (`world/Gear`). Everything she wears adds up, the clothes
-under her armour too; a pair of forged bracers counts once. Forged clothes
-roll no dice; they are worn and dyed like any garment. Saved
-in `assets/forge/<name>.json`, placed from **Items → Weapons** and sold in
-shops and on horde boards like any weapon (`forged:<id>`).
+### The Tailor
+
+<p align="center">
+  <img src="docs/screenshots/tailor-every-piece.png" width="49%" alt="The Tailor: the wizard's hat's fourth tier giving +60 mana and +30% jump, and every tier's gifts on the right">
+  <img src="docs/screenshots/tailor-own-tiers.png" width="49%" alt="The Tailor's own pieces: Springheel boots' third tier, what it gives worn, and every tier's gifts">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/tailor-upgrades.png" width="49%" alt="A garment's upgrade tiers in the inventory, each with what it gives">
+  <img src="docs/screenshots/forge-gear-effects.png" width="49%" alt="The Effects page for the Wyrmguard gorget: health boost +50, health regen +2/s, stamina absorb 10%">
+</p>
+
+**Every piece of clothing and armour climbs tiers** from the rarity it is
+found as to Mythic (`world/Tier`): armour Reinforced, Riveted, Tempered,
+Perfect, Mythic; clothes - shirts, hats, boots, belts, jewellery, the
+wings - Fine, Superior, Masterwork, Perfect, Mythic. A tier up costs upgrade
+ingots (right-click it in the inventory: every tier, what it blocks with and
+what it gives). A clothes tier never recolours a garment: a dye still colours
+it at every tier; armour's tiers darken its metal, and a dye still goes over
+that.
+
+The **Tailor** (Creative Mode's tab after the Forge, `editor/TailorPanel`,
+`world/Tailor`) has two pages:
+
+- **Every piece** - pick any piece the game has (the list is searchable),
+  then a tier: its name (blank: the tier's own, "Fine baggy shirt") and what
+  it gives worn - any of **more health, mana or stamina**, **health, mana or
+  stamina regen** (a second), **health, mana or stamina drawn from her
+  blows** (a share of the damage), **higher jumps**, a **double jump**, a
+  **sooner heavy attack** and **more speed** (`world/Gear`), each switched on
+  and set with its - / +. **Same up the tiers** gives every tier above the
+  same; **Grow up the tiers** gives each as much again; **Its default** puts
+  the piece back. The right panel shows the piece and every tier with what it
+  gives. Kept as it is changed, one file a piece in
+  `assets/tailor/<id>.json`, for every level.
+- **Your own** - armour and clothes of your own, made as the Forge makes a
+  weapon: a name, which piece of armour or which garment it is made from
+  (where it is worn and, for armour, what it rolls to block), its rarity, its
+  colours part by part (what no dye takes: the metal, the trim), its gifts,
+  and its tiers - each with its name, rarity, dice to block (armour), price
+  and **what it gives worn**: its own, or as the tier before. A tier added
+  gives half as much again of each. Saved in `assets/forge/<name>.json`.
+
+**By default** a piece gives nothing as it is found, and one gift that grows
+with each tier's rarity (an Uncommon tier once, a Mythic one five times):
+helmets, leg armour and chest armour more health; gauntlets and bracers
+health from her blows; sabatons stamina; hats and the robe more mana; eyewear
+and necklaces mana regen; earrings mana from her blows; shirts, belts and the
+backpack more stamina; trousers and the scarf stamina regen; shoes more speed;
+gloves and the sheath a sooner heavy attack; wrist bands stamina from her
+blows; the clockwork wings higher jumps; underwear and mantles health regen.
+
+Each tier says all it gives (it is not added to the tiers below). Everything
+she wears adds up, the clothes under her armour too, each at the best tier of
+it she carries; a pair of bracers or wrist bands counts once. The gifts are
+hers only, not the folk's or the foes'.
 
 ### The map editor and the horde editor
 

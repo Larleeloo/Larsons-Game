@@ -12,10 +12,11 @@ import java.util.Map;
 
 /**
  * What the clothes and the armour she wears do for her: the special effects
- * the Forge gives a piece ({@link Forged#gear}) - more health, mana or
- * stamina; each filling back faster; some of every blow she lands drawn back
- * as health, mana or stamina; a higher jump; a second jump in the air; a
- * shorter wait between heavy attacks; more speed.
+ * a piece gives at its tier - what the Tailor set for it ({@link Tailor}),
+ * or what it was made with in the Forge's Tailor ({@link Forged#gear}, tier
+ * by tier) - more health, mana or stamina; each filling back faster; some of
+ * every blow she lands drawn back as health, mana or stamina; a higher jump;
+ * a second jump in the air; a shorter wait between heavy attacks; more speed.
  *
  * <p>Everything worn counts, whatever it is worn under: a necklace under a
  * gorget, a shirt under a gambeson ({@link Wardrobe#get(Slot, boolean)}) -
@@ -78,6 +79,22 @@ public final class Gear {
                 case HEALTH_ABSORB, MANA_ABSORB, STAMINA_ABSORB -> n + "%";
                 case HEAVY_COOLDOWN -> "-" + n + "%";
                 default -> "+" + n + "%";
+            };
+        }
+
+        /** What it is of, in a word or two after its amount: "+25 health", "-25% heavy wait". */
+        public String noun() {
+            return switch (this) {
+                case HEALTH, HEALTH_REGEN -> "health";
+                case MANA, MANA_REGEN -> "mana";
+                case STAMINA, STAMINA_REGEN -> "stamina";
+                case HEALTH_ABSORB -> "health from blows";
+                case MANA_ABSORB -> "mana from blows";
+                case STAMINA_ABSORB -> "stamina from blows";
+                case JUMP -> "jump";
+                case DOUBLE_JUMP -> "double jump";
+                case HEAVY_COOLDOWN -> "heavy wait";
+                case SPEED -> "speed";
             };
         }
 
@@ -173,7 +190,8 @@ public final class Gear {
     /**
      * What {@code wardrobe} wears comes to, piece by piece as the items in
      * {@code inventory} (null: as found - the folk's): every slot's armour and
-     * the clothes under it alike.
+     * the clothes under it alike, each at its tier - the best of it she
+     * carries.
      */
     public static Totals of(Wardrobe wardrobe, Inventory inventory) {
         if (wardrobe == null) return Totals.NONE;
@@ -183,24 +201,44 @@ public final class Gear {
             if (slot.carried()) continue;
             for (boolean armour : new boolean[]{true, false}) {
                 Item item = Armour.item(wardrobe, inventory, slot, armour);
-                if (item == null || item.forged() == null) continue;
+                if (item == null) continue;
                 // (a pair of bracers or wrist bands on both wrists is one piece)
                 if (slot == Slot.WRISTWEAR_LEFT && pairWith(wardrobe, inventory, item, armour)) continue;
-                Map<Effect, Double> g = item.forged().gear();
+                Map<Effect, Double> g = of(item);
                 if (g.isEmpty()) continue;
                 for (Map.Entry<Effect, Double> e : g.entrySet()) {
                     double v = e.getKey().onOff() ? 1 : e.getValue();
                     sum.merge(e.getKey(), v, e.getKey().onOff() ? Math::max : Double::sum);
                 }
-                from.add(item.forged().name());
+                from.add(item.name());
             }
         }
         return new Totals(sum, from);
     }
 
+    /**
+     * What one piece gives at its tier: a forged one what the Forge's Tailor
+     * made it with at that tier, any other what the Tailor set for its tier
+     * ({@link Tailor#gear}); nothing for what is not clothes or armour.
+     */
+    public static Map<Effect, Double> of(Item item) {
+        if (item == null || !item.def().isWearable()) return Map.of();
+        if (item.forged() != null) return item.forged().gear();
+        return Tailor.gear(item.def(), item.tier());
+    }
+
     private static boolean pairWith(Wardrobe wardrobe, Inventory inventory, Item left, boolean armour) {
         Item right = Armour.item(wardrobe, inventory, Slot.WRISTWEAR, armour);
-        return right != null && right.forged() != null && right.forged().id().equals(left.forged().id());
+        if (right == null) return false;
+        if (left.forged() != null || right.forged() != null) {
+            return right.forged() != null && left.forged() != null && right.forged().id().equals(left.forged().id());
+        }
+        return right.def() == left.def();
+    }
+
+    /** {@code e} at {@code amount}, short: "+20 health", "+1/s stamina", "10% mana from blows", "Double jump". */
+    public static String shortly(Effect e, double amount) {
+        return e.onOff() ? e.label() : e.amount(amount) + " " + e.noun();
     }
 
     static String trim(double v) {

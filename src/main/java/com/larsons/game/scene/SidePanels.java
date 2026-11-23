@@ -16,7 +16,8 @@ import java.util.Locale;
 
 /**
  * What can stand beside the inventory instead of a barrel's or a chest's
- * slots: a weapon's <b>upgrade tiers</b> (right-click a weapon). The game
+ * slots: a weapon's, a piece of armour's or a garment's <b>upgrade tiers</b>
+ * (right-click it). The game
  * stands still while they are open. (Her cards have a table of their own:
  * {@link CardTable}.)
  */
@@ -39,9 +40,11 @@ final class SidePanels {
     // --- a weapon's tiers -------------------------------------------------------------
 
     /**
-     * Inventory slot {@code slot}'s weapon's tiers, one a row: each tier's
-     * name and rarity, its dice, how long its ammunition lasts, what it costs
-     * - the one it is at marked, a mystery's as ??? - and the Upgrade button.
+     * Inventory slot {@code slot}'s weapon's tiers - or a piece of armour's
+     * or clothing's - one a row: each tier's name and rarity, its dice, how
+     * long its ammunition lasts (a weapon's), what it gives worn (armour's and
+     * clothes', each effect in its colour), what it costs - the one it is at
+     * marked, a mystery's as ??? - and the Upgrade button.
      * Returns false when the panel is to close.
      */
     boolean tiers(Ui ui, Inventory inv, int slot, float x, float y, float w, float h) {
@@ -63,10 +66,30 @@ final class SidePanels {
             float[] c = hidden ? Theme.ITEM_DISABLED : s.rarity().colour(1f);
             ui.text(ui.body, (i + 1) + ".  " + name, rx + 8, ry + 4, c);
             String line = hidden ? "A mystery until it is reached"
-                    : s.ammoEvery() <= 0 ? s.rarity().label() + " · blocks with " + s.dice()
-                    : s.rarity().label() + " · rolls " + s.dice() + " · ammunition lasts " + s.ammoEvery();
-            ui.text(ui.small, line, rx + 8, ry + 4 + ui.body.lineHeight() + 1,
+                    : !s.worn() ? s.rarity().label() + " · rolls " + s.dice() + " · ammunition lasts " + s.ammoEvery()
+                    : s.rolls() ? s.rarity().label() + " · blocks with " + s.dice() : s.rarity().label();
+            float ly = ry + 4 + ui.body.lineHeight() + 1;
+            float lx = rx + 8, room = rx + rw - 10;
+            ui.text(ui.small, line, lx, ly,
                     hidden ? Theme.ITEM_DISABLED : Theme.withAlpha(Theme.HINT, s.reached() ? 1f : 0.75f));
+            // what it gives worn at that tier, each in its colour ("+20 health", "+5% speed")
+            if (!hidden && s.worn()) {
+                lx += ui.small.width(line);
+                List<String> gifts = s.gifts();
+                List<com.larsons.game.world.Gear.Effect> kinds = new java.util.ArrayList<>(s.gives().keySet());
+                if (gifts.isEmpty()) {
+                    ui.text(ui.small, " · gives nothing", lx, ly, Theme.ITEM_DISABLED);
+                }
+                for (int g = 0; g < gifts.size(); g++) {
+                    String part = (g == 0 ? " · " : ", ") + gifts.get(g);
+                    if (lx + ui.small.width(part) > room) {
+                        ui.text(ui.small, " …", lx, ly, Theme.ITEM_DISABLED);
+                        break;
+                    }
+                    ui.text(ui.small, part, lx, ly, Theme.hex(kinds.get(g).rgb(), s.reached() ? 1f : 0.75f));
+                    lx += ui.small.width(part);
+                }
+            }
             String right = s.now() ? "now" : s.reached() ? "" : s.cost() + (s.cost() == 1 ? " ingot" : " ingots");
             ui.text(ui.small, right, rx + rw - 8 - ui.small.width(right), ry + 6, s.now() ? Theme.ACCENT : Theme.ITEM);
             ry += rowH;

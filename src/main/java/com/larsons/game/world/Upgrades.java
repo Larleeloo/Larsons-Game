@@ -18,16 +18,49 @@ import java.util.List;
  * reached.
  *
  * <p>Armour climbs the same way ({@link Tier#armour}): each tier up a rarity,
- * so more dice to block a blow with ({@link Armour}) - a forged piece its own
- * tiers, as the Forge made them.
+ * so more dice to block a blow with ({@link Armour}) - and the clothes too
+ * ({@link Tier#clothing}), which block nothing. Every tier of a piece of
+ * armour or clothing gives what the Tailor set for it ({@link Tailor}); a
+ * forged piece climbs its own tiers, each giving what it was made with.
  */
 public final class Upgrades {
 
     private Upgrades() {}
 
-    /** One tier on a weapon's path: what it is called, how rare, its dice, its ammunition's uses, its price. */
+    /**
+     * One tier on an item's path: what it is called, how rare, its dice (""
+     * for clothes, which roll none), its ammunition's uses (0: it has none -
+     * armour and clothes), its price, and what it gives worn ({@code gives}:
+     * each effect's amount; none for a weapon).
+     */
     public record Step(String name, Rarity rarity, String dice, int ammoEvery, int cost, boolean mystery,
-                       boolean reached, boolean now) {}
+                       boolean reached, boolean now, java.util.Map<Gear.Effect, Double> gives) {
+
+        public Step {
+            gives = gives == null ? java.util.Map.of() : java.util.Collections.unmodifiableMap(
+                    gives.isEmpty() ? new java.util.EnumMap<>(Gear.Effect.class) : new java.util.EnumMap<>(gives));
+        }
+
+        public Step(String name, Rarity rarity, String dice, int ammoEvery, int cost, boolean mystery,
+                    boolean reached, boolean now) {
+            this(name, rarity, dice, ammoEvery, cost, mystery, reached, now, java.util.Map.of());
+        }
+
+        /** What it gives, a short line each: "+20 health", "+1/s stamina", "Double jump". */
+        public List<String> gifts() {
+            List<String> out = new ArrayList<>();
+            for (var e : gives.entrySet()) out.add(Gear.shortly(e.getKey(), e.getValue()));
+            return out;
+        }
+
+        /** Whether it is worn (armour or clothes): it has no ammunition. */
+        public boolean worn() { return ammoEvery <= 0; }
+
+        /** Whether it rolls dice (a weapon to strike, armour to block). */
+        public boolean rolls() { return !dice.isEmpty(); }
+    }
+
+
 
     /** Ingots a chart weapon's tier of {@code r} costs to reach. */
     public static int cost(Rarity r) {
@@ -61,15 +94,18 @@ public final class Upgrades {
     public static List<Step> path(Item item, java.util.function.ToIntFunction<Rarity> dice, int sides,
                                   Armour.Rules armour) {
         List<Step> out = new ArrayList<>();
-        boolean worn = item != null && Armour.sides(item.def()) > 0;
         if (item == null) return out;
+        // worn: armour (which blocks with its dice) or clothes (which roll none); either has no ammunition
+        boolean worn = item.def().isWearable();
+        boolean blocks = Armour.sides(item.def()) > 0;
         Forged f = item.forged();
         if (f != null) {
             for (int n = 0; n < f.tiers(); n++) {
                 Forged at = f.at(n);
                 boolean mystery = n > 0 && at.tier().mystery();
-                out.add(new Step(at.name(), at.rarity(), at.diceText(), worn ? 0 : at.ammoEvery(),
-                        n == 0 ? 0 : at.tier().cost(), mystery, n <= f.level(), n == f.level()));
+                out.add(new Step(at.name(), at.rarity(), worn && !blocks ? "" : at.diceText(), worn ? 0 : at.ammoEvery(),
+                        n == 0 ? 0 : at.tier().cost(), mystery, n <= f.level(), n == f.level(),
+                        worn ? at.gear() : java.util.Map.of()));
             }
             return out;
         }
@@ -80,10 +116,11 @@ public final class Upgrades {
         for (int n = 0; n < tiers.size(); n++) {
             Tier t = tiers.get(n);
             Item at = new Item(item.def(), t, null, item.border());
-            String rolls = worn ? armour.dice(t.rarity()) + Forged.die(Armour.sides(item.def()))
-                    : dice.applyAsInt(t.rarity()) + Forged.die(sides);
+            String rolls = blocks ? armour.dice(t.rarity()) + Forged.die(Armour.sides(item.def()))
+                    : worn ? "" : dice.applyAsInt(t.rarity()) + Forged.die(sides);
             out.add(new Step(at.name(), t.rarity(), rolls, worn ? 0 : Ammo.every(at),
-                    n == 0 ? 0 : cost(t.rarity()), n == tiers.size() - 1 && n > now, n <= now, n == now));
+                    n == 0 ? 0 : cost(t.rarity()), n == tiers.size() - 1 && n > now, n <= now, n == now,
+                    worn ? Tailor.gear(item.def(), t) : java.util.Map.of()));
         }
         return out;
     }
