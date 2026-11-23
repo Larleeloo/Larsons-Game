@@ -165,6 +165,12 @@ public final class Animals {
             this(kind, at, count, radius, temperament, when, saddled, List.of(), 1, 1, false, 0);
         }
 
+        /** The same herd, standing at {@code there}. */
+        public Herd at(Vec3 there) {
+            return new Herd(kind, there, count, radius, temperament, when, saddled, colours, sizeMin, sizeMax, single,
+                    heading);
+        }
+
         /** A herd without the saddle on (any but horses are never saddled). */
         public Herd(AnimalKind kind, Vec3 at, int count, double radius, Temperament temperament,
                     Critters.When when) {
@@ -190,22 +196,20 @@ public final class Animals {
     private double survey, thin;
     private boolean enabled = true;
     private boolean still;
-    /**
-     * Whether there are birds at all. Off: none comes by and no flock a
-     * level has shows, at any hour of the day (in the editor's still view
-     * they stand where they were put, so they can be found and moved).
-     */
-    private static volatile boolean birds;
+    /** Whether birds come by of themselves (never, in the game: the tests' own switch). */
+    private static volatile boolean wanderingBirds;
 
-    /** Turn the birds on or off, everywhere (Settings → Game). */
-    public static void setBirds(boolean on) {
-        birds = on;
+    /** Let the birds come by of themselves, or not (for the tests of how they live). */
+    static void letBirdsWander(boolean on) {
+        wanderingBirds = on;
     }
 
-    public static boolean birds() { return birds; }
-
+    /**
+     * Whether {@code k} keeps away on its own: the birds do not come by of
+     * themselves (a level's own flocks, placed in it, are there as placed).
+     */
     private boolean off(AnimalKind k) {
-        return !birds && !still && k.bird();
+        return !wanderingBirds && !still && k.bird();
     }
 
     public Animals() {
@@ -403,8 +407,9 @@ public final class Animals {
                 if (far != null && fd > COME * 0.8) far.leaving = true;
             }
         }
+        followMoved(place);
         for (Animal a : live) {
-            // a herd taken out of the level (or moved, or changed - the editor's ghost under the pointer) takes
+            // a herd taken out of the level (or changed - the editor's ghost under the pointer) takes
             // its own with it, saddled ones and all; only a horse she saddled herself is hers to keep
             if (a.herd != null && !herds.contains(a.herd) && !a.saddledByHer && !a.ridden) {
                 a.leaving = true;
@@ -417,7 +422,7 @@ public final class Animals {
         }
         for (Herd h : herds) {
             boolean near = Math.hypot(h.at().x() - focus.x(), h.at().z() - focus.z()) < HERD_REACH;
-            int want = near && !off(h.kind()) ? (int) Math.round(h.count() * (still ? 1 : when(h, day))) : 0;
+            int want = near ? (int) Math.round(h.count() * (still ? 1 : when(h, day))) : 0;
             if (still && near) {
                 // the editor's view: the whole herd there at once, where each will stand
                 int have = 0;
@@ -534,6 +539,46 @@ public final class Animals {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A herd that is the same but stands somewhere else now - the editor's
+     * ghost under the pointer, a herd dragged across the ground - takes its
+     * animals along as they stood, each the same distance from its middle,
+     * instead of sending them off and bringing others in all over again:
+     * placing a herd, it moves with the pointer as one.
+     */
+    private void followMoved(Place place) {
+        java.util.Set<Herd> manned = new java.util.HashSet<>();
+        for (Animal a : live) if (a.herd != null && !a.leaving && herds.contains(a.herd)) manned.add(a.herd);
+        java.util.Map<Herd, Herd> to = new java.util.HashMap<>();
+        for (Animal a : live) {
+            Herd old = a.herd;
+            if (old == null || a.leaving || a.gone || herds.contains(old) || a.saddledByHer || a.ridden) continue;
+            Herd now = to.get(old);
+            if (now == null && !to.containsKey(old)) {
+                for (Herd h : herds) {
+                    if (!manned.contains(h) && !to.containsValue(h) && h.at(old.at()).equals(old)) {
+                        now = h;
+                        break;
+                    }
+                }
+                to.put(old, now);
+            }
+            if (now == null) continue;
+            double dx = now.at().x() - old.at().x(), dz = now.at().z() - old.at().z();
+            a.x += dx;
+            a.z += dz;
+            a.toX += dx;
+            a.toZ += dz;
+            a.homeX += dx;
+            a.homeZ += dz;
+            a.fleeX += dx;
+            a.fleeZ += dz;
+            if (a.kind.flies()) a.y += now.at().y() - old.at().y();
+            a.herd = now;
+            settle(a, place);
+        }
     }
 
     private Animal make(AnimalKind k, Herd herd, Temperament t, double x, double z, Place place) {

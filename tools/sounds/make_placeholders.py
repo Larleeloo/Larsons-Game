@@ -1217,11 +1217,30 @@ def croak(k, f, d):
 
 @sound("ambient/plains", 0.2)
 def _(k):
+    # the wind in the grass (the birds sing in their own bed, ambient/birdsong, so they can be turned down)
     d = 12.0
-    out = 0.12 * k.periodic(d, band_shape(150, 900, -4))
-    for _ in range(14):
+    t = t_of(d)
+    swell = 0.55 + 0.45 * np.sin(2 * np.pi * t / d + 0.7) ** 2
+    out = 0.12 * k.periodic(d, band_shape(150, 900, -4)) * swell
+    out += 0.03 * k.periodic(d, band_shape(1800, 5000)) * swell ** 2           # the grass's own hiss
+    return out
+
+
+@sound("ambient/birdsong", 0.2)
+def _(k):
+    # the small birds singing by day, near and far, every one its own phrase; and now and then a wood pigeon
+    d = 14.0
+    out = silence(d)
+    for _ in range(16):
         f = k.uniform(2600, 4800)
         place(out, bird(k, f, 0.6, int(k.uniform(2, 6))), k.uniform(0, d), k.uniform(0.25, 0.8), wrap=True)
+    for _ in range(6):                                                    # a farther one, higher, softer
+        f = k.uniform(4200, 6000)
+        place(out, bird(k, f, 0.5, int(k.uniform(3, 7))), k.uniform(0, d), k.uniform(0.1, 0.25), wrap=True)
+    for at in (3.0, 10.4):                                                # coo-COO-coo
+        for i, (f, g) in enumerate(((420.0, 0.5), (470.0, 0.8), (400.0, 0.45))):
+            coo = osc(glide(0.32, [(0, f * 0.96), (0.3, f), (1, f * 0.9)])) * bell(0.32, 0.25, 1.3)
+            place(out, 0.3 * g * coo, at + i * 0.4, wrap=True)
     return out
 
 
@@ -1264,9 +1283,8 @@ def _(k):
     d = 12.0
     t = t_of(d)
     out = 0.08 * k.periodic(d, band_shape(3000, 9000)) * (0.6 + 0.4 * np.sin(2 * np.pi * t / d * 3))
-    for _ in range(22):
-        f = k.uniform(1500, 5200)
-        place(out, bird(k, f, 0.8, int(k.uniform(2, 7))), k.uniform(0, d), k.uniform(0.2, 0.7), wrap=True)
+    out += 0.05 * k.periodic(d, band_shape(300, 1200, -3))               # the leaves
+    # (its birds sing in ambient/birdsong, as everywhere's do)
     for _ in range(4):                                                    # a whooping call far off
         f = k.uniform(500, 800)
         call = silence(1.2)
@@ -1301,8 +1319,6 @@ def _(k):
     cicada = bp(k.periodic(d, band_shape(4000, 7500)), 4000, 7500) * (0.5 + 0.5 * np.sin(2 * np.pi * 47 * t)) ** 2
     swell = 0.4 + 0.6 * np.sin(np.pi * t / d * 2) ** 2
     out = 0.5 * cicada * swell + 0.35 * k.periodic(d, band_shape(150, 900, -4))
-    for _ in range(5):
-        place(out, bird(k, k.uniform(2000, 3200), 0.5, 2), k.uniform(0, d), 0.25, wrap=True)
     return out
 
 

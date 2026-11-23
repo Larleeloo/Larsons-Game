@@ -255,7 +255,8 @@ public final class SoundKeys {
      * fading into the next across its edge; and any of them placed as a
      * sound object in a level.
      */
-    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "marsh", "frogs",
+    public static final List<String> AMBIENT_SOUNDS = List.of("wind", "stream", "crickets", "plains", "birdsong",
+            "marsh", "frogs",
             "mountains", "jungle", "jungle_night", "savannah", "ocean", "waste", "crystal", "rain", "gale",
             "sandstorm", "snowfall", "thunder");
 
@@ -864,11 +865,12 @@ public final class SoundKeys {
             case "wind" -> "Breeze over everything (held)";
             case "stream" -> "A river or stream (held)";
             case "crickets" -> "Crickets: the plains and savannah at night (held)";
-            case "plains" -> "The plains by day: birdsong (held)";
+            case "plains" -> "The plains by day: the wind in the grass (held)";
+            case "birdsong" -> "Birdsong by day, wherever birds live: the plains, the jungle, the marsh (held)";
             case "marsh" -> "The marsh by day: insects over the water (held)";
             case "frogs" -> "The marsh at night: frogs (held)";
             case "mountains" -> "The mountains: high wind (held)";
-            case "jungle" -> "The jungle by day: birds and insects (held)";
+            case "jungle" -> "The jungle by day: insects, leaves, a far call (held)";
             case "jungle_night" -> "The jungle at night (held)";
             case "savannah" -> "The savannah by day: dry heat, cicadas (held)";
             case "ocean" -> "The sea: waves on the shore (held)";

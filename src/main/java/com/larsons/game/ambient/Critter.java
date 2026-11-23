@@ -14,7 +14,7 @@ import java.util.Random;
 public final class Critter {
 
     final CritterKind kind;
-    final Critters.Spot spot;               // the spot it lives at, or null (it lives round the player)
+    Critters.Spot spot;                     // the spot it lives at, or null (it lives round the player)
     double x, y, z, heading;
     String state;
     double stateTime;

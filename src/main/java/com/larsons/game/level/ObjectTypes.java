@@ -52,7 +52,8 @@ import java.util.Map;
 public final class ObjectTypes {
 
     public static final String SPAWN = "spawn", MARKER = "marker", SCENERY = "scenery", ITEM = "item",
-            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", SOUND = "sound", LIGHT = "light",
+            CHEST = "chest", DUMMY = "dummy", FLIER = "flier", VINES = "vines", LADDER = "ladder", SOUND = "sound",
+            LIGHT = "light",
             RAYS = "rays", CRITTERS = "critters", ANIMALS = "animals", BUILDING = "building", PREFAB = "prefab",
             WALL = "wall", FLOOR = "floor", STAIRS = "stairs", EXIT = "exit", TEMPLATE = "template", SHOP = "shop",
             SHOWN = "shown";
@@ -199,6 +200,26 @@ public final class ObjectTypes {
         register(new ObjectType(VINES, "Climbing vines", Category.SCENERY,
                 List.of(Prop.number("length", "Length (m)", 8, 1, 60, 0.5),
                         Prop.toggle("fit", "Fit to the rock face", true)), 0.6, 3, 0x5F9E3A, false, null));
+        // a wooden ladder up a rock face, a ledge, a wall - climbed as the vines are; as tall as it is set, or (fitted)
+        // as the face it stands against
+        register(new ObjectType(LADDER, "Ladder", Category.SCENERY,
+                List.of(Prop.number("height", "Height (m)", 4, 1, 30, 0.25),
+                        Prop.toggle("fit", "Fit to the rock face", true)), 0.5, 3, 0xB07A44, false,
+                (o, b) -> {
+                    BuildingProfile p = BuildingCatalog.get().profile(ObjectTypes.LADDER_MODEL);
+                    if (p == null) return;
+                    com.larsons.game.world.Terrain.Wall w = b.terrain().walls().stream()
+                            .filter(x -> x.ladder() && Math.abs((x.x0() + x.x1()) / 2 - o.x()) < 1e-6
+                                    && Math.abs((x.z0() + x.z1()) / 2 - o.z()) < 1e-6)
+                            .findFirst().orElse(null);
+                    double bottom = w != null ? w.bottom() : b.onGround(o).y();
+                    double tall = w != null ? w.top() - w.bottom() : Math.max(1, o.num("height", 4));
+                    // (stretched to its height; a hand's breadth out from what it leans on)
+                    BuildingProfile sized = p.scaled(1, 1, tall / Math.max(0.1, p.height()));
+                    Vec3 out = com.larsons.game.sprite.SpriteView.headingVector(o.yaw());
+                    b.world().addBuilding(new Building(o.id(), sized, new Vec3(o.x() + out.x() * 0.08, bottom,
+                            o.z() + out.z() * 0.08), o.yaw(), null, null));
+                }));
         register(new ObjectType(SOUND, "Sound", Category.SOUNDS,
                 List.of(Prop.choice("sound", "Sound", SoundKeys.ambient("stream"), o -> soundKeys())), 0.5, 1.2,
                 0xB48CFF, false,
@@ -217,8 +238,9 @@ public final class ObjectTypes {
                         Prop.number("spread", "Spread (m)", 1.5, 0.2, 8, 0.1),
                         Prop.number("height", "From (m up)", 6, 1, 30, 0.5),
                         Prop.number("strength", "Strength", 1, 0.1, 2, 0.1)), 0.6, 2.0, 0xFFF0B0, false,
-                (o, b) -> b.world().raySpots().add(new World.RaySpot(b.onGround(o), (int) o.num("count", 4),
-                        o.num("spread", 1.5), o.num("height", 6), o.num("strength", 1)))));
+                // (retired: light rays are worked out from the sun and the shadows now - an old level's are kept
+                // in its file, and make nothing; the editor offers them no more)
+                (o, b) -> {}));
         // a swarm of the little creatures living round a spot - fireflies over a pond, frogs at its edge -
         // as well as those that come by on their own (the Level tool's Life page says how many of those)
         register(new ObjectType(CRITTERS, "Critters", Category.LIFE,
@@ -821,6 +843,9 @@ public final class ObjectTypes {
      * The editor's palette: every kind there is, the scenery and the items
      * one entry each, filed by {@link Category}.
      */
+    /** The model a ladder is drawn as (its 3D mesh, stretched to the ladder's height). */
+    public static final String LADDER_MODEL = "ladder";
+
     public static List<Entry> palette() {
         List<Entry> out = new ArrayList<>();
         for (SceneryProfile.Kind k : List.of(SceneryProfile.Kind.TREE, SceneryProfile.Kind.ROCK,
@@ -951,7 +976,7 @@ public final class ObjectTypes {
                     || t.key().equals(CRITTERS) || t.key().equals(ANIMALS) || t.key().equals(BUILDING)
                     || t.key().equals(PREFAB) || t.key().equals(WALL) || t.key().equals(FLOOR)
                     || t.key().equals(STAIRS) || t.key().equals(EXIT) || t.key().equals(TEMPLATE)
-                    || t.key().equals(LIGHT) || t.key().equals(SHOP)) continue;
+                    || t.key().equals(LIGHT) || t.key().equals(SHOP) || t.key().equals(RAYS)) continue;
             Map<String, Object> props = new LinkedHashMap<>();
             for (Prop p : t.props()) props.put(p.key(), p.fallback());
             out.add(new Entry(t.label(), t.category(), t.key(), props));

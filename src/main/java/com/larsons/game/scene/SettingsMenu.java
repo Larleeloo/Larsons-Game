@@ -233,6 +233,42 @@ public final class SettingsMenu {
                 x, y, w);
         y += 40;
 
+        name(ui, "Vibrant visuals", x, y);
+        if (ui.button(s.vibrant ? "On" : "Off", c, y, 110, 34, s.vibrant, true)) s.vibrant = !s.vibrant;
+        if (s.vibrant) {
+            ui.text(ui.small, "Strength", c + 130, y + 9, Theme.ITEM);
+            double vs = ui.slider(c + 200, y + 6, 220, 22, s.vibrantStrength);
+            s.vibrantStrength = Math.round(vs * 20) / 20.0;
+            ui.text(ui.small, Math.round(s.vibrantStrength * 100) + "%", c + 434, y + 9, Theme.ITEM);
+        }
+        y += 42;
+        note(ui, "Warm sunlight and cool shade, buildings lit from where the sun is, richer colours, and shafts of "
+                + "light through the trees and past the walls. Off: the flat pixel look.", x, y, w);
+        y += 40;
+        name(ui, "Shadows", x, y);
+        com.larsons.game.gfx.Visuals.Shadows[] qs = com.larsons.game.gfx.Visuals.Shadows.values();
+        String[] ql = new String[qs.length];
+        int qa = -1;
+        for (int i = 0; i < qs.length; i++) {
+            ql[i] = qs[i].label;
+            if (qs[i].name().equalsIgnoreCase(s.shadows)) qa = i;
+        }
+        int qp = choices(ui, ql, qa, c, y, 110);
+        if (qp >= 0) s.shadows = qs[qp].name();
+        y += 42;
+        note(ui, "Everything placed casts the sun's shadow - buildings, furniture, trees, rocks, folk and animals - "
+                + "the way the sun is, longer in the evening. Higher: sharper, and farther round you; Off: a soft "
+                + "shadow under each thing, as before.", x, y, w);
+        y += 56;
+        name(ui, "Light rays", x, y);
+        boolean raysOk = s.vibrant && !"OFF".equalsIgnoreCase(s.shadows);
+        if (ui.button(s.lightRays ? "On" : "Off", c, y, 110, 34, s.lightRays && raysOk, raysOk)) {
+            s.lightRays = !s.lightRays;
+        }
+        ui.text(ui.small, raysOk ? "Worked out from the sun and the shadows: strongest at dawn, dusk and in mist"
+                : "Needs Vibrant visuals and shadows", c + 124, y + 9, Theme.ITEM_DISABLED);
+        y += 50;
+
         var lib = game.sprites();
         name(ui, "Sprite resolution", x, y);
         double[] scales = {1.0, 0.5, 0.25};

@@ -10,6 +10,8 @@ import com.larsons.game.combat.CombatRenderer;
 import com.larsons.game.gfx.Batch;
 import com.larsons.game.gfx.PixelData;
 import com.larsons.game.gfx.SceneLight;
+import com.larsons.game.gfx.ShadowMap;
+import com.larsons.game.gfx.Visuals;
 import com.larsons.game.gfx.Texture;
 import com.larsons.game.math.Mat4;
 import com.larsons.game.math.Vec3;
@@ -258,6 +260,9 @@ public final class WorldRenderer implements AutoCloseable {
         lightUp(world, camera, light);
         // what lies round the level: its far ring after the sky, its near ring with the level's ground
         boolean around = surround != null && surround.prepare(world) && !indoors;
+        // the sun's shadows, drawn first from the sun, and the vibrant look's light
+        Visuals look = Visuals.now;
+        sunShadows(world, camera, light, indoors, around, look);
         if (indoors) {
             glClearColor(dark[0], dark[1], dark[2], 1f);
             glDepthMask(true);
@@ -322,7 +327,10 @@ public final class WorldRenderer implements AutoCloseable {
         Player p = world.player();
         double lift = Math.min(1, p.height() / 1.5);
         shadowStrength = indoors ? 0.85f : (float) (0.55 + 0.45 * light.day());
-        if (!p.mounted()) groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift), 0.5f * (float) (1 - 0.45 * lift));
+        // (where the sun casts shadows of its own, a smaller one underfoot: where she touches the ground)
+        float under = sunCasts ? 0.62f : 1f;
+        if (!p.mounted()) groundShadow(p.ground(), 0.42 * (1 - 0.3 * lift) * (sunCasts ? 0.8 : 1),
+                0.5f * under * (float) (1 - 0.45 * lift));
         for (World.GroundItem g : world.items()) {
             if (!g.out(world.time()) || g.shown()) continue;          // (one set out for show casts none: it stands on things)
             Vec3 c = g.centre(world.time());
@@ -355,13 +363,14 @@ public final class WorldRenderer implements AutoCloseable {
                     (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
+            if (castsOwn(s)) continue;
             groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
         }
         for (com.larsons.game.actor.Folk f : world.folks().all()) {
             Vec3 at = f.position();
             if (f.alpha() < 0.05 || at.sub(eye).length() > ANIMAL_REACH) continue;
             groundShadow(at, (f.creature() ? 0.5 : 0.42) * f.size() * (1 + 0.5 * f.fallen()),
-                    (float) (0.5 * f.alpha()));
+                    (float) (0.5 * under * f.alpha()));
         }
         for (Building b : world.buildings()) buildingShadow(b);
         if (around) {
@@ -371,6 +380,7 @@ public final class WorldRenderer implements AutoCloseable {
             double reach = Math.pow(fogFar * 1.6 + 10, 2);
             for (Scenery.Placed s : surround.scenery().shadowed()) {
                 double dx = s.x() - eye.x(), dz = s.z() - eye.z();
+                if (castsOwn(s)) continue;
                 if (dx * dx + dz * dz < reach) groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
             }
             for (Building b : surround.buildings()) {
@@ -895,11 +905,13 @@ public final class WorldRenderer implements AutoCloseable {
             }
         }
 
-        // --- light rays, added over it all (tested against the scenery and the ground) ----
+        // --- light rays, added over it all (tested against the scenery and the ground): the shafts under the
+        // trees' crowns as the art draws them - fainter where the air's own are worked out from the shadows ----
         List<LightRays.Shaft> shafts = LightRays.shafts(world, light, eye, world.time());
         if (!shafts.isEmpty()) {
             batch.begin(viewProj, fog, 0, fogFar);
             float[] sun = light.sunColour();
+            rayShare = sceneLight.rays > 0 ? 0.55f : 1f;
             for (LightRays.Shaft s : shafts) rayQuad(s, eye, sun);
             batch.end();
         }
@@ -907,6 +919,148 @@ public final class WorldRenderer implements AutoCloseable {
         if (!indoors) weather.draw(batch, world.weatherNow(), camera, viewProj, fog, fogFar, light, world.time());
         batch.useSceneLight(null);
         glDepthMask(true);
+        // --- the vibrant look's colours: what is dull a little richer, a gentle curve to the light ---
+        if (look.vibrance() > 0) {
+            if (lookFilter == null) lookFilter = new com.larsons.game.gfx.LookFilter();
+            lookFilter.apply((float) look.vibrance(), fbWidth, fbHeight);
+        }
+    }
+
+    /** The sun's shadow map ({@link #sunShadows}); made the first time there are shadows. */
+    private ShadowMap shadowMap;
+    /** The vibrant look's pass over the picture; made the first time it is on. */
+    private com.larsons.game.gfx.LookFilter lookFilter;
+    /** Whether the sun casts its own shadows this frame (the soft ones under things are fainter, or none). */
+    private boolean sunCasts;
+    /** How much of themselves the light rays under the trees are drawn with, this frame. */
+    private float rayShare = 1f;
+
+    /** Whether {@code s} casts the sun's shadow this frame, so needs no soft one of its own. */
+    private boolean castsOwn(Scenery.Placed s) {
+        if (!sunCasts || s.profile().frameWorldHeight() * s.scale() < SceneryRenderer.LEAST_SHADOW) return false;
+        double dx = s.x() - shadowMap.centre().x(), dz = s.z() - shadowMap.centre().z();
+        double r = shadowMap.reach() * 0.8;
+        return dx * dx + dz * dz < r * r;
+    }
+
+    /**
+     * Set this frame's {@link #sceneLight} for the sun - which way it is, how
+     * warm its light and how cool the shade, as vibrant as {@code look} is -
+     * and, under the open sky while the sun is up and {@code look} has them,
+     * draw its shadow map: the buildings, the scenery standing across the
+     * sun's way, and an upright shape for each figure, round the camera's
+     * target.
+     */
+    private void sunShadows(World world, OrbitCamera camera, DayCycle.Daylight light, boolean indoors, boolean around,
+                            Visuals look) {
+        SceneLight l = sceneLight.flat();
+        sunCasts = false;
+        if (indoors) return;
+        Vec3 sun = light.sun();
+        double up = Math.max(0, Math.min(1, (sun.y() - 0.02) / 0.16));
+        up = up * up * (3 - 2 * up);
+        Vec3 cast = ShadowMap.castFrom(sun);
+        l.towardSun[0] = (float) cast.x();
+        l.towardSun[1] = (float) cast.y();
+        l.towardSun[2] = (float) cast.z();
+        double v = look.vibrance();
+        l.vibrance = (float) v;
+        l.sunUp = (float) up;
+        if (v > 0) {
+            // the sunlight warm, as the hour has it, and the shade the sky's blue
+            float[] sc = light.sunColour();
+            double k = v * up;
+            for (int i = 0; i < 3; i++) {
+                l.sunTint[i] = (float) (1 + k * 0.5 * (sc[i] * 1.06 - 1));
+            }
+            float[] shade = {0.80f, 0.88f, 1.10f};
+            for (int i = 0; i < 3; i++) l.shadeTint[i] = (float) (1 + k * (shade[i] - 1));
+        }
+        if (look.shadows() == Visuals.Shadows.OFF || up <= 0.01) return;
+        if (shadowMap == null) shadowMap = new ShadowMap();
+        Visuals.Shadows q = look.shadows();
+        Vec3 centre = camera.target();
+        double reach = q.reach;
+        Mat4 vp = shadowMap.begin(q.size, centre, cast, reach);
+        double t = world.time();
+        if (buildings != null) {
+            buildings.drawShadows(world.buildings(), vp, centre, reach, t);
+            if (around) buildings.drawShadows(surround.buildings(), vp, centre, reach, t);
+        }
+        scenery.drawShadows(batch, world.scenery(), vp, cast, centre, reach, t);
+        if (around) scenery.drawShadows(batch, surround.scenery(), vp, cast, centre, reach, t);
+        figureShadows(world, vp, cast, centre, reach);
+        shadowMap.end();
+        sunCasts = true;
+        l.shadowTexture = shadowMap.texture();
+        l.shadowViewProj = vp;
+        l.shadowReach = (float) reach;
+        l.shadowTexel = 1f / q.size;
+        l.shadowBias = 0.1f;
+        Vec3 c = shadowMap.centre();
+        l.shadowCentre[0] = (float) c.x();
+        l.shadowCentre[1] = (float) c.y();
+        l.shadowCentre[2] = (float) c.z();
+        // (as dark as the old soft ones by day, darker the more vibrant; gone as the sun sets)
+        l.shadowDark = (float) ((0.34 + 0.1 * v) * up * Math.max(0.35, 1 - 0.5 * light.mist()));
+        if (look.computedRays()) {
+            l.rays = (float) (v * (0.28 + 0.9 * light.rays()) * (0.7 + 0.8 * light.mist()));
+            l.raysReach = (float) Math.min(42, reach * 0.85);
+            float[] sc = light.sunColour();
+            for (int i = 0; i < 3; i++) l.rayColour[i] = sc[i] * 0.5f;
+        }
+    }
+
+    /**
+     * Into the shadow map: an upright shape for her, the folk, the animals
+     * near enough - a soft card the height of each standing across the way
+     * to the sun, cut out where it is more than half there, so each casts a
+     * rounded shadow the sun's way.
+     */
+    private void figureShadows(World world, Mat4 vp, Vec3 cast, Vec3 centre, double reach) {
+        double ax = -cast.z(), az = cast.x(), al = Math.hypot(ax, az);
+        if (al < 1e-4) {
+            ax = 1;
+            az = 0;
+        } else {
+            ax /= al;
+            az /= al;
+        }
+        batch.begin(vp);
+        batch.setAlphaCut(0.5f);
+        Player p = world.player();
+        double rr = reach * reach;
+        if (p.feet().sub(centre).horizontalLength() < reach && !p.underWater()) {
+            Animal steed = p.mounted() ? world.steed() : null;
+            if (steed == null) figure(p.feet(), 0.62, p.crouched() ? 1.15 : 1.75, ax, az);
+            else figure(steed.position(), steed.radius() * 2.1, 2.5, ax, az);
+        }
+        for (com.larsons.game.actor.Folk f : world.folks().all()) {
+            Vec3 at = f.position();
+            double dx = at.x() - centre.x(), dz = at.z() - centre.z();
+            if (f.alpha() < 0.5 || dx * dx + dz * dz > rr || f.fallen() > 0.5) continue;
+            figure(at, 0.62 * f.size(), 1.75 * f.size(), ax, az);
+        }
+        for (Animal a : world.animals().live()) {
+            if (a.alpha() < 0.5 || a.swimming() || a == world.steed()) continue;
+            Vec3 at = a.position();
+            double dx = at.x() - centre.x(), dz = at.z() - centre.z();
+            if (dx * dx + dz * dz > rr) continue;
+            double h = Math.max(0.3, at.y() - ground.height(at.x(), at.z()));
+            if (a.kind().flies() && h > 2) continue;
+            figure(a.kind().flies() ? at : new Vec3(at.x(), ground.height(at.x(), at.z()), at.z()),
+                    a.radius() * 2, a.radius() * 1.7, ax, az);
+        }
+        batch.setAlphaCut(Batch.DEFAULT_ALPHA_CUT);
+        batch.end();
+    }
+
+    /** One upright soft card into the shadow map: {@code wide} across, {@code tall} high, standing at {@code at}. */
+    private void figure(Vec3 at, double wide, double tall, double ax, double az) {
+        float hx = (float) (ax * wide / 2), hz = (float) (az * wide / 2);
+        float x = (float) at.x(), y = (float) at.y(), z = (float) at.z(), top = (float) (at.y() + tall);
+        batch.quad(shadow, x - hx, top, z - hz, x + hx, top, z + hz, x + hx, y, z + hz, x - hx, y, z - hz,
+                0, 0, 1, 1, 1, 1, 1, 1);
     }
 
     /** The time of day's light the last frame was drawn in (null before the first). */
@@ -1130,7 +1284,7 @@ public final class WorldRenderer implements AutoCloseable {
         if (side.length() < 1e-6) return;
         side = side.normalize().scale(s.width() / 2);
         Vec3 tl = s.top().sub(side), tr = s.top().add(side), br = s.bottom().add(side), bl = s.bottom().sub(side);
-        float k = (float) Math.min(1.2, s.strength());
+        float k = (float) Math.min(1.2, s.strength()) * rayShare;
         batch.glow(ray, (float) tl.x(), (float) tl.y(), (float) tl.z(), (float) tr.x(), (float) tr.y(), (float) tr.z(),
                 (float) br.x(), (float) br.y(), (float) br.z(), (float) bl.x(), (float) bl.y(), (float) bl.z(),
                 0, 0, 1, 1, sun[0], sun[1] * 0.96f, sun[2] * 0.85f, 0.35f * k);
@@ -1327,6 +1481,8 @@ public final class WorldRenderer implements AutoCloseable {
         // a building's falls round it; a piece of furniture's, or a wall's, close about its foot
         double margin = b.profile().room() != null ? 0.12 : b.profile().furniture() ? 0.2 : BUILDING_SHADOW;
         if (b.profile().furniture() || b.profile().room() != null) alpha = 0.42f * shadowStrength;
+        // (one that casts the sun's shadow: only a little, where it meets the ground)
+        if (sunCasts && b.profile().room() == null && buildings != null && buildings.modelled(b.profile())) alpha *= 0.55f;
         for (BuildingProfile.Shape s : b.profile().footprint()) {
             if (s.circle()) {
                 Vec3 c = b.toWorld(s.x(), s.y());
@@ -1388,5 +1544,7 @@ public final class WorldRenderer implements AutoCloseable {
         water.close();
         if (buildings != null) buildings.close();
         if (surround != null) surround.close();
+        if (shadowMap != null) shadowMap.close();
+        if (lookFilter != null) lookFilter.close();
     }
 }

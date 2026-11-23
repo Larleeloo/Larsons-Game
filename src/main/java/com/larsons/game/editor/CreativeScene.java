@@ -129,8 +129,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
     /**
      * The paint brush's materials: grass (paints the others away), then
-     * {@link GroundMap}'s twelve, then bare rock (takes the paint off the
-     * steep faces, so the rock shows again).
+     * {@link GroundMap}'s sixteen, then bare rock (the rock's grey stone,
+     * painted anywhere - and the paint taken off the steep faces, so the
+     * rock shows there again).
      */
     static final String[] MATERIALS = {"Grass", "Dirt", "Forest floor", "Gravel", "Flower meadow", "Sand", "Mud",
             "Snow", "Stone", "Jungle floor", "Dry grass", "Ash", "Crystal", "Cobbles", "Flagstones", "Brick path",
@@ -530,6 +531,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             }
             // vines show where they will hang: on the face under the pointer
             if (g.type().equals(ObjectTypes.VINES) && g.bool("fit", true)) LevelWorld.fitVines(g, level.heights());
+            if (g.type().equals(ObjectTypes.LADDER) && g.bool("fit", true)) LevelWorld.fitLadder(g, level.heights());
             view.setGhost(g);
         } else {
             view.setGhost(null);
@@ -1004,6 +1006,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * is); {@code tell}: a toast when there is no face there.
      */
     private boolean fitVines(LevelObject o, boolean tell) {
+        if (o != null && o.type().equals(ObjectTypes.LADDER) && o.bool("fit", true)) {
+            // (a ladder fits as vines do - and stands where it is put when there is no face: a ladder on its own)
+            boolean fitted = LevelWorld.fitLadder(o, level.heights());
+            if (fitted) changed();
+            return fitted;
+        }
         if (o == null || !o.type().equals(ObjectTypes.VINES) || !o.bool("fit", true)) return false;
         boolean fitted = LevelWorld.fitVines(o, level.heights());
         if (fitted) changed();
@@ -1172,10 +1180,12 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         if (tinting) {
             ground.tint(cursor.x(), cursor.z(), radius, amount, shift ? -1 : tintColour, tintAmount);
         } else if (!biomes && material == BARE_ROCK) {
-            // bare the rock faces again (Shift: paint over them)
-            ground.cover(cursor.x(), cursor.z(), radius, amount, shift);
+            // bare rock, on the flat as well, and the rock faces bared again (Shift: the rock taken off)
+            ground.rock(cursor.x(), cursor.z(), radius, amount, !shift);
+            if (!shift) ground.cover(cursor.x(), cursor.z(), radius, amount, false);
         } else if (shift || !biomes) {
             ground.paint(shift ? -1 : material - 1, cursor.x(), cursor.z(), radius, amount);
+            ground.rock(cursor.x(), cursor.z(), radius, amount, false);       // (painted over the bare rock)
             if (overRock && !shift) ground.cover(cursor.x(), cursor.z(), radius, amount, true);
         } else {
             ground.paint(biome::groundAt, cursor.x(), cursor.z(), radius, amount);
@@ -1534,6 +1544,11 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     gizmos.line(wall.x0(), wall.z0(), wall.x1(), wall.z1(), 0.18, c, 0.9f);
                     arrow(o, c, 1.2);
                 }
+                case ObjectTypes.LADDER -> {
+                    Terrain.Wall wall = LevelWorld.ladder(o, level.heights());
+                    gizmos.line(wall.x0(), wall.z0(), wall.x1(), wall.z1(), 0.12, c, 0.9f);
+                    arrow(o, c, 0.9);
+                }
                 case ObjectTypes.SOUND -> {
                     gizmos.post(foot, 1.0, c, 0.9f, camera);
                     gizmos.ring(o.x(), o.z(), 0.5, c, 0.8f);
@@ -1659,6 +1674,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 case ObjectTypes.SPAWN -> "Spawn";
                 case ObjectTypes.MARKER -> o.str("name", "spot");
                 case ObjectTypes.VINES -> "Vines";
+                case ObjectTypes.LADDER -> null;
                 case ObjectTypes.SOUND -> "Sound: " + ObjectTypes.readable(o.str("sound", "?"));
                 case ObjectTypes.LIGHT -> "Light";
                 case ObjectTypes.RAYS -> "Light rays";
@@ -2882,7 +2898,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y = brushSliders(ui, x, y + 10, w, false);
             ui.paragraph(ui.small, "Grass paints the others away; Shift does the same with whatever is chosen. "
                     + "Over rock faces: the paint shows on ground too steep to walk, instead of the rock "
-                    + "(Bare rock takes it off again).", x, y, w, Theme.HINT);
+                    + "(Bare rock takes it off again). Bare rock paints the grey stone anywhere, the flat too; "
+                    + "Shift takes it off.", x, y, w, Theme.HINT);
             return;
         }
         if (paintTab == 2) {

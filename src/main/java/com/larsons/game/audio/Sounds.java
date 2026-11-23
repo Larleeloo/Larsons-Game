@@ -54,6 +54,9 @@ import java.util.stream.Stream;
  */
 public final class Sounds {
 
+    /** How many times what any key plays has changed (a choice, a mute, a rescan): a held sound plays anew. */
+    private static final java.util.concurrent.atomic.AtomicLong CHANGES = new java.util.concurrent.atomic.AtomicLong();
+
     private static final Map<String, SoundDef> DEFS = new LinkedHashMap<>();
     private static final SoundMixer MIXER = new SoundMixer();
     /** What each key played as, until a choice or the pack changes ({@link #forget}). */
@@ -315,6 +318,7 @@ public final class Sounds {
         if (packGeneration != SoundPack.generation()) {
             packGeneration = SoundPack.generation();
             RESOLVED.clear();
+            CHANGES.incrementAndGet();
         }
         Resolution r = RESOLVED.get(key);
         if (r == null) {
@@ -454,6 +458,11 @@ public final class Sounds {
         save();
     }
 
+    /** {@link #CHANGES}, now. */
+    public static long changes() {
+        return CHANGES.get();
+    }
+
     /** Silence {@code key} (and what falls back to it), and save that. */
     public static void mute(String key) {
         put(new SoundDef(key, "", 1, 1, SoundKeys.isLooping(key), true, false));
@@ -484,11 +493,13 @@ public final class Sounds {
         if (def == null || def.key().isEmpty()) return;
         DEFS.put(def.key(), def);
         RESOLVED.clear();
+        CHANGES.incrementAndGet();
     }
 
     public static synchronized void remove(String key) {
         DEFS.remove(key);
         RESOLVED.clear();
+        CHANGES.incrementAndGet();
     }
 
     /** Every assignment, for saving. */
@@ -499,12 +510,14 @@ public final class Sounds {
     public static synchronized void clear() {
         DEFS.clear();
         RESOLVED.clear();
+        CHANGES.incrementAndGet();
     }
 
     /** Replace the whole assignment set (loading {@code sounds.json}). */
     public static synchronized void setAll(List<SoundDef> defs) {
         DEFS.clear();
         RESOLVED.clear();
+        CHANGES.incrementAndGet();
         if (defs == null) return;
         for (SoundDef d : defs) {
             if (d != null && !d.key().isEmpty()) DEFS.put(d.key(), d);

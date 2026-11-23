@@ -90,6 +90,20 @@ public final class Autopilot {
                     return;
                 }
                 case "quit" -> game.quit();
+                // Display's look: "visuals shadows high", "visuals vibrant off", "visuals strength 0.9",
+                // "visuals rays on" (for this run: not saved)
+                case "visuals" -> {
+                    String[] a = arg.split("\\s+");
+                    var st = game.settings();
+                    String v = a.length > 1 ? a[1] : "on";
+                    switch (a[0]) {
+                        case "shadows" -> st.shadows = v.toUpperCase(java.util.Locale.ROOT);
+                        case "vibrant" -> st.vibrant = !v.equals("off");
+                        case "strength" -> st.vibrantStrength = Double.parseDouble(v);
+                        case "rays" -> st.lightRays = !v.equals("off");
+                        default -> System.err.println("[script] visuals: " + arg);
+                    }
+                }
                 // Real input events, as if typed or clicked: "key escape", "click 640 360".
                 case "key" -> {
                     int code = glfwKey(arg);

@@ -10,8 +10,10 @@ import java.util.List;
 /**
  * Shafts of sunlight slanting down through the trees and the mist while the
  * sun is low - in the morning and the evening ({@link DayCycle.Daylight#rays}):
- * a few under every tree's crown, falling the way the light falls, and those
- * placed in a level ({@link World.RaySpot}). Each shaft is a ribbon of light
+ * a few under every tree's crown, falling the way the light falls. (They
+ * are worked out, not placed: a level's old "Light rays" are no more; with
+ * Vibrant visuals the air's own shafts come from the sun's shadows too -
+ * {@code gfx/SceneLight}'s {@code sceneRays}.) Each shaft is a ribbon of light
  * turned to face the camera along its length, brightest down its middle in
  * bands as the pixel art is, fading in under the leaves and out on the
  * ground, and slowly breathing brighter and dimmer.
@@ -55,15 +57,6 @@ public final class LightRays {
                 Vec3 top = new Vec3(p.x() + Math.cos(a) * r, p.y() + crown * (0.85 + 0.15 * h3),
                         p.z() + Math.sin(a) * r);
                 out.add(shaft(world, top, down, 0.25 + 0.45 * h2, strength * breath(time, h1) * 0.55));
-            }
-        }
-        for (World.RaySpot s : world.raySpots()) {
-            for (int k = 0; k < s.count() && out.size() < MAX; k++) {
-                double h1 = hash(k * 977L + (long) (s.at().x() * 13)), h2 = hash(k * 389L + (long) (s.at().z() * 17));
-                double a = h1 * Math.PI * 2, r = s.spread() * Math.sqrt(h2);
-                Vec3 foot = s.at().add(Math.cos(a) * r, 0, Math.sin(a) * r);
-                Vec3 top = foot.add(down.scale(-s.height() / Math.max(0.15, -down.y())));
-                out.add(shaft(world, top, down, 0.3 + 0.5 * h2, light.rays() * s.strength() * breath(time, h1)));
             }
         }
         return out;

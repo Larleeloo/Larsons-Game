@@ -28,6 +28,8 @@ public final class AnimationSound {
     private double lastTime;
     private SoundMixer.Voice voice;
     private double startVolume, startScale;
+    /** {@link Sounds#changes()} as it started: a held sound muted, or given another file, starts over as it is now. */
+    private long changes;
 
     /**
      * This frame's animation.
@@ -40,10 +42,16 @@ public final class AnimationSound {
     public void update(String key, double time, double volumeScale, double pan) {
         // (a held one never starts over: the climb runs backwards as she climbs down)
         boolean restarted = key.equals(this.key) && time + 1e-6 < lastTime && !SoundKeys.isLooping(key);
+        // (a held one - a bed of birdsong, the wind - muted or changed in the Sounds menu, as it is now)
+        if (key.equals(this.key) && SoundKeys.isLooping(key) && changes != Sounds.changes()) {
+            if (voice != null) voice.stop();
+            this.key = "";
+        }
         lastTime = time;
         if (!key.equals(this.key) || restarted) {
             if (voice != null && SoundKeys.isLooping(this.key)) voice.stop();
             this.key = key;
+            changes = Sounds.changes();
             voice = Sounds.play(key, volumeScale, pan);
             startScale = volumeScale;
             startVolume = voice == null ? 0 : voice.volume();

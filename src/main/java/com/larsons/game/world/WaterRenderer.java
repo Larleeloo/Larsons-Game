@@ -131,6 +131,7 @@ public final class WaterRenderer implements AutoCloseable {
 
                 c *= sceneLight(vPos);
                 c = mix(c, uMistColour, sceneMist(vPos));
+                c += sceneRays(vPos);
                 float alpha = vKind == 2 ? clamp(0.72 + depth * 0.6, 0.72, 0.95) : clamp(0.5 + depth * 0.9, 0.5, 0.92);
                 alpha = max(alpha, max(foam * (vKind == 3 ? 0.95 : 0.75), pad * 0.95));
                 alpha = floor(alpha * 6.0 + 0.5) / 6.0;

@@ -56,7 +56,7 @@ public final class GroundTexture implements AutoCloseable {
             uniform float uGroundTexel;   // metres a texel of the tiles spans
             uniform vec4 uGroundRect;     // the map's west/north corner (x, z) and its size each way
             uniform float uGroundHas[16]; // 1 for each material that loaded and is painted somewhere
-            uniform float uGroundCovered; // 1 when a rock face is painted over somewhere
+            uniform float uGroundCovered; // 1 when a rock face is painted over, or bare rock painted, somewhere
             uniform float uGroundTinted;  // 1 when the ground is tinted somewhere
 
             float groundHash(ivec2 p) {
@@ -141,6 +141,17 @@ public final class GroundTexture implements AutoCloseable {
                     float t = smoothstep(0.5 - e, 0.5 + e, wk + 0.5 * wave + jag);
                     if (t <= 0.0) continue;
                     c = mix(c, textureGrad(uGroundTiles, vec3(uv, float(k + 1)), gx, gy).rgb, t);
+                }
+                // bare rock painted on the ground (the editor's Bare rock, on the flat too): the grey stone of
+                // the rock faces, in strata, over everything
+                float bare = textureGrad(uGroundMaps, vec3(m, 4.0), mgx, mgy).g * inside * uGroundCovered;
+                if (bare > 0.001) {
+                    float wave = groundNoise(at * 1.3 + vec2(71.0, 29.0)) - 0.5;
+                    float t = smoothstep(0.5 - e, 0.5 + e, bare + 0.5 * wave + jag);
+                    vec3 rock = textureGrad(uGroundTiles, vec3(uv * 0.8, 3.0), gx * 0.8, gy * 0.8).rgb;
+                    float band = groundNoise(at * 0.35 + vec2(13.0, 5.0));
+                    rock *= vec3(0.80, 0.81, 0.88) * (0.84 + 0.24 * floor(band * 4.0) / 4.0);
+                    c = mix(c, rock, t);
                 }
                 return c;
             }

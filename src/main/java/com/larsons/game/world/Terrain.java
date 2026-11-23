@@ -74,9 +74,17 @@ public final class Terrain {
      * A rock face she can climb: its foot runs from {@code (x0, z0)} to
      * {@code (x1, z1)} on the ground, it faces out along {@code (nx, nz)} (a
      * unit vector, away from the rock), and it rises from {@code bottom} to
-     * {@code top} (metres above {@code y = 0}).
+     * {@code top} (metres above {@code y = 0}). A {@code ladder}'s is the
+     * ladder's own: straight up from its foot, no vines on it, and over its
+     * top only where there is ground to step onto.
      */
-    public record Wall(double x0, double z0, double x1, double z1, double nx, double nz, double bottom, double top) {
+    public record Wall(double x0, double z0, double x1, double z1, double nx, double nz, double bottom, double top,
+                       boolean ladder) {
+
+        /** A rock face with vines on it. */
+        public Wall(double x0, double z0, double x1, double z1, double nx, double nz, double bottom, double top) {
+            this(x0, z0, x1, z1, nx, nz, bottom, top, false);
+        }
 
         /** Metres along its foot. */
         public double length() { return Math.hypot(x1 - x0, z1 - z0); }
@@ -316,6 +324,7 @@ public final class Terrain {
      * face leans back). At its top, its lip.
      */
     public double faceOut(Wall w, double along, double y) {
+        if (w.ladder()) return 0;                  // (a ladder stands straight up from its foot)
         double in = -4, out = 1;
         Vec3 a = w.at(along, in), b = w.at(along, out);
         if (height(a.x(), a.z()) < y) return in;
@@ -332,6 +341,18 @@ public final class Terrain {
     /** Wall {@code w}'s lip {@code along} metres along it: metres out from its foot. */
     public double lipOut(Wall w, double along) {
         return faceOut(w, along, w.top() - 0.01);
+    }
+
+    /**
+     * Whether there is ground to step onto at the top of wall {@code w},
+     * {@code along} it: always over a rock face; over a ladder's top only
+     * where the ground just behind it comes up to it (a ledge, a cliff's
+     * top) - a ladder standing on its own is climbed to its top, no further.
+     */
+    public boolean topOut(Wall w, double along) {
+        if (!w.ladder()) return true;
+        Vec3 behind = w.at(along, -0.7);
+        return height(behind.x(), behind.z()) >= w.top() - 0.45;
     }
 
     // --- the grid, for drawing ---------------------------------------------------------

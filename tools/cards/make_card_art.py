@@ -535,9 +535,34 @@ def icon_fish(p):
 
 
 def icon_hammer(p):
-    p.line([(5, 21), (14, 9)], BROWN[1], 2.2)
-    p.poly([(8, 5), (16, 2), (21, 8), (13, 12)], STEEL[1])
-    p.poly([(16, 2), (21, 8), (17, 10), (12.5, 4)], STEEL[2])
+    """A smith's hammer: an ash handle with a leather grip, through a steel head - a broad, square striking face
+    at one end and a tapered peen at the other - lit along its top, a glint on the face."""
+    d = (0.707, -0.707)                                      # up the handle
+    n = (0.707, 0.707)                                       # along the head, towards the face
+    cx, cy = 14.6, 8.4                                       # where the handle goes through the head
+
+    def at(u, v):
+        return (cx + n[0] * u + d[0] * v, cy + n[1] * u + d[1] * v)
+
+    def quad(pts, c):
+        p.poly([at(u, v) for u, v in pts], c)
+
+    # the handle: the wood, lit down one side; the grip, wrapped
+    quad([(-1.3, -15.2), (1.3, -15.2), (1.3, 0.0), (-1.3, 0.0)], BROWN[1])
+    quad([(-1.3, -15.2), (-0.3, -15.2), (-0.3, 0.0), (-1.3, 0.0)], BROWN[2])
+    quad([(-1.5, -15.4), (1.5, -15.4), (1.5, -10.6), (-1.5, -10.6)], BROWN[0])
+    quad([(-1.5, -12.6), (1.5, -12.6), (1.5, -12.0), (-1.5, -12.0)], BROWN[1])
+    # the head's neck, its face and its peen: dark beneath, steel, lit along the top
+    quad([(-3.8, -2.0), (3.4, -2.0), (3.4, 2.2), (-3.8, 2.2)], STEEL[1])
+    quad([(3.0, -3.0), (6.6, -3.0), (6.6, 3.2), (3.0, 3.2)], STEEL[1])
+    quad([(-3.8, -2.0), (-6.8, -0.9), (-6.8, 1.4), (-3.8, 2.2)], STEEL[1])
+    quad([(-3.8, -2.0), (3.4, -2.0), (3.4, -0.9), (-3.8, -0.9)], STEEL[0])
+    quad([(3.0, -3.0), (6.6, -3.0), (6.6, -1.7), (3.0, -1.7)], STEEL[0])
+    quad([(-3.8, -2.0), (-6.8, -0.9), (-6.8, -0.2), (-3.8, -0.9)], STEEL[0])
+    quad([(-3.6, 1.2), (3.0, 1.2), (3.0, 2.2), (-3.6, 2.2)], STEEL[2])
+    quad([(3.2, 1.9), (6.4, 1.9), (6.4, 3.2), (3.2, 3.2)], STEEL[2])
+    gx, gy = at(5.4, 2.4)
+    p.circle(gx, gy, 0.7, CREAM[2])
 
 
 def icon_zombie(p):

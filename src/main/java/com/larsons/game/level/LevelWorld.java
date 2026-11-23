@@ -181,6 +181,7 @@ public final class LevelWorld {
         HeightField hf = level.heights();
         List<Terrain.Wall> walls = new ArrayList<>();
         for (LevelObject o : level.ofType(ObjectTypes.VINES)) walls.add(wall(o, hf));
+        for (LevelObject o : level.ofType(ObjectTypes.LADDER)) walls.add(ladder(o, hf));
         List<Terrain.Place> places = new ArrayList<>();
         for (LevelObject o : level.ofType(ObjectTypes.MARKER)) {
             places.add(new Terrain.Place(o.str("name", "spot"), o.x(), o.z()));
@@ -223,6 +224,49 @@ public final class LevelWorld {
         }
         if (top < bottom + 0.5) top = bottom + 0.5;
         return new Terrain.Wall(x0, z0, x1, z1, out.x(), out.z(), bottom, top);
+    }
+
+    /** How wide a ladder is, metres: what she can climb of it. */
+    public static final double LADDER_WIDTH = 0.8;
+
+    /**
+     * The wall ladder {@code o} makes: {@link #LADDER_WIDTH} wide at its
+     * foot, facing out the way it faces (the side she climbs it from), from
+     * the ground at its foot up {@code height} metres - or, fitted to a rock
+     * face, up to the top of the face, whatever is higher.
+     */
+    public static Terrain.Wall ladder(LevelObject o, HeightField hf) {
+        Vec3 out = SpriteView.headingVector(o.yaw());
+        double ax = -out.z(), az = out.x(), half = LADDER_WIDTH / 2;
+        double bottom = hf.height(o.x() + out.x() * 0.3, o.z() + out.z() * 0.3) + o.lift();
+        double top = bottom + Math.max(1, o.num("height", 4));
+        if (o.bool("fit", true)) {
+            for (double in = 0; in <= FACE_DEPTH; in += Terrain.STEP / 2) {
+                top = Math.max(top, hf.height(o.x() - out.x() * in, o.z() - out.z() * in));
+            }
+        }
+        return new Terrain.Wall(o.x() - ax * half, o.z() - az * half, o.x() + ax * half, o.z() + az * half,
+                out.x(), out.z(), bottom, top, true);
+    }
+
+    /**
+     * Fit ladder {@code o} to the rock face nearest it, as vines are ({@link
+     * #fitVines}): at its foot, facing out of it - its own width, as high as
+     * the face (the wall works that out). False (and {@code o} as it was)
+     * when there is no face that near.
+     */
+    public static boolean fitLadder(LevelObject o, HeightField hf) {
+        LevelObject probe = o.copy();
+        if (!fitVines(probe, hf)) return false;
+        // (the spot on the face's foot nearest where it was put, not the middle of the whole face)
+        Vec3 out = SpriteView.headingVector(probe.yaw());
+        double ax = -out.z(), az = out.x();
+        double along = (o.x() - probe.x()) * ax + (o.z() - probe.z()) * az;
+        double half = Math.max(0, probe.num("length", 1) / 2 - LADDER_WIDTH / 2);
+        along = Math.max(-half, Math.min(half, along));
+        o.moveTo(probe.x() + ax * along, probe.z() + az * along);
+        o.turnTo(probe.yaw());
+        return true;
     }
 
     /** How far round the pointer a rock face for vines is looked for, metres. */

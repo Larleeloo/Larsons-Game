@@ -117,6 +117,7 @@ public final class BuildingRenderer implements AutoCloseable {
                 }
                 float mist = sceneMist(P);
                 lit = mix(lit, uMistColour, mist * (1.0 - glow * 0.7));
+                lit += sceneRays(P);
                 if (uFog.y > 0.0) {
                     float f = clamp((vW - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
                     lit = mix(lit, uFogColor, f * f);
@@ -294,6 +295,20 @@ public final class BuildingRenderer implements AutoCloseable {
     public void setWalls(Walls indoors, Walls outdoors) {
         rooms.walls = indoors == null ? Walls.CUTAWAY : indoors;
         models.walls = outdoors == null ? Walls.UP : outdoors;
+    }
+
+    /**
+     * Draw what of {@code buildings} is a model into the sun's shadow map
+     * (begun already) through {@code sunViewProj}: what stands within
+     * {@code reach} metres of {@code centre}.
+     */
+    public void drawShadows(List<Building> buildings, Mat4 sunViewProj, Vec3 centre, double reach, double time) {
+        models.drawDepth(buildings, sunViewProj, centre, reach, time);
+    }
+
+    /** Whether {@code p} is drawn as a 3D model (so casts the sun's shadows). */
+    public boolean modelled(BuildingProfile p) {
+        return models.has(p);
     }
 
     /**

@@ -53,7 +53,9 @@ import java.util.function.ToDoubleFunction;
  *       biome's own</b> by day and by night ({@code ambient/plains} and
  *       {@code ambient/crickets}, {@code ambient/marsh} and {@code
  *       ambient/frogs} ... world/Biome), heard as much as the country round
- *       her is that biome, so one fades into the next across its edge.</li>
+ *       her is that biome, so one fades into the next across its edge - and
+ *       the birds singing by day ({@code ambient/birdsong}) where the
+ *       country is theirs, a sound of its own.</li>
  * </ul>
  *
  * <p>Other one-off events (picking an item up, the inventory, the menus) play
@@ -69,6 +71,8 @@ public final class WorldSounds {
     public static final double AMBIENCE = 0.6;
     /** How far round her (metres) the country is listened to for its biome. */
     public static final double BIOME_REACH = 7;
+    /** The birds singing by day: its own bed under the biome's, so it can be turned down by itself. */
+    public static final String BIRDSONG = "birdsong";
     /** How fast one biome's sound fades into the next, of its full volume a second. */
     public static final double BIOME_FADE = 0.4;
 
@@ -180,6 +184,8 @@ public final class WorldSounds {
             Biome b = world.biome(at.x() + Math.cos(a) * r, at.z() + Math.sin(a) * r);
             mix.merge(SoundKeys.ambient(b.ambient()), day / n, Double::sum);
             mix.merge(SoundKeys.ambient(b.ambientNight()), (1 - day) / n, Double::sum);
+            // the birds, by day, as much as the country round is theirs
+            if (b.birdsong() > 0) mix.merge(SoundKeys.ambient(BIRDSONG), b.birdsong() * day * day / n, Double::sum);
         }
         return mix;
     }

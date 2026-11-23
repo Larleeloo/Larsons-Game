@@ -1396,7 +1396,7 @@ public final class Player {
         setState(AnimState.CLIMB);
         stateTime += dt * (Math.abs(up) > 0.1 ? up : Math.abs(side) * 0.8);
 
-        if (climbY >= w.top() - LEDGE_RISE - 1e-6 && up > 0.1) {
+        if (climbY >= w.top() - LEDGE_RISE - 1e-6 && up > 0.1 && terrain.topOut(w, along)) {
             // her hands at the lip: up over it
             startLedge(AnimState.LEDGE_UP, w, along);
             return;

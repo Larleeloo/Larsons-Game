@@ -37,6 +37,15 @@ public final class Shader implements AutoCloseable {
             glDeleteProgram(program);
             throw new IllegalStateException("shader '" + name + "' failed to link:\n" + log);
         }
+        // the sun's shadow map has its own unit, in every program that can read it - left at unit 0 it would
+        // share the unit of a texture of another kind, and nothing it draws would be drawn
+        int shadow = glGetUniformLocation(program, "uShadowMap");
+        if (shadow >= 0) {
+            int was = glGetInteger(GL_CURRENT_PROGRAM);
+            glUseProgram(program);
+            glUniform1i(shadow, SceneLight.SHADOW_UNIT);
+            glUseProgram(was);
+        }
     }
 
     private int compile(int type, String source) {

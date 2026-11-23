@@ -130,7 +130,9 @@ public final class SceneryRenderer implements AutoCloseable {
         glDepthMask(true);
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
+        batch.shadowBias(SHADOW_BIAS);
         batch.begin(viewProj, fogColor, 0, fogFar);
+        batch.shadowBias(Batch.SPRITE_SHADOW_BIAS);
         batch.setAlphaCut(CUT);
         batch.setDepthPlane(camera.eye(), uprightNormal);
         Vec3 right = camera.right(), up = camera.up();
@@ -172,6 +174,64 @@ public final class SceneryRenderer implements AutoCloseable {
         }
         batch.tint(0);
         batch.depthAnchor(null);
+        batch.setAlphaCut(Batch.DEFAULT_ALPHA_CUT);
+        batch.end();
+    }
+
+    /**
+     * How far towards the sun the cards look themselves up in the sun's
+     * shadows, metres: past a tree's own crown, so its leaves are not in the
+     * shadow of the card it casts its shadow with - but in a nearer tree's.
+     */
+    static final float SHADOW_BIAS = 2.4f;
+    /** Scenery lower than this casts no shadow of the sun (grass, flowers: the ground is in the shade of them enough). */
+    static final double LEAST_SHADOW = 0.75;
+
+    /**
+     * Draw what of {@code scenery} casts a shadow into the sun's shadow map
+     * (begun already) through {@code sunViewProj}: each piece within {@code
+     * reach} of {@code centre} as one card standing across the way to the
+     * sun ({@code towardSun}), so its shadow has the outline of its picture.
+     */
+    public void drawShadows(Batch batch, Scenery scenery, Mat4 sunViewProj, Vec3 towardSun, Vec3 centre,
+                            double reach, double time) {
+        if (scenery.isEmpty() || sheets.isEmpty()) return;
+        double ax = -towardSun.z(), az = towardSun.x(), al = Math.hypot(ax, az);
+        if (al < 1e-4) {
+            ax = 1;
+            az = 0;
+        } else {
+            ax /= al;
+            az /= al;
+        }
+        batch.begin(sunViewProj);
+        batch.setAlphaCut(CUT);
+        for (Map.Entry<ScenerySprites.Sprite, List<Scenery.Placed>> e : scenery.bySprite().entrySet()) {
+            Texture sheet = sheets.get(e.getKey().name());
+            if (sheet == null) continue;
+            SceneryProfile prof = e.getKey().profile();
+            double tall = prof.frameWorldHeight();
+            for (Scenery.Placed p : e.getValue()) {
+                double h = tall * p.scale();
+                if (h < LEAST_SHADOW) continue;
+                double dx = p.x() - centre.x(), dz = p.z() - centre.z(), out = reach + h * 2.5;
+                if (dx * dx + dz * dz > out * out) continue;
+                ScenerySprites.Sprite frames = p.sprite();
+                Texture t = sheet;
+                if (bare.test(p) && prof.forage() != null && prof.forage().picked() != null) {
+                    ScenerySprites.Sprite b = byName.get(prof.forage().picked());
+                    Texture bt = b == null ? null : sheets.get(b.name());
+                    if (bt != null) {
+                        t = bt;
+                        frames = b;
+                    }
+                }
+                float[] uv = frames.uv(frames.frameAt(time + p.phase()));
+                float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
+                double half = prof.frameWorldSize() * p.scale() / 2;
+                card(batch, t, p.x(), p.y(), p.z(), ax * half, az * half, (float) h, u0, uv[1], u1, uv[3], null);
+            }
+        }
         batch.setAlphaCut(Batch.DEFAULT_ALPHA_CUT);
         batch.end();
     }

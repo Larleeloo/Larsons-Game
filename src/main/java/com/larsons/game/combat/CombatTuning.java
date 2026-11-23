@@ -114,7 +114,7 @@ public final class CombatTuning {
         for (Map.Entry<String, Integer> e : SIDES.entrySet()) {
             sb.put(e.getKey(), known((int) Json.num(by, e.getKey(), e.getValue())));
         }
-        for (String k : by.keySet()) if (!sb.containsKey(k)) sb.put(k, known((int) Json.num(by, k, sides)));
+        if (by != null) for (String k : by.keySet()) if (!sb.containsKey(k)) sb.put(k, known((int) Json.num(by, k, sides)));
         sidesByWeapon = Map.copyOf(sb);
         Map<String, Object> per = Json.obj(d, "perRarity");
         int[] standard = {1, 2, 3, 4, 5, 6};
