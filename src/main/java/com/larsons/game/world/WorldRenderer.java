@@ -117,6 +117,21 @@ public final class WorldRenderer implements AutoCloseable {
         if (buildings != null) buildings.setWalls(indoors, outdoors);
     }
 
+    /** Whether the foes' sight is drawn on the ground as she sneaks ({@code core/Settings#foeSight}). */
+    private boolean foeSight = true;
+
+    /** Draw the foes' sight on the ground as she sneaks, or not (Settings → Game: Foes' sight). */
+    public void setFoeSight(boolean on) { foeSight = on; }
+
+    /** A foe's sight fan as last worked out ({@link World#sightFan}), and when. */
+    private record Fan(double[] rays, double at) {}
+
+    private final Map<com.larsons.game.actor.Folk, Fan> fans = new IdentityHashMap<>();
+
+    /** How many ways across a foe's eyes its fan is drawn, how near her a foe's is drawn, and how often worked out. */
+    static final int FAN_RAYS = 25;
+    static final double FAN_REACH = 34, FAN_EVERY = 0.15;
+
     /** The buildings drawn lit up (the editor's selection). */
     private Set<Integer> highlight = Set.of();
     /** The light the frame being drawn is lit with, made afresh every frame. */
@@ -391,6 +406,16 @@ public final class WorldRenderer implements AutoCloseable {
             ground = was;
         }
         batch.end();
+        // the foes' sight, on the ground as she sneaks: unlit, so it shows by night as by day
+        if (foeSight && sneaking(p)) {
+            batch.useSceneLight(null);
+            batch.begin(viewProj, fog, 0, fogFar);
+            sightFans(world);
+            batch.end();
+            batch.useSceneLight(sceneLight);
+        } else {
+            fans.clear();
+        }
 
         // --- sprites, far to near (tested against the scenery, not written) --------
         batch.begin(viewProj, fog, 0, fogFar);
@@ -1466,6 +1491,84 @@ public final class WorldRenderer implements AutoCloseable {
 
     private void groundShadow(Vec3 at, double radius, float alpha) {
         groundQuad(shadow, at, radius, 0, 0, 0, alpha * shadowStrength);
+    }
+
+    /** Whether she is sneaking: crouched on her feet - when the foes' sight is shown. */
+    private static boolean sneaking(Player p) {
+        return p.crouched() && !p.mounted() && !p.swimming() && p.health() > 0;
+    }
+
+    /**
+     * Each foe's sight near her, on the ground ({@link
+     * com.larsons.game.actor.Sight}): a fan across its eyes, as far along
+     * each way as she - crouched as she is, as easily noticed as she is now
+     * (a lamp's light makes it longer, the dark shorter) - would be seen, cut
+     * short where a hill, a wall, a tree or a rock hides her. Pale gold while
+     * it has not noticed her, amber while it looks toward a sound of hers,
+     * red once it sees her or is after her.
+     */
+    private void sightFans(World world) {
+        Player p = world.player();
+        double now = world.time();
+        Vec3 her = p.ground();
+        Set<com.larsons.game.actor.Folk> drawn = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (com.larsons.game.actor.Folk f : world.folks().all()) {
+            if (f.role() != com.larsons.game.actor.Folk.Role.FOE || !f.hostile() || !f.alive() || !f.standing()
+                    || f.alpha() < 0.5) {
+                continue;
+            }
+            if (f.position().horizontalDistance(her) > FAN_REACH) continue;
+            Fan fan = fans.get(f);
+            if (fan == null || now - fan.at() > FAN_EVERY || now < fan.at()) {
+                fan = new Fan(world.sightFan(f, FAN_RAYS), now);
+                fans.put(f, fan);
+            }
+            drawn.add(f);
+            int rgb = f.seesHer() || f.alerted() ? 0xFF4E3E : f.listening() ? 0xFFA63A : 0xFFE3A0;
+            float alpha = f.seesHer() || f.alerted() ? 0.30f : f.listening() ? 0.26f : 0.17f;
+            fan(f.position(), fan.rays(), rgb, alpha);
+        }
+        fans.keySet().retainAll(drawn);
+    }
+
+    /** How long a piece of a fan is, out from the foe, metres: short enough to lie along a hill. */
+    static final double FAN_PIECE = 1.5;
+
+    /** One fan, from {@code at}: wedges between its ways, fading outwards, and a brighter rim where its sight ends. */
+    private void fan(Vec3 at, double[] rays, int rgb, float alpha) {
+        int n = rays.length / 2;
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        for (int k = 0; k + 1 < n; k++) {
+            double a0 = rays[k], a1 = rays[k + 1], d0 = rays[n + k], d1 = rays[n + k + 1];
+            if (d0 < 0.3 && d1 < 0.3) continue;
+            Vec3 v0 = SpriteView.headingVector(a0), v1 = SpriteView.headingVector(a1);
+            int pieces = Math.max(1, (int) Math.ceil(Math.max(d0, d1) / FAN_PIECE));
+            for (int j = 0; j < pieces; j++) {
+                double t0 = (double) j / pieces, t1 = (double) (j + 1) / pieces;
+                float fade = alpha * (float) (1 - 0.55 * t0);
+                wedge(at, v0, v1, d0 * t0, d1 * t0, d0 * t1, d1 * t1, r, g, b, fade);
+            }
+            // the rim: where its sight that way ends
+            wedge(at, v0, v1, Math.max(0, d0 - 0.18), Math.max(0, d1 - 0.18), d0, d1, r, g, b,
+                    Math.min(1f, alpha * 2.4f));
+        }
+    }
+
+    /** One piece of a fan between two ways ({@code v0}, {@code v1}) from {@code at}, from one distance along each to another. */
+    private void wedge(Vec3 at, Vec3 v0, Vec3 v1, double in0, double in1, double out0, double out1, float r, float g,
+                       float b, float alpha) {
+        double ax = at.x() + v0.x() * in0, az = at.z() + v0.z() * in0;
+        double bx = at.x() + v1.x() * in1, bz = at.z() + v1.z() * in1;
+        double cx = at.x() + v1.x() * out1, cz = at.z() + v1.z() * out1;
+        double dx = at.x() + v0.x() * out0, dz = at.z() + v0.z() * out0;
+        batch.quad(piece, (float) ax, fanLift(ax, az), (float) az, (float) bx, fanLift(bx, bz), (float) bz,
+                (float) cx, fanLift(cx, cz), (float) cz, (float) dx, fanLift(dx, dz), (float) dz,
+                0, 0, 1, 1, r, g, b, alpha);
+    }
+
+    /** How high a fan lies at {@code (x, z)}: just over the ground, over the shadows. */
+    private float fanLift(double x, double z) {
+        return (float) ground.height(x, z) + SLOPE_LIFT + 0.02f;
     }
 
     /** Pieces a side a shadow on a slope is laid in, and how far over the ground they lie, metres. */

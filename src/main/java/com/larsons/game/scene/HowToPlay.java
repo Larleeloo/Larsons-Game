@@ -43,12 +43,13 @@ final class HowToPlay {
                             Action.SPRINT, Action.CROUCH, Action.JUMP, Action.CAMERA_LEFT, Action.CAMERA_RIGHT,
                             Action.ZOOM_IN, Action.ZOOM_OUT, Action.CAMERA_HEIGHT, Action.HIDE_HUD),
                     List.of("{MOVE} walks, the way the camera looks. Hold {RUN} to run and {SPRINT} to sprint: "
-                                    + "running, sprinting and climbing spend stamina, the green bar, which fills again "
-                                    + "as you walk or stand. Run it out and you are out of breath: you walk until a "
-                                    + "quarter of it is back.",
-                            "{CROUCH} crouches, quieter and lower. {JUMP} jumps, and climbs up onto anything "
-                                    + "about as high as you are: a table, a crate, a low wall, a cart. Wearing gear "
-                                    + "forged with a double jump, press {JUMP} again in the air to jump once more.",
+                                    + "running, sprinting, sneaking, jumping and climbing spend stamina, the green "
+                                    + "bar, which fills again as you walk or stand. Run it out and you are out of "
+                                    + "breath: you walk, or creep, until a quarter of it is back.",
+                            "{CROUCH} crouches, quieter and lower. {JUMP} jumps - without the stamina for it you "
+                                    + "are too tired to - and climbs up onto anything about as high as you are: a "
+                                    + "table, a crate, a low wall, a cart. Wearing gear made with a double jump, "
+                                    + "press {JUMP} again in the air to jump once more.",
                             "{CAMERA} turns the camera round you, and {ZOOM_IN} and {ZOOM_OUT} zoom in and out. "
                                     + "{CAMERA_HEIGHT} steps it from side on to overhead. {HIDE_HUD} hides the HUD "
                                     + "for a clear view.")),
@@ -84,11 +85,19 @@ final class HowToPlay {
             new Chapter("Sneaking and foes", "dagger",
                     List.of(Action.CROUCH, Action.ATTACK),
                     List.of("Crouch, keep still, keep to tall grass, the dark, fog or rain, and you are harder to "
-                                    + "see. Running, sprinting, riding and fighting make you easier to see.",
-                            "When the eye over the stamina bar shuts you are hidden: animals let you come close, and "
-                                    + "your blows are sneak attacks, for twice the damage.",
-                            "Foes see only what is in their sight, never through walls, rocks or houses. One that "
-                                    + "loses you goes to where it last saw you and searches about, then gives up and "
+                                    + "see. Running, sprinting, riding and fighting make you easier to see. At "
+                                    + "night a light shows you up: a street lamp, a lantern, a fire, a glowing "
+                                    + "crystal - and your own lantern, lit.",
+                            "When the meter over the health bar says Hidden, animals let you come close, and your "
+                                    + "blows are sneak attacks, for twice the damage - but only while nobody has "
+                                    + "spotted you. Seen by anyone, a foe or a person in the street, or with a foe "
+                                    + "after you, there are no sneak attacks.",
+                            "A foe sees far straight ahead, less to the sides and nothing behind it, and never "
+                                    + "through walls, houses, trees or rocks; crouched, a low rock or a wall hides "
+                                    + "you. Behind it you can only be heard - a creep hardly, a sprint from far off - "
+                                    + "and it turns to look. As you sneak, each foe's sight lies on the ground before "
+                                    + "it: red once it has seen you.",
+                            "One that loses you goes to where it last saw you and searches about, then gives up and "
                                     + "goes back. They find their way round walls and cliffs, but cannot climb a "
                                     + "slope too steep to walk up, so the high ground is yours to take.")),
             new Chapter("Weapons and ammo", "arrow_bundle",
@@ -257,10 +266,13 @@ final class HowToPlay {
                                     + "reward and what a chest, a barrel or a house holds are rows to pick from, and a person's day is set hour by hour. People "
                                     + "and foes are dressed in the wardrobe, hold forged weapons, and have their "
                                     + "health, damage and speed set.",
-                            "The Forge makes weapons of your own: their look, colours, dice, borders and tiers. "
+                            "The Forge makes weapons of your own: their look, colours, dice, borders and tiers, "
+                                    + "and the colour a wand's or a staff's bolts of magic fly in. "
                                     + "The Tailor sets what every piece of clothing and armour gives at each of its "
                                     + "tiers - more health, mana or stamina, faster regen, health drawn from your "
-                                    + "blows, higher jumps, a double jump, a sooner heavy attack, more speed - and "
+                                    + "blows, higher jumps, a double jump, a sooner heavy attack, more speed, and "
+                                    + "the sneaking ones: stealth, sneak speed, quiet steps, shadow (the lights show "
+                                    + "you less), sneak stamina and harder sneak attacks - and "
                                     + "makes pieces of your own, each tier giving what you make it with. They can "
                                     + "still be dyed. The "
                                     + "map editor draws world maps - on its tiles or a picture of your own, with "

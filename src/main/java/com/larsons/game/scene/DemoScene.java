@@ -866,6 +866,17 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             tips.offer("ammo");
         }
         if (played > 20 && world.stealth().hidden()) tips.offer("hidden");
+        if (played > 20 && p.crouched()) {
+            // sneaking: the foes' sight, a lamp's light on her at night, and being spotted
+            for (com.larsons.game.actor.Folk f : world.folks().foes()) {
+                if (game.settings().foeSight && f.hostile() && f.standing() && f.position().horizontalDistance(me) < 20) {
+                    tips.offer("sight");
+                    break;
+                }
+            }
+            if (world.stealth().inTheLight()) tips.offer("light");
+            if (world.spotted() > 0 && world.stealth().hidden()) tips.offer("spotted");
+        }
         if (p.swimming()) tips.offer("swim");
         if (p.climbing() != null) tips.offer("climb");
         double hour = world.clock().hour();
@@ -1684,6 +1695,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             com.larsons.game.core.Perf.count("sheets", game.sprites().residentCount());
             com.larsons.game.core.Perf.count("MB of sheets", (int) (game.sprites().residentBytes() >> 20));
         }
+        game.worldRenderer().setFoeSight(game.settings().foeSight);
         game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
 
         Ui ui = game.ui();

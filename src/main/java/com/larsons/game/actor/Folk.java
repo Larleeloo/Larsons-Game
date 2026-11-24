@@ -93,6 +93,8 @@ public final class Folk implements Target {
     double pathTx, pathTz, replan, stuckFor, lookIn, nearest = Double.MAX_VALUE;
     boolean seesHer, seenHer, hopeless;
     double seenX, seenZ;
+    // a sound of her it heard: how long it goes on looking toward it, and where it came from (Sight)
+    double listen, heardX, heardZ;
     // her day ({@link Schedule}): where each of its places is (x, z, the way she faces there, the building's id or -1)
     Schedule schedule;
     final Map<String, double[]> places = new java.util.HashMap<>();
@@ -589,6 +591,22 @@ public final class Folk implements Target {
 
     /** Whether it has noticed her. */
     public boolean alerted() { return alerted; }
+
+    /** Whether it sees her now ({@link Sight}): when it last looked, she was in its sight. */
+    public boolean seesHer() { return seesHer; }
+
+    /** Whether it is looking toward a sound of hers it heard ({@link Sight#LISTEN}). */
+    public boolean listening() { return listen > 0; }
+
+    /**
+     * Whether it has spotted her: sees her now - or, a foe, is after her,
+     * seeing her or searching where it last did. Nobody who has spotted her
+     * is sneak-attacked ({@code world.World#spotted}).
+     */
+    public boolean spotted() {
+        if (!standing() || alpha < 0.5) return false;
+        return seesHer || alerted && hostile && role != Role.PERSON;
+    }
 
     /** Come for her from wherever it is, and never give up (the horde's). */
     public Folk relentless() {

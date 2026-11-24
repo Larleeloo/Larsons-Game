@@ -428,11 +428,12 @@ public final class Combat {
         int extra = (int) Math.round(buffs.plus(Buffs.Kind.EXTRA_DICE, what));
         n += extra;
         int sides = forged != null ? forged.sides() : tuning.sides(weapon == null ? null : weapon.def());
-        // hidden, a blow is a sneak attack (or a card makes it one)
+        // hidden, and spotted by nobody, a blow is a sneak attack (or a card makes it one, wherever she is)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
+        double sneakTimes = Stealth.sneakDamage(world.player().gear());
         double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
         boolean weary = tired || drained;
-        double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1)
+        double times = cards * (sneak ? sneakTimes : 1) * (dull ? Ammo.DULL : 1)
                 * (weary ? tuning.tiredDamage : 1);
         Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random),
                 mystic, plain, sneak, times, what);
@@ -440,7 +441,7 @@ public final class Combat {
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
         if (extra > 0) notes.add(new Note("Cards +" + extra + (extra == 1 ? " die" : " dice"), CARD_RGB));
         if (Math.abs(cards - 1) > 1e-9) notes.add(new Note("Cards ×" + trim(cards), CARD_RGB));
-        if (sneak) notes.add(new Note("Sneak attack ×" + trim(Stealth.SNEAK_DAMAGE), SNEAK_RGB));
+        if (sneak) notes.add(new Note("Sneak attack ×" + trim(Math.round(sneakTimes * 100) / 100.0), SNEAK_RGB));
         if (dull) notes.add(new Note("Dull: no " + Ammo.said(Ammo.of(weapon.def())) + " ×" + trim(Ammo.DULL),
                 AMMO_RGB));
         if (drained) notes.add(new Note("No mana ×" + trim(tuning.tiredDamage), MANA_RGB));
@@ -1189,12 +1190,14 @@ public final class Combat {
     }
 
     /**
-     * The colour of what {@code weapon} shoots: its tier's (blue for Magic,
-     * yellow for Honed), else its rarity's - but Magic's blue for a Common
-     * one (a plain wand), whose white would hardly show.
+     * The colour of what {@code weapon} shoots: a forged wand's or staff's
+     * own bolt colour (the Forge's), else its tier's (blue for Magic, yellow
+     * for Honed), else its rarity's - but Magic's blue for a Common one (a
+     * plain wand), whose white would hardly show.
      */
     public static int spellColour(Item weapon) {
         if (weapon == null) return Tier.MAGIC.projectile();
+        if (weapon.forged() != null && weapon.forged().boltRgb() >= 0) return weapon.forged().boltRgb();
         if (weapon.tier() != null && weapon.tier().projectile() >= 0) return weapon.tier().projectile();
         if (weapon.rarity() == Rarity.COMMON) return Tier.MAGIC.projectile();
         return weapon.rarity().rgb();

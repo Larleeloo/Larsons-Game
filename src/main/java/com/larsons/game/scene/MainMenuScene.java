@@ -442,6 +442,7 @@ public final class MainMenuScene implements Scene {
             stage.dialogue(ui, cutscene, 540, 0, ui.width() - 540, h);
         } else {
             var w = game.window();
+            game.worldRenderer().setFoeSight(false);
             game.worldRenderer().render(world, camera, w.framebufferWidth(), w.framebufferHeight());
             ui.begin();
         }

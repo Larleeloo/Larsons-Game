@@ -157,6 +157,8 @@ public final class Settings {
     public boolean dynamicPointer = true;
     /** The missions being followed are listed on the HUD. */
     public boolean missionTracker = true;
+    /** As she sneaks, each foe's sight is drawn on the ground before it ({@code actor/Sight}). */
+    public boolean foeSight = true;
     /** How fine the sun's shadows are ({@code gfx/Visuals.Shadows}: off, low, medium, high). */
     public String shadows = com.larsons.game.gfx.Visuals.DEFAULT.shadows().name();
     /** The Vibrant visuals look (warm sun, cool shade, richer colours, light rays), and how strong it is, 0 - 1. */
@@ -240,6 +242,7 @@ public final class Settings {
                 }
                 s.dynamicPointer = Json.bool(j, "dynamicPointer", true);
                 s.missionTracker = Json.bool(j, "missionTracker", true);
+                s.foeSight = Json.bool(j, "foeSight", true);
                 s.shadows = Json.str(j, "shadows", s.shadows);
                 s.vibrant = Json.bool(j, "vibrant", true);
                 s.vibrantStrength = Math.max(0, Math.min(1, Json.num(j, "vibrantStrength", s.vibrantStrength)));
@@ -285,6 +288,7 @@ public final class Settings {
         j.put("tipsSeen", new java.util.ArrayList<>(tipsSeen));
         j.put("dynamicPointer", dynamicPointer);
         j.put("missionTracker", missionTracker);
+        j.put("foeSight", foeSight);
         j.put("shadows", shadows);
         j.put("vibrant", vibrant);
         j.put("vibrantStrength", vibrantStrength);

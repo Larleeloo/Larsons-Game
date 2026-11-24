@@ -77,8 +77,18 @@ public final class Animals {
         /** The level's edges they keep within - x from, x to, z from, z to - or null (none). */
         default double[] bounds() { return null; }
 
-        /** Whether a building (a wall, a house) stands at {@code (x, z)} taller than {@code y}: nobody sees through it. */
+        /**
+         * Whether something stands at {@code (x, z)} taller than {@code y} -
+         * a wall, a house, a tree's trunk, a rock: nobody sees through it.
+         */
         default boolean sightBlocked(double x, double z, double y) { return false; }
+
+        /**
+         * How high what nobody sees through at {@code (x, z)} stands - a
+         * wall's top, a house's, a tree's, a rock's - or {@code -∞} for
+         * nothing: what the foes' sight fans are cut short by ({@code actor/Sight#fan}).
+         */
+        default double sightTop(double x, double z) { return Double.NEGATIVE_INFINITY; }
     }
 
     /** How far inside a level's edges they keep, metres. */
@@ -138,6 +148,12 @@ public final class Animals {
          * distance an animal notices her at is multiplied by (1: in the open).
          */
         default double conspicuous() { return 1; }
+
+        /** How much of her, metres over her feet, there is to be seen: standing 1.2, crouched 0.7 ({@code actor/Sight}). */
+        default double seenHeight() { return 1.2; }
+
+        /** How far off she is heard, metres ({@code world.Stealth#heard}: walking 3.5). */
+        default double heard() { return 3.5; }
     }
 
     /**

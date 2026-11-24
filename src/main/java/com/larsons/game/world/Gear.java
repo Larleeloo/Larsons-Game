@@ -15,7 +15,10 @@ import java.util.Map;
  * a piece of your own gives at its tier - what it was made with in the
  * Tailor ({@link Forged#gear}, tier by tier) - more health, mana or stamina; each filling back faster; some of
  * every blow she lands drawn back as health, mana or stamina; a higher jump;
- * a second jump in the air; a shorter wait between heavy attacks; more speed.
+ * a second jump in the air; a shorter wait between heavy attacks; more speed;
+ * and the sneaking ones ({@link Effect#sneaking}) - harder to notice, faster
+ * and cheaper on her stamina crouched, quieter footsteps, the lights showing
+ * her less at night, harder sneak attacks.
  *
  * <p>Everything worn counts, whatever it is worn under: a necklace under a
  * gorget, a shirt under a gambeson ({@link Wardrobe#get(Slot, boolean)}) -
@@ -45,6 +48,18 @@ public final class Gear {
         DOUBLE_JUMP("double_jump", "Double jump", "A second jump in the air", 1, 1, 1, 1),
         HEAVY_COOLDOWN("heavy_cooldown", "Heavy attack cooldown", "-%s%% wait between heavy attacks", 25, 5, 90, 5),
         SPEED("speed", "Speed boost", "+%s%% speed", 10, 5, 100, 5),
+        /** Harder to notice: her stealth ({@link Stealth}) times one less its share. */
+        STEALTH("stealth", "Stealth", "%s%% harder to notice", 15, 5, 75, 5),
+        /** Faster crouched: the crouch walk, slow and fast. */
+        SNEAK_SPEED("sneak_speed", "Sneak speed", "+%s%% speed sneaking", 25, 5, 150, 5),
+        /** Her footsteps heard less far off ({@link Stealth#noise}). */
+        QUIET_STEPS("quiet_steps", "Quiet steps", "Footsteps heard %s%% less far off", 30, 5, 90, 5),
+        /** The lights show her less at night ({@link Stealth#light}): 100 % and a street lamp hides her as the dark does. */
+        SHADOW("shadow", "Shadow", "Lights show you %s%% less at night", 50, 10, 100, 10),
+        /** Sneaking (the crouch walk) costs less stamina: 100 % and none. */
+        SNEAK_STAMINA("sneak_stamina", "Sneak stamina", "Sneaking costs %s%% less stamina", 50, 10, 100, 10),
+        /** A sneak attack does more, on top of its twice the damage. */
+        SNEAK_ATTACK("sneak_attack", "Sneak attack", "+%s%% sneak attack damage", 25, 5, 300, 5),
         /** More slots in her inventory while it is worn: a backpack's (only packs are made with it). */
         CARRY("carry", "Carry space", "+%s inventory slots", 10, 1, 100, 1);
 
@@ -78,7 +93,8 @@ public final class Gear {
                 case HEALTH, MANA, STAMINA -> "+" + n;
                 case HEALTH_REGEN, MANA_REGEN, STAMINA_REGEN -> "+" + n + "/s";
                 case HEALTH_ABSORB, MANA_ABSORB, STAMINA_ABSORB -> n + "%";
-                case HEAVY_COOLDOWN -> "-" + n + "%";
+                case HEAVY_COOLDOWN, QUIET_STEPS, SHADOW, SNEAK_STAMINA -> "-" + n + "%";
+                case STEALTH -> n + "%";
                 case CARRY -> "+" + n;
                 default -> "+" + n + "%";
             };
@@ -97,6 +113,12 @@ public final class Gear {
                 case DOUBLE_JUMP -> "double jump";
                 case HEAVY_COOLDOWN -> "heavy wait";
                 case SPEED -> "speed";
+                case STEALTH -> "harder to see";
+                case SNEAK_SPEED -> "sneak speed";
+                case QUIET_STEPS -> "footstep noise";
+                case SHADOW -> "light on you";
+                case SNEAK_STAMINA -> "sneak stamina";
+                case SNEAK_ATTACK -> "sneak attack damage";
                 case CARRY -> "slots";
             };
         }
@@ -118,8 +140,13 @@ public final class Gear {
             return Math.max(min, Math.min(max, v));
         }
 
-        /** Its colour in a tooltip and the Forge: the health's red, the mana's blue, the stamina's green, the rest gold. */
+        /**
+         * Its colour in a tooltip and the Forge: the health's red, the mana's
+         * blue, the stamina's green, the sneaking ones a dusky violet (the
+         * night's), the rest gold.
+         */
         public int rgb() {
+            if (sneaking()) return SNEAK_RGB;
             return switch (this) {
                 case HEALTH, HEALTH_REGEN, HEALTH_ABSORB -> 0xE8605A;
                 case MANA, MANA_REGEN, MANA_ABSORB -> 0x6E9BFF;
@@ -128,11 +155,22 @@ public final class Gear {
             };
         }
 
+        /** Whether it is one of the sneaking effects: Stealth, Sneak speed, Quiet steps, Shadow, Sneak stamina, Sneak attack. */
+        public boolean sneaking() {
+            return switch (this) {
+                case STEALTH, SNEAK_SPEED, QUIET_STEPS, SHADOW, SNEAK_STAMINA, SNEAK_ATTACK -> true;
+                default -> false;
+            };
+        }
+
         public static Effect byKey(String key) {
             for (Effect e : values()) if (e.key.equalsIgnoreCase(key)) return e;
             return null;
         }
     }
+
+    /** The sneaking effects' colour: a dusky violet. */
+    public static final int SNEAK_RGB = 0xB49CF0;
 
     /**
      * What everything worn comes to: each effect's amounts added up (the
@@ -176,6 +214,36 @@ public final class Gear {
         /** The heavy attack's wait, times: -25 % is 0.75 (never below a tenth). */
         public double heavyTimes() {
             return Math.max(0.1, 1 - share(Effect.HEAVY_COOLDOWN));
+        }
+
+        /** How easily she is noticed, times: 15 % harder to notice is 0.85 (never below a quarter). */
+        public double stealthTimes() {
+            return Math.max(0.25, 1 - share(Effect.STEALTH));
+        }
+
+        /** The crouch walk's speed, times. */
+        public double sneakSpeedTimes() {
+            return 1 + share(Effect.SNEAK_SPEED);
+        }
+
+        /** How far off her footsteps are heard, times (never below a tenth). */
+        public double noiseTimes() {
+            return Math.max(0.1, 1 - share(Effect.QUIET_STEPS));
+        }
+
+        /** How much the lights show her at night, times (0: not at all). */
+        public double lightTimes() {
+            return Math.max(0, 1 - share(Effect.SHADOW));
+        }
+
+        /** The stamina sneaking costs, times (0: none). */
+        public double sneakCostTimes() {
+            return Math.max(0, 1 - share(Effect.SNEAK_STAMINA));
+        }
+
+        /** A sneak attack's damage, times what it would be: +25 % is 1.25. */
+        public double sneakDamageTimes() {
+            return 1 + share(Effect.SNEAK_ATTACK);
         }
 
         public boolean isEmpty() {

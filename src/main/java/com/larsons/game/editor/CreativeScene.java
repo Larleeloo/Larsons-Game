@@ -1550,6 +1550,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         java.util.Set<Integer> lit = new java.util.HashSet<>();
         for (LevelObject o : selection) if (ObjectTypes.builds(o.type())) lit.add(o.id());
         game.worldRenderer().highlightBuildings(lit);
+        game.worldRenderer().setFoeSight(game.settings().foeSight);
         game.worldRenderer().render(view.world(), camera, fw, fh);
         game.worldRenderer().highlightBuildings(null);
         Mat4 vp = camera.viewProjection(fw / (double) Math.max(1, fh));
@@ -2509,24 +2510,37 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     w, Theme.HINT) + 8;
         }
 
-        // the colours: of a part (or all of it), or of the dice (clothes roll none)
+        // the colours: of a part (or all of it), of the dice (clothes roll none), or of a wand's or a staff's bolts
         List<String> parts = game.items().parts(forging.base());
         List<String> targets = new ArrayList<>();
         for (String p : parts) targets.add(p.equals("all") ? "All of it" : ObjectTypes.readable(p));
-        if (!worn || armour) targets.add("The dice");
+        int diceAt = -1, boltsAt = -1;
+        if (!worn || armour) {
+            diceAt = targets.size();
+            targets.add("The dice");
+        }
+        if (!worn && forging.casts()) {
+            boltsAt = targets.size();
+            targets.add("The bolts");
+        }
         forgeColour = Math.floorMod(forgeColour, targets.size());
         forgeColour = widgets.choice(ui, "Colour", targets, forgeColour, x, y, w, 0.36f);
         y += 34;
-        boolean dice = forgeColour == parts.size();
-        String part = dice ? null : parts.get(forgeColour);
-        int current = dice ? forging.diceRgb() : forging.tints().getOrDefault(part, -1);
+        boolean dice = forgeColour == diceAt, bolts = forgeColour == boltsAt;
+        String part = dice || bolts ? null : parts.get(forgeColour);
+        int current = bolts ? forging.boltRgb() : dice ? forging.diceRgb() : forging.tints().getOrDefault(part, -1);
+        if (bolts) y = boltSample(ui, x, y, w);
         int cols = 16;
         float size = Math.min(16, w / cols);
         int picked = widgets.swatches(ui, colours, current, x, y, cols, size);
-        if (picked >= 0) forging = dice ? forging.withDiceRgb(picked) : forging.withTint(part, picked);
+        if (picked >= 0) {
+            forging = bolts ? forging.withBoltRgb(picked) : dice ? forging.withDiceRgb(picked)
+                    : forging.withTint(part, picked);
+        }
         y += Widgets.swatchesHeight(colours.length, cols, size) + 6;
-        if (ui.button(dice ? "The rarity's colour" : "As it is drawn", x, y, w, 26, false, current >= 0)) {
-            forging = dice ? forging.withDiceRgb(-1) : forging.withTint(part, -1);
+        String back = bolts ? "Its tier's or rarity's colour" : dice ? "The rarity's colour" : "As it is drawn";
+        if (ui.button(back, x, y, w, 26, false, current >= 0)) {
+            forging = bolts ? forging.withBoltRgb(-1) : dice ? forging.withDiceRgb(-1) : forging.withTint(part, -1);
         }
         y += 34;
         if (worn) {
@@ -2540,6 +2554,32 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             ui.paragraph(ui.small, "Armour and clothes of your own are made in the Tailor (its Your own page).", x, y, w,
                     Theme.ITEM_DISABLED);
         }
+    }
+
+    /**
+     * The colour a forged wand's or staff's bolts of magic will be, shown as
+     * they fly: a glowing bolt and its trail, in the colour its spells and full
+     * auto's bolts are shot in ({@link com.larsons.game.combat.Combat#spellColour}).
+     * Returns the foot.
+     */
+    private float boltSample(Ui ui, float x, float y, float w) {
+        int rgb = com.larsons.game.combat.Combat.spellColour(forging.item());
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        float cy = y + 14;
+        ui.text(ui.small, forging.boltRgb() >= 0 ? "Its bolts:" : "Its bolts (its tier's colour):", x, y + 6,
+                Theme.ITEM);
+        float bx = x + w - 34;
+        // the trail, fading behind it; the bolt, its halo and its white-hot heart
+        for (int i = 6; i >= 1; i--) {
+            float tx = bx - i * 14, a = 0.55f * (1 - i / 7f);
+            ui.disc(tx, cy, 6.5f - i * 0.6f, new float[]{r, g, b, a});
+        }
+        ui.disc(bx, cy, 13, new float[]{r, g, b, 0.22f});
+        ui.disc(bx, cy, 9, new float[]{r, g, b, 0.55f});
+        ui.disc(bx, cy, 6, new float[]{r, g, b, 1f});
+        ui.disc(bx, cy, 3, new float[]{Math.min(1, r * 0.4f + 0.6f), Math.min(1, g * 0.4f + 0.6f),
+                Math.min(1, b * 0.4f + 0.6f), 1f});
+        return y + 32;
     }
 
     /** The Forge's pages: what it is, its special effects (armour and clothes), its dice, its tiers. */
@@ -5033,7 +5073,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> | rate <x> | accuracy <%> |
                 // auto on|off | bolts <a second> | mana <x> | stamina <x> |
                 // effect <key> on|off | gear <effect> <amount|on|off> | tint <part> <#rgb|none> |
-                // dicecolour <#rgb|none> | colour <n> | page <n> | save | place
+                // dicecolour <#rgb|none> | boltcolour <#rgb|none> | colour <n> | page <n> | save | place
                 String what = a[0], rest = argument.trim().substring(what.length()).trim();
                 switch (what) {
                     case "new" -> forging = tool == Tool.TAILOR ? Forged.freshWorn(rest.isEmpty() ? "New piece" : rest)
@@ -5107,6 +5147,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case "tint" -> forging = forging.withTint(a[1], a[2].equals("none") ? -1
                             : Integer.parseInt(a[2].replace("#", ""), 16));
                     case "dicecolour" -> forging = forging.withDiceRgb(rest.equals("none") ? -1
+                            : Integer.parseInt(rest.replace("#", ""), 16));
+                    case "boltcolour" -> forging = forging.withBoltRgb(rest.equals("none") ? -1
                             : Integer.parseInt(rest.replace("#", ""), 16));
                     case "colour" -> forgeColour = Integer.parseInt(rest);
                     case "save" -> saveForged(false);

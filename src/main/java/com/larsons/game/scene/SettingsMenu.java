@@ -319,7 +319,13 @@ public final class SettingsMenu {
         if (ui.button(s.miniMap ? "Shown" : "Hidden", c, y, 110, 34, s.miniMap, true)) s.miniMap = !s.miniMap;
         name(ui, "Compass", x + 400, y);
         if (ui.button(s.compass ? "Shown" : "Hidden", c + 400, y, 110, 34, s.compass, true)) s.compass = !s.compass;
-        y += 50;
+        y += 44;
+        name(ui, "Foes' sight sneaking", x, y);
+        if (ui.button(s.foeSight ? "Shown" : "Hidden", c, y, 110, 34, s.foeSight, true)) s.foeSight = !s.foeSight;
+        y += 42;
+        note(ui, "As you sneak, each foe's sight lies on the ground before it: how far it would see you, crouched as "
+                + "you are, cut short behind walls, trees and rocks. Red: it has seen you.", x, y, w);
+        y += 40;
         name(ui, "Tutorial tips", x, y);
         if (ui.button(s.tutorialTips ? "On" : "Off", c, y, 110, 34, s.tutorialTips, true)) {
             s.tutorialTips = !s.tutorialTips;
