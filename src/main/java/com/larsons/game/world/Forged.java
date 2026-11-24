@@ -39,9 +39,10 @@ import java.util.stream.Stream;
  * </pre>
  *
  * <p>A wand or a staff can be forged to fire <b>full auto</b> ({@code
- * "fullAuto": true, "boltsPerSecond": 6}) and to draw more or less mana
- * ({@code "manaUse": 0.5}); a sword, a mace, an axe or a dagger to cost more
- * or less stamina a swing ({@code "staminaUse": 2}).
+ * "fullAuto": true, "boltsPerSecond": 6}), to draw more or less mana
+ * ({@code "manaUse": 0.5}) and to shoot bolts of magic of a colour of their
+ * own ({@code "boltColour": "#ff5ad2"}); a sword, a mace, an axe or a dagger
+ * to cost more or less stamina a swing ({@code "staminaUse": 2}).
  *
  * @param id       the file's name, and how items name it
  * @param name     what it is called
@@ -69,24 +70,32 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
      * dagger's every swing costs ({@code staminaUse}). A bow and a crossbow
      * cost neither.
      */
-    public record Handling(boolean fullAuto, double boltRate, double manaUse, double staminaUse) {
+    public record Handling(boolean fullAuto, double boltRate, double manaUse, double staminaUse, int boltRgb) {
         /** Each kind's own: one spell a press, six bolts a second when full auto, the mana and stamina as they are. */
-        public static final Handling STANDARD = new Handling(false, AUTO_RATE, 1, 1);
+        public static final Handling STANDARD = new Handling(false, AUTO_RATE, 1, 1, -1);
 
         public Handling {
             boltRate = Double.isNaN(boltRate) || boltRate <= 0 ? AUTO_RATE
                     : Math.max(MIN_BOLTS, Math.min(MAX_BOLTS, boltRate));
             manaUse = Double.isNaN(manaUse) ? 1 : Math.max(0, Math.min(MAX_USE, manaUse));
             staminaUse = Double.isNaN(staminaUse) ? 1 : Math.max(0, Math.min(MAX_USE, staminaUse));
+            boltRgb = boltRgb < 0 ? -1 : boltRgb & 0xFFFFFF;
         }
 
-        public Handling withFullAuto(boolean on) { return new Handling(on, boltRate, manaUse, staminaUse); }
+        /** One whose bolts are its tier's or its rarity's colour. */
+        public Handling(boolean fullAuto, double boltRate, double manaUse, double staminaUse) {
+            this(fullAuto, boltRate, manaUse, staminaUse, -1);
+        }
 
-        public Handling withBoltRate(double r) { return new Handling(fullAuto, r, manaUse, staminaUse); }
+        public Handling withFullAuto(boolean on) { return new Handling(on, boltRate, manaUse, staminaUse, boltRgb); }
 
-        public Handling withManaUse(double m) { return new Handling(fullAuto, boltRate, m, staminaUse); }
+        public Handling withBoltRate(double r) { return new Handling(fullAuto, r, manaUse, staminaUse, boltRgb); }
 
-        public Handling withStaminaUse(double s) { return new Handling(fullAuto, boltRate, manaUse, s); }
+        public Handling withManaUse(double m) { return new Handling(fullAuto, boltRate, m, staminaUse, boltRgb); }
+
+        public Handling withStaminaUse(double s) { return new Handling(fullAuto, boltRate, manaUse, s, boltRgb); }
+
+        public Handling withBoltRgb(int c) { return new Handling(fullAuto, boltRate, manaUse, staminaUse, c); }
     }
 
     /** Full auto's bolts a second, unless the Forge says otherwise; the fewest and the most it can be set to. */
@@ -303,6 +312,16 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
 
     /** How much of the stamina a swung weapon's blows cost, times its kind's own (0: none). */
     public double staminaUse() { return swung() ? handling.staminaUse() : 1; }
+
+    /**
+     * The colour of the bolts of magic a wand or a staff shoots - its spells
+     * and full auto's bolts, and the burst where they land ({@code
+     * 0xRRGGBB}) - or -1: its tier's or its rarity's, as any wand's.
+     */
+    public int boltRgb() { return casts() ? handling.boltRgb() : -1; }
+
+    /** Shooting bolts of {@code rgb} (-1: its tier's or its rarity's colour). */
+    public Forged withBoltRgb(int rgb) { return withHandling(handling.withBoltRgb(rgb)); }
 
     /** Used as {@code h} says. */
     public Forged withHandling(Handling h) {
@@ -637,6 +656,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         if (h.boltRate() != AUTO_RATE) m.put("boltsPerSecond", h.boltRate());
         if (h.manaUse() != 1) m.put("manaUse", h.manaUse());
         if (h.staminaUse() != 1) m.put("staminaUse", h.staminaUse());
+        if (h.boltRgb() >= 0) m.put("boltColour", hex(h.boltRgb()));
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
@@ -681,6 +701,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         Map<Gear.Effect, Double> gear = gearOf(Json.obj(m, "gear"));
         if (gear == null) gear = Map.of();
         String dc = Json.str(m, "diceColour", "");
+        String bc = Json.str(m, "boltColour", "");
         List<Upgrade> ups = new ArrayList<>();
         if (m.get("upgrades") instanceof List<?> l) {
             for (Object o : l) {
@@ -701,7 +722,8 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
                 (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear, Json.num(m, "fireRate", 1),
                 (int) Json.num(m, "accuracy", 100), new Handling(Boolean.TRUE.equals(m.get("fullAuto")),
-                Json.num(m, "boltsPerSecond", AUTO_RATE), Json.num(m, "manaUse", 1), Json.num(m, "staminaUse", 1)));
+                Json.num(m, "boltsPerSecond", AUTO_RATE), Json.num(m, "manaUse", 1), Json.num(m, "staminaUse", 1),
+                bc.isEmpty() ? -1 : rgb(bc)));
     }
 
     private static Map<String, Object> gearMap(Map<Gear.Effect, Double> gear) {

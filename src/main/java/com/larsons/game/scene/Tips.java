@@ -45,8 +45,15 @@ final class Tips {
                 + "health potion.");
         TEXT.put("ammo", "This weapon is out of ammunition. Find more in chests, buy it in shops, or make it at "
                 + "a workbench.");
-        TEXT.put("hidden", "You are hidden: the eye over the stamina bar is shut. Your blows are sneak attacks, "
+        TEXT.put("hidden", "You are hidden. So long as nobody has spotted you, your blows are sneak attacks, "
                 + "for twice the damage.");
+        TEXT.put("sight", "The fan on the ground before a foe is how far it would see you, crouched as you are: "
+                + "longer in a lamp's light, shorter in the dark, cut short behind walls, trees and rocks. Behind it "
+                + "you can only be heard.");
+        TEXT.put("light", "A light shows you up at night. Keep out of the lamps' glow, and put your lantern out, "
+                + "to stay hidden.");
+        TEXT.put("spotted", "You have been spotted: no sneak attacks until nobody can see you and no foe is after "
+                + "you.");
         TEXT.put("swim", "Swimming. {CROUCH} dives and {JUMP} comes up; come up before your breath runs out.");
         TEXT.put("climb", "Climbing. Forward goes up and back goes down; it costs stamina. {JUMP} lets go.");
         TEXT.put("night", "Night falls, and people go home. Hold {TIME_LAPSE} to run time fast.");

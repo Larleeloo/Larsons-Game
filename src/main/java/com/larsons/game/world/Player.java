@@ -198,6 +198,19 @@ public final class Player {
      * Run out, she walks until it is back up to {@link #RUN_AGAIN}.
      */
     public static final double RUN_COST = 3, SPRINT_COST = 8, RUN_AGAIN = 25;
+    /**
+     * Stamina a jump costs, and the second jump her gear gives her in the
+     * air: without that much left she does not jump ("Too tired to jump").
+     */
+    public static final double JUMP_COST = 6, DOUBLE_JUMP_COST = 8;
+    /**
+     * Stamina a second spent sneaking - the crouch walk - and its fast crouch
+     * walk (with Shift). Run out, she creeps ({@link #CREEP}) and cannot
+     * hurry until it is back up to {@link #RUN_AGAIN}.
+     */
+    public static final double SNEAK_COST = 2, SNEAK_FAST_COST = 5;
+    /** Out of stamina, crouched: the crouch walk's speed, times. */
+    public static final double CREEP = 0.6;
     /** How strong the second jump her gear gives her is, against her first. */
     public static final double DOUBLE_JUMP_POWER = 0.9;
     /** How often what her gear does is worked out again, in seconds (and whenever she changes what she wears). */
@@ -325,12 +338,14 @@ public final class Player {
             KNOCKED_OUT,
             /** Jumped again in the air, {@code amount} metres up (her gear's second jump). */
             DOUBLE_JUMPED,
-            /** Ran out of stamina running: she walks till it comes back. */
+            /** Ran out of stamina running ({@code amount} 0) or sneaking (1): she walks, or creeps, till it comes back. */
             WINDED,
             /** Up in the saddle. */
             MOUNTED,
             /** Down off the horse, on her feet. */
-            DISMOUNTED
+            DISMOUNTED,
+            /** Too tired to jump ({@code amount} 0) or to jump again in the air (1): not the stamina for it. */
+            TOO_TIRED
         }
     }
 
@@ -656,12 +671,17 @@ public final class Player {
                 climbOnto(0, durations);
                 return;
             } else if (in.jump() && st.canJump()) {
-                crouched = false;
-                jumping = true;
-                launched = false;
-                jumpState = st.jump();
-                setState(jumpState);
-                actionDuration = durations.applyAsDouble(jumpState);
+                // a jump costs stamina: without enough of it, she does not jump
+                if (spend(JUMP_COST)) {
+                    crouched = false;
+                    jumping = true;
+                    launched = false;
+                    jumpState = st.jump();
+                    setState(jumpState);
+                    actionDuration = durations.applyAsDouble(jumpState);
+                } else {
+                    events.add(new Event(Event.Kind.TOO_TIRED, 0));
+                }
             } else if (in.block() && st.block() != null) {
                 blocking = true;
                 crouched = false;
@@ -670,7 +690,10 @@ public final class Player {
             if (next == AnimState.DASH) dodgeScale = scale(AnimState.DASH);
         }
         // --- the second jump, in the air: what her gear gives her ------------------------
-        if (!grounded && in.jump() && canDoubleJump()) {
+        boolean again = !grounded && in.jump() && canDoubleJump();
+        if (again && !spend(DOUBLE_JUMP_COST)) {
+            events.add(new Event(Event.Kind.TOO_TIRED, 1));
+        } else if (again) {
             doubleJumped = true;
             crouched = false;
             jumping = true;
@@ -713,6 +736,19 @@ public final class Player {
                 events.add(new Event(Event.Kind.WINDED, 0));
             }
         }
+        // sneaking - the crouch walk - costs stamina too (less with her gear's Sneak stamina); run out, she creeps
+        if (crouched && grounded && !rooted && !winded && wish.length() > 0.3) {
+            double cost = (pace != Stance.Pace.WALK ? SNEAK_FAST_COST : SNEAK_COST)
+                    * buffs.times(Buffs.Kind.STAMINA_COST) * worn.sneakCostTimes();
+            if (cost > 0) {
+                stamina = Math.max(0, stamina - cost * wish.length() * dt);
+                sinceTired = 0;
+                if (stamina <= 0) {
+                    winded = true;
+                    events.add(new Event(Event.Kind.WINDED, 1));
+                }
+            }
+        }
         // walking into a wall she can climb, she takes hold of it; off the top of one, she steps down onto it
         if (!busy && grounded && !blocking && wish.length() > 0.5 && grabWall(wish)) {
             climb(0, in);
@@ -725,7 +761,10 @@ public final class Player {
                 return;
             }
         }
-        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED) * worn.speedTimes());
+        // (crouched: as fast as her gear's Sneak speed makes her - and out of stamina, creeping)
+        double sneak = crouched ? worn.sneakSpeedTimes() * (winded ? CREEP : 1) : 1;
+        Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED) * worn.speedTimes()
+                * sneak);
         if (dodging()) {
             velocity = SpriteView.headingVector(dodgeHeading).scale(dodgeSpeed(action, stateTime + dt / 2));
         } else {
@@ -2058,6 +2097,19 @@ public final class Player {
     /** Her inventory is {@code slots} bigger than its base already (a save made with the pack on). */
     public void setPackSlots(int slots) {
         packSlots = Math.max(0, Math.min(slots, inventory.size() - Inventory.HOTBAR));
+    }
+
+    /**
+     * Spend {@code cost} stamina (times what the cards make it), if she has
+     * it: returns whether she had. A cost of nothing is always had.
+     */
+    private boolean spend(double cost) {
+        double c = cost * buffs.times(Buffs.Kind.STAMINA_COST);
+        if (c <= 0) return true;
+        if (stamina + 1e-9 < c) return false;
+        stamina = Math.max(0, stamina - c);
+        sinceTired = 0;
+        return true;
     }
 
     /** Whether she can jump again now, in the air: her gear gives her the second jump and she has not used it. */

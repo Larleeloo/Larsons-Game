@@ -38,7 +38,7 @@ import java.util.Random;
 public final class Folks {
 
     /** What one did to her, or had done to it. */
-    public enum Outcome { NOTICED, STRUCK, BLOCKED, DODGED, PARRIED, GUARDED, FELL }
+    public enum Outcome { NOTICED, HEARD, STRUCK, BLOCKED, DODGED, PARRIED, GUARDED, FELL }
 
     /** What happened: who, what, and what it took off her. */
     public record Event(Folk folk, Outcome outcome, double damage) {}
@@ -394,6 +394,7 @@ public final class Folks {
     public List<Event> tick(double dt, Animals.Quarry her, Animals.Place place) {
         events.clear();
         searches = SEARCHES;
+        if (her != null) conspicuous = her.conspicuous();
         for (Folk f : all) one(f, dt, her, place);
         apart();
         if (her != null) {
@@ -412,6 +413,13 @@ public final class Folks {
         }
         all.removeIf(Folk::gone);
         return List.copyOf(events);
+    }
+
+    /** How many of them have spotted her now ({@link Folk#spotted}): seeing her, or after her. */
+    public int spotting() {
+        int n = 0;
+        for (Folk f : all) if (f.spotted()) n++;
+        return n;
     }
 
     /** The shots loosed since the last call. */
@@ -458,9 +466,32 @@ public final class Folks {
             f.vx *= k;
             f.vz *= k;
         }
-        if (f.role() == Folk.Role.PERSON || !f.hostile || her == null || her.down()) about(f, dt, her, place);
-        else fight(f, dt, her, place);
+        if (f.role() == Folk.Role.PERSON || !f.hostile || her == null || her.down()) {
+            // (a person - or a foe told to leave her be - only watches: whether she sees her, for the sneak attacks)
+            if (her != null && !her.down() && f.standing() && f.alpha > 0.5) watch(f, dt, her, place);
+            else f.seesHer = false;
+            about(f, dt, her, place);
+        } else {
+            fight(f, dt, her, place);
+        }
+        if (f.listen > 0) f.listen -= dt;
         f.y = place.ground(f.x, f.z);
+    }
+
+    /** Whether {@code f}, not after her, sees her now - and hears her (she turns to her if she comes near). */
+    private void watch(Folk f, double dt, Animals.Quarry her, Animals.Place place) {
+        Vec3 h = her.feet();
+        seesHer(f, h, Math.hypot(h.x() - f.x, h.z() - f.z), dt, place, her);
+    }
+
+    /** Whether {@code f} knows she is about: sees her, or heard her a moment ago. */
+    private static boolean aware(Folk f) {
+        return f.seesHer || f.listen > 0;
+    }
+
+    /** Whether she is within {@code r} of {@code f} ({@code (hx, hz)} from it) and {@code f} knows she is there. */
+    private static boolean near(Folk f, double hx, double hz, double r) {
+        return hx * hx + hz * hz < r * r && aware(f);
     }
 
     /** Standing about its spot, wandering a little; a person turns to her as she comes up. */
@@ -501,7 +532,7 @@ public final class Folks {
         if (f.role() == Folk.Role.PERSON && her != null) {
             Vec3 h = her.feet();
             double dx = h.x() - f.x, dz = h.z() - f.z;
-            if (dx * dx + dz * dz < 9) {
+            if (near(f, dx, dz, 3)) {
                 turn(f, dx, dz, dt);
                 return;
             }
@@ -588,7 +619,7 @@ public final class Folks {
         Schedule.Doing d = want.doing();
         Vec3 h = her.feet();
         double hx = h.x() - f.x, hz = h.z() - f.z;
-        boolean near = hx * hx + hz * hz < 9;
+        boolean near = near(f, hx, hz, 3);
         if (!f.arrived) {
             double left = Math.hypot(p[0] - f.x, p[1] - f.z);
             boolean loose = d == Schedule.Doing.WANDER || d == Schedule.Doing.CHAT;
@@ -616,8 +647,8 @@ public final class Folks {
         }
         switch (d) {
             case WORK -> {
-                // at it, whoever comes by - unless she is right by her
-                if (hx * hx + hz * hz < 2.5) {
+                // at it, whoever comes by - unless she is right by her (and knows it)
+                if (near(f, hx, hz, Math.sqrt(2.5))) {
                     turn(f, hx, hz, dt);
                     f.act(Folk.Act.IDLE, 0);
                     break;
@@ -786,7 +817,7 @@ public final class Folks {
         f.dayFor = 0;
         Vec3 h = her.feet();
         double hx = h.x() - f.x, hz = h.z() - f.z;
-        boolean near = hx * hx + hz * hz < 9;
+        boolean near = near(f, hx, hz, 3);
         stroll(f, f.visitX, f.visitZ, 1.6, near ? hx : Double.NaN, hz, dt, place);
     }
 
@@ -863,36 +894,33 @@ public final class Folks {
         turn(f, v.x(), v.z(), dt);
     }
 
-    /** How wide its eyes take in what is before it, either way of where it faces (radians), and how near it hears her. */
-    static final double CONE = Math.toRadians(65), HEARS = 3.5;
-
     /**
-     * Whether {@code f} sees her: near enough (its sight, less when she is
-     * hidden, more once it is after her), before it (its eyes' cone - or so
-     * near it hears her, or once it is after her), and nothing in the way
-     * (no hill, no wall: {@link Paths#sees}). Looked at a few times a second.
+     * Whether {@code f} sees her ({@link Sight}): its line of sight decides
+     * how far off - the whole of its reach straight ahead, less toward the
+     * edges of its eyes, nothing behind (once it is after her, all round) -
+     * its reach its sight times how easily she is noticed, and only along a
+     * clear line to her (no hill, no wall, no trunk, no rock: {@link
+     * Paths#sees}). Out of its sight but in its hearing ({@code her.heard()}),
+     * it turns to look where the sound came from. Looked at a few times a second.
      */
-    private boolean seesHer(Folk f, Vec3 h, double dist, double dt, Animals.Place place) {
-        if (f.relentless) return true;
-        double range = f.alerted ? f.sight * 1.6 : f.sight * placeSight(f, place) * conspicuous;
-        if (dist > range) return false;
+    private boolean seesHer(Folk f, Vec3 h, double dist, double dt, Animals.Place place, Animals.Quarry her) {
+        if (f.relentless) return f.seesHer = true;
+        double heard = her.heard();
+        double farthest = Math.max(Math.max(f.alerted ? f.sight * Sight.CHASING : f.sight * conspicuous, heard),
+                Sight.TOUCH);
+        if (dist > farthest) return f.seesHer = false;
         f.lookIn -= dt;
         if (f.lookIn > 0) return f.seesHer;
         f.lookIn = 0.2 + random.nextDouble() * 0.1;
-        boolean before = true;
-        if (!f.alerted && dist > HEARS) {
-            Vec3 fwd = SpriteView.headingVector(f.heading);
-            double dot = ((h.x() - f.x) * fwd.x() + (h.z() - f.z) * fwd.z()) / Math.max(1e-6, dist);
-            before = dot >= Math.cos(CONE);
+        f.seesHer = Sight.sees(f, h, her.seenHeight(), conspicuous, place);
+        if (!f.seesHer && !f.alerted && dist <= heard) {
+            // heard, not seen: a look toward the sound
+            if (f.listen <= 0) events.add(new Event(f, Outcome.HEARD, 0));
+            f.listen = Sight.LISTEN;
+            f.heardX = h.x();
+            f.heardZ = h.z();
         }
-        double eyes = f.y + (f.crouched ? 0.7 : 1.55) * f.size();
-        f.seesHer = before && Paths.sees(f.x, eyes, f.z, h.x(), h.y() + 1.2, h.z(), place);
         return f.seesHer;
-    }
-
-    /** How far it sees where it stands (1: as its kind does). */
-    private static double placeSight(Folk f, Animals.Place place) {
-        return 1;
     }
 
     /** How plain she is to see this frame (her stealth): set from her each tick. */
@@ -901,8 +929,7 @@ public final class Folks {
     private void fight(Folk f, double dt, Animals.Quarry her, Animals.Place place) {
         Vec3 h = her.feet();
         double dx = h.x() - f.x, dz = h.z() - f.z, dist = Math.hypot(dx, dz), dy = h.y() - f.y;
-        conspicuous = her.conspicuous();
-        boolean sees = seesHer(f, h, dist, dt, place);
+        boolean sees = seesHer(f, h, dist, dt, place, her);
         if (sees) {
             f.seenHer = true;
             f.seenX = h.x();
@@ -914,7 +941,13 @@ public final class Folks {
                     if (!f.alerted) events.add(new Event(f, Outcome.NOTICED, 0));
                     f.alerted = true;
                     f.lostFor = 0;
+                    f.listen = 0;
                     f.enter(Folk.Mode.CHASE);
+                } else if (f.listen > 0) {
+                    // a sound of her: it stops and turns to look where it came from
+                    if (f.mode == Folk.Mode.WANDER) f.enter(Folk.Mode.STAND);
+                    f.act(Folk.Act.IDLE, 0);
+                    turn(f, f.heardX - f.x, f.heardZ - f.z, dt * 0.45);
                 } else {
                     about(f, dt, her, place);
                 }

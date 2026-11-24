@@ -489,7 +489,9 @@ public final class CombatHud {
 
     /**
      * How easily she is noticed ({@link Stealth}), over the health bar while
-     * she is crouched, hidden or it is dark: a meter emptying the quieter she is.
+     * she is crouched, hidden or it is dark: a meter emptying the quieter she
+     * is - and whether anyone has spotted her ({@link World#spotted}: then no
+     * sneak attacks), in the light of a lamp, in the dark, in the grass.
      */
     public void drawStealth(Ui ui, World world, float cy) {
         Player p = world.player();
@@ -497,11 +499,28 @@ public final class CombatHud {
         if (!p.crouched() && !s.hidden() && s.dark() < 0.5 && !p.underWater()) return;
         float w = 150, h = 6;
         float x = ui.width() / 2f - 2 * 64 - 28 - 26 - w, y = cy - 44 - 32;
-        int rgb = s.hidden() ? STEALTH_HIDDEN : s.score() > 1.2 ? 0xFF9A5A : 0xE8E0C8;
-        String label = (s.hidden() ? "Hidden - sneak attacks ×" + trim(Stealth.SNEAK_DAMAGE) : s.label())
-                + (s.grass() ? " · in the grass" : "") + (s.dark() > 0.5 ? " · dark" : "");
-        bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), rgb, rgb, label, false, null, false);
+        bar(ui, x, y, w, h, Math.min(1, s.score() / 1.7), stealthRgb(s, world.spotted()),
+                stealthRgb(s, world.spotted()), stealthLabel(s, world.spotted(), p.gear()), false, null, false);
     }
+
+    /** The stealth meter's words: hidden (with what a sneak attack does), spotted, or how plain she is - and why. */
+    public static String stealthLabel(Stealth s, int spotted, com.larsons.game.world.Gear.Totals worn) {
+        String head;
+        if (spotted > 0) head = (s.hidden() ? "Hidden, but spotted" : s.label() + " · spotted") + " - no sneak attacks";
+        else if (s.hidden()) head = "Hidden - sneak attacks ×" + trim(Math.round(Stealth.sneakDamage(worn) * 100) / 100.0);
+        else head = s.label();
+        return head + (s.grass() ? " · in the grass" : "")
+                + (s.inTheLight() ? " · in the light" : s.dark() > 0.5 ? " · dark" : "");
+    }
+
+    /** The stealth meter's colour: hidden a dusk green, spotted a warning red-orange, loud an orange, else pale. */
+    static int stealthRgb(Stealth s, int spotted) {
+        if (spotted > 0) return SPOTTED_RGB;
+        return s.hidden() ? STEALTH_HIDDEN : s.score() > 1.2 ? 0xFF9A5A : 0xE8E0C8;
+    }
+
+    /** The stealth meter's colour when someone has spotted her. */
+    static final int SPOTTED_RGB = 0xFF7A5E;
 
     /**
      * Under the heavy attack's gauge: the ammunition of what she holds - the

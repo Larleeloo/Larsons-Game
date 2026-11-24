@@ -78,10 +78,13 @@ final class TailorPanel {
         return y + s + 6;
     }
 
-    /** How tall {@link #gearRows} is ({@code pack}: with the backpack's carry space). */
+    /** How tall {@link #gearRows} is ({@code pack}: with the backpack's carry space) - its Sneaking heading too. */
     static float gearRowsHeight(boolean pack) {
-        return 31 * effects(pack).size();
+        return 31 * effects(pack).size() + SNEAK_HEADING;
     }
+
+    /** The room the Sneaking heading over the sneaking effects takes. */
+    static final float SNEAK_HEADING = 24;
 
     /** The effects a piece can be made with: all but the carry space, which only a pack has. */
     static List<Gear.Effect> effects(boolean pack) {
@@ -106,7 +109,16 @@ final class TailorPanel {
         out.putAll(gear);
         if (!pack) out.remove(Gear.Effect.CARRY);
         float bw = (float) Math.floor(w * 0.52f);
+        boolean headed = false;
         for (Gear.Effect e : effects(pack)) {
+            if (e.sneaking() && !headed) {
+                // the sneaking ones together, under a heading of their own
+                headed = true;
+                ui.text(ui.small, "Sneaking", x, y + 3, Theme.hex(Gear.SNEAK_RGB, 1f));
+                ui.rect(x + ui.small.width("Sneaking") + 8, y + 11, w - ui.small.width("Sneaking") - 8, 1,
+                        Theme.hex(Gear.SNEAK_RGB, 0.45f));
+                y += SNEAK_HEADING;
+            }
             Double amount = out.get(e);
             boolean on = amount != null;
             // (the small font on every one, so a short name is not drawn bigger than a long one)

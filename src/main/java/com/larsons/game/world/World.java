@@ -263,6 +263,9 @@ public final class World {
     /** How easily she is noticed now, worked out a few times a second. */
     private Stealth stealth = Stealth.OPEN;
     private double stealthClock, lastHidden = Double.NEGATIVE_INFINITY;
+    /** How many have spotted her now ({@link #spotted}), and when she was last too-tired-to-jump said. */
+    private int spotted;
+    private double tiredSaid = Double.NEGATIVE_INFINITY;
     private Terrain terrain = Terrain.FLAT;
     private Vec3 spawnPoint = Vec3.ZERO;
     private Random random = new Random();
@@ -794,14 +797,52 @@ public final class World {
     public Stealth stealth() { return stealth; }
 
     /**
-     * Whether a blow she starts now is a sneak attack: she was hidden a
-     * moment ago ({@link #SNEAK_GRACE} s) - standing up to swing gives her away
-     * only once the blow has landed.
+     * Whether a blow she starts now is a sneak attack: a moment ago ({@link
+     * #SNEAK_GRACE} s) she was hidden and nobody had spotted her ({@link
+     * #spotted}) - standing up to swing gives her away only once the blow
+     * has landed. Seen by anyone - a foe, a person in the street, an animal
+     * going for her - or with a foe after her, there are no sneak attacks.
      */
     public boolean sneaky() { return time - lastHidden <= SNEAK_GRACE; }
 
-    /** How long after she was last hidden a blow she starts is still a sneak attack, seconds. */
+    /** How long after she was last hidden and unseen a blow she starts is still a sneak attack, seconds. */
     public static final double SNEAK_GRACE = 0.6;
+
+    /**
+     * How many have spotted her now: the folk who see her (a foe, a person),
+     * the foes after her - seeing her or searching where they last did - and
+     * the animals warning her off or going for her. While any have, her blows
+     * are no sneak attacks.
+     */
+    public int spotted() { return spotted; }
+
+    /** Who has spotted her, counted afresh: what {@link #spotted} says. */
+    private int countSpotted() {
+        int n = folks.spotting();
+        for (Animal a : animals.live()) {
+            if (!a.alive()) continue;
+            Animal.Mode m = a.mode();
+            if (m == Animal.Mode.WARN || m == Animal.Mode.CHASE || m == Animal.Mode.STRIKE) n++;
+        }
+        return n;
+    }
+
+    /**
+     * What {@code f} sees of the ground before it now, for its sight's fan
+     * ({@link com.larsons.game.actor.Sight#fan}): {@code rays} ways across
+     * its eyes, and how far along each she - crouched or standing as she is,
+     * as easily noticed as she is now - would be seen.
+     */
+    public double[] sightFan(com.larsons.game.actor.Folk f, int rays) {
+        return com.larsons.game.actor.Sight.fan(f, place(), stealth.score(), seenHeight(), rays);
+    }
+
+    /** How much of her there is to be seen over her feet: standing, crouched, swimming, riding ({@link com.larsons.game.actor.Sight}). */
+    double seenHeight() {
+        if (player.riding() != Player.Riding.NO) return com.larsons.game.actor.Sight.RIDING;
+        if (player.swimming()) return com.larsons.game.actor.Sight.SWIMMING;
+        return player.crouched() ? com.larsons.game.actor.Sight.CROUCHED : com.larsons.game.actor.Sight.STANDING;
+    }
 
     /** What the cards she has played are doing for her ({@link Player#buffs}). */
     public Buffs buffs() { return player.buffs(); }
@@ -874,6 +915,7 @@ public final class World {
         com.larsons.game.actor.Folk f = e.folk();
         Vec3 at = player.ground();
         switch (e.outcome()) {
+            case HEARD -> combat.say("?", 0xFFD27A, f.position(), f.height() + 0.25, false);
             case NOTICED -> {
                 combat.say("!", 0xFF6A5A, f.position(), f.height() + 0.25, false);
                 combat.sound(f.breed() != null && f.breed().risen() ? "foes/risen_groan" : "foes/alert", f.position());
@@ -1189,20 +1231,52 @@ public final class World {
         return ((long) Math.floor(x / CELL) << 32) ^ (Math.floorMod((long) Math.floor(z / CELL), 1L << 32));
     }
 
-    /** Whether a tree's or a rock's trunk stands within {@code radius} of {@code (x, z)}. */
     /**
-     * Whether a building stands at {@code (x, z)} taller than {@code y} - a
-     * wall, a house, a tower: nobody sees through it (a floor, a rug, a low
-     * fence and a candle do not hide anyone).
+     * Whether something stands at {@code (x, z)} taller than {@code y} that
+     * nobody sees through ({@link #sightTop}).
      */
     public boolean sightBlocked(double x, double z, double y) {
+        return sightTop(x, z) > y;
+    }
+
+    /**
+     * How high what nobody sees through stands at {@code (x, z)}, or {@code
+     * -∞}: a building - a wall, a house, a tower (a floor, a rug, a low
+     * fence and a candle do not hide anyone) - a tree (its trunk and the
+     * leaves about it, {@link #TRUNK_SIGHT} m round its trunk) or a rock (as
+     * high as it is: crouched behind a low one she is hidden, standing she
+     * is seen over it).
+     */
+    public double sightTop(double x, double z) {
+        double top = Double.NEGATIVE_INFINITY;
         for (Building b : buildingsNear(x, z, 0)) {
             BuildingProfile p = b.profile();
             if (p.fixture() || p.height() < 1.2) continue;
             if (p.room() != null && p.room().piece() == com.larsons.game.building.Room.Piece.FLOOR) continue;
-            if (y < b.position().y() + p.height() && b.blocks(x, z, 0)) return true;
+            if (b.blocks(x, z, 0)) top = Math.max(top, b.position().y() + p.height());
         }
-        return false;
+        long cx = (long) Math.floor(x / CELL), cz = (long) Math.floor(z / CELL);
+        for (long i = cx - 1; i <= cx + 1; i++) {
+            for (long j = cz - 1; j <= cz + 1; j++) {
+                List<Scenery.Placed> in = solidCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Scenery.Placed p : in) {
+                    double r = p.radius() + TRUNK_SIGHT, dx = p.x() - x, dz = p.z() - z;
+                    if (dx * dx + dz * dz < r * r) top = Math.max(top, p.y() + sightHeight(p));
+                }
+            }
+        }
+        return top;
+    }
+
+    /** How far round a tree's or a rock's trunk it hides what is behind it from sight, metres (its leaves, its bulk). */
+    public static final double TRUNK_SIGHT = 0.2;
+
+    /** How high a piece of solid scenery hides what is behind it: a tree all of its height, a rock about its girth. */
+    static double sightHeight(Scenery.Placed p) {
+        SceneryProfile pr = p.sprite().profile();
+        if (pr.kind() == SceneryProfile.Kind.TREE) return pr.frameWorldHeight() * p.scale() * 0.85;
+        return Math.max(0.5, Math.min(pr.frameWorldHeight() * p.scale() * 0.5, p.radius() * 2.2));
     }
 
     public boolean solidNear(double x, double z, double radius) {
@@ -1426,7 +1500,8 @@ public final class World {
             stealth = Stealth.of(this);
             stealthClock = 0.2;
         }
-        if (stealth.hidden()) lastHidden = time;
+        // (hidden, and nobody had spotted her when the folk last looked)
+        if (stealth.hidden() && spotted == 0) lastHidden = time;
         combat.tick(dt, this);
         turnBack();
         happened();
@@ -1439,6 +1514,7 @@ public final class World {
             combat.foeShot(l.kind(), l.colour(), l.from(), l.to(), l.damage(), l.by());
         }
         for (Combat.FoeHit hit : combat.drainFoeHits()) shotAt(hit);
+        spotted = countSpotted();
         if (folks.drainEmerged() > 0) combat.sound("foes/portal", player.ground());
         for (com.larsons.game.actor.Serpent sp : folks.serpents()) struckBy(sp, sp.tick(dt, terrain, player));
         folks.serpents().removeIf(com.larsons.game.actor.Serpent::gone);
@@ -1701,6 +1777,12 @@ public final class World {
 
             @Override
             public double conspicuous() { return stealth.score(); }
+
+            @Override
+            public double seenHeight() { return World.this.seenHeight(); }
+
+            @Override
+            public double heard() { return stealth.heard(); }
         };
     }
 
@@ -1837,6 +1919,11 @@ public final class World {
             }
 
             @Override
+            public double sightTop(double x, double z) {
+                return World.this.sightTop(x, z);
+            }
+
+            @Override
             public double ground(double x, double z) {
                 return terrain.height(x, z);
             }
@@ -1929,6 +2016,15 @@ public final class World {
                 case WINDED -> {
                     combat.say("Out of breath", 0xFFD27A, at, 2.1, true);
                     combat.sound(SoundKeys.player(body, "out_of_breath"), at);
+                }
+                case TOO_TIRED -> {
+                    // (said once in a while, however often the key is pressed)
+                    if (time - tiredSaid > 1.5) {
+                        tiredSaid = time;
+                        combat.say(e.amount() > 0 ? "Too tired to jump again" : "Too tired to jump", 0xFFD27A, at,
+                                2.1, true);
+                        combat.sound(SoundKeys.player(body, "out_of_breath"), at);
+                    }
                 }
                 case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
                 case ARMOUR_HELD -> { }        // (said where the blow came from: hurtSaid)
