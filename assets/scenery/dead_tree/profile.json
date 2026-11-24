@@ -9,5 +9,10 @@
  "shadowRadius": 1.0,
  "biomes": [
   "waste"
- ]
+ ],
+ "fell": {
+  "chops": 3,
+  "drops": "timber x1-2",
+  "regrow": 600
+ }
 }

@@ -79,6 +79,7 @@ Every sprite folder holds two files:
 | `biomes` | the biomes it grows in (`plains`, `marsh`, `mountains`, `jungle`, `savannah`, `ocean`, `river`, `waste`, `crystal`): the biome brush and the scatter brush's biome sets sow it there. None: it is the demo's meadow's, planted in the demo and on the plains | | | |
 | `glow` | a colour (`"#7FE8FF"`) it shines with at night, lighting the ground round it | crystal tree | | the crystals |
 | `bend` | `true`: tall grass that leans aside as someone walks through it | | tall grass, reeds | |
+| `fell` | what felling it with an axe takes and leaves (`world/Felling`): `{"chops": 5, "drops": "timber x2-4, resin 30%", "regrow": 600, "stump": null}` - the blows a Basic axe needs, its loot pool (as Creative Mode's pools are written), the seconds its stump takes to grow back (0: never), and a scenery sprite to stand as its stump (none: the foot of its own picture, cut, with a pale cut face). None: 5 blows, 2 to 4 timber, 10 minutes. Creative Mode sets any one tree's otherwise | every tree | | |
 
 A field left out keeps its kind's default (the sizes above), and a profile
 with no `kind` is taken to be the kind its folder's name suggests (`tuft`,

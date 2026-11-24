@@ -6,5 +6,10 @@
  "fps": 12,
  "frameWorldSize": 10.8,
  "radius": 0.65,
- "shadowRadius": 3.6
+ "shadowRadius": 3.6,
+ "fell": {
+  "chops": 12,
+  "drops": "timber x6-9",
+  "regrow": 600
+ }
 }

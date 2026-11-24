@@ -40,6 +40,8 @@ final class Tips {
         TEXT.put("shop", "{USE} opens the shop beside your inventory. Click what you want to buy.");
         TEXT.put("horse", "A horse. With a saddle in your inventory {USE} saddles it; then {USE} rides it.");
         TEXT.put("door", "{USE} goes in and out at doors, and up and down stairs.");
+        TEXT.put("fell", "A tree, an axe in your hands: {ATTACK} (held) or {USE} fells it, blow by blow. It leaves "
+                + "timber where it falls; a better axe takes fewer blows.");
         TEXT.put("quest", "A new mission. {JOURNAL} opens your missions: follow up to four at once.");
         TEXT.put("hurt", "Badly hurt. Keep out of reach for a few seconds and your health comes back, or drink a "
                 + "health potion.");

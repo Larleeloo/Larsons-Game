@@ -205,7 +205,8 @@ public final class SoundKeys {
      * The gathering spots worked: a vein or a seam mined, a crystal chipped,
      * sand or clay dug, logs cut, flax cut, resin taken from a pine.
      */
-    public static final List<String> GATHER_SOUNDS = List.of("mine", "chip", "dig", "chop", "cut", "tap");
+    public static final List<String> GATHER_SOUNDS = List.of("mine", "chip", "dig", "chop", "cut", "tap",
+            "fell_chop", "tree_creak", "tree_fall");
 
     /**
      * The little creatures that live in the world (ambient/CritterKind) and
@@ -290,7 +291,8 @@ public final class SoundKeys {
             AnimState.SHIELD_BASH, AnimState.AXE_ATTACK, AnimState.AXE_HEAVY_ATTACK, AnimState.AXE_SPIN_ATTACK,
             AnimState.BOW_DRAW, AnimState.BOW_FIRE, AnimState.CROSSBOW_FIRE, AnimState.STAFF_ATTACK,
             AnimState.STAFF_HEAVY_ATTACK, AnimState.WAND_ATTACK, AnimState.WAND_HEAVY_ATTACK, AnimState.MACE_ATTACK,
-            AnimState.MACE_HEAVY_ATTACK, AnimState.DAGGER_ATTACK, AnimState.DAGGER_HEAVY_ATTACK, AnimState.JUMP_ATTACK);
+            AnimState.MACE_HEAVY_ATTACK, AnimState.DAGGER_ATTACK, AnimState.DAGGER_HEAVY_ATTACK, AnimState.JUMP_ATTACK,
+            AnimState.AXE_CHOP);
 
     /** The animations of a body's moving about with a sound of their own, shared by both bodies. */
     static final List<AnimState> MOVEMENT_MOVES = List.of(AnimState.JUMP, AnimState.DASH, AnimState.ROLL,
@@ -533,7 +535,7 @@ public final class SoundKeys {
         String k = s.key();
         if (k.startsWith("emote_")) return SoundCategory.VOICES;
         if (k.contains("attack") || k.contains("parry") || k.contains("block") || k.contains("shield")
-                || k.contains("draw") || k.contains("fire")) {
+                || k.contains("draw") || k.contains("fire") || s == AnimState.AXE_CHOP) {
             return SoundCategory.WEAPONS;
         }
         return SoundCategory.MOVEMENT;
@@ -688,6 +690,7 @@ public final class SoundKeys {
             case AXE_ATTACK -> "Battle axe chop";
             case AXE_HEAVY_ATTACK -> "Battle axe heavy attack";
             case AXE_SPIN_ATTACK -> "Battle axe spin attack";
+            case AXE_CHOP -> "Battle axe swung at a tree";
             case BOW_DRAW -> "Bow drawn";
             case BOW_FIRE -> "Bow loosed";
             case CROSSBOW_FIRE -> "Crossbow shot";
@@ -1046,6 +1049,9 @@ public final class SoundKeys {
             case "chop" -> "Cutting fallen logs";
             case "cut" -> "Cutting flax";
             case "tap" -> "Taking resin from a pine";
+            case "fell_chop" -> "An axe biting into a standing tree";
+            case "tree_creak" -> "A felled tree creaking as it starts to go";
+            case "tree_fall" -> "A felled tree crashing to the ground";
             default -> s;
         };
     }

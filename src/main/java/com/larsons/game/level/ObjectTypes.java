@@ -141,8 +141,14 @@ public final class ObjectTypes {
                         Prop.toggle("mirrored", "Mirrored", false),
                         Prop.number("scale", "Size", 1, 0.2, 5, 0.05),
                         Prop.colour("tint", "Tint"),
-                        Prop.number("tintAmount", "Tint strength", 0.6, 0.05, 1, 0.05)), 0.6, 2.0, 0x7FBF6A, false,
-                (o, b) -> b.plant(o)));
+                        Prop.number("tintAmount", "Tint strength", 0.6, 0.05, 1, 0.05),
+                        // a tree: felled with an axe (world/Felling) - its kind's way, or this one's own
+                        Prop.toggle("fells", "Can be felled with an axe", true),
+                        Prop.number("chops", "Blows to fell (0: its kind's)", 0, 0, 200, 1),
+                        Prop.number("regrow", "Grows back after, minutes (-1: its kind's; 0: never)", -1, -1, 1440, 1),
+                        Prop.rows("drops", "Leaves when felled", "", Rows.drops("Its kind's: see below. Add a row "
+                                + "to give this tree its own instead (Start from its kind's copies them here)."))),
+                0.6, 2.0, 0x7FBF6A, false, (o, b) -> b.plant(o)));
         register(new ObjectType(ITEM, "Item", Category.ITEMS,
                 List.of(Prop.choice("item", "Item", "sword", o -> itemIds()),
                         Prop.choice("tier", "Tier", "", ObjectTypes::tiersOf),
@@ -441,6 +447,14 @@ public final class ObjectTypes {
      * barrel or a crate, saddled only for horses.
      */
     public static boolean applies(LevelObject o, Prop p) {
+        if (o.type().equals(SCENERY)) {
+            // a tree's felling: only a tree's, and its blows, regrowth and pool only while it can be felled
+            return switch (p.key()) {
+                case "fells" -> tree(o);
+                case "chops", "regrow", "drops" -> tree(o) && o.bool("fells", true);
+                default -> true;
+            };
+        }
         return switch (p.key()) {
             case "drops" -> !o.type().equals(CHEST) || o.bool("loot", true);
             case "contents" -> o.type().equals(CHEST) ? !o.bool("loot", true)
@@ -661,6 +675,43 @@ public final class ObjectTypes {
     /** The scenery sprites the scenery's choices are made from (set once their folder has been read). */
     public static void useScenery(ScenerySprites sprites) {
         scenerySprites = sprites == null ? ScenerySprites.NONE : sprites;
+    }
+
+    /** Whether {@code o} is a tree (a piece of scenery whose sprite is one): what an axe fells. */
+    public static boolean tree(LevelObject o) {
+        if (!o.type().equals(SCENERY)) return false;
+        ScenerySprites.Sprite s = scenerySprites.sprite(o.str("sprite", ""));
+        return s != null && s.profile().kind() == com.larsons.game.sprite.SceneryProfile.Kind.TREE;
+    }
+
+    /**
+     * Tree {@code o}'s own felling ({@link com.larsons.game.world.Felling.Own}):
+     * whether it can be felled, its blows, what it leaves and its regrowth -
+     * each its kind's where it is not set.
+     */
+    public static com.larsons.game.world.Felling.Own felling(LevelObject o) {
+        boolean fells = o.bool("fells", true);
+        int chops = (int) Math.round(o.num("chops", 0));
+        String drops = o.str("drops", "");
+        double regrow = o.num("regrow", -1);
+        if (fells && chops <= 0 && drops.isBlank() && regrow < 0) return null;
+        return new com.larsons.game.world.Felling.Own(fells, Math.max(0, chops), drops, regrow);
+    }
+
+    /** What tree {@code o}'s kind leaves when felled, as a pool's text ("timber x2-4"), or "": not a tree. */
+    public static String kindDrops(LevelObject o) {
+        ScenerySprites.Sprite s = scenerySprites.sprite(o.str("sprite", ""));
+        if (s == null || s.profile().kind() != com.larsons.game.sprite.SceneryProfile.Kind.TREE) return "";
+        com.larsons.game.sprite.SceneryProfile.Fell f = s.profile().fell();
+        return f != null ? f.drops() : com.larsons.game.world.Felling.DEFAULT.drops();
+    }
+
+    /** The blows a Basic axe takes to fell tree {@code o}'s kind, and the minutes its stump takes to grow back. */
+    public static double[] kindFelling(LevelObject o) {
+        ScenerySprites.Sprite s = scenerySprites.sprite(o.str("sprite", ""));
+        com.larsons.game.sprite.SceneryProfile.Fell f = s == null || s.profile().fell() == null
+                ? com.larsons.game.world.Felling.DEFAULT : s.profile().fell();
+        return new double[]{f.chops(), f.regrow() / 60.0};
     }
 
     static List<String> sceneryNames() {

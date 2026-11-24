@@ -10,5 +10,10 @@
  "biomes": [
   "ocean",
   "jungle"
- ]
+ ],
+ "fell": {
+  "chops": 4,
+  "drops": "timber x1-3",
+  "regrow": 600
+ }
 }
