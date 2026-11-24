@@ -2370,8 +2370,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             forgeColour = 0;
         }
         y += 36;
-        boolean armour = com.larsons.game.world.Armour.sides(forging.def()) > 0;
-        // its pages: a weapon's, armour's (its effects, its dice), or clothing's (its effects)
+        // (a shield blocks as armour does - raised, from the front - so it has dice as armour has)
+        boolean shield = com.larsons.game.world.Shields.is(forging.def());
+        boolean armour = blocks(forging.def());
+        // its pages: a weapon's, armour's or a shield's (its effects, its dice), or clothing's (its effects)
         List<Integer> kinds = worn ? armour ? List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_DICE, PAGE_TIERS)
                 : List.of(PAGE_MAIN, PAGE_EFFECTS, PAGE_TIERS) : List.of(PAGE_MAIN, PAGE_DICE, PAGE_TIERS);
         if (!kinds.contains(forgePage)) forgePage = PAGE_MAIN;
@@ -2379,7 +2381,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         for (int i = 0; i < kinds.size(); i++) {
             int k = kinds.get(i);
             String label = switch (k) {
-                case PAGE_MAIN -> armour ? "Armour" : worn ? "Clothing" : "Weapon";
+                case PAGE_MAIN -> shield ? "Shield" : armour ? "Armour" : worn ? "Clothing" : "Weapon";
                 case PAGE_EFFECTS -> "Effects (" + forging.gear().size() + ")";
                 case PAGE_DICE -> worn ? "Dice" : "Dice & ammo";
                 default -> "Tiers (" + forging.tiers() + ")";
@@ -2408,7 +2410,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         int bi = 0;
         for (int i = 0; i < made.size(); i++) {
             ItemDef d = made.get(i);
-            bases.add(com.larsons.game.world.Armour.sides(d) > 0 ? d.name() + " (armour)"
+            bases.add(com.larsons.game.world.Shields.is(d) ? d.name() + " (shield)"
+                    : com.larsons.game.world.Armour.sides(d) > 0 ? d.name() + " (armour)"
                     : d.isWearable() ? d.name() + " (clothing)" : d.name());
             if (d.id().equals(forging.base())) bi = i;
         }
@@ -2421,6 +2424,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (!worn && now != null && (was == null || was == forging.sides() || forging.sides() == 20)) {
                 forging = forging.withSides(now);
             }
+            // (a shield of one's own starts with the dice of the shield it is made from)
+            var made2 = com.larsons.game.world.Shields.byId(forging.base());
+            if (worn && made2 != null) forging = forging.withDice(made2.dice()).withSides(made2.sides());
             forgeColour = 0;
         }
         y += 36;
@@ -2432,8 +2438,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
 
         // the dice: how many, and of what (clothes roll none: they block nothing)
         if (!worn || armour) {
-            int n = (int) Math.round(widgets.stepper(ui, armour ? "Dice to block" : "Dice", forging.dice(), 1, 1,
-                    Forged.MAX_DICE, "%.0f", x, y, w));
+            int n = (int) Math.round(widgets.stepper(ui, shield ? "Dice to block (raised)" : armour ? "Dice to block"
+                    : "Dice", forging.dice(), 1, 1, Forged.MAX_DICE, "%.0f", x, y, w));
             if (n != forging.dice()) forging = forging.withDice(n);
             y += 34;
             int sideKinds = Forged.SIDES.length;
@@ -2447,6 +2453,15 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             y += 38;
         }
 
+        if (shield) {
+            // what kind of shield it is: how far round it covers, its bash, its gift
+            var kind = com.larsons.game.world.Shields.byId(forging.base());
+            String line = "Raised, it rolls " + forging.diceText() + " against a blow from the front (" + kind.arc()
+                    + "° either side), on top of the block's half; bash " + kind.bashNotation()
+                    + (kind.trait() == com.larsons.game.world.Shields.Trait.NONE ? ""
+                    : "; " + kind.trait().label() + ": " + kind.trait().said()) + ".";
+            y += ui.paragraph(ui.small, line, x, y, w, Theme.HINT) + 8;
+        }
         if (worn) {
             // what it does for whoever wears it: set on its Effects page
             List<String> said = forging.gearText();
@@ -2549,7 +2564,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      * What the Forge makes things from: the weapons, then every piece of
      * armour ({@link com.larsons.game.world.Armour}) - a forged piece is worn
      * like the piece, rolls its own dice to block a blow and climbs its own
-     * upgrade tiers - then the clothes ({@link Forged#wornBase}: a shirt, a
+     * upgrade tiers - then the shields (the same, its dice rolled raised
+     * against a blow from the front), then the clothes ({@link Forged#wornBase}: a shirt, a
      * hat, a necklace, a ring ...), which block nothing but can be given
      * special effects as armour can.
      */
@@ -2560,10 +2576,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
             if (com.larsons.game.world.Armour.sides(d) > 0) out.add(d);
         }
+        out.addAll(com.larsons.game.world.Shields.defs());
         for (ItemDef d : com.larsons.game.world.Wearables.ALL) {
-            if (com.larsons.game.world.Armour.sides(d) <= 0 && Forged.wornBase(d)) out.add(d);
+            if (com.larsons.game.world.Armour.sides(d) <= 0 && Forged.wornBase(d) && !out.contains(d)) out.add(d);
         }
         return out;
+    }
+
+    /** Whether a piece made from {@code d} rolls dice to block a blow: armour, or a shield (raised, from the front). */
+    static boolean blocks(ItemDef d) {
+        return com.larsons.game.world.Armour.sides(d) > 0 || com.larsons.game.world.Shields.is(d);
     }
 
     /**
@@ -2668,7 +2690,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
      */
     private void forgeTiers(Ui ui, float x, float y, float w) {
         boolean worn = forging.worn();
-        boolean blocks = com.larsons.game.world.Armour.sides(forging.def()) > 0;
+        boolean blocks = blocks(forging.def());
         List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
         int n = (int) Math.round(widgets.stepper(ui, "Tiers", ups.size() + 1, 1, 1, Forged.MAX_TIERS, "%.0f", x, y, w));
         while (ups.size() + 1 < n) {

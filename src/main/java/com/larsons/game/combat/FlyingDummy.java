@@ -280,7 +280,12 @@ public final class FlyingDummy implements Target {
             return Outcome.PARRIED;
         }
         if (p.stance().block() != null && p.state() == p.stance().block()) {
-            p.struck(Math.round(SWOOP_DAMAGE / 2));
+            p.struck(Math.round(SWOOP_DAMAGE / 2), position(), false);
+            // a spiked shield: what it held off dealt back
+            var b = p.shieldJustBlocked() ? p.lastShield() : null;
+            if (b != null && b.trait() == com.larsons.game.world.Shields.Trait.THORNS && b.blocked() > 0 && !b.broken()) {
+                hurt(Math.round(b.blocked()), p.feet(), true);
+            }
             return Outcome.BLOCKED;
         }
         p.struck(SWOOP_DAMAGE);

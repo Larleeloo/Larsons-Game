@@ -867,6 +867,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         }
         if (played > 20 && world.stealth().hidden()) tips.offer("hidden");
         if (p.swimming()) tips.offer("swim");
+        if (played > 5 && p.shield() != null && p.stance() == com.larsons.game.sprite.Stance.SWORD) tips.offer("shield");
         if (p.climbing() != null) tips.offer("climb");
         double hour = world.clock().hour();
         if (inside == null && horde == null && world.sky().air().timeRuns() && (hour >= 20.5 || hour < 4.5)) {
@@ -1634,6 +1635,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.saveWardrobe();
             ItemDef d = g.def;
             Sounds.play(SoundKeys.item(d.id(), "pickup"));
+            if (com.larsons.game.world.Shields.is(g.item)) {
+                boolean on = com.larsons.game.world.Shields.carrying(world.player().wardrobe(), g.item);
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + (on ? " — on your arm: hold block (right mouse) to raise it"
+                        : " — carry it from the inventory (I, right-click it)"), g.item.rarity().colour(1f));
+                return;
+            }
             if (d.isWearable()) {
                 game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
                         + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));

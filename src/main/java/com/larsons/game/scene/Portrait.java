@@ -181,10 +181,13 @@ public final class Portrait {
         boolean empty = override != null ? override.stance() == Stance.FREE : holding == null && !pose.armed;
         // what is in the hands for this pose: the class's own weapon is the stance's; a sword (and a shield) is the wardrobe's
         String right = wardrobe.get(Slot.CARRY_RIGHT), left = wardrobe.get(Slot.CARRY_LEFT);
+        String rightId = wardrobe.id(Slot.CARRY_RIGHT), leftId = wardrobe.id(Slot.CARRY_LEFT);
         boolean sword = !empty && (stance == Stance.SWORD || stance == Stance.BLADE);
         if (sword) {
+            // (the shield on the arm, if there is one; else the round shield)
+            String shield = com.larsons.game.world.Shields.carriedFolder(wardrobe);
             wardrobe.set(Slot.CARRY_RIGHT, "sword");
-            wardrobe.set(Slot.CARRY_LEFT, stance == Stance.SWORD ? "round_shield" : null);
+            wardrobe.set(Slot.CARRY_LEFT, stance == Stance.SWORD ? (shield != null ? shield : "round_shield") : null);
         }
         LayerStack.Result r;
         try {
@@ -195,6 +198,9 @@ public final class Portrait {
             if (sword) {
                 wardrobe.set(Slot.CARRY_RIGHT, right);
                 wardrobe.set(Slot.CARRY_LEFT, left);
+                // (what each was worn as: a Tailor's shield as itself)
+                if (rightId != null) wardrobe.setId(Slot.CARRY_RIGHT, rightId);
+                if (leftId != null) wardrobe.setId(Slot.CARRY_LEFT, leftId);
             }
         }
         // the box fits the tallest there can be, head to foot; zoomed in, it closes on the head

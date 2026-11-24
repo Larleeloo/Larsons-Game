@@ -343,10 +343,18 @@ public final class CombatHud {
         boolean landed = t >= ARMOUR_TUMBLE + Math.max(0, count(roll) - 1) * STAGGER + LAND;
         String summary = landed ? roll.summary() : roll.armoured() ? "Rolling armour..." : roll.summary();
         int sumRgb = !landed ? 0xE8E0C8 : roll.full() ? ARMOUR_RGB : roll.armoured() ? 0xFFFFFF : ARMOUR_HURT_RGB;
+        // (a raised shield's dice come first, over the armour's: the shield is no piece of armour)
+        boolean shieldUp = !roll.blocks().isEmpty()
+                && com.larsons.game.world.Shields.is(roll.blocks().get(0).piece().item());
+        int pieces = roll.blocks().size() - (shieldUp ? 1 : 0);
         boolean everyPiece = false;
-        for (Armour.Block b : roll.blocks()) everyPiece |= b.piece().at() != roll.at();
-        String title = everyPiece || (p.armourRules().everyPiece() && roll.blocks().size() > 1)
+        for (Armour.Block b : roll.blocks()) {
+            everyPiece |= b.piece().at() != roll.at() && !com.larsons.game.world.Shields.is(b.piece().item());
+        }
+        String struck = everyPiece || (p.armourRules().everyPiece() && pieces > 1)
                 ? "Struck (every piece rolls)" : "Struck: " + roll.at().key();
+        String title = !shieldUp ? struck : pieces > 0 ? "Shield up, then " + struck.toLowerCase(java.util.Locale.ROOT)
+                : "Shield up: a blow from the front";
         float sumY = bottom - ui.body.lineHeight();
         float top = roll.armoured() ? sumY - 6 - ui.label.lineHeight() - 2 - size - ui.small.lineHeight() - 2
                 : sumY;

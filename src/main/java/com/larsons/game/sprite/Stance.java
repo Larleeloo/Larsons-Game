@@ -16,7 +16,9 @@ package com.larsons.game.sprite;
  *   <li>{@link #WAND}, {@link #MACE}, {@link #DAGGER}: the one-handed weapons,
  *       in the right hand (the dagger's free hand up as a guard; both hands
  *       for the wand's great cast, the mace's ground smash and its haft held
- *       across); whatever the wardrobe carries is put away while she holds one;</li>
+ *       across); whatever the wardrobe carries is put away while she holds one
+ *       - but a shield: with a shield on her arm she holds one in the sword
+ *       stance's moves instead, in the sword's place ({@link #oneHanded});</li>
  *   <li>{@link #FREE}: nothing - the emotes and the pick-ups are played with
  *       empty hands;</li>
  *   <li>{@link #ALL}: whatever she holds - the dash and the combat roll are
@@ -330,13 +332,22 @@ public enum Stance {
         return carriesShield(wardrobe) ? SWORD : BLADE;
     }
 
-    /** Whether a shield is carried, in either hand (a left-handed character's is in the right). */
+    /**
+     * Whether a shield is carried, in either hand (a left-handed character's
+     * is in the right): any of {@link com.larsons.game.world.Shields}' twelve.
+     */
     public static boolean carriesShield(Wardrobe wardrobe) {
-        for (Slot slot : new Slot[]{Slot.CARRY_LEFT, Slot.CARRY_RIGHT}) {
-            String item = wardrobe.get(slot);
-            if (item != null && Wardrobe.Style.base(item).endsWith("shield")) return true;
-        }
-        return false;
+        return com.larsons.game.world.Shields.carriedFolder(wardrobe) != null;
+    }
+
+    /**
+     * Whether this stance's weapon is held in one hand, leaving the other free
+     * for a shield: the wand, the mace and the dagger (the sword is the sword
+     * stance's own). With a shield on her arm she fights with one in the
+     * sword-and-shield moves, the weapon in the sword's place.
+     */
+    public boolean oneHanded() {
+        return this == WAND || this == MACE || this == DAGGER;
     }
 
     /** The weapon stance whose weapon is {@code item}, or null. */

@@ -614,6 +614,7 @@ final class InventoryPanel {
                 Item there = inv.get(hovered);
                 if (shop != null && there != null) sell(hovered);
                 else if (there != null && there.def().edible() && !shift) eat(hovered);
+                else if (held == null && !shift && com.larsons.game.world.Shields.is(there)) carryShield(there);
                 else if (held == null && !shift && com.larsons.game.world.Upgrades.has(there)) {
                     // a weapon with tiers: them, beside the inventory
                     tiersOf = tiersOf == hovered ? -1 : hovered;
@@ -635,6 +636,9 @@ final class InventoryPanel {
                     : into != null ? (there.def().edible() ? "Right-click: eat one · " : "")
                     + "Shift-click: put in " + into
                     : there.def().edible() ? "Right-click: eat one · Shift-click: move"
+                    : com.larsons.game.world.Shields.is(there)
+                    ? (com.larsons.game.world.Shields.carrying(world.player().wardrobe(), there)
+                    ? "Right-click: put it away" : "Right-click: carry it on your off-hand arm") + " · Shift-click: move"
                     : com.larsons.game.world.Upgrades.has(there) ? "Right-click: its upgrade tiers · Shift-click: move"
                     : Inventory.isHotbar(hovered) ? "hotbar " + (hovered + 1) : "1-5: to the hotbar";
             tooltip(ui, there, inv.amount(hovered), hint, (float) in.mouseX() + 16, (float) in.mouseY() + 12);
@@ -663,14 +667,16 @@ final class InventoryPanel {
         }
         String help = pad ? (shop != null ? "A on its button: buy · X on an item of yours: sell one · B: close"
                 : store != null ? "A: pick up / put down · X: move between them · Y: drop what you hold · B: close"
-                : "A: pick up / put down · X: eat, its tiers, or to / from the hotbar · Y: drop what you hold · "
+                : "A: pick up / put down · X: eat, carry a shield, its tiers, or to / from the hotbar · "
+                + "Y: drop what you hold · "
                 + "LB / RB: more · B: close")
                 : shop != null
                 ? "Buy: its button · Right-click or Shift-click an item of yours: sell one · E, I or Esc: close"
                 : store != null
                 ? "Click: pick up / put down · Shift-click or right-click: move between them · Click outside: drop · "
                 + "E, I or Esc: close"
-                : "Click: pick up / put down · Right-click: eat, or its tiers · Shift-click: to / from the hotbar · "
+                : "Click: pick up / put down · Right-click: eat, carry a shield, or its tiers · "
+                + "Shift-click: to / from the hotbar · "
                 + "Click outside: drop · J: cards · I or Esc: close";
         // (under the panel, and never off the bottom of the window)
         ui.textCentered(ui.small, Ui.fit(ui.small, help, ui.width() - 24), ui.width() / 2f,
@@ -812,6 +818,26 @@ final class InventoryPanel {
      * Right-click on something picked: eat one of it ({@link World#eat}) -
      * what it gives back shown in a toast, or that she has no need of it.
      */
+    /**
+     * Carry the shield {@code item} on her off-hand arm, or - when it is the
+     * one she carries - put it away. It is fought with in the sword-and-shield
+     * moves whatever one-handed weapon she holds.
+     */
+    private void carryShield(Item item) {
+        var w = world.player().wardrobe();
+        if (com.larsons.game.world.Shields.carrying(w, item)) {
+            com.larsons.game.world.Shields.carry(w, null);
+            game.toast("Put the " + item.fullName().toLowerCase(java.util.Locale.ROOT) + " away", Theme.HINT);
+        } else {
+            com.larsons.game.world.Shields.carry(w, item);
+            game.toast("Carrying the " + item.fullName().toLowerCase(java.util.Locale.ROOT)
+                    + ": hold block (right mouse) to raise it", Theme.ACCENT);
+        }
+        world.equipSelected();
+        Sounds.play(SoundKeys.ui("equip"));
+        game.saveWardrobe();
+    }
+
     private void eat(int slot) {
         World.Eaten e = world.eat(slot);
         if (e == null) return;
@@ -1232,6 +1258,8 @@ final class InventoryPanel {
             // what each attack costs: a wand's or a staff's mana, a blade's stamina, a bow's nothing
             stats.add(com.larsons.game.combat.WeaponStats.costs(item, world.combat().tuning()));
         }
+        // a shield's block dice, how far round it covers, its bash and its gift
+        stats.addAll(com.larsons.game.world.Shields.describe(item));
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
         for (String st : stats) w = Math.max(w, ui.small.width(st));

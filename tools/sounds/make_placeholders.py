@@ -906,6 +906,23 @@ def _(k):
     return metal(940, 0.8, 0.7, 0.8, k) + 0.5 * metal(1410, 0.8, 0.45, 0.0)
 
 
+@sound("combat/shield_block", 0.65)
+def _(k):
+    # a blow taken on a raised shield: the board's deep knock and its rim ringing after
+    d = 0.5
+    board = 1.2 * thump(k, d, 70, 0.5, 0.12, 0.9, 500) + 0.7 * wood(160, d, 0.18, k)
+    return board + 0.35 * metal(520, d, 0.35, 0.6, k) + 0.2 * metal(780, d, 0.25, 0.0)
+
+
+@sound("combat/guard_break", 0.6)
+def _(k):
+    # too tired to hold the shield up: it is knocked aside, a crack and a clatter
+    d = 0.55
+    out = 0.9 * thump(k, d, 60, 0.7, 0.1, 1.0, 400) + 0.8 * crunch(k, d, 240, 900, 5000, 0.09)
+    place(out, 0.5 * metal(430, 0.3, 0.2, 0.7, k), 0.12)
+    return out + 0.3 * osc(glide(d, [(0, 300), (1, 110)])) * env(d, 0.004, 0.25)
+
+
 @sound("combat/dodge", 0.4)
 def _(k):
     return whoosh(k, 0.28, 600, 2400, 500, 1.5, 0.5, 2.0)

@@ -193,16 +193,18 @@ public final class Gear {
     /**
      * What {@code wardrobe} wears comes to, piece by piece as the items in
      * {@code inventory} (null: as found - the folk's): every slot's armour and
-     * the clothes under it alike, each at its tier - the best of it she
-     * carries.
+     * the clothes under it alike, and the shield on her arm, each at its tier
+     * - the best of it she carries.
      */
     public static Totals of(Wardrobe wardrobe, Inventory inventory) {
         if (wardrobe == null) return Totals.NONE;
         EnumMap<Effect, Double> sum = new EnumMap<>(Effect.class);
         List<String> from = new ArrayList<>();
         for (Slot slot : Slot.values()) {
-            if (slot.carried()) continue;
+            // (in her hands only the shield on her arm is worn)
+            if (slot.carried() && slot != Shields.carriedIn(wardrobe)) continue;
             for (boolean armour : new boolean[]{true, false}) {
+                if (slot.carried() && armour) continue;
                 Item item = Armour.item(wardrobe, inventory, slot, armour);
                 if (item == null) continue;
                 // (a pair of bracers or wrist bands on both wrists is one piece)

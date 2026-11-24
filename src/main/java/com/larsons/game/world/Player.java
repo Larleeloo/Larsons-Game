@@ -1,6 +1,7 @@
 package com.larsons.game.world;
 
 import com.larsons.game.ambient.AnimalKind;
+import com.larsons.game.combat.DiceRoll;
 import com.larsons.game.math.Pchip;
 import com.larsons.game.math.Vec3;
 import com.larsons.game.sprite.AnimState;
@@ -321,6 +322,12 @@ public final class Player {
             HURT,
             /** A blow held off entirely by her armour ({@code amount}: what its dice came to). */
             ARMOUR_HELD,
+            /** Her shield held off {@code amount} of a blow from the front. */
+            SHIELD_BLOCKED,
+            /** Her Quick shield, just raised, turned a blow of {@code amount} aside entirely. */
+            SHIELD_PARRIED,
+            /** Her shield was up but she had no stamina to hold it: the blow came through. */
+            GUARD_BROKEN,
             /** Her health ran out. */
             KNOCKED_OUT,
             /** Jumped again in the air, {@code amount} metres up (her gear's second jump). */
@@ -395,12 +402,21 @@ public final class Player {
 
     private Stance stance = Stance.SWORD;
     private boolean handsEmpty;
+    /** How long her guard has been up (0: it is not); her shield's last block and how long ago it was. */
+    private double guardTime;
+    private ShieldBlock lastShield;
+    private double shieldAge = Double.MAX_VALUE;
     private boolean crouched;
     /** Whether her brass lantern is lit (it lights the dark round her: {@code WorldRenderer}). */
     private boolean lanternLit;
 
     public boolean lanternLit() {
-        return lanternLit && inventory.total(Goods.item(Goods.LANTERN)) > 0;
+        return lanternLit && inventory.total(Goods.item(Goods.LANTERN)) > 0 || shieldLight();
+    }
+
+    /** Whether the shield on her arm is a lantern shield, lit ({@link Shields.Trait#LANTERN}): it lights the dark round her. */
+    public boolean shieldLight() {
+        return Shields.trait(Shields.carried(wardrobe, null)) == Shields.Trait.LANTERN;
     }
 
     public void setLanternLit(boolean on) {
@@ -535,6 +551,7 @@ public final class Player {
         if (!dodging()) dodgeWait = Math.max(0, dodgeWait - dt);
         if (sinceHurt < Double.MAX_VALUE) sinceHurt += dt;
         if (armourAge < Double.MAX_VALUE) armourAge += dt;
+        if (shieldAge < Double.MAX_VALUE) shieldAge += dt;
         if (sinceTired < Double.MAX_VALUE) sinceTired += dt;
         if (sinceHurt >= HEALTH_DELAY && health > 0) health = Math.min(maxHealth, health + HEALTH_REGEN * dt);
         if (wall == null && sinceTired >= STAMINA_DELAY) stamina = Math.min(maxStamina, stamina + STAMINA_REGEN * dt);
@@ -766,6 +783,8 @@ public final class Player {
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
         else if (autoFiring && st.attack(false) != null) next = autoPose(st);
         else next = st.idle(crouched);
+        // (how long the guard has been up: a buckler parries what comes in its first moments)
+        guardTime = next == AnimState.SHIELD_READY ? guardTime + dt : 0;
         setState(next);
         // (a shot of a weapon forged to shoot faster or slower: its draw and loose played that much faster)
         stateTime += dt * (action != null && shooting(action) ? fireRate() : 1);
@@ -1706,7 +1725,8 @@ public final class Player {
     public boolean fullAuto() {
         Item w = inventory.held();
         if (w == null || w.forged() == null || !w.forged().fullAuto()) return false;
-        Stance st = stance();
+        // (the wand's, held with a shield too: its moves are the sword stance's, the weapon still a wand)
+        Stance st = stance;
         return st == Stance.WAND || st == Stance.STAFF;
     }
 
@@ -1758,8 +1778,60 @@ public final class Player {
      * either hand (the free arm hanging, no shield to raise).
      */
     public Stance stance() {
-        if (stance != Stance.SWORD) return stance;
+        // a one-handed weapon with a shield on her arm: the sword-and-shield moves, the weapon in the sword's place
+        if (stance != Stance.SWORD) return stance.oneHanded() && Stance.carriesShield(wardrobe) ? Stance.SWORD : stance;
         return handsEmpty ? Stance.BLADE : Stance.ofWardrobe(wardrobe);
+    }
+
+    /**
+     * The stance of the weapon in her hands, whatever moves she makes with
+     * it: the wand's for a wand held with a shield (whose moves are the
+     * sword and shield's: {@link #stance}).
+     */
+    public Stance weaponStance() {
+        return stance;
+    }
+
+    /**
+     * What is drawn of her: her wardrobe - with a one-handed weapon held with
+     * a shield ({@link Stance#oneHanded}), in her weapon hand in the sword's
+     * place ({@link Wardrobe#holding}), so the sword stance's moves draw it.
+     */
+    public Wardrobe looks() {
+        if (stance.oneHanded() && Stance.carriesShield(wardrobe)) return wardrobe.holding(stance.item());
+        return wardrobe;
+    }
+
+    // --- the shield ----------------------------------------------------------------------
+
+    /** The shield on her arm, as the item it is ({@link Shields#carried}), or null. */
+    public Item shield() {
+        return Shields.carried(wardrobe, inventory);
+    }
+
+    /** Whether her shield is up: blocking in the sword-and-shield stance with a shield on her arm. */
+    public boolean shieldUp() {
+        return state == AnimState.SHIELD_READY && stance() == Stance.SWORD && Stance.carriesShield(wardrobe);
+    }
+
+    /** How long her guard has been up, in seconds (0: it is not). */
+    public double guardTime() { return guardTime; }
+
+    /**
+     * What her shield did against the last blow it was raised against: the
+     * shield, its gift, what it held off, whether the blow was a shot,
+     * whether it parried it outright ({@link Shields.Trait#QUICK}), whether
+     * the guard broke for want of stamina - and how long ago (seconds).
+     */
+    public record ShieldBlock(Item shield, Shields.Trait trait, double blocked, boolean shot, boolean parried,
+                              boolean broken) {}
+
+    /** Her shield's last block, or null before the first. */
+    public ShieldBlock lastShield() { return lastShield; }
+
+    /** Whether her shield's last block was against the blow just taken (this very frame). */
+    public boolean shieldJustBlocked() {
+        return lastShield != null && shieldAge < 1e-9;
     }
 
     /**
@@ -2127,6 +2199,63 @@ public final class Player {
             return 0;
         }
         return hurt(roll.taken());
+    }
+
+    /**
+     * {@link #struck(double)}, the blow coming from {@code from} (null: from
+     * nowhere in particular) - a shot ({@code shot}) or not. With her shield
+     * up ({@link #shieldUp}) and the blow coming from in front of her -
+     * within its {@link Shields#arc} of the way she faces - the shield rolls
+     * its block dice first ({@link Shields#roll}) and what they come to is
+     * taken off it; what is left her armour rolls against, as ever. Shown
+     * together over the hotbar, the shield's dice first ({@link #armourRoll}).
+     * Each point the shield holds off costs stamina ({@link
+     * Shields#staminaFor}); out of stamina, her guard breaks and it does not
+     * roll. A blow from the side or behind gets past it.
+     */
+    public double struck(double damage, Vec3 from, boolean shot) {
+        Item shield = shieldUp() ? shield() : null;
+        if (shield == null || damage <= 0 || health <= 0
+                || !Shields.inFront(feet(), heading, from, Shields.arc(shield))) {
+            return struck(damage);
+        }
+        Shields.Trait trait = Shields.trait(shield);
+        shieldAge = 0;
+        // a Quick shield met by the blow as it comes up: parried outright
+        if (trait == Shields.Trait.QUICK && guardTime <= Shields.QUICK_WINDOW) {
+            lastShield = new ShieldBlock(shield, trait, damage, shot, true, false);
+            events.add(new Event(Event.Kind.SHIELD_PARRIED, damage));
+            return 0;
+        }
+        DiceRoll dice = Shields.roll(shield, armourDice);
+        double blocked = Math.min(damage, Math.max(0, dice.total()));
+        if (shot && trait == Shields.Trait.ARROW_WARD) blocked = damage;      // stopped whole
+        boolean broken = !spendStamina(Shields.staminaFor(shield, blocked));
+        if (broken) {
+            blocked = 0;
+            events.add(new Event(Event.Kind.GUARD_BROKEN, 0));
+        }
+        lastShield = new ShieldBlock(shield, trait, blocked, shot, false, broken);
+        double rest = damage - blocked;
+        Armour.Rules rules = armourRules.get();
+        List<Armour.Piece> pieces = Armour.worn(wardrobe, inventory);
+        Armour.Roll worn = rest > 0 && !pieces.isEmpty() ? Armour.roll(rest, pieces, rules, armourDice) : null;
+        List<Armour.Block> blocks = new ArrayList<>();
+        if (!broken) {
+            blocks.add(new Armour.Block(new Armour.Piece(Shields.carriedIn(wardrobe), shield, Armour.Location.ARMS),
+                    dice));
+        }
+        double taken = worn != null ? worn.taken() : rest;
+        if (worn != null) blocks.addAll(worn.blocks());
+        armourRoll = new Armour.Roll(worn != null ? worn.at() : Armour.Location.ARMS, damage, blocks,
+                blocked + (worn != null ? worn.blocked() : 0), Math.max(0, taken));
+        armourAge = 0;
+        if (blocked > 0) events.add(new Event(Event.Kind.SHIELD_BLOCKED, blocked));
+        if (taken <= 0) {
+            events.add(new Event(Event.Kind.ARMOUR_HELD, armourRoll.blocked()));
+            return 0;
+        }
+        return hurt(taken);
     }
 
     /** Where combat.json's armour rules come from (the world's combat tuning). */

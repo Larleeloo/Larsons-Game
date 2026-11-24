@@ -1073,7 +1073,7 @@ public final class Folks {
             return;
         }
         if (her.blocking()) {
-            events.add(new Event(f, Outcome.BLOCKED, her.hurt(Math.round(f.damage / 2))));
+            events.add(new Event(f, Outcome.BLOCKED, her.hurt(Math.round(f.damage / 2), f.position(), false)));
             return;
         }
         events.add(new Event(f, Outcome.STRUCK, her.hurt(f.damage)));

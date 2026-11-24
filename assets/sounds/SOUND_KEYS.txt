@@ -440,6 +440,8 @@ The damage dice, blows landing, arrows and bolts striking, spells, poison, block
   combat/foe_cast.mp3                            A foe's spell cast                               combat/foe_cast
   combat/freeze.mp3                              Foes frozen where they stand                     combat/freeze
   combat/auto_bolt.mp3                           A bolt of full-auto magic                        combat/auto_bolt
+  combat/shield_block.mp3                        A blow taken on a raised shield                  combat/shield_block
+  combat/guard_break.mp3                         Too tired to hold the shield: guard broken       combat/guard_break
 
 
 CREATURES

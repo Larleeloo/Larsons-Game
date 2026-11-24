@@ -37,6 +37,28 @@ final class HowToPlay {
      */
     record Chapter(String title, String icon, List<Action> keys, List<String> text) {}
 
+    /** The Shields chapter: carrying one, raising it, and the twelve, each a line. */
+    private static List<String> shieldText() {
+        List<String> out = new java.util.ArrayList<>(List.of(
+                "A shield goes on your off-hand arm - the left, or the right if you are left-handed - beside any "
+                        + "one-handed weapon: the sword, the mace, the wand or the dagger, each then fought with in "
+                        + "the sword and shield's moves. Right-click it in the inventory to carry it, or to put it "
+                        + "away. The battle axe, the staff, the bow and the crossbow take both hands: the shield is "
+                        + "put away while you hold one.",
+                "Hold {BLOCK} to raise it. Blocking still halves every blow, and a blow from in front of you - "
+                        + "within the shield's cover - also meets the shield's own dice, rolled above the hotbar "
+                        + "before your armour's. A blow from the side or from behind gets past it. Each point it "
+                        + "holds off costs stamina; with none left your guard breaks.",
+                "{BASH} bashes with it, rolling the shield's bash dice, not your weapon's.",
+                "There are twelve, each but the round shield with a gift of its own:"));
+        for (com.larsons.game.world.Shields.Shield s : com.larsons.game.world.Shields.all()) {
+            out.add(com.larsons.game.world.Shields.line(s));
+        }
+        out.add("In Creative Mode the Tailor makes shields of your own from any of them: their block dice, "
+                + "their tiers, their colours and what they give worn.");
+        return List.copyOf(out);
+    }
+
     static final List<Chapter> CHAPTERS = List.of(
             new Chapter("Getting about", "shoes",
                     List.of(Action.MOVE_FORWARD, Action.MOVE_LEFT, Action.MOVE_BACK, Action.MOVE_RIGHT, Action.RUN,
@@ -73,6 +95,9 @@ final class HowToPlay {
                             "What is in your hands is chosen from the hotbar with {HOTBAR}: a sword and shield, an "
                                     + "axe, a bow, a crossbow, a staff, a wand, a mace or a dagger, each with its own "
                                     + "moves.")),
+            new Chapter("Shields", "heater_shield",
+                    List.of(Action.BLOCK, Action.BASH, Action.INVENTORY),
+                    shieldText()),
             new Chapter("Dodging and falls", "feather",
                     List.of(Action.DODGE, Action.JUMP),
                     List.of("Tap {DODGE} to dash: a low burst of three and a half metres, the way you are moving.",

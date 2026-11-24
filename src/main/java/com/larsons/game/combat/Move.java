@@ -17,7 +17,8 @@ import java.util.Map;
  * table does not know - a weapon whose stance is newer than this table,
  * the wand, the mace, the dagger - still hits: any state named {@code
  * ..._attack} is a swing, its heavy and spin by their names, and a wand's
- * attack is a spell.
+ * attack is a spell - its own, or the sword stance's slash when it is held
+ * with a shield.
  *
  * @param kind  what it does
  * @param at    when, as a fraction of the animation
@@ -89,6 +90,8 @@ public record Move(Kind kind, double at, double reach, double arc, boolean heavy
     public static Move of(AnimState state, Item weapon) {
         if (state == null) return null;
         boolean caster = Combat.casts(weapon);
+        // a wand held with a shield: the sword stance's slash is its cast
+        if (caster && (state == AnimState.ATTACK || state == AnimState.BLADE_ATTACK)) return shot(Kind.SPELL, 0.42);
         Move m = TABLE.get(state);
         if (m != null) {
             if (m.kind == Kind.SPELL && !caster) return new Move(Kind.SWING, m.at, 2.0, 60, false);

@@ -192,4 +192,19 @@ class EditorTest {
         assertTrue(hit.x() < 0 && hit.x() > -6, "on the hill's near side: " + hit);
         assertEquals(3, hit.y(), 0.05);
     }
+    @Test
+    void theTailorMakesShieldsOfOnesOwnWithDiceToBlock() {
+        List<com.larsons.game.world.ItemDef> bases = CreativeScene.forgeBases(true);
+        List<com.larsons.game.world.ItemDef> shields = com.larsons.game.world.Shields.defs();
+        assertTrue(bases.containsAll(shields), "every shield is something the Tailor makes from");
+        assertEquals(bases.size(), new java.util.HashSet<>(bases).size(), "each once");
+        int lastArmour = -1;
+        for (int i = 0; i < bases.size(); i++) {
+            if (com.larsons.game.world.Armour.sides(bases.get(i)) > 0) lastArmour = i;
+        }
+        assertEquals(lastArmour + 1, bases.indexOf(shields.get(0)), "the shields straight after the armour");
+        for (var d : shields) assertTrue(CreativeScene.blocks(d), "a shield rolls dice to block: " + d.id());
+        assertFalse(CreativeScene.forgeBases(false).stream().anyMatch(com.larsons.game.world.Shields::is),
+                "not a weapon of the Forge's");
+    }
 }
