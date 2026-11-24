@@ -267,6 +267,24 @@ class FellingTest {
     }
 
     @Test
+    void aFelledTreeHidesHerNoMoreThanItsStump() {
+        World w = new World(new Wardrobe());
+        Scenery.Placed t = tree(2, 0);
+        w.setScenery(new Scenery(List.of(t)));
+        w.player().setPosition(new Vec3(0.5, 0, 0));
+        assertTrue(w.sightTop(2, 0) > 3, "standing: it hides her from foes beyond it");
+        Item axe = Item.of(ItemDef.BATTLE_AXE, Rarity.MYTHIC);
+        assertFalse(w.chop(t, axe, false).felled());
+        assertTrue(w.sightTop(2, 0) > 3, "struck, still standing: still hides her");
+        assertTrue(w.chop(t, axe, false).felled());
+        assertEquals(Felling.cut(t), w.sightTop(2, 0), 1e-9, "coming down: foes see over it");
+        for (int i = 0; i < 120; i++) w.tick(0.05);
+        assertEquals(Fellings.Stage.STUMP, w.felled(t).stage());
+        assertEquals(Felling.cut(t), w.sightTop(2, 0), 1e-9, "the stump");
+        assertFalse(w.sightBlocked(2, 0, 1.2), "seen over at her eyes' height");
+    }
+
+    @Test
     void inAThickWoodSheKeepsAtTheTreeSheStartedOn() {
         World w = new World(new Wardrobe());
         Scenery.Placed oak = tree(0, 0);
@@ -295,6 +313,7 @@ class FellingTest {
         assertTrue(p.chop(stand, () -> bit[0] = true, s -> 28 / 30.0));
         assertEquals(AnimState.AXE_CHOP, p.action());
         assertTrue(p.chopping());
+        assertEquals(0.3 + 0.8, Stealth.noise(p), 1e-9, "a blow into the trunk is heard like any blow");
         assertFalse(p.chop(stand, () -> { }, s -> 1), "busy");
         double t = 0;
         while (!bit[0] && t < 2) {

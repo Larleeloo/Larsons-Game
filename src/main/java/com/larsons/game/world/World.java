@@ -1320,7 +1320,7 @@ public final class World {
                 if (in == null) continue;
                 for (Scenery.Placed p : in) {
                     double r = p.radius() + TRUNK_SIGHT, dx = p.x() - x, dz = p.z() - z;
-                    if (dx * dx + dz * dz < r * r) top = Math.max(top, p.y() + sightHeight(p));
+                    if (dx * dx + dz * dz < r * r) top = Math.max(top, p.y() + sightHeight(p, fellings.of(p)));
                 }
             }
         }
@@ -1330,9 +1330,16 @@ public final class World {
     /** How far round a tree's or a rock's trunk it hides what is behind it from sight, metres (its leaves, its bulk). */
     public static final double TRUNK_SIGHT = 0.2;
 
-    /** How high a piece of solid scenery hides what is behind it: a tree all of its height, a rock about its girth. */
-    static double sightHeight(Scenery.Placed p) {
+    /**
+     * How high a piece of solid scenery hides what is behind it: a tree all
+     * of its height, a rock about its girth - and a tree as felling has left
+     * it ({@code felled}, null if never struck), once its last blow is
+     * struck, no more than its stump: foes see over the stump, and over the
+     * trunk coming down.
+     */
+    static double sightHeight(Scenery.Placed p, Fellings.Tree felled) {
         SceneryProfile pr = p.sprite().profile();
+        if (felled != null && !felled.standing()) return Felling.cut(p);
         if (pr.kind() == SceneryProfile.Kind.TREE) return pr.frameWorldHeight() * p.scale() * 0.85;
         return Math.max(0.5, Math.min(pr.frameWorldHeight() * p.scale() * 0.5, p.radius() * 2.2));
     }

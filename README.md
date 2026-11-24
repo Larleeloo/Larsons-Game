@@ -428,6 +428,24 @@ left-handed.
 
 - **Defending**: hold **B** to block (the shield up, or the weapon across),
   **Q** parries a blow just as it lands, **V** bashes with the shield.
+- **Shields** (`world/Shields`): twelve, carried on the off-hand arm with
+  any one-handed weapon - the sword, the mace, the wand or the dagger, which
+  then fight in the sword-and-shield moves; a two-handed weapon puts the
+  shield away while she holds it. Raised, a shield rolls its own **block
+  dice** against every blow **from the front** (within its arc), on top of
+  the block's half and before her armour rolls; a blow from the side or
+  behind gets past it. Each point it holds costs stamina, and out of stamina
+  the guard breaks. Its bash rolls its own **bash dice**. Past the round
+  shield, each has a gift: the wicker shield's blocks cost no stamina, the
+  buckler parries a blow met as it is raised, the targe's bash rolls more
+  dice, the heater halves the stamina, the kite shield stops shots from the
+  front whole, the spiked shield deals a blocked blow back, the tower shield
+  covers her sides too, the gear shield bashes all round her, the lantern
+  shield lights the dark round her (and shows her up when she sneaks), the
+  mirror shield sends shots and spells back, and the crystal aegis turns
+  half of what it blocks into mana. Right-click one in the inventory (pad X)
+  to carry it or put it away; the Knight starts with the round shield. The
+  Tailor makes shields of one's own (their dice, tiers, gifts, colours).
 - **Dodging**: a tap of the dodge key **dashes** 3.5 m; held, it becomes a
   **combat roll** of 4.7 m in which nothing can hurt her - she rolls through
   her foes.
@@ -502,6 +520,17 @@ nothing, she is knocked out and back at the start.
 <p align="center">
   <img src="docs/screenshots/dodge.png" width="49%" alt="The dash and the combat roll">
   <img src="docs/screenshots/forge-dice.png" width="49%" alt="A forged sword's three blue d8s over her head: Mystic and Venom under them">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/shields-wand-dagger-sword-with-shields.png" width="49%" alt="Three one-handed weapons, each held with a different shield">
+  <img src="docs/screenshots/shields-shield-up-then-armour.png" width="49%" alt="Shield up, then struck on the torso: the heater shield's two d8s and the steel chestplate's two d10s, fully blocked, 28 against 18">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/shields-twelve-shield-pickups.png" width="32%" alt="The twelve shields lying in the world as pickups">
+  <img src="docs/screenshots/shields-shield-tooltip.png" width="32%" alt="The heater shield in the inventory: rolls 2d8 to block a blow from the front, covers 60 degrees either side, bash 1d8, Steady">
+  <img src="docs/screenshots/shields-tailor-shield.png" width="32%" alt="The Tailor making an Epic forged kite shield, Dawn bulwark: 3d10 to block from the front">
 </p>
 
 <p align="center">
