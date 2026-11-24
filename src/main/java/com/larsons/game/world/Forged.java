@@ -38,6 +38,11 @@ import java.util.stream.Stream;
  *  "tints": {"blade": "#b722e7", "handle": "#231c18"}}
  * </pre>
  *
+ * <p>A wand or a staff can be forged to fire <b>full auto</b> ({@code
+ * "fullAuto": true, "boltsPerSecond": 6}) and to draw more or less mana
+ * ({@code "manaUse": 0.5}); a sword, a mace, an axe or a dagger to cost more
+ * or less stamina a swing ({@code "staminaUse": 2}).
+ *
  * @param id       the file's name, and how items name it
  * @param name     what it is called
  * @param base     the weapon it is made from, by id ({@code sword}, {@code battle_axe} ...)
@@ -47,11 +52,47 @@ import java.util.stream.Stream;
  * @param sides    of how many sides: 4, 6, 8, 10, 12, 20, or 100 (the d%)
  * @param diceRgb  the dice's colour ({@code 0xRRGGBB}), or -1 for its rarity's
  * @param effects  the borders' effects it has
+ * @param handling how it is used: full auto, its mana use, its stamina use ({@link Handling})
  */
 public record Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints,
                      int dice, int sides, int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra,
                      int ammoEvery, List<Upgrade> upgrades, int level, Map<Gear.Effect, Double> gear,
-                     double fireRate, int accuracy) {
+                     double fireRate, int accuracy, Handling handling) {
+
+    /**
+     * How a forged weapon is used, past its dice: whether a wand or a staff
+     * fires <b>full auto</b> - bolts of magic streaming out like a machine
+     * gun's for as long as the attack is held, standing or on the move - and
+     * how many a second ({@code boltRate}); how much of the mana a wand's or a
+     * staff's every attack draws ({@code manaUse}: times what it would, 0 none
+     * at all), and how much of the stamina a sword's, a mace's, an axe's or a
+     * dagger's every swing costs ({@code staminaUse}). A bow and a crossbow
+     * cost neither.
+     */
+    public record Handling(boolean fullAuto, double boltRate, double manaUse, double staminaUse) {
+        /** Each kind's own: one spell a press, six bolts a second when full auto, the mana and stamina as they are. */
+        public static final Handling STANDARD = new Handling(false, AUTO_RATE, 1, 1);
+
+        public Handling {
+            boltRate = Double.isNaN(boltRate) || boltRate <= 0 ? AUTO_RATE
+                    : Math.max(MIN_BOLTS, Math.min(MAX_BOLTS, boltRate));
+            manaUse = Double.isNaN(manaUse) ? 1 : Math.max(0, Math.min(MAX_USE, manaUse));
+            staminaUse = Double.isNaN(staminaUse) ? 1 : Math.max(0, Math.min(MAX_USE, staminaUse));
+        }
+
+        public Handling withFullAuto(boolean on) { return new Handling(on, boltRate, manaUse, staminaUse); }
+
+        public Handling withBoltRate(double r) { return new Handling(fullAuto, r, manaUse, staminaUse); }
+
+        public Handling withManaUse(double m) { return new Handling(fullAuto, boltRate, m, staminaUse); }
+
+        public Handling withStaminaUse(double s) { return new Handling(fullAuto, boltRate, manaUse, s); }
+    }
+
+    /** Full auto's bolts a second, unless the Forge says otherwise; the fewest and the most it can be set to. */
+    public static final double AUTO_RATE = 6, MIN_BOLTS = 1, MAX_BOLTS = 20;
+    /** The most of its mana or stamina a forged weapon can be set to use, times its kind's own. */
+    public static final double MAX_USE = 4;
 
     /**
      * One of a forged weapon's upgrade tiers after its first (the weapon as
@@ -195,6 +236,15 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         level = Math.max(0, Math.min(upgrades.size(), level));
         fireRate = fireRate <= 0 || Double.isNaN(fireRate) ? 1 : Math.max(MIN_RATE, Math.min(MAX_RATE, fireRate));
         accuracy = accuracy <= 0 ? 100 : Math.max(MIN_ACCURACY, Math.min(100, accuracy));
+        if (handling == null || worn) handling = Handling.STANDARD;
+    }
+
+    /** One used as its kind is ({@link Handling#STANDARD}). */
+    public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
+                  int diceRgb, Set<Border> effects, List<DiceRoll.Group> extra, int ammoEvery, List<Upgrade> upgrades,
+                  int level, Map<Gear.Effect, Double> gear, double fireRate, int accuracy) {
+        this(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear,
+                fireRate, accuracy, Handling.STANDARD);
     }
 
     /** The slowest and the fastest a forged weapon shoots, of its kind's own speed. */
@@ -221,14 +271,56 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     /** With a rate of fire of {@code r} times its kind's own. */
     public Forged withFireRate(double r) {
         return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
-                level, gear, r, accuracy);
+                level, gear, r, accuracy, handling);
     }
 
     /** With an accuracy of {@code a} percent. */
     public Forged withAccuracy(int a) {
         return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
-                level, gear, fireRate, a);
+                level, gear, fireRate, a, handling);
     }
+
+    /** Whether it is a wand or a staff: what casts, and what full auto and its mana use are for. */
+    public boolean casts() {
+        ItemDef d = def();
+        return d != null && !d.isWearable() && (base.contains("staff") || base.contains("wand"));
+    }
+
+    /** Whether it is a blade, a mace or an axe - swung, not shot: what its stamina use is for. */
+    public boolean swung() {
+        ItemDef d = def();
+        return d != null && !d.isWearable() && !ranged();
+    }
+
+    /** Whether it is a wand or a staff that fires full auto: bolts streaming out while the attack is held. */
+    public boolean fullAuto() { return casts() && handling.fullAuto(); }
+
+    /** Full auto's bolts a second. */
+    public double boltRate() { return handling.boltRate(); }
+
+    /** How much of the mana a wand's or a staff's attacks draw, times its kind's own (0: none). */
+    public double manaUse() { return casts() ? handling.manaUse() : 1; }
+
+    /** How much of the stamina a swung weapon's blows cost, times its kind's own (0: none). */
+    public double staminaUse() { return swung() ? handling.staminaUse() : 1; }
+
+    /** Used as {@code h} says. */
+    public Forged withHandling(Handling h) {
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
+                level, gear, fireRate, accuracy, h);
+    }
+
+    /** Firing full auto, or one spell a press. */
+    public Forged withFullAuto(boolean on) { return withHandling(handling.withFullAuto(on)); }
+
+    /** Full auto at {@code r} bolts a second. */
+    public Forged withBoltRate(double r) { return withHandling(handling.withBoltRate(r)); }
+
+    /** Drawing {@code m} times its kind's mana. */
+    public Forged withManaUse(double m) { return withHandling(handling.withManaUse(m)); }
+
+    /** Costing {@code s} times its kind's stamina. */
+    public Forged withStaminaUse(double s) { return withHandling(handling.withStaminaUse(s)); }
 
     /** One as the Forge made them before upgrades: its first tier only. */
     public Forged(String id, String name, String base, Rarity rarity, Map<String, Integer> tints, int dice, int sides,
@@ -282,7 +374,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         if (amount <= 0) g.remove(e);
         else g.put(e, amount);
         return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades,
-                level, g, fireRate, accuracy);
+                level, g, fireRate, accuracy, handling);
     }
 
     /** Its special effects at its tier now, as the inventory says them: "+25 max health", "A second jump in the air". */
@@ -358,7 +450,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
 
     /** It at tier {@code n} (0: as forged), held within its tiers. */
     public Forged at(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n, gear, fireRate, accuracy);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, n, gear, fireRate, accuracy, handling);
     }
 
     /** It one tier up, or null at its last. */
@@ -379,15 +471,16 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
     }
 
     public Forged withExtra(List<DiceRoll.Group> e) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0, gear, fireRate, accuracy);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, e, ammoEvery, upgrades, 0, gear, fireRate, accuracy, handling);
     }
 
     public Forged withAmmoEvery(int n) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0, gear, fireRate, accuracy);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, n, upgrades, 0, gear, fireRate, accuracy, handling);
     }
 
     public Forged withUpgrades(List<Upgrade> u) {
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0, gear);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, u, 0, gear,
+                fireRate, accuracy, handling);
     }
 
     /** A new one: an Epic sword rolling one die of a sword's (a d8), in its own colours, with no effects. */
@@ -441,27 +534,27 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         return String.join(", ", out);
     }
 
-    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withId(String i) { return new Forged(i, name, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
-    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withName(String n) { return new Forged(id, n, base, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
     /** Made from another weapon: the colours of parts it does not have dropped. */
-    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withBase(String b) { return new Forged(id, name, b, rarity, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
-    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withRarity(Rarity r) { return new Forged(id, name, base, r, tints, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
-    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withDice(int n) { return new Forged(id, name, base, rarity, tints, n, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
-    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withSides(int s) { return new Forged(id, name, base, rarity, tints, dice, s, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
-    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy); }
+    public Forged withDiceRgb(int c) { return new Forged(id, name, base, rarity, tints, dice, sides, c, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling); }
 
     /** {@code part} in {@code rgb} (-1: as it is drawn). */
     public Forged withTint(String part, int rgb) {
         Map<String, Integer> t = new LinkedHashMap<>(tints);
         if (rgb < 0) t.remove(part);
         else t.put(part, rgb);
-        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy);
+        return new Forged(id, name, base, rarity, t, dice, sides, diceRgb, effects, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling);
     }
 
     /** With {@code b}'s effect, or without it. */
@@ -469,7 +562,7 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         EnumSet<Border> e = effects.isEmpty() ? EnumSet.noneOf(Border.class) : EnumSet.copyOf(effects);
         if (on) e.add(b);
         else e.remove(b);
-        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy);
+        return new Forged(id, name, base, rarity, tints, dice, sides, diceRgb, e, extra, ammoEvery, upgrades, level, gear, fireRate, accuracy, handling);
     }
 
     // --- the forge's files ------------------------------------------------------------
@@ -539,6 +632,11 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
         m.put("ammoEvery", f.ammoEvery());
         if (f.fireRate() != 1) m.put("fireRate", f.fireRate());
         if (f.accuracy() != 100) m.put("accuracy", f.accuracy());
+        Handling h = f.handling();
+        if (h.fullAuto()) m.put("fullAuto", true);
+        if (h.boltRate() != AUTO_RATE) m.put("boltsPerSecond", h.boltRate());
+        if (h.manaUse() != 1) m.put("manaUse", h.manaUse());
+        if (h.staminaUse() != 1) m.put("staminaUse", h.staminaUse());
         List<Object> e = new ArrayList<>();
         for (Border b : f.effects()) e.add(b.key());
         m.put("effects", e);
@@ -602,7 +700,8 @@ public record Forged(String id, String name, String base, Rarity rarity, Map<Str
                 Rarity.byKey(Json.str(m, "rarity", "epic")), tints, (int) Json.num(m, "dice", 1),
                 (int) Json.num(m, "sides", 20), dc.isEmpty() ? -1 : rgb(dc), effects, groups(m.get("moreDice")),
                 (int) Json.num(m, "ammoEvery", AMMO_EVERY), ups, 0, gear, Json.num(m, "fireRate", 1),
-                (int) Json.num(m, "accuracy", 100));
+                (int) Json.num(m, "accuracy", 100), new Handling(Boolean.TRUE.equals(m.get("fullAuto")),
+                Json.num(m, "boltsPerSecond", AUTO_RATE), Json.num(m, "manaUse", 1), Json.num(m, "staminaUse", 1)));
     }
 
     private static Map<String, Object> gearMap(Map<Gear.Effect, Double> gear) {

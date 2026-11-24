@@ -1,5 +1,5 @@
 {
-  "_readme": "Combat's numbers, read when the demo starts (combat/CombatTuning.java). dice.perRarity: how many dice a weapon of each rarity rolls; dice.sidesByWeapon: of how many sides each kind of weapon's dice are (unarmed: bare hands; 4, 6, 8, 10, 12 or 20); dice.sides: any other weapon's. Change any value and restart; one left out keeps its default. dice.wandHeavy: the dice a wand's heavy attack rolls (no spell in it); cooldowns.heavySeconds: the least time between two heavy attacks; cooldowns.dodgeSeconds: the least time from the end of one dodge (the dash, the roll) to the start of the next. armour (world/Armour.java): a blow lands on the head, torso, arms, legs or feet, as often as armour.locations weights them; every piece worn there rolls armour.perRarity dice of its rarity (its sides are the piece's: leather d4, mail d6, iron d8, steel d10) and their total is taken off the blow, down to armour.minDamage; armour.everyPieceRolls true makes every piece worn roll at every blow, wherever it lands. stamina: what each blow costs (swing, heavy, spin, jumpAttack, shot, spell); without the stamina for it a blow does stamina.tiredDamage of its damage (0.7: 70%). Running and sprinting cost stamina too (world/Player.java RUN_COST, SPRINT_COST). The borders' own numbers (Venom +50% over 10 s, Mystic x2.5 damage and 2x mana, Bonded +10% a living target hit in 5 minutes) are in world/Border.java.",
+  "_readme": "Combat's numbers, read when the demo starts (combat/CombatTuning.java). dice.perRarity: how many dice a weapon of each rarity rolls; dice.sidesByWeapon: of how many sides each kind of weapon's dice are (unarmed: bare hands; 4, 6, 8, 10, 12 or 20); dice.sides: any other weapon's. Change any value and restart; one left out keeps its default. dice.wandHeavy: the dice a wand's heavy attack rolls (no spell in it); cooldowns.heavySeconds: the least time between two heavy attacks; cooldowns.dodgeSeconds: the least time from the end of one dodge (the dash, the roll) to the start of the next. armour (world/Armour.java): a blow lands on the head, torso, arms, legs or feet, as often as armour.locations weights them; every piece worn there rolls armour.perRarity dice of its rarity (its sides are the piece's: leather d4, mail d6, iron d8, steel d10) and their total is taken off the blow, down to armour.minDamage; armour.everyPieceRolls true makes every piece worn roll at every blow, wherever it lands. stamina: what each blow costs (swing, heavy, spin, jumpAttack); without the stamina for it a blow does stamina.tiredDamage of its damage (0.7: 70%). A bow and a crossbow cost no stamina; a wand's and a staff's every attack draws mana instead (a spell mana.spellCost, a bolt of full auto mana.autoBoltCost, any other blow its stamina number's worth of mana). A forged weapon's Forge settings scale these (Mana use, Stamina use). projectiles.autoBoltSpeed: how fast full auto's bolts of magic fly. Running and sprinting cost stamina too (world/Player.java RUN_COST, SPRINT_COST). The borders' own numbers (Venom +50% over 10 s, Mystic x2.5 damage and 2x mana, Bonded +10% a living target hit in 5 minutes) are in world/Border.java.",
   "dice": {
     "sides": 8,
     "perRarity": {
@@ -33,6 +33,7 @@
     "max": 100,
     "regenPerSecond": 5,
     "spellCost": 10,
+    "autoBoltCost": 2,
     "mysticBaseCost": 5
   },
   "stamina": {
@@ -40,14 +41,13 @@
     "heavy": 14,
     "spin": 12,
     "jumpAttack": 10,
-    "shot": 4,
-    "spell": 3,
     "tiredDamage": 0.7
   },
   "projectiles": {
     "arrowSpeed": 30,
     "boltSpeed": 38,
     "spellSpeed": 16,
+    "autoBoltSpeed": 30,
     "range": 25,
     "aimAssistDegrees": 25,
     "stuckSeconds": 8

@@ -20,6 +20,8 @@ public final class Projectile {
     private final Strike strike;
     private final int colour;
     private final double life;
+    /** How big it is drawn, of its kind's own size: full auto's bolts of magic are smaller than a spell. */
+    private final double scale;
     private Vec3 position, velocity;
     private double age;
     private boolean stuck, done;
@@ -34,6 +36,12 @@ public final class Projectile {
      * @param life     how long it may fly before it gives out, in seconds
      */
     public Projectile(Move.Kind kind, Strike strike, int colour, Vec3 from, Vec3 velocity, double life) {
+        this(kind, strike, colour, from, velocity, life, 1);
+    }
+
+    /** As the others, drawn {@code scale} times its kind's own size. */
+    public Projectile(Move.Kind kind, Strike strike, int colour, Vec3 from, Vec3 velocity, double life, double scale) {
+        this.scale = scale <= 0 ? 1 : scale;
         this.kind = kind;
         this.strike = strike;
         this.colour = colour;
@@ -89,6 +97,9 @@ public final class Projectile {
     public Strike strike() { return strike; }
 
     public int colour() { return colour; }
+
+    /** How big it is drawn, of its kind's own size. */
+    public double scale() { return scale; }
 
     public Vec3 position() { return position; }
 

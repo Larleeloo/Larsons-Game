@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "Sparkstream",
+  "base": "wand",
+  "rarity": "legendary",
+  "dice": 2,
+  "sides": 6,
+  "ammoEvery": 12,
+  "fullAuto": true,
+  "boltsPerSecond": 8,
+  "effects": [],
+  "tints": {}
+}
