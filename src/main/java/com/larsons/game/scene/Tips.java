@@ -57,6 +57,8 @@ final class Tips {
         TEXT.put("spotted", "You have been spotted: no sneak attacks until nobody can see you and no foe is after "
                 + "you.");
         TEXT.put("swim", "Swimming. {CROUCH} dives and {JUMP} comes up; come up before your breath runs out.");
+        TEXT.put("shield", "A shield on your arm. Hold {BLOCK} to raise it: it rolls its dice against blows from "
+                + "the front. {BASH} bashes with it.");
         TEXT.put("climb", "Climbing. Forward goes up and back goes down; it costs stamina. {JUMP} lets go.");
         TEXT.put("night", "Night falls, and people go home. Hold {TIME_LAPSE} to run time fast.");
         TEXT.put("storm", "A storm: people go indoors until it passes. The rain and the dark help you sneak.");

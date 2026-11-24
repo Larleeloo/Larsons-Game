@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "gearshield_brass": [
+   0
+  ],
+  "gearshield_copper": [
+   1
+  ],
+  "gearshield_steel": [
+   2
+  ]
+ },
+ "materials": [
+  "gearshield_brass",
+  "gearshield_copper",
+  "gearshield_steel"
+ ]
+}

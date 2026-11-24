@@ -344,6 +344,31 @@ public final class Wardrobe {
         return w;
     }
 
+    /**
+     * What is drawn of it with {@code weapon} (a folder: {@code mace}) in the
+     * weapon hand in place of what it carries there - a one-handed weapon held
+     * with a shield, in the sword's place - its hand kept as it is. Itself
+     * for null. The same object until it changes.
+     */
+    public Wardrobe holding(String weapon) {
+        if (weapon == null) return this;
+        if (holding != null && holdingVersion == version && weapon.equals(holdingWeapon)) return holding;
+        boolean left = leftHanded();
+        Wardrobe w = copy();
+        // (said outright: in AUTO the hand is told by where the sword is, and the weapon takes its place)
+        w.hand = left ? Hand.LEFT : Hand.RIGHT;
+        w.items.put(left ? Slot.CARRY_LEFT : Slot.CARRY_RIGHT, weapon);
+        w.ids.remove(left ? Slot.CARRY_LEFT : Slot.CARRY_RIGHT);
+        holding = w;
+        holdingWeapon = weapon;
+        holdingVersion = version;
+        return w;
+    }
+
+    private Wardrobe holding;
+    private String holdingWeapon;
+    private int holdingVersion = -1;
+
     /** How many times it has been changed: what is worked out from it is worked out again when this moves on. */
     public int version() {
         return version;

@@ -142,7 +142,9 @@ class InventoryTest {
         for (int i = 0; i < weapons.length; i++) {
             w.spawn(weapons[i], new Vec3(1, 0, 0));
             assertTrue(w.pickUp(w.reachable()), weapons[i].id());
-            assertEquals(stances[i], p.stance());
+            // (with the shield on her arm, a one-handed weapon fights in the sword and shield's moves)
+            assertEquals(stances[i], p.weaponStance());
+            assertEquals(Stance.SWORD, p.stance(), weapons[i].id() + " and the shield");
             assertEquals(i, p.inventory().indexOf(weapons[i]));
             assertEquals(weapons[i], ItemDef.of(stances[i]));
             assertEquals(weapons[i], ItemDef.byId(weapons[i].id()));
@@ -152,6 +154,8 @@ class InventoryTest {
         assertEquals("dagger", ItemDef.DAGGER.id());
         w.select(3);
         assertTrue(p.handsEmpty());
+        // the shield put away: each in its own stance
+        Shields.carry(p.wardrobe(), null);
         w.select(0);
         assertEquals(Stance.WAND, p.stance());
         w.select(1);

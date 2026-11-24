@@ -1,0 +1,23 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "heater_paint": [
+   0
+  ],
+  "heater_rim": [
+   1
+  ],
+  "heater_charge": [
+   2
+  ],
+  "heater_wood": [
+   3
+  ]
+ },
+ "materials": [
+  "heater_paint",
+  "heater_rim",
+  "heater_charge",
+  "heater_wood"
+ ]
+}

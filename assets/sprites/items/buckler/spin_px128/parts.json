@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "buckler_steel": [
+   0
+  ],
+  "buckler_brass": [
+   1
+  ]
+ },
+ "materials": [
+  "buckler_steel",
+  "buckler_brass"
+ ]
+}

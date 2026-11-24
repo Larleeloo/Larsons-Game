@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "targe_leather": [
+   0
+  ],
+  "targe_rim": [
+   1
+  ],
+  "targe_stud": [
+   2
+  ]
+ },
+ "materials": [
+  "targe_leather",
+  "targe_rim",
+  "targe_stud"
+ ]
+}

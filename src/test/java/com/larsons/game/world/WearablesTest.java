@@ -37,9 +37,9 @@ class WearablesTest {
             assertNotNull(d.fallbackIcon().get(), d.id());
         }
         assertTrue(ItemDef.ALL.stream().noneMatch(ItemDef::isWearable), "ItemDef.ALL is the weapons");
-        assertEquals(61 + 32 + 86 + 54, Wearables.ALL.size(),
+        assertEquals(61 + 32 + 86 + 54 + 12, Wearables.ALL.size(),
                 "and the 32 tailored garments of the four peoples, a dye of every palette colour the 14 are not, "
-                        + "and the 54 clothes, armour and jewellery of the outfits");
+                        + "the 54 clothes, armour and jewellery of the outfits, and the 12 shields");
         assertEquals(54, Wearables.outfitCount());
         assertEquals(32, Wearables.tailored().size());
         assertEquals(Rarity.RARE, Item.parse("silver_necklace").rarity());
@@ -126,16 +126,17 @@ class WearablesTest {
         }
         // weapons as before: a Basic one of all eight but the wand, and eight Mythic
         assertEquals(7, new Loot().pool(Rarity.COMMON).size());
-        assertEquals(5 + 13 + 11, loot.pool(Rarity.COMMON).size() - 7,
-                "and the five Common wearables, the thirteen Common tailored garments and the eleven Common outfits");
+        assertEquals(5 + 13 + 11 + 3, loot.pool(Rarity.COMMON).size() - 7,
+                "and the five Common wearables, the thirteen Common tailored garments, the eleven Common outfits "
+                        + "and the three Common shields (round, wicker, buckler)");
         assertEquals(8, loot.pool(Rarity.MYTHIC).size());
         // each family is one drop
         List<List<Item>> rare = loot.drops(Rarity.RARE);
-        assertEquals(4 + 4 + Wearables.DYE_CHANCES + 1 + 1 + 1 + 1 + 4 + 1 + 14, rare.size(),
+        assertEquals(4 + 4 + Wearables.DYE_CHANCES + 1 + 1 + 1 + 1 + 4 + 1 + 14 + 2, rare.size(),
                 "four Rare weapons (the Magic Staff and Wand, the Crafted Bow and Crossbow); the dress and the silver; "
                         + "the palette's dyes, as many chances as DYE_CHANCES; the makeup, the lipstick, the hair "
                         + "styles and the eyebrows one each; the iron armour; the Rare tailored garments, one drop; "
-                        + "the fourteen Rare outfits");
+                        + "the fourteen Rare outfits; the kite and the spiked shields");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 86), "the dyes: every other colour of the palette");
         assertTrue(loot.drops(Rarity.UNCOMMON).stream().anyMatch(d -> d.size() == 14), "the 14 named dyes");
         assertTrue(rare.stream().anyMatch(d -> d.size() == 9), "the hair styles, less the starter's two");

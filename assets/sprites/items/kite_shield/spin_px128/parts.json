@@ -1,0 +1,23 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "kite_paint": [
+   0
+  ],
+  "kite_rim": [
+   1
+  ],
+  "kite_cross": [
+   2
+  ],
+  "kite_wood": [
+   3
+  ]
+ },
+ "materials": [
+  "kite_paint",
+  "kite_rim",
+  "kite_cross",
+  "kite_wood"
+ ]
+}

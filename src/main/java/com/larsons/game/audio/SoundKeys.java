@@ -152,12 +152,13 @@ public final class SoundKeys {
      * bolt loosed), striking, bursting
      * on the ground; a swing with no mana for it, poison's tick; her being
      * struck, a dive blocked, parried or dodged; the heavy attack ready
-     * again; locking on to something and letting it go.
+     * again; locking on to something and letting it go; a blow taken on a
+     * raised shield, and the guard broken when she is too tired to hold it.
      */
     public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
             "arrow_stick", "spell_cast", "spell_hit", "spell_burst", "fizzle", "venom_tick", "player_hurt",
             "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off", "plunge", "out_of_ammo", "reload",
-            "foe_shot", "foe_cast", "freeze", "auto_bolt");
+            "foe_shot", "foe_cast", "freeze", "auto_bolt", "shield_block", "guard_break");
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
@@ -759,6 +760,8 @@ public final class SoundKeys {
             case "block" -> "A dive blocked";
             case "parry" -> "A dive parried";
             case "dodge" -> "A dive dodged";
+            case "shield_block" -> "A blow taken on a raised shield";
+            case "guard_break" -> "Too tired to hold the shield: guard broken";
             case "plunge" -> "A jump attack landing";
             case "out_of_ammo" -> "Out of ammunition";
             case "reload" -> "Ammunition used up: a fresh one";

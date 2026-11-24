@@ -932,8 +932,8 @@ public final class World {
                 hurtSaid("", e.damage(), at);
             }
             case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
+                blockedSaid(at);
+                shieldBack(f);
             }
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
@@ -1161,10 +1161,7 @@ public final class World {
             }
             case STRUCK -> hurtSaid("Bitten! ", player.armourRoll() != null && player.armourAge() < 0.05
                     ? player.armourRoll().taken() : sp.damage(), at);
-            case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
-            }
+            case BLOCKED -> blockedSaid(at);
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
                 combat.sound("combat/dodge", sp.position());
@@ -1201,14 +1198,67 @@ public final class World {
             return;
         }
         double dealt = her.blocking() ? Math.round(hit.damage() / 2) : hit.damage();
-        double took = player.struck(dealt);
+        // where it came from: whoever loosed it, else back along its flight
+        Vec3 from = hit.by() instanceof com.larsons.game.combat.Target t ? t.position()
+                : hit.shot().position().sub(hit.shot().velocity().scale(0.5));
+        double took = player.struck(dealt, from, true);
+        if (her.blocking()) shieldBack(hit.by() instanceof com.larsons.game.combat.Target t ? t : null);
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b != null && (b.parried() || b.broken())) {
+            blockedSaid(at);
+            if (b.parried()) return;
+        }
         if (took <= 0 && player.armourHeld()) {
             hurtSaid("", 0, at);
             return;
         }
-        combat.say((her.blocking() ? "Blocked -" : "-") + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at,
-                2.1, her.blocking());
-        combat.sound(her.blocking() ? "combat/block" : "combat/player_hurt", at);
+        String said = b != null && b.blocked() > 0 ? "Shield -" : her.blocking() ? "Blocked -" : "-";
+        combat.say(said + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at, 2.1, her.blocking());
+        combat.sound(b != null && b.blocked() > 0 ? "combat/shield_block" : her.blocking() ? "combat/block"
+                : "combat/player_hurt", at);
+    }
+
+    /**
+     * What is said over her as a blow is blocked: "Parried!" for one her
+     * Quick shield turned as it came up, "Guard broken!" when her shield
+     * was up but she had no stamina to hold it, "Shield held!" when her
+     * shield took it all, else "Blocked" - and heard.
+     */
+    private void blockedSaid(Vec3 at) {
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b != null && b.parried()) {
+            combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+            combat.sound("combat/parry", at);
+        } else if (b != null && b.broken()) {
+            combat.say("Guard broken!", 0xFFD27A, at, 2.1, true);
+            combat.sound("combat/guard_break", at);
+        } else if (b != null && b.blocked() > 0) {
+            combat.say(player.armourHeld() ? "Shield held!" : "Shield -" + Combat.format(b.blocked()), 0xC8D2DC, at,
+                    2.1, true);
+            combat.sound("combat/shield_block", at);
+        } else {
+            combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+            combat.sound("combat/block", at);
+        }
+    }
+
+    /**
+     * Her shield's gift against whoever struck the blow it has just held off
+     * ({@link Player#lastShield}): a spiked shield deals a blow back to who
+     * struck it, a mirror shield sends a shot back at who loosed it - what
+     * it blocked, either way.
+     */
+    private void shieldBack(com.larsons.game.combat.Target by) {
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b == null || b.blocked() <= 0 || b.broken() || by == null || !by.alive()) return;
+        boolean thorns = b.trait() == Shields.Trait.THORNS && !b.shot();
+        boolean mirror = b.trait() == Shields.Trait.MIRROR && b.shot();
+        if (!thorns && !mirror) return;
+        double d = Math.round(b.blocked());
+        by.hurt(d, player.ground(), true);
+        combat.say((mirror ? "Reflected " : "Thorns ") + Combat.format(d), mirror ? 0xD8E4F4 : 0xC8D2DC,
+                by.position(), by.height() + 0.4, true);
+        if (!by.alive()) felled(by);
     }
 
     /**
@@ -1218,7 +1268,9 @@ public final class World {
      */
     public void hurtSaid(String what, double took, Vec3 at) {
         if (took <= 0 && player.armourRoll() != null && player.armourAge() < 0.05 && player.armourRoll().full()) {
-            combat.say(what + "Armour held!", ARMOUR_RGB, at, 2.1, false);
+            boolean shield = player.shieldJustBlocked() && player.lastShield().blocked() > 0
+                    && player.armourRoll().blocks().size() == 1;
+            combat.say(what + (shield ? "Shield held!" : "Armour held!"), ARMOUR_RGB, at, 2.1, false);
             combat.sound("combat/block", at);
             return;
         }
@@ -1786,6 +1838,9 @@ public final class World {
             public double hurt(double damage) { return player.struck(damage); }
 
             @Override
+            public double hurt(double damage, Vec3 from, boolean shot) { return player.struck(damage, from, shot); }
+
+            @Override
             public boolean down() { return player.health() <= 0; }
 
             @Override
@@ -1811,8 +1866,8 @@ public final class World {
                 hurtSaid(struck(a.kind()) + " ", e.damage(), at);
             }
             case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
+                blockedSaid(at);
+                shieldBack(a);
             }
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
@@ -1960,10 +2015,7 @@ public final class World {
             case WARNED -> combat.say("!", 0xFFD27A, f.position(), FlyingDummy.HEIGHT + 0.3, false);
             case STRUCK -> hurtSaid("Swooped! ", player.armourRoll() != null && player.armourAge() < 0.05
                     ? player.armourRoll().taken() : FlyingDummy.SWOOP_DAMAGE, at);
-            case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
-            }
+            case BLOCKED -> blockedSaid(at);
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
                 combat.sound("combat/dodge", f.position());
@@ -2041,6 +2093,18 @@ public final class World {
                 }
                 case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
                 case ARMOUR_HELD -> { }        // (said where the blow came from: hurtSaid)
+                case SHIELD_BLOCKED -> {
+                    // a crystal aegis: half of what it held off comes back as mana
+                    Player.ShieldBlock b = player.lastShield();
+                    if (b != null && b.trait() == Shields.Trait.AEGIS && e.amount() > 0) {
+                        double gain = Math.min(combat.maxMana() - combat.mana(), e.amount() * Shields.AEGIS_MANA);
+                        if (gain > 0) {
+                            combat.setMana(combat.mana() + gain);
+                            combat.say("+" + Combat.format(Math.round(gain)) + " mana", 0x7FB2FF, at, 2.5, true);
+                        }
+                    }
+                }
+                case SHIELD_PARRIED, GUARD_BROKEN -> { }   // (said where the blow came from: blockedSaid)
             }
         }
     }
@@ -2675,8 +2739,9 @@ public final class World {
      * it lands in, and is drawn there while its slot is the selected one. A
      * wearable goes into no hand and changes nothing she holds: it goes into
      * the rest of the inventory first ({@link Inventory#stow}), out of the
-     * hotbar's way, and is not selected. Returns false (and leaves it lying)
-     * when every slot is full.
+     * hotbar's way, and is not selected - but a shield, when she carries
+     * none, goes onto her off-hand arm ({@link Shields#carry}). Returns false
+     * (and leaves it lying) when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
         if (item.def == Supplies.COINS) {
@@ -2712,6 +2777,11 @@ public final class World {
             player.wardrobe().set(hand, item.def.id());
         }
         if (Inventory.isHotbar(slot) && !aside) select(slot);
+        // a shield, when she carries none: straight onto her off-hand arm
+        if (Shields.is(item.item) && Shields.carriedIn(player.wardrobe()) == null) {
+            Shields.carry(player.wardrobe(), item.item);
+            equipSelected();
+        }
         return true;
     }
 
@@ -2794,6 +2864,12 @@ public final class World {
                 if (player.wardrobe().wearing(hand, def.id())) player.wardrobe().clear(hand);
             }
         }
+        if (Shields.carrying(player.wardrobe(), item)) {
+            // the shield on her arm, when she has no other of it (a Tailor's own, the very one)
+            boolean other = false;
+            for (Item i : player.inventory()) other |= i != null && Shields.carrying(player.wardrobe(), i);
+            if (!other) Shields.carry(player.wardrobe(), null);
+        }
         Wearables.takeOff(player.wardrobe(), player.inventory(), def);
         equipSelected();
         spawnAhead(item, amount);
@@ -2819,6 +2895,12 @@ public final class World {
             ItemDef d = Wearables.wornAs(slot, folder, w.colour(slot));
             if (d == null || Wearables.owned(inv).contains(d)) continue;
             if (inv.stow(Item.of(d)) >= 0) added++;
+        }
+        // the shield on her arm: hers too (one the Tailor made is in her bag already, or is not hers)
+        Slot hand = Shields.carriedIn(w);
+        ItemDef shield = hand == null ? null : Shields.def(w.get(hand));
+        if (shield != null && Armour.forgedId(w.id(hand)) == null && !inv.contains(shield)) {
+            if (inv.stow(Item.of(shield)) >= 0) added++;
         }
         return added;
     }
