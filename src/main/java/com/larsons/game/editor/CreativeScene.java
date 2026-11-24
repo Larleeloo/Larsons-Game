@@ -1973,8 +1973,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     + "Place → Life: a swarm of critters, a herd of animals (tame to hostile), a foraging bush";
             case FORGE -> "Make a weapon of your own: what it is made from, name and rarity, its dice, its borders, "
                     + "its colours, its upgrade tiers · Save it, then Place it · armour and clothes: the Tailor";
-            case TAILOR -> "Make armour, clothes or a backpack of your own: what it is made from, name and rarity, its "
-                    + "dice to block, its colours, its tiers - each with what it gives worn, a pack's carry space · "
+            case TAILOR -> "Make armour, a shield, clothes or a backpack of your own: what it is made from, name and "
+                    + "rarity, its dice to block, its colours, its tiers - each with what it gives worn, a pack's "
+                    + "carry space · "
                     + "Save it, then Place it · only pieces of your own have tiers";
             case HORDE -> "The horde map's rules: the player's points, how the rounds grow, which Risen come · Place → Zombies: "
                     + "Risen spawns, barricades, weapon boards, the mystery box, gates that open for points · F5: play it";
@@ -5092,7 +5093,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                         int n = Math.max(1, Math.min(Forged.MAX_TIERS, Integer.parseInt(rest)));
                         List<Forged.Upgrade> ups = new ArrayList<>(forging.upgrades());
                         boolean worn = forging.worn();
-                        boolean blocks = com.larsons.game.world.Armour.sides(forging.def()) > 0;
+                        boolean blocks = blocks(forging.def());
                         while (ups.size() + 1 < n) {
                             Forged last = forging.withUpgrades(ups).at(ups.size());
                             Rarity r = Rarity.values()[Math.min(Rarity.values().length - 1, last.rarity().ordinal() + 1)];

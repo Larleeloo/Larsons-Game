@@ -2214,10 +2214,15 @@ public final class Player {
      * roll. A blow from the side or behind gets past it.
      */
     public double struck(double damage, Vec3 from, boolean shot) {
+        return struck(damage, from, shot, armourRules.get());
+    }
+
+    /** {@link #struck(double, Vec3, boolean)} under {@code rules} (the script's {@code struck <n> front torso}). */
+    public double struck(double damage, Vec3 from, boolean shot, Armour.Rules rules) {
         Item shield = shieldUp() ? shield() : null;
         if (shield == null || damage <= 0 || health <= 0
                 || !Shields.inFront(feet(), heading, from, Shields.arc(shield))) {
-            return struck(damage);
+            return struck(damage, rules);
         }
         Shields.Trait trait = Shields.trait(shield);
         shieldAge = 0;
@@ -2237,7 +2242,6 @@ public final class Player {
         }
         lastShield = new ShieldBlock(shield, trait, blocked, shot, false, broken);
         double rest = damage - blocked;
-        Armour.Rules rules = armourRules.get();
         List<Armour.Piece> pieces = Armour.worn(wardrobe, inventory);
         Armour.Roll worn = rest > 0 && !pieces.isEmpty() ? Armour.roll(rest, pieces, rules, armourDice) : null;
         List<Armour.Block> blocks = new ArrayList<>();

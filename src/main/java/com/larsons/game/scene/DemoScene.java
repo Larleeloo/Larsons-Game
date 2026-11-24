@@ -2488,9 +2488,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
             // struck <damage> [head|torso|arms|legs|feet|all]: a blow on her there (all: every piece rolls),
-            // her armour rolling to block it over the hotbar
+            // her armour rolling to block it over the hotbar; struck <damage> front|side|back: a blow from
+            // there [and where it lands] (her shield, raised, rolling first against one from the front)
             case "struck" -> {
                 String[] a = argument.trim().split("\\s+");
+                if (a.length > 1 && List.of("front", "side", "back").contains(a[1])) {
+                    double turn = a[1].equals("front") ? 0 : a[1].equals("side") ? Math.PI / 2 : Math.PI;
+                    Vec3 from = p.ground().add(SpriteView.headingVector(p.heading() + turn).scale(2));
+                    com.larsons.game.world.Armour.Rules rules = p.armourRules();
+                    if (a.length > 2) rules = rules.only(com.larsons.game.world.Armour.Location.byKey(a[2]));
+                    double took = p.struck(Double.parseDouble(a[0]), from, false, rules);
+                    world.hurtSaid("", took, p.ground());
+                    return true;
+                }
                 com.larsons.game.world.Armour.Rules rules = p.armourRules();
                 if (a.length > 1) {
                     rules = a[1].equals("all") ? rules.everyPiece(true)
@@ -2654,6 +2664,21 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
+            // shield <id>: that shield on her arm (given her when she has none of it); shield off: put away
+            case "shield" -> {
+                String id = argument.trim();
+                if (id.isEmpty() || id.equals("off")) {
+                    com.larsons.game.world.Shields.carry(p.wardrobe(), null);
+                } else {
+                    ItemDef d = com.larsons.game.world.Shields.def(id);
+                    if (d == null) return false;
+                    Item it = null;
+                    for (Item i : p.inventory()) if (i != null && i.def() == d) it = i;
+                    if (it == null && !give(it = Item.of(d))) return false;
+                    com.larsons.game.world.Shields.carry(p.wardrobe(), it);
+                }
+                world.equipSelected();
+            }
             case "wear" -> {
                 // wear <slot> [item]: put an item on, or take the slot's off
                 String[] a = argument.trim().split("\\s+", 2);
