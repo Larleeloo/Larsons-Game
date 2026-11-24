@@ -58,14 +58,21 @@ public final class Scenery {
      * @param phase    seconds its loop runs ahead of the world's clock ({@link #windPhase})
      */
     public record Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
-                         double phase, double scale, int tint) {
+                         double phase, double scale, int tint, Felling.Own felling) {
 
         /**
-         * @param scale how much bigger (above 1) or smaller than drawn it stands: its cards, its trunk, its shadow
-         * @param tint  its colour ({@code 0xAARRGGBB}: the colour, and alpha how much of it); 0: as drawn
+         * @param scale   how much bigger (above 1) or smaller than drawn it stands: its cards, its trunk, its shadow
+         * @param tint    its colour ({@code 0xAARRGGBB}: the colour, and alpha how much of it); 0: as drawn
+         * @param felling a tree's own felling settings (Creative Mode's); null: as its kind is ({@link Felling})
          */
         public Placed {
             scale = scale > 0 ? scale : 1;
+        }
+
+        /** One of its kind's felling. */
+        public Placed(ScenerySprites.Sprite sprite, double x, double y, double z, double yaw, boolean mirrored,
+                      double phase, double scale, int tint) {
+            this(sprite, x, y, z, yaw, mirrored, phase, scale, tint, null);
         }
 
         /** One as drawn, its own size. */

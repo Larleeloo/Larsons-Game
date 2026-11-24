@@ -195,13 +195,17 @@ final class HowToPlay {
                                     + "shadow, gills and more. They are the big round flasks that bubble; dyes are the "
                                     + "small slim bottles. Scrolls are stronger, are read the same way, and are "
                                     + "never made, only found or bought.")),
-            new Chapter("Fishing and hunting", "willow_rod",
+            new Chapter("Fishing, hunting and felling", "willow_rod",
                     List.of(Action.ATTACK, Action.USE),
                     List.of("With a rod in your hand and water before you, {CLICK} casts. When the float dips, "
                                     + "strike in time to hook it, then hold and let go of {ATTACK} to keep the fish "
                                     + "inside the catch on the gauge until the line is in. Better rods give you "
                                     + "longer to strike and rarer fish.",
                             "{USE} by a bush picks its berries, fruit or herbs. Food is eaten from the hand.",
+                            "With an axe in your hands by a tree, {ATTACK} (held) or {USE} fells it, blow by blow: "
+                                    + "a Basic axe takes five blows for an oak, a better axe fewer. It falls away "
+                                    + "from you and leaves timber where it lies; its stump grows back in time, "
+                                    + "while you are away.",
                             "Animals roam where they belong. Some run, some fight back; what you fell leaves meat, "
                                     + "hide, wool, feathers or antlers.")),
             new Chapter("Swimming and climbing", "gills_potion",

@@ -293,6 +293,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/dagger_attack.mp3                       Dagger thrust                                    player/dagger_attack
   player/dagger_heavy_attack.mp3                 Dagger slash and lunge                           player/dagger_heavy_attack
   player/jump_attack.mp3                         Jump attack                                      player/jump_attack
+  player/axe_chop.mp3                            Battle axe swung at a tree                       player/axe_chop
   items/sword/equip.mp3                          Taking the sword in hand                         item/sword/equip
   items/battle_axe/equip.mp3                     Taking the battle axe in hand                    item/battle_axe/equip
   items/longbow/equip.mp3                        Taking the longbow in hand                       item/longbow/equip
@@ -359,6 +360,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/feminine/staff_attack_up.mp3            feminine staff cast, aimed up                    player/feminine/staff_attack_up
   player/feminine/wand_attack_up.mp3             feminine wand cast, aimed up                     player/feminine/wand_attack_up
   player/feminine/jump_attack.mp3                feminine jump attack                             player/feminine/jump_attack
+  player/feminine/axe_chop.mp3                   feminine axe, felling chop                       player/feminine/axe_chop
   player/masculine/attack.mp3                    masculine attack                                 player/masculine/attack
   player/masculine/spin_attack.mp3               masculine spin attack                            player/masculine/spin_attack
   player/masculine/parry.mp3                     masculine parry                                  player/masculine/parry
@@ -413,6 +415,7 @@ Every weapon's swings, shots and casts, taking each one in hand, the heavy attac
   player/masculine/staff_attack_up.mp3           masculine staff cast, aimed up                   player/masculine/staff_attack_up
   player/masculine/wand_attack_up.mp3            masculine wand cast, aimed up                    player/masculine/wand_attack_up
   player/masculine/jump_attack.mp3               masculine jump attack                            player/masculine/jump_attack
+  player/masculine/axe_chop.mp3                  masculine axe, felling chop                      player/masculine/axe_chop
 
 
 HITS & MAGIC
@@ -607,6 +610,9 @@ The chests, the loot thrown out of them and its rarity, picking things up and dr
   gather/chop.mp3                                Cutting fallen logs                              gather/chop
   gather/cut.mp3                                 Cutting flax                                     gather/cut
   gather/tap.mp3                                 Taking resin from a pine                         gather/tap
+  gather/fell_chop.mp3                           An axe biting into a standing tree               gather/fell_chop
+  gather/tree_creak.mp3                          A felled tree creaking as it starts to go        gather/tree_creak
+  gather/tree_fall.mp3                           A felled tree crashing to the ground             gather/tree_fall
   fishing/cast.mp3                               Fishing: the cast                                fishing/cast
   fishing/plop.mp3                               Fishing: the float landing                       fishing/plop
   fishing/bite.mp3                               Fishing: a bite                                  fishing/bite

@@ -238,7 +238,7 @@ public record Rows(List<Column> columns, String add, String empty, Function<Stri
         return out;
     }
 
-    static String dropLabel(String id) {
+    public static String dropLabel(String id) {
         if (Drops.ANY_DYE.equals(id)) return "A dye (any)";
         if (Drops.ANY_LOOT.equals(id)) return "Chest loot (any)";
         return itemLabel(id);

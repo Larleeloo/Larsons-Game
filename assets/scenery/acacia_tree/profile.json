@@ -9,5 +9,10 @@
  "shadowRadius": 1.7,
  "biomes": [
   "savannah"
- ]
+ ],
+ "fell": {
+  "chops": 5,
+  "drops": "timber x2-4",
+  "regrow": 600
+ }
 }

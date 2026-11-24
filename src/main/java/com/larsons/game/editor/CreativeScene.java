@@ -4139,7 +4139,9 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 py += 8;
                 if (ui.button("Paste look on them all", px, py, pw, 30)) pasteLook(new ArrayList<>(selection));
                 ui.text(ui.tiny, Ui.fit(ui.tiny, "Copied: " + copiedName, pw), px, py + 34, Theme.HINT);
+                py += 60;
             }
+            treesFelling(ui, px, py, pw);
             return;
         }
         LevelObject o = selection.get(0);
@@ -4154,6 +4156,79 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             py += 40;
         }
         properties(ui, o, true, px, py, pw);
+    }
+
+    /** Under a tree's blows and regrowth: its kind's, which 0 and -1 stand for. The height it took. */
+    private float kindFellingHint(Ui ui, LevelObject o, float x, float y, float w) {
+        double[] k = ObjectTypes.kindFelling(o);
+        int blows = (int) k[0];
+        String back = k[1] <= 0 ? "never grows back" : "grows back after " + Math.round(k[1]) + " min";
+        String text = "Its kind's: " + blows + (blows == 1 ? " blow" : " blows") + " of a Basic axe (a better axe "
+                + "takes fewer), " + back + ", out of her sight.";
+        return ui.paragraph(ui.tiny, text, x, y - 4, w, Theme.HINT) + 6;
+    }
+
+    /** The felling props every tree shares, in the order they are shown. */
+    private static final List<String> FELLING = List.of("fells", "chops", "regrow", "drops");
+
+    /**
+     * Several selected, trees among them: their felling set for them all at
+     * once - whether they can be felled, their blows, their regrowth and what
+     * they leave - shown as the first tree has it; a change made there is
+     * made on every selected tree (one undo).
+     */
+    private void treesFelling(Ui ui, float x, float y, float w) {
+        List<LevelObject> trees = new ArrayList<>();
+        for (LevelObject t : selection) if (ObjectTypes.tree(t)) trees.add(t);
+        if (trees.isEmpty()) return;
+        y += 10;
+        y = heading(ui, "Felling: " + trees.size() + (trees.size() == 1 ? " tree" : " trees"), x, y);
+        LevelObject lead = trees.get(0);
+        ObjectType type = ObjectTypes.get(ObjectTypes.SCENERY);
+        Map<String, Object> before = new LinkedHashMap<>();
+        for (String k : FELLING) before.put(k, lead.props().get(k));
+        boolean same = true;
+        for (LevelObject t : trees) {
+            for (String k : FELLING) same &= java.util.Objects.equals(t.props().get(k), before.get(k));
+        }
+        if (!same) {
+            y += 4 + ui.paragraph(ui.tiny, "They are not all set alike: shown as the first has it. A change here "
+                    + "is made on them all.", x, y, w, Theme.HINT);
+            y += 6;
+        }
+        double r = Widgets.ROW + 8;
+        for (ObjectType.Prop p : type.props()) {
+            if (!FELLING.contains(p.key()) || !ObjectTypes.applies(lead, p)) continue;
+            Object v = p.value(lead);
+            switch (p.kind()) {
+                case TOGGLE -> {
+                    boolean cur = v instanceof Boolean b && b;
+                    boolean nv = widgets.toggle(ui, p.label(), cur, x, y, w);
+                    if (nv != cur) edit(lead, p.label(), () -> lead.set(p.key(), nv));
+                    y += r;
+                }
+                case NUMBER -> {
+                    double cur = v instanceof Number n ? n.doubleValue() : 0;
+                    double nv = widgets.stepper(ui, p.label(), cur, p.step(), p.min(), p.max(), "%.0f", x, y, w);
+                    if (nv != cur) edit(lead, p.label(), () -> lead.set(p.key(), nv));
+                    y += r;
+                    if (p.key().equals("regrow")) y += kindFellingHint(ui, lead, x, y, w);
+                }
+                case ROWS -> y += rowsEditor(ui, lead, p, x, y, w) + 8;
+                default -> { }
+            }
+        }
+        boolean changed = false;
+        for (String k : FELLING) changed |= !java.util.Objects.equals(lead.props().get(k), before.get(k));
+        if (!changed && same) return;
+        if (changed) {
+            // (the lead's change already made its undo step, before it: the rest go into the same one)
+            for (LevelObject t : trees) {
+                if (t == lead) continue;
+                for (String k : FELLING) t.set(k, lead.props().get(k));
+            }
+            changed();
+        }
     }
 
     /**
@@ -4290,6 +4365,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 }
             }
             y += used;
+            if (p.key().equals("regrow") && ObjectTypes.tree(o)) y += kindFellingHint(ui, o, x, y, w);
         }
         if (ObjectTypes.builds(o.type())) lookPanel(ui, o, x, y + 4, w);
         if (folk) {
@@ -4399,7 +4475,16 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         ui.text(ui.small, p.label(), x, y + 2, Theme.ITEM);
         y += 22;
         float del = 24, cw = w - del - 4;
-        if (rows.isEmpty()) {
+        boolean treePool = ObjectTypes.tree(o) && p.key().equals("drops");
+        if (rows.isEmpty() && treePool) {
+            // a tree with no pool of its own: its kind's, said - and a start on one of its own from it
+            String kind = ObjectTypes.kindDrops(o);
+            y += ui.paragraph(ui.tiny, "Its kind's: " + poolWords(kind), x, y, w, Theme.ITEM_DISABLED) + 6;
+            if (ui.button("Start from its kind's", x, y, w, Widgets.ROW)) {
+                edit(o, p.label(), () -> o.set(p.key(), kind));
+            }
+            y += Widgets.ROW + 6;
+        } else if (rows.isEmpty()) {
             y += ui.paragraph(ui.tiny, spec.empty(), x, y, w, Theme.ITEM_DISABLED) + 6;
         } else {
             float cx = x;
@@ -4471,6 +4556,17 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             if (!nt.equals(text)) edit(o, p.label(), () -> o.set(p.key(), nt));
         }
         return y - top;
+    }
+
+    /** A loot pool's text in words: "2 to 4 timber, pine resin (30%)". */
+    static String poolWords(String text) {
+        List<String> out = new ArrayList<>();
+        for (com.larsons.game.world.Drops.Line l : com.larsons.game.world.Drops.parse(text).lines()) {
+            String n = Rows.dropLabel(l.item()).toLowerCase(java.util.Locale.ROOT);
+            String count = l.min() == l.max() ? (l.min() == 1 ? "" : l.min() + " ") : l.min() + " to " + l.max() + " ";
+            out.add(count + n + (l.chance() < 100 ? " (" + Math.round(l.chance()) + "%)" : ""));
+        }
+        return out.isEmpty() ? "nothing" : String.join(", ", out);
     }
 
     private static List<List<String>> copyRows(List<List<String>> rows) {
@@ -5312,6 +5408,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "undo" -> undo();
             case "redo" -> redo();
             case "ui" -> hideUi = argument.trim().equals("off");
+            // panelscroll <px>: scroll the right-hand panel down that far (for screenshots of long panels)
+            case "panelscroll" -> rightScroll = Float.parseFloat(argument.trim());
             case "fog" -> thinFog = !argument.trim().equals("game");
             case "playtest" -> playTest(a.length >= 2 ? new Vec3(Double.parseDouble(a[0]), 0,
                     Double.parseDouble(a[1])) : null);

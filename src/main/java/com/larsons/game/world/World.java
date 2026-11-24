@@ -295,6 +295,8 @@ public final class World {
     /** The foraging bushes standing in it, and when each one picked has its pickings again. */
     private List<Scenery.Placed> bushes = List.of();
     private final Map<Scenery.Placed, Double> picked = new IdentityHashMap<>();
+    /** The trees struck with an axe: chopped at, coming down, lying, stumps ({@link Felling}). */
+    private final Fellings fellings = new Fellings();
     /** Where the little creatures live round when nobody is playing (the editor's view); null: round her. */
     private Vec3 focus;
     /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
@@ -334,6 +336,7 @@ public final class World {
         private final Vec3 spawnPoint;
         private final Scenery scenery;
         private final Map<Scenery.Placed, Double> picked;
+        private final Map<Scenery.Placed, Fellings.Tree> felled;
         private final GroundMap ground;
         private final WaterMap water;
         private final Sky sky;
@@ -360,6 +363,7 @@ public final class World {
             spawnPoint = w.spawnPoint;
             scenery = w.scenery;
             picked = new IdentityHashMap<>(w.picked);
+            felled = w.fellings.copy();
             ground = w.ground;
             water = w.water;
             sky = w.sky;
@@ -405,6 +409,7 @@ public final class World {
         setLife(life);
         setScenery(Scenery.NONE);
         picked.clear();
+        fellings.clear();
         setTerrain(Terrain.FLAT);
         setGround(GroundMap.NONE);
         setWater(WaterMap.NONE);
@@ -446,6 +451,7 @@ public final class World {
         setScenery(p.scenery);
         picked.clear();
         picked.putAll(p.picked);
+        fellings.restore(p.felled);
         setGround(p.ground);
         setWater(p.water);
         sky = p.sky;
@@ -1312,6 +1318,12 @@ public final class World {
         bushes = List.copyOf(b);
         // a bush picked stays picked while the scenery is only hidden (P), and is forgotten with it
         if (next != Scenery.NONE) picked.keySet().retainAll(new java.util.HashSet<>(bushes));
+        // (and a tree felled, the same)
+        if (next != Scenery.NONE) {
+            java.util.Set<Scenery.Placed> standing = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+            standing.addAll(next.placed());
+            fellings.keepOnly(standing);
+        }
     }
 
     /**
@@ -1468,6 +1480,7 @@ public final class World {
             }
         }
         regrowGathered();
+        fell();
         for (Store s : List.copyOf(stores)) {
             s.tick(dt);
             if (s.broken()) smash(s);
@@ -2249,6 +2262,135 @@ public final class World {
         if (left > 0) spawn(item, player.ground(), left);
         picked.put(bush, time + f.regrow() * life().regrow());
         return got;
+    }
+
+    // --- felling trees ------------------------------------------------------------------
+
+    /** The trees struck with an axe ({@link Felling}). */
+    public Fellings fellings() { return fellings; }
+
+    /** {@code p} as felling has left it, or null - never struck (what the renderer asks). */
+    public Fellings.Tree felled(Scenery.Placed p) {
+        return fellings.of(p);
+    }
+
+    /**
+     * The standing tree she can swing her axe at from where she is: of those
+     * that can be felled, whose bark is within {@link Felling#REACH} of her,
+     * the nearest - those in front of her first; null: none.
+     */
+    public Scenery.Placed choppable() {
+        Vec3 at = player.ground();
+        // the tree she is at already, struck a moment ago: that one still, never the one beside it
+        if (lastChopped != null) {
+            Fellings.Tree t = fellings.of(lastChopped);
+            double gap = Math.hypot(lastChopped.x() - at.x(), lastChopped.z() - at.z()) - lastChopped.radius();
+            if (t != null && t.standing() && time - t.lastBlow() < STILL_AT && gap <= Felling.REACH
+                    && Math.abs(lastChopped.y() - at.y()) <= 1.5) {
+                return lastChopped;
+            }
+            lastChopped = null;
+        }
+        Vec3 f = com.larsons.game.sprite.SpriteView.headingVector(player.heading());
+        Scenery.Placed best = null;
+        double bestScore = Double.MAX_VALUE;
+        long cx = (long) Math.floor(at.x() / CELL), cz = (long) Math.floor(at.z() / CELL);
+        for (long i = cx - 1; i <= cx + 1; i++) {
+            for (long j = cz - 1; j <= cz + 1; j++) {
+                List<Scenery.Placed> in = solidCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Scenery.Placed p : in) {
+                    if (p.kind() != com.larsons.game.sprite.SceneryProfile.Kind.TREE) continue;
+                    if (Math.abs(p.y() - at.y()) > 1.5) continue;
+                    double dx = p.x() - at.x(), dz = p.z() - at.z(), n = Math.hypot(dx, dz);
+                    double gap = n - p.radius();
+                    if (gap > Felling.REACH || !fellings.standing(p) || Felling.rule(p) == null) continue;
+                    double facing = n < 1e-6 ? 1 : (dx * f.x() + dz * f.z()) / n;
+                    double score = gap - 1.5 * facing;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = p;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * One blow of {@code axe} at {@code tree}, struck from where she stands
+     * ({@code tired}: out of breath, a weaker one): how far it has come, and
+     * whether that one felled it - or null when it cannot be felled.
+     */
+    public Fellings.Blow chop(Scenery.Placed tree, Item axe, boolean tired) {
+        double power = Felling.power(axe) * (tired ? Felling.TIRED : 1);
+        Fellings.Blow b = fellings.chop(tree, power, player.ground(), time, terrain);
+        if (b != null) lastChopped = b.felled() ? null : tree;
+        return b;
+    }
+
+    /** The tree she struck last, which she keeps at while it stands ({@link #choppable}), or null. */
+    private Scenery.Placed lastChopped;
+    /** How long after a blow she is still at that tree, seconds. */
+    static final double STILL_AT = 4;
+
+    /** The felled trees brought down, broken up and grown back - heard, seen, and what they leave laid out. */
+    private void fell() {
+        fellings.tick(time, player.ground(), random, loot);
+        for (Fellings.Event e : fellings.drainEvents()) {
+            Scenery.Placed p = e.tree().placed();
+            switch (e.kind()) {
+                case CHOPPED -> {
+                    combat.sound(SoundKeys.GATHER + "/fell_chop", e.at());
+                    shards.burst(e.at(), 0.05, 0.1, TreeColours.of(p).chips(), 7, 0.045, terrain);
+                }
+                case FELLED -> {
+                    combat.sound(SoundKeys.GATHER + "/tree_creak", p.position().add(0, Felling.height(p) * 0.5, 0));
+                    combat.say("Timber!", 0xE8C878, p.position(), Math.min(3.4, Math.max(2.2, Felling.height(p) * 0.6)),
+                            false);
+                }
+                case CRASHED -> {
+                    combat.sound(SoundKeys.GATHER + "/tree_fall", e.at());
+                    TreeColours c = TreeColours.of(p);
+                    for (int i = 0; i < 4; i++) {
+                        shards.burst(Fellings.crown(e.tree(), 0.35 + 0.18 * i), 0.5, 0.4, c.leaves(), 6, 0.08, terrain);
+                    }
+                }
+                case BROKE -> {
+                    TreeColours c = TreeColours.of(p);
+                    for (int i = 0; i < 5; i++) {
+                        Vec3 at = Fellings.crown(e.tree(), 0.2 + 0.17 * i);
+                        shards.burst(at, 0.6, 0.6, i < 2 ? c.chips() : c.leaves(), 9, 0.09, terrain);
+                    }
+                    combat.sound(SoundKeys.GATHER + "/chop", Fellings.crown(e.tree(), 0.4), 0.6);
+                    alongTrunk(e.tree(), e.drops());
+                }
+                default -> { }
+            }
+        }
+    }
+
+    /** {@code drops} laid along where {@code t} fell, from near its cut towards its crown. */
+    private void alongTrunk(Fellings.Tree t, List<Drops.Drop> drops) {
+        int n = 0;
+        for (Drops.Drop d : drops) n += Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+        Vec3 side = com.larsons.game.sprite.SpriteView.headingVector(t.heading() + Math.PI / 2);
+        int i = 0;
+        for (Drops.Drop d : drops) {
+            int heaps = Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+            for (int h = 0; h < heaps; h++, i++) {
+                double along = 0.18 + 0.6 * (i + 0.5) / Math.max(1, n);
+                double off = (i % 2 == 0 ? 1 : -1) * (0.25 + 0.1 * (i % 3));
+                Vec3 at = Fellings.crown(t, along).add(side.x() * off, 0, side.z() * off);
+                if (!lootFits(at.x(), at.z())) {
+                    Vec3 base = t.placed().position();
+                    Vec3 back = com.larsons.game.sprite.SpriteView.headingVector(t.heading());
+                    at = new Vec3(base.x() - back.x() * (t.placed().radius() + 0.4), 0,
+                            base.z() - back.z() * (t.placed().radius() + 0.4));
+                }
+                spawn(d.item(), new Vec3(at.x(), 0, at.z()), Drops.heaps(d.item()) ? d.amount() : 1);
+            }
+        }
     }
 
     /** What eating something gave back: health, stamina, mana (all 0: she had no need of it, and did not eat it). */

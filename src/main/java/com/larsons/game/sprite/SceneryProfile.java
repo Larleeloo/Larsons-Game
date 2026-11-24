@@ -55,6 +55,10 @@ import java.util.Map;
  *       walks through it.</li>
  * </ul>
  *
+ * <p>And one of the trees': {@code fell} - what felling one with an axe takes
+ * and leaves ({@link Fell}): {@code {"stump": "oak_stump", "chops": 6,
+ * "drops": "timber x3-5, resin 10%", "regrow": 600}}.
+ *
  * <p>And two of the foraging bushes':
  * <ul>
  *   <li>{@code forage} - what picking it gives: {@code {"item": "wild_berries",
@@ -72,7 +76,8 @@ import java.util.Map;
  */
 public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps,
                              double frameWorldSize, double radius, double shadowRadius, boolean facesCamera,
-                             List<String> biomes, int glow, boolean bend, Forage forage, String variantOf) {
+                             List<String> biomes, int glow, boolean bend, Forage forage, String variantOf,
+                             Fell fell) {
 
     public SceneryProfile {
         biomes = biomes == null ? List.of() : List.copyOf(biomes);
@@ -91,6 +96,31 @@ public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int fra
                           boolean bend) {
         this(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius, facesCamera, biomes,
                 glow, bend, null, null);
+    }
+
+    /** A profile with nothing to fell by (a tree of it is felled by {@code world/Felling#DEFAULT}). */
+    public SceneryProfile(Kind kind, int frameWidth, int frameHeight, int frames, double fps, double frameWorldSize,
+                          double radius, double shadowRadius, boolean facesCamera, List<String> biomes, int glow,
+                          boolean bend, Forage forage, String variantOf) {
+        this(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius, facesCamera, biomes,
+                glow, bend, forage, variantOf, null);
+    }
+
+    /**
+     * What felling a tree of it with an axe takes and leaves ({@code
+     * world/Felling}): the stump it leaves standing (a scenery sprite of its
+     * own, or null: the foot of the tree's own picture), how many blows of a
+     * Basic axe bring it down, what it leaves where it falls (a loot pool,
+     * {@code world/Drops}: "timber x3-5, resin 10%") and the seconds until
+     * it grows back (0: never).
+     */
+    public record Fell(String stump, int chops, String drops, double regrow) {
+        public Fell {
+            stump = stump == null || stump.isBlank() ? null : stump.strip();
+            chops = Math.max(1, chops);
+            drops = drops == null ? "" : drops.strip();
+            regrow = Math.max(0, regrow);
+        }
     }
 
     /**
@@ -220,14 +250,22 @@ public record SceneryProfile(Kind kind, int frameWidth, int frameHeight, int fra
             forage = new Forage(item.trim(), least, most, regrow, picked instanceof String ps && !ps.isBlank() ? ps : null);
         }
         String variantOf = Json.str(j, "variantOf", null);
+        Fell fell = null;
+        if (j.get("fell") instanceof Map<?, ?> f) {
+            Object stump = f.get("stump"), drops = f.get("drops");
+            fell = new Fell(stump instanceof String st ? st : null,
+                    f.get("chops") instanceof Number n ? n.intValue() : 5,
+                    drops instanceof String ds ? ds : "timber x2-4",
+                    f.get("regrow") instanceof Number n ? n.doubleValue() : 600);
+        }
         return new SceneryProfile(kind, fw, fh, frames, fps > 0 ? fps : d.fps, size > 0 ? size : d.frameWorldSize,
-                radius, shadow, facesCamera, biomes, glow, bend, forage, variantOf);
+                radius, shadow, facesCamera, biomes, glow, bend, forage, variantOf, fell);
     }
 
     /** The same profile with {@code frames} frames (the catalogue fills in "every cell of the sheet"). */
     public SceneryProfile withFrames(int frames) {
         return new SceneryProfile(kind, frameWidth, frameHeight, frames, fps, frameWorldSize, radius, shadowRadius,
-                facesCamera, biomes, glow, bend, forage, variantOf);
+                facesCamera, biomes, glow, bend, forage, variantOf, fell);
     }
 
     /** Metres one frame stands tall: {@link #frameWorldSize()} across, in the frame's own proportions. */

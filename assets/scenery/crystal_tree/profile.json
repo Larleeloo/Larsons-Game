@@ -10,5 +10,10 @@
  "biomes": [
   "crystal"
  ],
- "glow": "#9CB8FF"
+ "glow": "#9CB8FF",
+ "fell": {
+  "chops": 8,
+  "drops": "raw_crystal x1-3, crystal_dust 15%",
+  "regrow": 600
+ }
 }

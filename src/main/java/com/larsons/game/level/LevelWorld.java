@@ -347,7 +347,7 @@ public final class LevelWorld {
         double jitter = ((o.id() * 2654435761L) & 0xFFFF) / 65535.0 * 0.6;
         return new Scenery.Placed(s, o.x(), terrain.height(o.x(), o.z()) + o.lift(), o.z(), o.yaw(),
                 o.bool("mirrored", false), Scenery.windPhase(o.x(), o.z(), jitter), o.num("scale", 1),
-                ObjectTypes.tint(o));
+                ObjectTypes.tint(o), ObjectTypes.felling(o));
     }
 
     /** {@code level}'s scenery standing on {@code terrain}, from {@code sprites}. */

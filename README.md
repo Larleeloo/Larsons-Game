@@ -816,6 +816,24 @@ chooses which with *Follow*.
   longer moment and rarer fish.
 - **Foraging**: bushes of berries, sage, sunfruit and the crystal bloom, in
   their biomes, picked bare and growing back.
+- **Felling trees** (`world/Felling`, `world/Fellings`): with an axe in her
+  hands by a tree, attack (held) or E swings the felling chop at it, blow by
+  blow - five for an oak with a Basic axe, fewer with a better one (a Mythic
+  axe fells it in two). The last blow and it creaks, leans away from her and
+  crashes down, bounces, and breaks up in leaves and bark, leaving **timber**
+  along where it lay (pines resin too, the crystal tree raw crystal). Its
+  stump stays until it grows back, out of her sight. What each tree takes and
+  leaves is its kind's (`fell` in its profile) or its own: in Creative Mode a
+  tree's **Can be felled**, **Blows to fell**, **Grows back after** and
+  **Leaves when felled** loot pool (Start from its kind's copies its kind's in
+  to change) - and selecting several trees sets them all at once.
+
+<p align="center">
+  <img src="docs/screenshots/tree-felling-chop.png" width="32%" alt="The felling chop at an autumn tree: 4 blows left">
+  <img src="docs/screenshots/tree-felling-fall.png" width="32%" alt="The autumn tree down beside its stump">
+  <img src="docs/screenshots/tree-felling-editor.png" width="32%" alt="Creative Mode: a tree's blows to fell and what it leaves when felled">
+</p>
+
 - **Hunting**: game leaves meat, hides, pelts, wool, feathers and antlers.
 - **Locked doors and gates** say what opens them: a key (used up or kept) or
   a price.

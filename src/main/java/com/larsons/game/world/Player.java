@@ -442,6 +442,10 @@ public final class Player {
     private double actionDuration = 0.6;
     private boolean drawing;
     private Runnable grab;
+    /** When {@link #grab} runs, as a fraction of the one-shot: {@link #GRAB_AT}, or the axe's bite. */
+    private double grabAt = GRAB_AT;
+    /** Where the felling chop stands her, sliding there as she draws the axe back ({@link #chop}). */
+    private double chopX, chopZ;
     /** How long a heavy attack takes to come back, and how long is left before the next can start. */
     private double heavyCooldown = HEAVY_COOLDOWN, heavyWait;
     /** The same for a dodge (counted from the end of the last). */
@@ -607,7 +611,7 @@ public final class Player {
             action = null;
             if (ready) start(drawn == AnimState.BOW_DRAW_UP ? AnimState.BOW_FIRE_UP : st.release(crouched), durations);
         }
-        if (action != null && grab != null && stateTime >= GRAB_AT * actionDuration) {
+        if (action != null && grab != null && stateTime >= grabAt * actionDuration) {
             Runnable g = grab;
             grab = null;
             g.run();
@@ -761,6 +765,7 @@ public final class Player {
                 return;
             }
         }
+        if (action == AnimState.AXE_CHOP) slideToChop(dt, grounded);
         // (crouched: as fast as her gear's Sneak speed makes her - and out of stamina, creeping)
         double sneak = crouched ? worn.sneakSpeedTimes() * (winded ? CREEP : 1) : 1;
         Vec3 target = wish.scale(moving.speed() * slopeFactor(wish) * buffs.times(Buffs.Kind.SPEED) * worn.speedTimes()
@@ -1716,6 +1721,20 @@ public final class Player {
         stateTime = 0;
     }
 
+    /**
+     * The felling chop's step to where it stands her: there by the time the
+     * axe comes round (most of the way to the bite), never through anything.
+     */
+    private void slideToChop(double dt, boolean grounded) {
+        double dx = chopX - position.x(), dz = chopZ - position.z(), n = Math.hypot(dx, dz);
+        if (n < 1e-3) return;
+        double left = Felling.BITE_AT * 0.8 * actionDuration - stateTime;
+        double step = left <= dt ? n : n * dt / left;
+        step = Math.min(step, n);
+        step = Math.min(step, 5.0 * dt);                 // (no faster than a quick step)
+        move(new Vec3(dx / n * step, 0, dz / n * step), grounded);
+    }
+
     /** Whether {@code s} is a shot: a bow drawn or loosed, a crossbow fired, a spell cast. */
     static boolean shooting(AnimState s) {
         return switch (s) {
@@ -1838,9 +1857,36 @@ public final class Player {
         if (action != null || jumping || height > 0 || wall != null) return false;
         preview = null;
         this.grab = grab;
+        grabAt = GRAB_AT;
         start(crouched ? AnimState.CROUCH_PICKUP : AnimState.PICKUP, durations);
         return true;
     }
+
+    /**
+     * One blow of the felling chop at a tree ({@code world/Felling}): she
+     * stands up, turns to {@code stand}'s heading and slides to its spot
+     * ({@code [x, z, heading]}, {@link Felling#stand}) as she draws the axe
+     * back, and {@code bite} runs as the bit strikes the trunk ({@link
+     * Felling#BITE_AT}). Returns false (and does nothing) while she is busy -
+     * mid-air, mid-action, climbing, swimming or riding.
+     */
+    public boolean chop(double[] stand, Runnable bite, ToDoubleFunction<AnimState> durations) {
+        if (action != null || jumping || height > 0 || wall != null || swimming || riding != Riding.NO
+                || ledge != null || mantling || preview != null) {
+            return false;
+        }
+        crouched = false;
+        grab = bite;
+        grabAt = Felling.BITE_AT;
+        chopX = stand[0];
+        chopZ = stand[1];
+        wantHeading = stand[2];
+        start(AnimState.AXE_CHOP, durations);
+        return true;
+    }
+
+    /** Whether she is swinging the felling chop. */
+    public boolean chopping() { return action == AnimState.AXE_CHOP; }
 
     /** The one-shot under way, or null. */
     public AnimState action() { return action; }
