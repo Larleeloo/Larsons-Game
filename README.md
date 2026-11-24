@@ -523,7 +523,7 @@ nothing, she is knocked out and back at the start.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/shields-wand-dagger-sword-with-shields.png" width="49%" alt="Three one-handed weapons, each held with a different shield">
+  <img src="docs/screenshots/shields-wand-dagger-sword-with-shields.png" width="49%" alt="From the left: a wand with the kite shield, a dagger with the buckler, a sword with the tower shield raised">
   <img src="docs/screenshots/shields-shield-up-then-armour.png" width="49%" alt="Shield up, then struck on the torso: the heater shield's two d8s and the steel chestplate's two d10s, fully blocked, 28 against 18">
 </p>
 
