@@ -2465,21 +2465,48 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                 ui.rect(ex + 4, y + 24, ew - 8, 3, e.colour(on ? 1f : 0.35f));
             }
             y += 38;
+            // a wand or a staff: one spell a press, or full auto - bolts of magic streaming out while it is held
+            if (forging.casts()) {
+                boolean auto = widgets.toggle(ui, "Full auto", forging.fullAuto(), x, y, w);
+                if (auto != forging.fullAuto()) forging = forging.withFullAuto(auto);
+                y += 34;
+            }
             // a bow, a crossbow, a staff or a wand: how fast it shoots, and how true
             if (forging.ranged()) {
-                double rate = widgets.stepper(ui, "Rate of fire", forging.fireRate(), 0.25, Forged.MIN_RATE,
-                        Forged.MAX_RATE, "×%.2f", x, y, w);
-                if (Math.abs(rate - forging.fireRate()) > 1e-9) forging = forging.withFireRate(rate);
+                if (forging.fullAuto()) {
+                    double bolts = widgets.stepper(ui, "Rate of fire", forging.boltRate(), 0.5, Forged.MIN_BOLTS,
+                            Forged.MAX_BOLTS, "%.1f a second", x, y, w);
+                    if (Math.abs(bolts - forging.boltRate()) > 1e-9) forging = forging.withBoltRate(bolts);
+                } else {
+                    double rate = widgets.stepper(ui, "Rate of fire", forging.fireRate(), 0.25, Forged.MIN_RATE,
+                            Forged.MAX_RATE, "×%.2f", x, y, w);
+                    if (Math.abs(rate - forging.fireRate()) > 1e-9) forging = forging.withFireRate(rate);
+                }
                 y += 34;
                 int acc = (int) Math.round(widgets.stepper(ui, "Accuracy", forging.accuracy(), 5,
                         Forged.MIN_ACCURACY, 100, "%.0f%%", x, y, w));
                 if (acc != forging.accuracy()) forging = forging.withAccuracy(acc);
                 y += 34;
             }
-            var dps = com.larsons.game.combat.WeaponStats.of(forging.item(), view.world().combat().tuning());
+            // what each attack costs: a wand's or a staff's mana, a sword's, a mace's or an axe's stamina
+            if (forging.casts()) {
+                double use = widgets.stepper(ui, "Mana use", forging.manaUse(), 0.25, 0, Forged.MAX_USE, "×%.2f",
+                        x, y, w);
+                if (Math.abs(use - forging.manaUse()) > 1e-9) forging = forging.withManaUse(use);
+                y += 34;
+            } else if (forging.swung()) {
+                double use = widgets.stepper(ui, "Stamina use", forging.staminaUse(), 0.25, 0, Forged.MAX_USE,
+                        "×%.2f", x, y, w);
+                if (Math.abs(use - forging.staminaUse()) > 1e-9) forging = forging.withStaminaUse(use);
+                y += 34;
+            }
+            var tuning = view.world().combat().tuning();
+            var dps = com.larsons.game.combat.WeaponStats.of(forging.item(), tuning);
             y += ui.paragraph(ui.small, dps.line() + (dps.ranged() && dps.accuracy() < 100
                     ? " · shots stray up to " + Math.round(com.larsons.game.combat.Combat.MOST_SPREAD
-                    * (100 - dps.accuracy()) / 100.0) + "°" : ""), x, y, w, Theme.ACCENT) + 8;
+                    * (100 - dps.accuracy()) / 100.0) + "°" : ""), x, y, w, Theme.ACCENT) + 4;
+            y += ui.paragraph(ui.small, com.larsons.game.combat.WeaponStats.costs(forging.item(), tuning) + ".", x, y,
+                    w, Theme.HINT) + 8;
         }
 
         // the colours: of a part (or all of it), or of the dice (clothes roll none)
@@ -5004,6 +5031,7 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
             case "timetab" -> timeTab = Integer.parseInt(a[0]);
             case "forge" -> {
                 // forge new <name> | name <n> | base <id> | rarity <key> | dice <n> | sides <n> | rate <x> | accuracy <%> |
+                // auto on|off | bolts <a second> | mana <x> | stamina <x> |
                 // effect <key> on|off | gear <effect> <amount|on|off> | tint <part> <#rgb|none> |
                 // dicecolour <#rgb|none> | colour <n> | page <n> | save | place
                 String what = a[0], rest = argument.trim().substring(what.length()).trim();
@@ -5020,6 +5048,10 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
                     case "dice" -> forging = forging.withDice(Integer.parseInt(rest));
                     case "sides" -> forging = forging.withSides(rest.equals("%") ? 100 : Integer.parseInt(rest));
                     case "rate" -> forging = forging.withFireRate(Double.parseDouble(rest));
+                    case "auto" -> forging = forging.withFullAuto(rest.isEmpty() || rest.equals("on"));
+                    case "bolts" -> forging = forging.withBoltRate(Double.parseDouble(rest));
+                    case "mana" -> forging = forging.withManaUse(Double.parseDouble(rest.replace("x", "")));
+                    case "stamina" -> forging = forging.withStaminaUse(Double.parseDouble(rest.replace("x", "")));
                     case "accuracy" -> forging = forging.withAccuracy(Integer.parseInt(rest.replace("%", "")));
                     case "effect" -> forging = forging.withEffect(Border.byKey(a[1]), a.length < 3 || a[2].equals("on"));
                     case "gear" -> {

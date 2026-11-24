@@ -58,7 +58,9 @@ public record Stealth(double score, boolean grass, double dark) {
         else if (speed <= AnimState.RUN.speed() + 0.3) base = 1.35;
         else base = 1.7;
         AnimState a = p.action();
-        if (a != null && (a.key().contains("attack") || a.key().endsWith("_fire") || a.key().contains("bash"))) {
+        // (fighting shows her: a blow, a shot - or full auto's bolts streaming out)
+        if (a != null && (a.key().contains("attack") || a.key().endsWith("_fire") || a.key().contains("bash"))
+                || p.autoFiring()) {
             base += 0.3;
         }
         return base;

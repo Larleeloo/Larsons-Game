@@ -397,14 +397,35 @@ left-handed.
   a die more, once every 10 seconds; the **spin** strikes all round her; a
   **jump attack** - attacking in the air - comes down on everything round her
   with a die more.
-- **Stamina**: every blow costs it - a swing 6, a heavy attack 14, a spin 12,
-  a jump attack 10, a shot 4, a spell 3 (`assets/combat/combat.json`
-  `stamina`). With too little left the blow is **tired**: "Out of stamina",
-  and **70 %** of its damage.
+- **Stamina**: a sword's, a mace's, an axe's, a dagger's or bare hands'
+  every blow costs it - a swing 6, a heavy attack 14, a spin 12, a jump
+  attack 10 (`assets/combat/combat.json` `stamina`; a forged weapon's own
+  **Stamina use** in the Forge scales it). With too little left the blow is
+  **tired**: "Out of stamina", and **70 %** of its damage. **A bow and a
+  crossbow cost no stamina.**
+- **Mana**: a **wand** and a **staff** draw mana, never stamina - a spell 10,
+  any other blow of theirs (a wand's heavy blow, a Basic Staff's thrust) its
+  stamina number's worth of mana; short of it a spell fizzles and a blow is a
+  tired one. Her **mana** refills, 5 a second. A forged one's **Mana use**
+  in the Forge scales all of it (×0 to ×4).
 - **Bows, crossbows, wands and staffs** shoot: arrows and bolts arc onto what
-  she faces, spells fly straight (10 mana each; her **mana** refills). At
-  what flies, or what is well above her, she **aims up**; from **the high
-  ground** (2.5 m or more above) a shot rolls a die more.
+  she faces, spells fly straight. At what flies, or what is well above her,
+  she **aims up**; from **the high ground** (2.5 m or more above) a shot
+  rolls a die more.
+- **Full auto**: a wand or a staff forged to fire full auto streams small,
+  quick **bolts of magic** for as long as the attack is held - **6 a
+  second** unless the Forge says otherwise (1 to 20), each rolling the
+  weapon's dice and drawing **2 mana** (`mana.autoBoltCost`). She fires
+  walking, running, jumping or standing (holding the cast's pose); it never
+  roots her. Out of mana, it sputters as the pool refills; one use of a
+  crystal lasts six bolts. `assets/forge/sparkstream.json` is one to try
+  (Legendary, 2d6, 8 bolts a second).
+
+<p align="center">
+  <img src="docs/screenshots/full-auto-standing.png" width="49%" alt="Full auto standing: she holds the wand out, a small bolt of magic in flight and the dummy bursting under a stack of damage numbers">
+  <img src="docs/screenshots/full-auto-running.png" width="49%" alt="Full auto on the run: bolts of magic streaming out behind her as she runs">
+</p>
+
 - **Defending**: hold **B** to block (the shield up, or the weapon across),
   **Q** parries a blow just as it lands, **V** bashes with the shield.
 - **Dodging**: a tap of the dodge key **dashes** 3.5 m; held, it becomes a
@@ -1126,13 +1147,22 @@ furnish and play-test from inside.
   <img src="docs/screenshots/creative-forge.png" width="49%" alt="The Forge: a weapon of your own, its colours, dice and effects">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/forge-full-auto.png" width="49%" alt="The Forge for the Sparkstream wand: Full auto on, rate of fire 8 a second, mana use x1, 2 mana a bolt and 16 a second">
+  <img src="docs/screenshots/forge-stamina-use.png" width="49%" alt="The Forge for the Duskfang sword: stamina use x1.5, 9 stamina a swing and 21 a heavy attack">
+</p>
+
 The **Forge** makes weapons of your own: a name, which of the eight weapons
 it is made from (its look, stance and moves), its rarity, its colours part by
 part (a sword's blade, fittings and handle; the dice), its dice and their
 operators, its borders' effects (Venom, Mystic, Bloodlust), how long its
 ammunition lasts, for a bow, a crossbow, a staff or a wand its **rate of
-fire** (×0.25 to ×3) and **accuracy** (how far a shot may stray), the damage
-per second it comes to, and its upgrade tiers (each a name, rarity, dice, colours, its price in ingots, or a
+fire** (×0.25 to ×3) and **accuracy** (how far a shot may stray); for a
+wand or a staff **Full auto** (on: bolts of magic stream out while the attack
+is held, its rate of fire then in **bolts a second**, 1 to 20) and **Mana
+use** (×0 to ×4 the mana its spells, bolts and blows draw); for a sword, a
+mace, an axe or a dagger **Stamina use** (×0 to ×4 the stamina its swings
+cost); the damage per second it comes to and what each attack costs, and its upgrade tiers (each a name, rarity, dice, colours, its price in ingots, or a
 mystery shown as ???). Saved in `assets/forge/<name>.json`, placed from
 **Items → Weapons** and sold in shops and on horde boards like any weapon
 (`forged:<id>`). Armour and clothes of your own are made in the Tailor.
@@ -1394,7 +1424,8 @@ Everywhere: `wait`, `scene`, `shot`, `key`, `hold` / `letgo`, `type`,
 `mapmenu`, `resetmap`. In the game: `bed`,
 `teleport`, `goto`, `time`, `timelapse`, `weather`, `give`, `lay` (an item
 put down before her), `coins`, `hero`, `wear` (armour over the clothes;
-`wear necklace forged:wyrmguard`), `colour`, `style`, `stance`, `attack`, `heavy`, `spin`, `parry`,
+`wear necklace forged:wyrmguard`), `colour`, `style`, `stance`, `attack`, `fire` (a full-auto wand held
+firing: `fire`, on the move `fire 1 0 run`, `fire off`), `heavy`, `spin`, `parry`,
 `block`, `dash`, `roll`, `jump`, `crouch`, `lock`, `pickup`, `chest`,
 `surround` (the country round the level: `surround pines height=1.5 seed=4`),
 `fog`,

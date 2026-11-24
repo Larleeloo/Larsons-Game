@@ -162,10 +162,11 @@ class CombatTest {
         assertEquals(Math.round(show.strike().roll().total() * t.tiredDamage), before - d.health(), 1e-9);
         // a heavy attack costs more, a spin and a jump attack their own
         Move heavy = new Move(Move.Kind.SWING, 0.4, 1.7, 120, true);
-        assertEquals(t.staminaHeavy, w.combat().staminaCost(heavy, AnimState.AXE_HEAVY_ATTACK), 1e-9);
-        Move spin = Move.of(AnimState.SPIN_ATTACK, Item.of(ItemDef.SWORD));
-        assertEquals(t.staminaSpin, w.combat().staminaCost(spin, AnimState.SPIN_ATTACK), 1e-9);
-        assertEquals(t.staminaJumpAttack, w.combat().staminaCost(Move.of(AnimState.JUMP_ATTACK, Item.of(ItemDef.SWORD)),
+        Item axe = Item.of(ItemDef.BATTLE_AXE), sword = Item.of(ItemDef.SWORD);
+        assertEquals(t.staminaHeavy, w.combat().staminaCost(axe, heavy, AnimState.AXE_HEAVY_ATTACK), 1e-9);
+        Move spin = Move.of(AnimState.SPIN_ATTACK, sword);
+        assertEquals(t.staminaSpin, w.combat().staminaCost(sword, spin, AnimState.SPIN_ATTACK), 1e-9);
+        assertEquals(t.staminaJumpAttack, w.combat().staminaCost(sword, Move.of(AnimState.JUMP_ATTACK, sword),
                 AnimState.JUMP_ATTACK), 1e-9);
     }
 
@@ -668,7 +669,9 @@ class CombatTest {
         assertTrue(show.strike().plain());
         assertNull(show.strike().border(), "Mystic adds nothing: no magic is cast");
         assertTrue(show.notes().isEmpty());
-        assertEquals(50, c.mana(), 0.5, "and it costs no mana");
+        assertEquals(50 - c.tuning().staminaHeavy, c.mana(), 0.5,
+                "no spell's mana, nor Mystic's: a heavy blow's worth, as a wand's every blow draws mana, not stamina");
+        assertEquals(Player.MAX_STAMINA, w.player().stamina(), 1e-9, "and no stamina");
         idle(w, 1.5);
         assertEquals(1000 - show.strike().roll().total(), d.health(), 1e-9, "the die's number, no more");
         assertTrue(c.projectiles().isEmpty(), "nothing flew");

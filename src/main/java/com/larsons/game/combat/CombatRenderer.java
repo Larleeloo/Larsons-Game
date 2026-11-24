@@ -158,9 +158,10 @@ public final class CombatRenderer {
             }
             Vec3 centre = at;
             float a = alpha;
+            float size = (float) p.scale();
             out.add(centre.sub(eye).dot(forward), () -> {
                 batch.depthAnchor(ground.onGround(centre));   // (the spot it flies over)
-                along(batch, sheet, frame, palette, centre, dir, prof.frameWorldSize(), forward, right, a);
+                along(batch, sheet, frame, palette, centre, dir, prof.frameWorldSize() * size, forward, right, a);
             });
         }
 

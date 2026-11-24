@@ -75,6 +75,13 @@ import java.util.function.ToDoubleFunction;
  * takes some; it fills back up a while after the last hurt ({@link World}
  * puts her back at the start when it is gone).
  *
+ * <p>A wand or a staff forged to fire <b>full auto</b> ({@link Forged#fullAuto})
+ * starts no cast: for as long as the attack is held she streams bolts of
+ * magic ({@link #takeAutoBolts}, {@link Forged#boltRate} a second, the first
+ * the moment it goes down) - walking, running, in the air or standing, when
+ * she holds the cast's pose, the wand pointed ({@link #AUTO_POSE}). Nothing
+ * roots her to the spot; firing stands her up from a crouch.
+ *
  * <p>The ranged attacks have <b>aimed-up</b> variants (the bow's draw and loose,
  * the crossbow's shot, the staff's and the wand's casts, standing): she
  * plays one when what she aims at is well above her ({@link #setAimUp}).
@@ -407,6 +414,14 @@ public final class Player {
     private double diveDepth, diveTo, breath = MAX_BREATH, drowned;
     /** The jump under way: the stance's own (they all leave the ground on the same frames). */
     private AnimState jumpState = AnimState.JUMP;
+    /**
+     * Full auto: whether she is streaming bolts this frame; how far on the
+     * next one is (1: due now - where it rests, so the first goes the moment
+     * the attack goes down); the bolts due that the fighting has not sent yet.
+     */
+    private boolean autoFiring;
+    private double autoClock = 1;
+    private int autoDue;
     /** The one-shot under way (null: none), and how long it lasts. */
     private AnimState action;
     private double actionDuration = 0.6;
@@ -499,6 +514,9 @@ public final class Player {
      */
     public void update(double dt, Intent in, ToDoubleFunction<AnimState> durations) {
         heavyWait = Math.max(0, heavyWait - dt);
+        // (full auto, let go: the next bolt comes ready again at its rate, and goes the moment it is held)
+        if (!autoFiring) autoClock = Math.min(1, autoClock + dt * boltRate());
+        autoFiring = false;
         buffs.tick(dt);
         hero.deck().tick(dt);
         if (gearAge < Double.MAX_VALUE) gearAge += dt;
@@ -589,7 +607,8 @@ public final class Player {
         // --- starting something ----------------------------------------------------------
         boolean blocking = false;
         if (!grounded && in.dodge()) rollPrimed = true;                     // she will land in a roll
-        if (!grounded && in.attack() && action == null && height > PLUNGE_MIN && st.attack(false) != null) {
+        boolean auto = fullAuto();
+        if (!grounded && in.attack() && action == null && height > PLUNGE_MIN && st.attack(false) != null && !auto) {
             // in the air: a bow or a crossbow looses a shot down at what is below; anything else, the jump attack
             jumping = false;
             crouched = false;
@@ -627,7 +646,7 @@ public final class Player {
             } else if (st.bash() != null && (in.bash() || in.block() && in.attack())) {
                 next = st.bash();
                 crouched = false;
-            } else if (in.attack() && st.attack(crouched) != null) {
+            } else if (in.attack() && st.attack(crouched) != null && !auto) {
                 if (st == Stance.SWORD || st == Stance.BLADE) crouched = false;   // she stands to swing
                 next = st.attack(crouched);
                 // aimed up at what is above her (standing: the crouched shots have no such variant)
@@ -665,6 +684,16 @@ public final class Player {
             events.add(new Event(Event.Kind.DOUBLE_JUMPED, height));
         }
         busy = action != null || jumping;
+
+        // --- full auto: the attack held, bolts stream out at its rate (the fighting sends them) ---
+        autoFiring = auto && in.attackHeld() && action == null && !blocking;
+        if (autoFiring) {
+            crouched = false;
+            autoClock = Math.min(MAX_DUE, autoClock + dt * boltRate());
+            int n = (int) Math.floor(autoClock);
+            autoDue += n;
+            autoClock -= n;
+        }
 
         // --- movement, relative to the camera (the caller already rotated it) -----------
         Stance.Pace pace = in.sprint() ? Stance.Pace.SPRINT : in.run() ? Stance.Pace.RUN : Stance.Pace.WALK;
@@ -735,10 +764,13 @@ public final class Player {
         else if (falling) next = AnimState.FALL;
         else if (blocking) next = st.block();
         else if (velocity.horizontalLength() > 0.25 && in.moving()) next = moving;
+        else if (autoFiring && st.attack(false) != null) next = autoPose(st);
         else next = st.idle(crouched);
         setState(next);
         // (a shot of a weapon forged to shoot faster or slower: its draw and loose played that much faster)
         stateTime += dt * (action != null && shooting(action) ? fireRate() : 1);
+        // full auto, standing: the cast held where the spell leaves the wand, the bolts pouring from it
+        if (autoFiring && action == null && next == autoPose(st)) stateTime = AUTO_POSE * durations.applyAsDouble(next);
         if (plunging) {
             // the draw over her head, then down: held on the drop until she lands
             if (stateTime >= plungeAt(PLUNGE_DIVE)) vy = Math.min(vy, -PLUNGE_SPEED);
@@ -1653,6 +1685,45 @@ public final class Player {
                  WAND_CROUCH_ATTACK -> true;
             default -> false;
         };
+    }
+
+    /**
+     * Where in its cast she holds a full-auto wand or staff while it fires
+     * standing: where the spell leaves it, as a fraction of the cast.
+     */
+    public static final double AUTO_POSE = 0.47;
+    /** The most full-auto bolts that can come due in one frame (a long frame does not loose a volley). */
+    static final int MAX_DUE = 4;
+
+    /** The pose she fires full auto in standing: the stance's cast, aimed up at what is well above her. */
+    private AnimState autoPose(Stance st) {
+        AnimState a = st.attack(false);
+        if (a != null && a.up() != a && aimUp.getAsBoolean()) a = a.up();
+        return a;
+    }
+
+    /** Whether what she holds is a wand or a staff forged to fire full auto ({@link Forged#fullAuto}). */
+    public boolean fullAuto() {
+        Item w = inventory.held();
+        if (w == null || w.forged() == null || !w.forged().fullAuto()) return false;
+        Stance st = stance();
+        return st == Stance.WAND || st == Stance.STAFF;
+    }
+
+    /** Full auto's bolts a second for what she holds (6 for anything else: unused). */
+    public double boltRate() {
+        Item w = inventory.held();
+        return w != null && w.forged() != null ? w.forged().boltRate() : Forged.AUTO_RATE;
+    }
+
+    /** Whether she is streaming full auto's bolts this frame: the attack held, nothing else under way. */
+    public boolean autoFiring() { return autoFiring; }
+
+    /** The full-auto bolts that have come due since the last call (the fighting sends them off). */
+    public int takeAutoBolts() {
+        int n = autoDue;
+        autoDue = 0;
+        return n;
     }
 
     /** How much faster than its kind the weapon in her hand shoots (a forged one's rate of fire; else 1). */

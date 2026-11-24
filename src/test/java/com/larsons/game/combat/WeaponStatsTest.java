@@ -20,7 +20,7 @@ class WeaponStatsTest {
         assertEquals(0.5, d.cycle(), 1e-9);
         assertEquals(d.perHit() / 0.5, d.perSecond(), 1e-9);
         assertFalse(d.ranged());
-        assertTrue(d.line().startsWith("≈ "), d.line());
+        assertTrue(d.line().startsWith("About "), d.line());
 
         WeaponStats.Dps hands = WeaponStats.of(null, T, s -> 0.5);
         assertEquals(WeaponStats.mean(T.unarmedDice, 4), hands.perHit(), 1e-9, "bare hands: D4s");

@@ -15,9 +15,11 @@ import java.util.function.ToDoubleFunction;
  * A weapon's damage per second, roughly: what its dice come to on average
  * ({@link #mean}) times what its borders add, over how long one of its
  * attacks takes - a swing, a thrust, a cast, a bow drawn to the loose, a
- * crossbow fired - at its rate of fire ({@link Forged#fireRate}). Plain
- * attacks only, every one landing: no heavy attacks, no cards, no armour in
- * the way. Shown in the inventory over a weapon.
+ * crossbow fired - at its rate of fire ({@link Forged#fireRate}), or a
+ * full-auto wand's or staff's bolts at theirs ({@link Forged#boltRate}).
+ * Plain attacks only, every one landing: no heavy attacks, no cards, no
+ * armour in the way. Shown in the inventory over a weapon, with what its
+ * attacks cost ({@link #costs}).
  */
 public final class WeaponStats {
 
@@ -31,13 +33,18 @@ public final class WeaponStats {
      * @param perSecond {@code perHit / cycle}
      * @param ranged    whether it shoots
      * @param accuracy  how true it shoots, percent
+     * @param auto      whether it fires full auto (its cycle: a bolt's)
      */
-    public record Dps(double perHit, double cycle, double perSecond, boolean ranged, int accuracy) {
+    public record Dps(double perHit, double cycle, double perSecond, boolean ranged, int accuracy, boolean auto) {
 
-        /** In a line: "≈ 12.4 damage a second (4.5 a hit, a swing every 0.36 s)". */
+        public Dps(double perHit, double cycle, double perSecond, boolean ranged, int accuracy) {
+            this(perHit, cycle, perSecond, ranged, accuracy, false);
+        }
+
+        /** In a line: "About 12.4 damage a second (4.5 a hit, a swing every 0.36 s)". */
         public String line() {
-            return "≈ " + num(perSecond) + " damage a second (" + num(perHit) + " a hit, "
-                    + (ranged ? "a shot" : "a swing") + " every " + num(cycle) + " s)";
+            return "About " + num(perSecond) + " damage a second (" + num(perHit) + " a hit, "
+                    + (auto ? "a bolt" : ranged ? "a shot" : "a swing") + " every " + num(cycle) + " s)";
         }
     }
 
@@ -99,9 +106,41 @@ public final class WeaponStats {
             // the bow: drawn till it is ready, then loosed
             cycle = cycle * Player.DRAW_READY + durations.applyAsDouble(st.release(false));
         }
+        boolean auto = f != null && f.fullAuto();
         double rate = f != null && ranged ? f.fireRate() : 1;
-        cycle = Math.max(0.05, cycle / rate);
-        return new Dps(hit, cycle, hit / cycle, ranged, ranged ? Combat.accuracy(weapon) : 100);
+        cycle = auto ? 1 / f.boltRate() : Math.max(0.05, cycle / rate);
+        return new Dps(hit, cycle, hit / cycle, ranged || auto, ranged || auto ? Combat.accuracy(weapon) : 100, auto);
+    }
+
+    /**
+     * What {@code weapon}'s attacks cost, in a line: "10 mana a spell", "2
+     * mana a bolt · 12 a second", "6 stamina a swing · 14 a heavy attack",
+     * "No stamina: a bow costs none".
+     */
+    public static String costs(Item weapon, CombatTuning tuning) {
+        Stance st = weapon == null ? Stance.SWORD : weapon.def().stance();
+        Forged f = weapon == null ? null : weapon.forged();
+        if (f != null && f.fullAuto()) {
+            double bolt = Combat.boltCost(tuning, weapon);
+            return num(bolt) + " mana a bolt · " + num(bolt * f.boltRate()) + " a second";
+        }
+        if (Combat.caster(weapon)) {
+            AnimState cast = st.attack(false);
+            Move m = Move.of(cast, weapon);
+            String what = m != null && m.kind() == Move.Kind.SPELL ? "a spell" : "a blow";
+            double c = Combat.manaCost(tuning, weapon, m, cast);
+            return c <= 0 ? "Draws no mana" : num(c) + " mana " + what + " · no stamina";
+        }
+        if (Combat.staminaFree(weapon)) return "No stamina: " + (st == Stance.CROSSBOW ? "a crossbow" : "a bow")
+                + " costs none";
+        AnimState swing = st == null || st.attack(false) == null ? AnimState.ATTACK : st.attack(false);
+        Move m = Move.of(swing, weapon);
+        double c = Combat.staminaCost(tuning, weapon, m, swing);
+        double heavy = Combat.staminaCost(tuning, weapon, new Move(Move.Kind.SWING, 0.5, 1.7, 120, true), null);
+        String said = c <= 0 && heavy <= 0 ? "No stamina" : num(c) + " stamina a swing · " + num(heavy) + " a heavy attack";
+        // (Mystic's magic is drawn from the mana, a swing's worth twice over)
+        double mana = Combat.manaCost(tuning, weapon, m, swing);
+        return mana > 0 ? said + " · " + num(mana) + " mana (Mystic)" : said;
     }
 
     /** Whether {@code weapon} (of stance {@code st}) shoots: a bow, a crossbow, a casting staff, a wand. */
@@ -114,7 +153,9 @@ public final class WeaponStats {
         };
     }
 
+    /** A number as the stats say it: to a tenth under 100 (whole numbers without it), else whole. */
     public static String num(double v) {
+        if (v < 100 && Math.abs(v - Math.rint(v)) < 1e-9) return String.valueOf(Math.round(v));
         return v >= 100 ? String.valueOf(Math.round(v)) : String.format(Locale.ROOT, "%.1f", v);
     }
 }

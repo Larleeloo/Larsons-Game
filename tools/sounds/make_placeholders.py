@@ -851,6 +851,14 @@ def _(k):
     return 0.35 * glow * bell(d, 0.5, 1.0) + 0.5 * whoosh(k, d, 700, 2600, 3200, 1.3, 0.55)
 
 
+@sound("combat/auto_bolt", 0.3)
+def _(k):
+    # a full-auto wand's bolt: a short bright zap, quick enough to fire many a second
+    d = 0.14
+    zap = osc(glide(d, [(0, 1800), (1, 700)])) + 0.4 * osc(glide(d, [(0, 2710), (1, 1050)]))
+    return 0.45 * zap * env(d, 0.002, 0.08) + 0.35 * bp(k.noise(d), 2500, 7000) * env(d, 0.001, 0.04)
+
+
 @sound("combat/spell_hit", 0.6)
 def _(k):
     d = 0.55

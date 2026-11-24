@@ -2144,6 +2144,22 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 scriptDraw = true;
                 scripted = press(true, false, false, false, false, null);
             }
+            // fire [<right> <forward> [run|sprint] | still | off]: a full-auto wand or staff held firing - the
+            // attack held - standing, or on the move that way (as "move" says it), until "fire off" (she stops too)
+            case "fire" -> {
+                String[] a = argument.isBlank() ? new String[0] : argument.trim().split("[ ,]+");
+                boolean off = a.length > 0 && a[0].equals("off");
+                scriptDraw = !off;
+                Player.Intent base = scripted == null || off || a.length > 0 && a[0].equals("still")
+                        ? Player.Intent.NONE : scripted;
+                if (a.length >= 2 && !off) {
+                    Vec3 m = camera.groundForward().scale(Double.parseDouble(a[1]))
+                            .add(camera.right().scale(Double.parseDouble(a[0])));
+                    boolean run = a.length > 2 && a[2].equals("run"), sprint = a.length > 2 && a[2].equals("sprint");
+                    base = new Player.Intent(m.x(), m.z(), run, sprint, false, false);
+                }
+                scripted = held(base);
+            }
             case "loose" -> {
                 scriptDraw = false;
                 scripted = held(scripted == null ? Player.Intent.NONE : scripted);

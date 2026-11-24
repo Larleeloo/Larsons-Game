@@ -70,6 +70,20 @@ import java.util.function.ToDoubleFunction;
  * shots fly over the {@link Terrain}: an arrow sticks in a hillside, a spell
  * bursts on it.
  *
+ * <p><b>What a blow costs.</b> A sword, a mace, an axe, a dagger or bare
+ * hands spend stamina ({@link #staminaCost}; a forged one its own share of
+ * it, {@link Forged#staminaUse}). A bow and a crossbow cost nothing. A wand
+ * and a staff draw mana instead, never stamina ({@link #manaCost}): a spell
+ * its {@link CombatTuning#spellCost}, any other blow of theirs the stamina it
+ * would have cost, as mana - times a forged one's {@link Forged#manaUse}.
+ * Short of it, a spell fizzles and a blow is a tired one.
+ *
+ * <p><b>Full auto.</b> A wand or a staff forged to fire full auto ({@link
+ * Forged#fullAuto}) streams bolts of magic for as long as the attack is held,
+ * standing or on the move - {@link Forged#boltRate} a second, each rolling the
+ * weapon's dice, each drawing {@link #boltCost} mana, every {@link
+ * #BOLTS_A_USE} of them a use of its crystal ({@link #autoBolt}).
+ *
  * <p>Mana fills back up over time. What is heard is collected for the
  * world's sounds to play ({@link #drainSounds()}).
  */
@@ -124,7 +138,31 @@ public final class Combat {
         public double end() {
             return land + SHOW_HOLD + 0.3;
         }
+
+        /**
+         * A full-auto bolt's dice: already come up (no tumble - there is a
+         * new roll every few frames), shown as the last one's are.
+         */
+        static Show settled(Strike strike, double now, List<Note> notes) {
+            double start = now - SETTLED;
+            return new Show(strike, start, start + MIN_ROLL, notes);
+        }
     }
+
+    /** How long ago a full-auto bolt's dice are shown to have started: long enough for ten dice all to be up. */
+    static final double SETTLED = 1.0;
+    /** Full auto's move: a bolt of magic, loosed at once. */
+    static final Move AUTO_BOLT = new Move(Move.Kind.SPELL, 0, 0, 0, false);
+    /**
+     * How many full-auto bolts one use of a wand's or a staff's crystal lasts:
+     * a second's worth at full auto's own rate, as one spell takes one - so a
+     * crystal is not burnt through in a couple of seconds of fire.
+     */
+    public static final int BOLTS_A_USE = 6;
+    /** How big a full-auto bolt is drawn, of a spell's size. */
+    public static final double BOLT_SCALE = 0.6;
+    /** The mana's blue: what is said when there is not enough of it. */
+    public static final int MANA_RGB = 0x5D86FA;
 
     /** A sound to play: its key, where it happens, and how loud (1: as it is). */
     public record Sound(String key, Vec3 at, double volume) {
@@ -178,6 +216,10 @@ public final class Combat {
     /** What her gear adds to the mana pool. */
     private double gearMana;
     private double now;
+    /** When full auto last said it was dry (no mana, no crystals): at most once a second. */
+    private double lastDry = -10;
+    /** Full-auto bolts still to go on the use of a crystal last taken ({@link #BOLTS_A_USE} a use). */
+    private int boltsOnUse;
 
     private AnimState swingState;
     private double swingClock;
@@ -286,6 +328,8 @@ public final class Combat {
             swing.done = true;
             land(swing, p, targets);
         }
+        // full auto: the bolts her wand or staff looses this frame, the attack held
+        for (int n = p.takeAutoBolts(); n > 0; n--) autoBolt(p, targets);
 
         if (locked != null && (!locked.alive() || locked.position().horizontalDistance(p.ground()) > LOCK_RANGE)) {
             // gone down, or left behind: on to the next nearest, if there is one
@@ -322,12 +366,12 @@ public final class Combat {
         boolean plain = plainBlow(weapon, move);
         boolean mystic = !plain && weapon != null && weapon.has(Border.MYSTIC);
         Buffs buffs = world.buffs();
-        Buffs.Only what = what(move);
-        double cost = plain ? 0 : manaCost(weapon, move) * buffs.times(Buffs.Kind.MANA_COST);
+        // its mana: a spell's, a Mystic weapon's - and any blow of a wand's or a staff's
+        double cost = manaCost(weapon, move, state) * buffs.times(Buffs.Kind.MANA_COST);
         boolean paid = cost <= mana + 1e-9;
         if (paid) mana -= cost;
         if (!paid) {
-            popups.add(new Popup("Not enough mana", 0x5D86FA, p.ground(), 2.0, now, true));
+            popups.add(new Popup("Not enough mana", MANA_RGB, p.ground(), 2.0, now, true));
             sounds.add(new Sound("combat/fizzle", p.ground()));
             if (move.kind() == Move.Kind.SPELL) return new Swing(move, weapon, null, at, 0, null);
         }
@@ -346,14 +390,36 @@ public final class Combat {
             sounds.add(new Sound("combat/reload", p.ground()));
         }
         boolean dull = ammo == Ammo.Use.DULL;
-        // its stamina: without enough of it, a tired blow
-        double stamina = staminaCost(move, state) * buffs.times(Buffs.Kind.STAMINA_COST);
+        // its stamina (a wand's or a staff's blow draws mana instead, a bow's and a crossbow's costs none):
+        // without enough of it, a tired blow - as is a wand's or a staff's blow with no mana for it
+        double stamina = staminaCost(weapon, move, state) * buffs.times(Buffs.Kind.STAMINA_COST);
         boolean tired = !p.spendStamina(stamina);
         if (tired) popups.add(new Popup("Out of stamina", TIRED_RGB, p.ground(), 2.0, now, true));
+        boolean drained = !paid && caster(weapon);
         if (move.kind() == Move.Kind.SPELL) sounds.add(new Sound("combat/spell_cast", p.ground()));
         Target aimed = softLock(p, move, targets);
         boolean high = move.shoots() && aimed != null && highGround(p.feet(), aimed);
+        List<Note> notes = new ArrayList<>();
+        Strike strike = rolled(weapon, move, plain, mystic && paid, dull, tired, drained, high, aimed, notes);
+        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
+        sounds.add(new Sound("combat/dice_roll", p.ground()));
+        return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
+    }
 
+    /**
+     * The dice of a blow or a shot of {@code weapon}'s ({@code move}), rolled,
+     * with what changes them said under them ({@code notes}): its border, the
+     * high ground, the cards, a sneak attack, a dull blade, a tired blow.
+     *
+     * @param plain   a wand's heavy blow, which casts nothing ({@link #plainBlow})
+     * @param mystic  Mystic, with the mana for it
+     * @param tired   short of the stamina for it
+     * @param drained a wand's or a staff's blow short of the mana for it
+     */
+    private Strike rolled(Item weapon, Move move, boolean plain, boolean mystic, boolean dull, boolean tired,
+                          boolean drained, boolean high, Target aimed, List<Note> notes) {
+        Buffs buffs = world.buffs();
+        Buffs.Only what = what(move);
         Forged forged = plain || weapon == null ? null : weapon.forged();
         int n = plain ? tuning.wandHeavyDice
                 : (weapon == null ? tuning.unarmedDice : forged != null ? forged.dice() : tuning.dice(weapon.rarity()))
@@ -365,20 +431,88 @@ public final class Combat {
         // hidden, a blow is a sneak attack (or a card makes it one)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
         double cards = buffs.times(Buffs.Kind.DAMAGE, what) * buffs.times(damageKind(what), what);
+        boolean weary = tired || drained;
         double times = cards * (sneak ? Stealth.SNEAK_DAMAGE : 1) * (dull ? Ammo.DULL : 1)
-                * (tired ? tuning.tiredDamage : 1);
-        Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random), mystic && paid, plain, sneak, times, what);
-        List<Note> notes = notes(strike, aimed);
+                * (weary ? tuning.tiredDamage : 1);
+        Strike strike = new Strike(weapon, DiceRoll.roll(n, sides, forged != null ? forged.extra() : List.of(), random),
+                mystic, plain, sneak, times, what);
+        notes.addAll(notes(strike, aimed));
         if (high) notes.add(0, new Note("High ground +" + HIGH_DICE + " die", HIGH_RGB));
         if (extra > 0) notes.add(new Note("Cards +" + extra + (extra == 1 ? " die" : " dice"), CARD_RGB));
         if (Math.abs(cards - 1) > 1e-9) notes.add(new Note("Cards ×" + trim(cards), CARD_RGB));
         if (sneak) notes.add(new Note("Sneak attack ×" + trim(Stealth.SNEAK_DAMAGE), SNEAK_RGB));
         if (dull) notes.add(new Note("Dull: no " + Ammo.said(Ammo.of(weapon.def())) + " ×" + trim(Ammo.DULL),
                 AMMO_RGB));
-        if (tired) notes.add(new Note("Tired ×" + trim(tuning.tiredDamage), TIRED_RGB));
-        show = new Show(strike, now, now + Math.max(MIN_ROLL, at), notes);
-        sounds.add(new Sound("combat/dice_roll", p.ground()));
-        return new Swing(move, weapon, strike, at, paid ? cost : 0, show);
+        if (drained) notes.add(new Note("No mana ×" + trim(tuning.tiredDamage), MANA_RGB));
+        else if (tired) notes.add(new Note("Tired ×" + trim(tuning.tiredDamage), TIRED_RGB));
+        return strike;
+    }
+
+    /**
+     * One bolt of full auto ({@link Forged#fullAuto}): its mana drawn and a
+     * crystal's use, its dice rolled (shown come up at once, the next bolt
+     * close behind), and it sent off at what she aims at - or straight on
+     * ahead, the way she faces. With no mana for it, or no crystal, nothing
+     * goes - said at most once a second while the attack is held.
+     */
+    private void autoBolt(Player p, List<Target> targets) {
+        Item weapon = world.wielded();
+        Forged f = weapon == null ? null : weapon.forged();
+        if (f == null || !f.fullAuto()) return;
+        Buffs buffs = world.buffs();
+        double cost = boltCost(weapon) * buffs.times(Buffs.Kind.MANA_COST);
+        if (cost > mana + 1e-9) {
+            dry(p, "Not enough mana", MANA_RGB, "combat/fizzle");
+            return;
+        }
+        // its crystal: a use of it every BOLTS_A_USE bolts
+        Ammo.Use ammo = Ammo.Use.LOADED;
+        if (boltsOnUse <= 0) {
+            ammo = world.ammo().use(weapon, p.inventory(), buffs.has(Buffs.Kind.AMMO_FREE));
+            if (ammo == Ammo.Use.EMPTY) {
+                dry(p, "Out of " + Ammo.said(Ammo.of(weapon.def())), AMMO_RGB, "combat/out_of_ammo");
+                return;
+            }
+            boltsOnUse = BOLTS_A_USE;
+        }
+        boltsOnUse--;
+        mana -= cost;
+        if (ammo == Ammo.Use.RELOADED) {
+            popups.add(new Popup(Ammo.of(weapon.def()).name() + " used", AMMO_RGB, p.ground(), 1.4, now, true));
+            sounds.add(new Sound("combat/reload", p.ground()));
+        }
+        Target aimed = softLock(p, AUTO_BOLT, targets);
+        boolean high = aimed != null && highGround(p.feet(), aimed);
+        List<Note> notes = new ArrayList<>();
+        Strike strike = rolled(weapon, AUTO_BOLT, false, weapon.has(Border.MYSTIC), ammo == Ammo.Use.DULL, false,
+                false, high, aimed, notes);
+        show = Show.settled(strike, now, notes);
+        sounds.add(new Sound("combat/auto_bolt", p.ground(), 0.8));
+        shoot(Move.Kind.SPELL, strike, p, targets, true);
+    }
+
+    /** Full auto has run dry: said over her, and heard - at most once a second while it stays so. */
+    private void dry(Player p, String said, int rgb, String sound) {
+        if (now - lastDry < 1) return;
+        lastDry = now;
+        popups.add(new Popup(said, rgb, p.ground(), 2.0, now, true));
+        sounds.add(new Sound(sound, p.ground(), 0.7));
+    }
+
+    /**
+     * The mana one bolt of {@code weapon}'s full auto draws: {@code
+     * combat.json}'s {@code mana.autoBoltCost}, Mystic's twice that, times
+     * the weapon's {@link Forged#manaUse}.
+     */
+    public double boltCost(Item weapon) {
+        return boltCost(tuning, weapon);
+    }
+
+    /** {@link #boltCost(Item)} by {@code tuning}'s numbers. */
+    public static double boltCost(CombatTuning tuning, Item weapon) {
+        double c = tuning.autoBoltCost * (weapon != null && weapon.has(Border.MYSTIC) ? Border.MYSTIC_MANA : 1);
+        Forged f = weapon == null ? null : weapon.forged();
+        return f == null ? c : c * f.manaUse();
     }
 
     /** A card's note under the dice: a pale violet; a sneak attack's, a dusk green; ammunition's, a steel grey. */
@@ -387,18 +521,36 @@ public final class Combat {
     public static final int TIRED_RGB = 0x9DB86A;
 
     /**
-     * The stamina {@code move} (played as {@code state}) costs ({@code
-     * combat.json}'s {@code stamina}): a swing, a heavy attack, a spin, the
-     * jump attack, a shot, a spell.
+     * The stamina {@code move} (played as {@code state}) with {@code weapon}
+     * costs ({@code combat.json}'s {@code stamina}): a swing, a heavy attack,
+     * a spin, the jump attack - times a forged weapon's {@link
+     * Forged#staminaUse}. A shot costs none, nor does anything a bow or a
+     * crossbow does; a wand's and a staff's blows draw mana instead ({@link
+     * #manaCost}).
      */
-    double staminaCost(Move move, AnimState state) {
-        return switch (move.kind()) {
-            case ARROW, BOLT -> tuning.staminaShot;
-            case SPELL -> tuning.staminaSpell;
-            case SWING -> state == AnimState.JUMP_ATTACK ? tuning.staminaJumpAttack
-                    : move.arc() >= 359 ? tuning.staminaSpin
-                    : move.heavy() ? tuning.staminaHeavy : tuning.staminaSwing;
-        };
+    public double staminaCost(Item weapon, Move move, AnimState state) {
+        return staminaCost(tuning, weapon, move, state);
+    }
+
+    /** {@link #staminaCost(Item, Move, AnimState)} by {@code tuning}'s numbers. */
+    public static double staminaCost(CombatTuning tuning, Item weapon, Move move, AnimState state) {
+        if (move == null || move.shoots() || staminaFree(weapon)) return 0;
+        Forged f = weapon == null ? null : weapon.forged();
+        return blowCost(tuning, move, state) * (f == null ? 1 : f.staminaUse());
+    }
+
+    /** A blow's own cost ({@code combat.json}'s {@code stamina}): a swing's, a heavy attack's, a spin's, the jump attack's. */
+    static double blowCost(CombatTuning tuning, Move move, AnimState state) {
+        return state == AnimState.JUMP_ATTACK ? tuning.staminaJumpAttack
+                : move.arc() >= 359 ? tuning.staminaSpin
+                : move.heavy() ? tuning.staminaHeavy : tuning.staminaSwing;
+    }
+
+    /** Whether nothing {@code weapon} does costs stamina: a bow, a crossbow, a wand, a staff. */
+    public static boolean staminaFree(Item weapon) {
+        if (weapon == null) return false;
+        Stance st = weapon.def().stance();
+        return st == Stance.BOW || st == Stance.CROSSBOW || caster(weapon);
     }
     /** What a foe's armour blocked: steel. */
     public static final int ARMOUR_RGB = 0xA9B4C2;
@@ -429,13 +581,34 @@ public final class Combat {
         swing = null;
     }
 
-    /** What a swing costs: a spell's mana, Mystic's double. */
+    /** {@link #manaCost(Item, Move, AnimState)}, the move not a jump attack. */
     public double manaCost(Item weapon, Move move) {
-        double base = move != null && move.kind() == Move.Kind.SPELL ? tuning.spellCost : 0;
-        if (weapon != null && weapon.has(Border.MYSTIC)) {
-            return Border.MYSTIC_MANA * Math.max(base, tuning.mysticBaseCost);
+        return manaCost(weapon, move, null);
+    }
+
+    /**
+     * The mana {@code move} (played as {@code state}) with {@code weapon}
+     * draws: a spell's {@link CombatTuning#spellCost}; any other blow of a
+     * wand's or a staff's the stamina it would cost, as mana; Mystic's twice
+     * that (a weapon that casts nothing, twice {@link
+     * CombatTuning#mysticBaseCost}) - and a wand's or a staff's all of it
+     * times its {@link Forged#manaUse}.
+     */
+    public double manaCost(Item weapon, Move move, AnimState state) {
+        return manaCost(tuning, weapon, move, state);
+    }
+
+    /** {@link #manaCost(Item, Move, AnimState)} by {@code tuning}'s numbers. */
+    public static double manaCost(CombatTuning tuning, Item weapon, Move move, AnimState state) {
+        if (move == null) return 0;
+        boolean caster = caster(weapon);
+        double base = move.kind() == Move.Kind.SPELL ? tuning.spellCost
+                : caster && !move.shoots() ? blowCost(tuning, move, state) : 0;
+        if (!plainBlow(weapon, move) && weapon != null && weapon.has(Border.MYSTIC)) {
+            base = Border.MYSTIC_MANA * Math.max(base, tuning.mysticBaseCost);
         }
-        return base;
+        Forged f = caster ? weapon.forged() : null;
+        return f == null ? base : base * f.manaUse();
     }
 
     /**
@@ -680,13 +853,21 @@ public final class Combat {
 
     /** Send off an arrow, a bolt or a spell from her hands, at what she aims at or on ahead. */
     private void shoot(Move.Kind kind, Strike strike, Player p, List<Target> targets) {
+        shoot(kind, strike, p, targets, false);
+    }
+
+    /**
+     * As {@link #shoot(Move.Kind, Strike, Player, List)}; {@code bolt}: one of
+     * full auto's bolts of magic, quicker and smaller than a spell.
+     */
+    private void shoot(Move.Kind kind, Strike strike, Player p, List<Target> targets, boolean bolt) {
         Vec3 f = SpriteView.headingVector(p.heading());
         double h = switch (kind) {
             case ARROW -> 1.35;
             case BOLT -> 1.2;
             default -> 1.45;
         };
-        double speed = switch (kind) {
+        double speed = bolt ? tuning.autoBoltSpeed : switch (kind) {
             case ARROW -> tuning.arrowSpeed;
             case BOLT -> tuning.boltSpeed;
             default -> tuning.spellSpeed;
@@ -701,7 +882,7 @@ public final class Combat {
         to = scatter(hand, to, accuracy(strike.weapon()));
         Vec3 v = Projectile.aim(kind, hand, to, speed);
         double life = kind == Move.Kind.SPELL ? Math.max(range, hand.distance(to) + 2) / Math.max(1e-6, speed) : 8;
-        projectiles.add(new Projectile(kind, strike, spellColour(strike.weapon()), hand, v, life));
+        projectiles.add(new Projectile(kind, strike, spellColour(strike.weapon()), hand, v, life, bolt ? BOLT_SCALE : 1));
     }
 
     /** How far off a shot of no accuracy at all goes, degrees either way (a shot of 50% half that, at most). */
@@ -978,15 +1159,29 @@ public final class Combat {
     public static boolean casts(Item weapon) {
         if (weapon == null) return false;
         if (weapon.id().contains("wand")) return true;
-        return weapon.def().stance() == Stance.STAFF && weapon.tier() != null && weapon.tier() != Tier.BASIC;
+        if (weapon.def().stance() != Stance.STAFF) return false;
+        // (a staff of the Forge's casts, whatever it is forged as)
+        if (weapon.forged() != null) return !weapon.forged().worn();
+        return weapon.tier() != null && weapon.tier() != Tier.BASIC;
+    }
+
+    /**
+     * Whether {@code weapon} is a wand or a staff - a Basic Staff among them,
+     * which casts nothing: what draws mana for every blow, not stamina.
+     */
+    public static boolean caster(Item weapon) {
+        if (weapon == null) return false;
+        Stance st = weapon.def().stance();
+        return st == Stance.WAND || st == Stance.STAFF || weapon.id().contains("wand");
     }
 
     /**
      * Whether {@code move} with {@code weapon} is a plain blow: a wand's heavy
      * attack. Its great two-handed cast sends no spell - it is the wand
      * brought down on whatever is in front of her - so it rolls one die
-     * ({@link CombatTuning#wandHeavyDice}) whatever the wand's rarity, costs
-     * no mana, and its border (Mystic, Venom, Bloodlust) adds nothing.
+     * ({@link CombatTuning#wandHeavyDice}) whatever the wand's rarity, draws
+     * only a heavy blow's worth of mana (as any blow of a wand's does: no
+     * spell's), and its border (Mystic, Venom, Bloodlust) adds nothing.
      */
     public static boolean plainBlow(Item weapon, Move move) {
         return weapon != null && move != null && move.heavy() && !move.shoots()

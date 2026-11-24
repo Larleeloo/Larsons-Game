@@ -57,6 +57,11 @@ public final class CombatTuning {
     /** What a spell (a staff's or a wand's bolt) costs. */
     public final double spellCost;
     /**
+     * What one bolt of a wand or a staff forged to fire full auto costs
+     * ({@code mana.autoBoltCost}: 2, so six a second draw 12 mana a second).
+     */
+    public final double autoBoltCost;
+    /**
      * What a Mystic weapon that casts nothing - a sword, an axe, a bow -
      * costs a swing before Mystic doubles it: its +150% is magic, and drawn
      * from the pool like a spell's.
@@ -65,15 +70,16 @@ public final class CombatTuning {
 
     /**
      * The stamina a blow costs ({@code stamina}): a swing, a heavy attack, a
-     * spin, a jump attack, a shot (an arrow, a bolt) and a spell; and what a
-     * blow does when she has not the stamina for it, times ({@code
-     * stamina.tiredDamage}: 0.7, 70%).
+     * spin, a jump attack; and what a blow does when she has not the stamina
+     * for it, times ({@code stamina.tiredDamage}: 0.7, 70%). A bow and a
+     * crossbow cost none; a wand's and a staff's every attack draws mana
+     * instead (a spell its {@link #spellCost}, any other blow these numbers'
+     * worth of mana).
      */
-    public final double staminaSwing, staminaHeavy, staminaSpin, staminaJumpAttack, staminaShot, staminaSpell,
-            tiredDamage;
+    public final double staminaSwing, staminaHeavy, staminaSpin, staminaJumpAttack, tiredDamage;
 
-    /** Projectile speeds, metres a second. */
-    public final double arrowSpeed, boltSpeed, spellSpeed;
+    /** Projectile speeds, metres a second: full auto's bolts of magic are quicker than a spell. */
+    public final double arrowSpeed, boltSpeed, spellSpeed, autoBoltSpeed;
     /** How far a shot looks for a target and a spell flies, in metres. */
     public final double range;
     /** How far either side of where she faces a shot still finds its target, in degrees. */
@@ -134,6 +140,7 @@ public final class CombatTuning {
         maxMana = Math.max(0, Json.num(m, "max", 100));
         manaRegen = Math.max(0, Json.num(m, "regenPerSecond", 5));
         spellCost = Math.max(0, Json.num(m, "spellCost", 10));
+        autoBoltCost = Math.max(0, Json.num(m, "autoBoltCost", 2));
         mysticBaseCost = Math.max(0, Json.num(m, "mysticBaseCost", 5));
 
         Map<String, Object> st = Json.obj(json, "stamina");
@@ -141,14 +148,13 @@ public final class CombatTuning {
         staminaHeavy = Math.max(0, Json.num(st, "heavy", 14));
         staminaSpin = Math.max(0, Json.num(st, "spin", 12));
         staminaJumpAttack = Math.max(0, Json.num(st, "jumpAttack", 10));
-        staminaShot = Math.max(0, Json.num(st, "shot", 4));
-        staminaSpell = Math.max(0, Json.num(st, "spell", 3));
         tiredDamage = Math.max(0, Math.min(1, Json.num(st, "tiredDamage", 0.7)));
 
         Map<String, Object> p = Json.obj(json, "projectiles");
         arrowSpeed = Math.max(1, Json.num(p, "arrowSpeed", 30));
         boltSpeed = Math.max(1, Json.num(p, "boltSpeed", 38));
         spellSpeed = Math.max(1, Json.num(p, "spellSpeed", 16));
+        autoBoltSpeed = Math.max(1, Json.num(p, "autoBoltSpeed", 30));
         range = Math.max(1, Json.num(p, "range", 25));
         aimAssist = Math.max(0, Math.min(90, Json.num(p, "aimAssistDegrees", 25)));
         stuckSeconds = Math.max(0, Json.num(p, "stuckSeconds", 8));

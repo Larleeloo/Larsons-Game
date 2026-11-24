@@ -439,6 +439,7 @@ The damage dice, blows landing, arrows and bolts striking, spells, poison, block
   combat/foe_shot.mp3                            A foe's shot loosed                              combat/foe_shot
   combat/foe_cast.mp3                            A foe's spell cast                               combat/foe_cast
   combat/freeze.mp3                              Foes frozen where they stand                     combat/freeze
+  combat/auto_bolt.mp3                           A bolt of full-auto magic                        combat/auto_bolt
 
 
 CREATURES

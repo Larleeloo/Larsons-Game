@@ -148,7 +148,8 @@ public final class SoundKeys {
 
     /**
      * The fighting: the dice tumbling, a swing's blow landing, a shot
-     * striking or sticking in the ground, a spell cast, striking, bursting
+     * striking or sticking in the ground, a spell cast (or a full-auto wand's
+     * bolt loosed), striking, bursting
      * on the ground; a swing with no mana for it, poison's tick; her being
      * struck, a dive blocked, parried or dodged; the heavy attack ready
      * again; locking on to something and letting it go.
@@ -156,7 +157,7 @@ public final class SoundKeys {
     public static final List<String> COMBAT_SOUNDS = List.of("dice_roll", "blow", "arrow_hit", "bolt_hit",
             "arrow_stick", "spell_cast", "spell_hit", "spell_burst", "fizzle", "venom_tick", "player_hurt",
             "block", "parry", "dodge", "heavy_ready", "lock_on", "lock_off", "plunge", "out_of_ammo", "reload",
-            "foe_shot", "foe_cast", "freeze");
+            "foe_shot", "foe_cast", "freeze", "auto_bolt");
 
     /**
      * The loot: an item thrown out of a chest, landing, and - as it lands -
@@ -746,6 +747,7 @@ public final class SoundKeys {
             case "bolt_hit" -> "A crossbow bolt striking";
             case "arrow_stick" -> "A shot sticking in the ground";
             case "spell_cast" -> "A spell cast";
+            case "auto_bolt" -> "A bolt of full-auto magic";
             case "spell_hit" -> "A spell striking";
             case "spell_burst" -> "A spell bursting on the ground";
             case "fizzle" -> "Not enough mana";

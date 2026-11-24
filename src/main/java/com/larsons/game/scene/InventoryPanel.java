@@ -1222,10 +1222,15 @@ final class InventoryPanel {
             com.larsons.game.combat.WeaponStats.Dps dps = com.larsons.game.combat.WeaponStats.of(item,
                     world.combat().tuning());
             stats.add(dps.line());
-            if (forged != null && forged.ranged() && (forged.fireRate() != 1 || forged.accuracy() != 100)) {
+            if (forged != null && forged.fullAuto()) {
+                stats.add("Full auto · " + com.larsons.game.combat.WeaponStats.num(forged.boltRate())
+                        + " bolts a second · " + forged.accuracy() + "% accurate");
+            } else if (forged != null && forged.ranged() && (forged.fireRate() != 1 || forged.accuracy() != 100)) {
                 stats.add("Rate of fire ×" + com.larsons.game.combat.WeaponStats.num(forged.fireRate()) + " · "
                         + forged.accuracy() + "% accurate");
             }
+            // what each attack costs: a wand's or a staff's mana, a blade's stamina, a bow's nothing
+            stats.add(com.larsons.game.combat.WeaponStats.costs(item, world.combat().tuning()));
         }
         float w = Math.max(Math.max(ui.body.width(title), ui.small.width(hint)), ui.small.width(rarity));
         if (effect != null) w = Math.max(w, ui.small.width(effect));
