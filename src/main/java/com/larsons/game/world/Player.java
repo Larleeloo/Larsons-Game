@@ -2099,7 +2099,6 @@ public final class Player {
         packSlots = Math.max(0, Math.min(slots, inventory.size() - Inventory.HOTBAR));
     }
 
-    /** Whether she can jump again now, in the air: her gear gives her the second jump and she has not used it. */
     /**
      * Spend {@code cost} stamina (times what the cards make it), if she has
      * it: returns whether she had. A cost of nothing is always had.
@@ -2113,6 +2112,7 @@ public final class Player {
         return true;
     }
 
+    /** Whether she can jump again now, in the air: her gear gives her the second jump and she has not used it. */
     public boolean canDoubleJump() {
         return airborne() && !doubleJumped && action == null && !plunging && wall == null && ledge == null
                 && !swimming && riding == Riding.NO && (!jumping || launched) && gear().has(Gear.Effect.DOUBLE_JUMP);

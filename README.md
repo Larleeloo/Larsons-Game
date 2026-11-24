@@ -436,7 +436,28 @@ left-handed.
   next one.
 - **Sneaking**: crouched, still, in tall grass, at night, in fog, rain or snow
   or under the water she is harder to see. **Hidden** (the eye over the
-  stamina bar shut), her blows are **sneak attacks**: twice the damage.
+  stamina bar shut), her blows are **sneak attacks**: twice the damage - but
+  only while **nobody has spotted her**: a foe or a person who sees her now, a
+  foe out after her (even one searching), or an animal coming at her. The
+  line over the bar says so ("Hidden, but spotted - no sneak attacks").
+  - **Light at night**: the night hides her only where it is dark. A lamp, a
+    fire in a hearth, an open chest's glow, glowing crystals and trees - and
+    her own lantern most of all - show her to anyone looking ("· in the
+    light"). Caves are dark all day.
+  - **Stamina**: the crouch walk costs stamina (2 a second, 5 hurrying with
+    Shift); run out and she creeps along slower until it comes back. A jump
+    costs 6 and her gear's second jump 8: too tired, she does not jump.
+  - **Gear for it**: the Tailor's **Sneaking** effects - Stealth, Sneak speed,
+    Quiet steps, Shadow (lights show her less), Sneak stamina and Sneak attack
+    (more sneak attack damage).
+
+<p align="center">
+  <img src="docs/screenshots/night-dark-fan.png" width="49%" alt="Night, crouched in the dark: the bandit's pale sight on the ground stops well short of her; the line over the bar reads Hidden - sneak attacks x2, dark">
+  <img src="docs/screenshots/night-lamp-fan.png" width="49%" alt="Night, crouched under a gas lamp: the same bandit's sight, as far off, reaches right up to her; the line reads in the light">
+</p>
+<p align="center">
+  <img src="docs/screenshots/spotted-no-sneak-attack.png" width="49%" alt="A bandit has seen her: its sight on the ground turns red, and the line reads Hidden, but spotted - no sneak attacks">
+</p>
 - **Rare borders**, one weapon in a hundred: **Venom** (half the damage again
   as poison), **Mystic** (×2.5 damage for twice the mana), **Bloodlust** (+10 %
   for every living thing it has struck in five minutes).
@@ -514,10 +535,26 @@ They close in, strike, loose arrows and spells, guard and dodge.
 
 **How they find her** (`actor/Paths`):
 
-- **Sight**: a foe sees her only along a clear line from its eyes to hers -
-  not through a hill, a wall or a house - within its kind's reach, and less
-  far when she is [hidden](#fighting). Losing her, it goes to where it last
-  saw her, searches about, then gives up and goes back.
+- **Sight** (`actor/Sight`): its line of sight decides how far off it
+  notices her. Within 30° of where it faces it sees as far as its kind does;
+  toward the edge of its eyes (75°) less and less, down to 40 %; behind it,
+  nothing. That reach is its sight times how easily she is noticed (crouched,
+  the dark, a lamp's light - [sneaking](#fighting)), and only along a clear
+  line from its eyes to her: not through a hill, a wall, a house, a tree's
+  trunk or a rock - and a low rock hides her crouched but not standing. Once
+  it is after her it sees all round, half as far again. People in the
+  streets see her the same way (for the sneak attacks).
+- **Hearing**: behind it, or too far to be seen, she may still be heard - a
+  creep hardly at all, a sprint from far off. It stops, a **?** over it, and
+  turns to look where the sound came from; if she is there to be seen, it
+  sees her. So close it could touch her, it knows she is there whatever she
+  does.
+- **Its sight on the ground**: while she is crouched, each foe near her draws
+  what it sees as a fan on the ground - pale gold unaware, amber listening,
+  red once it sees her - cut short where a wall, a tree or a rock hides her.
+  Pause → Settings → Game → **Foes' sight sneaking** hides it.
+- **Losing her**, it goes to where it last saw her, searches about, then
+  gives up and goes back.
 - **The way round**: it walks round what is in the way - a house, along a wall
   to its gap, round a lake - by a search over half-metre cells, pulled
   straight wherever the line is clear, so it walks like someone who knows the
@@ -1151,10 +1188,15 @@ furnish and play-test from inside.
   <img src="docs/screenshots/forge-full-auto.png" width="49%" alt="The Forge for the Sparkstream wand: Full auto on, rate of fire 8 a second, mana use x1, 2 mana a bolt and 16 a second">
   <img src="docs/screenshots/forge-stamina-use.png" width="49%" alt="The Forge for the Duskfang sword: stamina use x1.5, 9 stamina a swing and 21 a heavy attack">
 </p>
+<p align="center">
+  <img src="docs/screenshots/forge-bolt-colour.png" width="49%" alt="The Forge for a wand: Colour set to The bolts, and a sample bolt in green under it with the palette to pick from">
+</p>
 
 The **Forge** makes weapons of your own: a name, which of the eight weapons
 it is made from (its look, stance and moves), its rarity, its colours part by
-part (a sword's blade, fittings and handle; the dice), its dice and their
+part (a sword's blade, fittings and handle; the dice; for a wand or a staff
+**the bolts** - the colour of the magic it shoots, a sample bolt drawn under
+it, or its tier's or rarity's colour as before), its dice and their
 operators, its borders' effects (Venom, Mystic, Bloodlust), how long its
 ammunition lasts, for a bow, a crossbow, a staff or a wand its **rate of
 fire** (×0.25 to ×3) and **accuracy** (how far a shot may stray); for a
@@ -1173,6 +1215,9 @@ mystery shown as ???). Saved in `assets/forge/<name>.json`, placed from
   <img src="docs/screenshots/tailor-own-tiers.png" width="49%" alt="The Tailor's own pieces: Springheel boots' third tier, what it gives worn, and every tier's gifts">
   <img src="docs/screenshots/forge-gear-effects.png" width="49%" alt="The Effects page for the Wyrmguard gorget: health boost +50, health regen +2/s, stamina absorb 10%">
 </p>
+<p align="center">
+  <img src="docs/screenshots/tailor-sneaking-effects.png" width="49%" alt="The Tailor's Effects page, its Sneaking section: Stealth 30%, Quiet steps -40%, Shadow -60%, Sneak attack +50% on a Shadow cloak">
+</p>
 
 **Only gear of your own has tiers.** The clothing and armour the game comes
 with is what it is as found - no tiers to climb, no upgrade ingots to spend on
@@ -1189,7 +1234,11 @@ as the tier before. A tier added gives half as much again of each. Saved in
 What a piece can give: **more health, mana or stamina**, **health, mana or
 stamina regen** (a second), **health, mana or stamina drawn from her blows**
 (a share of the damage), **higher jumps**, a **double jump**, a **sooner
-heavy attack**, **more speed** (`world/Gear`), and for a pack its **carry
+heavy attack**, **more speed** (`world/Gear`); under **Sneaking**: **Stealth**
+(harder to notice), **Sneak speed** (a faster crouch walk), **Quiet steps**
+(her footsteps heard less far off), **Shadow** (lights show her less at
+night), **Sneak stamina** (sneaking costs less stamina) and **Sneak attack**
+(more sneak attack damage); and for a pack its **carry
 space** - how many more inventory slots she has while she wears it (more at
 each tier, if its tiers say so). Everything she wears adds up, the clothes
 under her armour too; a pair of bracers or wrist bands counts once. The
