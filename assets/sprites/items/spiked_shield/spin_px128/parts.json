@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "spiked_wood": [
+   0
+  ],
+  "spiked_iron": [
+   1
+  ]
+ },
+ "materials": [
+  "spiked_wood",
+  "spiked_iron"
+ ]
+}

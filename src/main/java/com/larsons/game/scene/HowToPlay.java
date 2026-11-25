@@ -37,6 +37,28 @@ final class HowToPlay {
      */
     record Chapter(String title, String icon, List<Action> keys, List<String> text) {}
 
+    /** The Shields chapter: carrying one, raising it, and the twelve, each a line. */
+    private static List<String> shieldText() {
+        List<String> out = new java.util.ArrayList<>(List.of(
+                "A shield goes on your off-hand arm - the left, or the right if you are left-handed - beside any "
+                        + "one-handed weapon: the sword, the mace, the wand or the dagger, each then fought with in "
+                        + "the sword and shield's moves. Right-click it in the inventory to carry it, or to put it "
+                        + "away. The battle axe, the staff, the bow and the crossbow take both hands: the shield is "
+                        + "put away while you hold one.",
+                "Hold {BLOCK} to raise it. Blocking still halves every blow, and a blow from in front of you - "
+                        + "within the shield's cover - also meets the shield's own dice, rolled above the hotbar "
+                        + "before your armour's. A blow from the side or from behind gets past it. Each point it "
+                        + "holds off costs stamina; with none left your guard breaks.",
+                "{BASH} bashes with it, rolling the shield's bash dice, not your weapon's.",
+                "There are twelve, each but the round shield with a gift of its own:"));
+        for (com.larsons.game.world.Shields.Shield s : com.larsons.game.world.Shields.all()) {
+            out.add(com.larsons.game.world.Shields.line(s));
+        }
+        out.add("In Creative Mode the Tailor makes shields of your own from any of them: their block dice, "
+                + "their tiers, their colours and what they give worn.");
+        return List.copyOf(out);
+    }
+
     static final List<Chapter> CHAPTERS = List.of(
             new Chapter("Getting about", "shoes",
                     List.of(Action.MOVE_FORWARD, Action.MOVE_LEFT, Action.MOVE_BACK, Action.MOVE_RIGHT, Action.RUN,
@@ -74,6 +96,9 @@ final class HowToPlay {
                             "What is in your hands is chosen from the hotbar with {HOTBAR}: a sword and shield, an "
                                     + "axe, a bow, a crossbow, a staff, a wand, a mace or a dagger, each with its own "
                                     + "moves.")),
+            new Chapter("Shields", "heater_shield",
+                    List.of(Action.BLOCK, Action.BASH, Action.INVENTORY),
+                    shieldText()),
             new Chapter("Dodging and falls", "feather",
                     List.of(Action.DODGE, Action.JUMP),
                     List.of("Tap {DODGE} to dash: a low burst of three and a half metres, the way you are moving.",
@@ -195,13 +220,17 @@ final class HowToPlay {
                                     + "shadow, gills and more. They are the big round flasks that bubble; dyes are the "
                                     + "small slim bottles. Scrolls are stronger, are read the same way, and are "
                                     + "never made, only found or bought.")),
-            new Chapter("Fishing and hunting", "willow_rod",
+            new Chapter("Fishing, hunting and felling", "willow_rod",
                     List.of(Action.ATTACK, Action.USE),
                     List.of("With a rod in your hand and water before you, {CLICK} casts. When the float dips, "
                                     + "strike in time to hook it, then hold and let go of {ATTACK} to keep the fish "
                                     + "inside the catch on the gauge until the line is in. Better rods give you "
                                     + "longer to strike and rarer fish.",
                             "{USE} by a bush picks its berries, fruit or herbs. Food is eaten from the hand.",
+                            "With an axe in your hands by a tree, {ATTACK} (held) or {USE} fells it, blow by blow: "
+                                    + "a Basic axe takes five blows for an oak, a better axe fewer. It falls away "
+                                    + "from you and leaves timber where it lies; its stump grows back in time, "
+                                    + "while you are away.",
                             "Animals roam where they belong. Some run, some fight back; what you fell leaves meat, "
                                     + "hide, wool, feathers or antlers.")),
             new Chapter("Swimming and climbing", "gills_potion",

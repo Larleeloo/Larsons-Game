@@ -140,6 +140,13 @@ public final class Animals {
         /** Take {@code damage}; returns what was taken. */
         double hurt(double damage);
 
+        /**
+         * Take {@code damage} dealt from {@code from} - a shot ({@code shot})
+         * or a blow: her shield, if it is up and the blow comes from in front
+         * of her, rolls its dice against it first. Returns what was taken.
+         */
+        default double hurt(double damage, Vec3 from, boolean shot) { return hurt(damage); }
+
         /** Whether she is down (her health gone): they leave her be. */
         boolean down();
 
@@ -988,7 +995,7 @@ public final class Animals {
             return;
         }
         if (her.blocking()) {
-            double took = her.hurt(Math.round(k.damage() / 2));
+            double took = her.hurt(Math.round(k.damage() / 2), a.position(), false);
             events.add(new Event(a, Outcome.BLOCKED, took));
             return;
         }

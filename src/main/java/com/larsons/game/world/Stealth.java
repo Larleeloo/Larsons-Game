@@ -107,7 +107,9 @@ public record Stealth(double score, boolean grass, double dark, double lit, doub
     /** Whether she is fighting: a blow, a shot - or full auto's bolts streaming out. */
     static boolean fighting(Player p) {
         AnimState a = p.action();
-        return a != null && (a.key().contains("attack") || a.key().endsWith("_fire") || a.key().contains("bash"))
+        // (an axe's felling blow rings out through the wood like any other)
+        return a != null && (a.key().contains("attack") || a.key().endsWith("_fire") || a.key().contains("bash")
+                || a == AnimState.AXE_CHOP)
                 || p.autoFiring();
     }
 

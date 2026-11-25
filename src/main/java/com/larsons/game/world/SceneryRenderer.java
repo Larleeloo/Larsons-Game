@@ -42,6 +42,12 @@ import static org.lwjgl.opengl.GL33C.*;
  * from its picked sheet ({@link SceneryProfile.Forage#picked}) until it
  * grows its pickings back.
  *
+ * <p>A tree felled with an axe ({@link #showFelled}, {@link Felling}) shakes
+ * at each blow; felled, its two cards are cut at {@link Felling#cut} and
+ * the part above turned together about the cut, along its fall ({@link
+ * Fellings.Tree#angle}), the part below left standing as its stump with a
+ * pale cut face on top - or its kind's own stump sprite, when it names one.
+ *
  * <p>Every sheet is uploaded once, when the game starts (all of them together
  * are a few megabytes), as a {@link Texture#cutout} - nearest-neighbour, the
  * pixel art's hard edges at any distance, but mipmapped so the far grass does
@@ -62,6 +68,11 @@ public final class SceneryRenderer implements AutoCloseable {
     private List<Vec3> walkers = List.of();
     /** Which foraging bushes are bare this frame (picked, growing back). */
     private java.util.function.Predicate<Scenery.Placed> bare = p -> false;
+    /** The trees felling has left as they are ({@code World#felled}: null for one never struck), and the world's time. */
+    private java.util.function.Function<Scenery.Placed, Fellings.Tree> felled = p -> null;
+    private double fellTime;
+    /** A white texel: the stumps' cut faces. */
+    private Texture plain;
 
     /** Upload every sheet of {@code sprites}. Must be made on the GL thread. */
     public SceneryRenderer(ScenerySprites sprites) {
@@ -98,6 +109,16 @@ public final class SceneryRenderer implements AutoCloseable {
     /** Which foraging bushes are picked bare - drawn from their picked sheet ({@code World#picked}). */
     public void showBare(java.util.function.Predicate<Scenery.Placed> picked) {
         bare = picked == null ? p -> false : picked;
+    }
+
+    /**
+     * How the trees struck with an axe stand at world time {@code now}:
+     * {@code felled} gives each one's felling (null: never struck, drawn as
+     * it always is).
+     */
+    public void showFelled(java.util.function.Function<Scenery.Placed, Fellings.Tree> felled, double now) {
+        this.felled = felled == null ? p -> null : felled;
+        fellTime = now;
     }
 
     /** How many pieces of scenery the last {@link #draw} had in view. */
@@ -163,9 +184,13 @@ public final class SceneryRenderer implements AutoCloseable {
                     t = bareSheet;
                     frames = bareSprite;
                 }
+                Fellings.Tree ft = facing ? null : felled.apply(p);
                 if (facing) {
                     batch.depthAnchor(p.position());
                     facingCamera(batch, t, frames, p, time, right, up);
+                } else if (ft != null) {
+                    batch.depthAnchor(null);
+                    felled(batch, t, frames, p, time, ft);
                 } else {
                     batch.depthAnchor(null);
                     cross(batch, t, frames, p, time, bends ? lean(p, walkers) : null);
@@ -216,6 +241,15 @@ public final class SceneryRenderer implements AutoCloseable {
                 if (h < LEAST_SHADOW) continue;
                 double dx = p.x() - centre.x(), dz = p.z() - centre.z(), out = reach + h * 2.5;
                 if (dx * dx + dz * dz > out * out) continue;
+                Fellings.Tree ft = felled.apply(p);
+                if (ft != null && !ft.standing()) {
+                    // felled: what is coming down or lying casts its shadow as it lies; a stump, none worth one
+                    if (ft.stage() != Fellings.Stage.STUMP) {
+                        float[] uv = p.sprite().uv(p.sprite().frameAt(time + p.phase()));
+                        fallen(batch, sheet, p, ft, uv);
+                    }
+                    continue;
+                }
                 ScenerySprites.Sprite frames = p.sprite();
                 Texture t = sheet;
                 if (bare.test(p) && prof.forage() != null && prof.forage().picked() != null) {
@@ -288,6 +322,127 @@ public final class SceneryRenderer implements AutoCloseable {
     }
 
     /**
+     * A tree struck with an axe, as felling has left it: still standing (and
+     * shaking from the last blow), coming down or lying (its stump and the
+     * rest turned about the cut), or its stump alone.
+     */
+    private void felled(Batch batch, Texture sheet, ScenerySprites.Sprite frames, Scenery.Placed p, double time,
+                        Fellings.Tree ft) {
+        if (ft.standing()) {
+            double sh = ft.shake(fellTime);
+            double[] lean = sh == 0 ? null : new double[]{Math.cos(p.yaw()) * sh, 0, Math.sin(p.yaw()) * sh};
+            cross(batch, sheet, frames, p, time, lean);
+            return;
+        }
+        float[] uv = frames.uv(frames.frameAt(time + p.phase()));
+        stump(batch, sheet, frames, p, uv, ft);
+        if (ft.stage() != Fellings.Stage.STUMP) fallen(batch, sheet, p, ft, uv);
+    }
+
+    /**
+     * {@code p}'s stump: its kind's own stump sprite as a cross, or the foot
+     * of its own picture up to the cut - with the cut face on top.
+     */
+    private void stump(Batch batch, Texture sheet, ScenerySprites.Sprite frames, Scenery.Placed p, float[] uv,
+                       Fellings.Tree ft) {
+        String own = ft.rule().stump();
+        ScenerySprites.Sprite s = own == null ? null : byName.get(own);
+        Texture st = s == null ? null : sheets.get(s.name());
+        if (st != null) {
+            float[] su = s.uv(0);
+            float u0 = p.mirrored() ? su[2] : su[0], u1 = p.mirrored() ? su[0] : su[2];
+            double half = s.profile().frameWorldSize() * p.scale() / 2;
+            float h = (float) (s.profile().frameWorldHeight() * p.scale());
+            double c = Math.cos(p.yaw()) * half, sn = Math.sin(p.yaw()) * half;
+            card(batch, st, p.x(), p.y(), p.z(), c, sn, h, u0, su[1], u1, su[3], null);
+            card(batch, st, p.x(), p.y(), p.z(), -sn, c, h, u0, su[1], u1, su[3], null);
+            return;
+        }
+        SceneryProfile profile = p.profile();
+        double half = profile.frameWorldSize() * p.scale() / 2, h = profile.frameWorldHeight() * p.scale();
+        double cut = Math.min(h, Felling.cut(p));
+        float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
+        float vCut = (float) (uv[3] + (uv[1] - uv[3]) * cut / h);
+        double c = Math.cos(p.yaw()) * half, sn = Math.sin(p.yaw()) * half;
+        card(batch, sheet, p.x(), p.y(), p.z(), c, sn, (float) cut, u0, vCut, u1, uv[3], null);
+        card(batch, sheet, p.x(), p.y(), p.z(), -sn, c, (float) cut, u0, vCut, u1, uv[3], null);
+        cutFace(batch, p, p.y() + cut);
+    }
+
+    /** The pale face of a stump's cut, at {@code y}: an octagon of fresh wood in a ring of bark, a ring or two in it. */
+    private void cutFace(Batch batch, Scenery.Placed p, double y) {
+        if (plain == null) plain = Texture.white();
+        TreeColours colours = TreeColours.of(p);
+        int[] chips = colours.chips();
+        int bark = chips[chips.length - 1], wood = chips[0], ring = chips[1];
+        double r = p.radius() * 1.05;
+        batch.tint(0);
+        octagon(batch, p.x(), y, p.z(), r, p.yaw(), bark);
+        octagon(batch, p.x(), y + 0.004, p.z(), r * 0.82, p.yaw(), wood);
+        octagon(batch, p.x(), y + 0.008, p.z(), r * 0.42, p.yaw(), ring);
+        octagon(batch, p.x(), y + 0.012, p.z(), r * 0.3, p.yaw(), wood);
+        batch.tint(p.tint());
+    }
+
+    /** A level octagon of {@code rgb} round {@code (x, y, z)}, {@code r} across its corners: three quads. */
+    private void octagon(Batch batch, double x, double y, double z, double r, double yaw, int rgb) {
+        float[] px = new float[8], pz = new float[8];
+        for (int i = 0; i < 8; i++) {
+            double a = yaw + Math.PI / 8 + i * Math.PI / 4;
+            px[i] = (float) (x + Math.cos(a) * r);
+            pz[i] = (float) (z + Math.sin(a) * r);
+        }
+        float fy = (float) y, cr = ((rgb >> 16) & 255) / 255f, cg = ((rgb >> 8) & 255) / 255f, cb = (rgb & 255) / 255f;
+        int[][] quads = {{0, 1, 2, 3}, {0, 3, 4, 7}, {4, 5, 6, 7}};
+        for (int[] q : quads) {
+            batch.quad(plain, px[q[0]], fy, pz[q[0]], px[q[1]], fy, pz[q[1]], px[q[2]], fy, pz[q[2]],
+                    px[q[3]], fy, pz[q[3]], 0, 0, 1, 1, cr, cg, cb, 1);
+        }
+    }
+
+    /**
+     * The felled part of {@code p} - its two cards above the cut - turned
+     * about the cut along its fall, as far over as it has come.
+     */
+    private void fallen(Batch batch, Texture sheet, Scenery.Placed p, Fellings.Tree ft, float[] uv) {
+        SceneryProfile profile = p.profile();
+        double half = profile.frameWorldSize() * p.scale() / 2, h = profile.frameWorldHeight() * p.scale();
+        double cut = Math.min(h, Felling.cut(p));
+        float u0 = p.mirrored() ? uv[2] : uv[0], u1 = p.mirrored() ? uv[0] : uv[2];
+        float vCut = (float) (uv[3] + (uv[1] - uv[3]) * cut / h);
+        double angle = ft.angle(fellTime);
+        Vec3 d = com.larsons.game.sprite.SpriteView.headingVector(ft.heading());
+        double c = Math.cos(p.yaw()) * half, sn = Math.sin(p.yaw()) * half;
+        turned(batch, sheet, p, d, angle, cut, h - cut, c, sn, u0, uv[1], u1, vCut);
+        turned(batch, sheet, p, d, angle, cut, h - cut, -sn, c, u0, uv[1], u1, vCut);
+    }
+
+    /**
+     * One card reaching {@code (ax, az)} either side of the tree's axis, from
+     * {@code cut} metres up to {@code len} above that, turned {@code angle}
+     * about the cut towards {@code d}.
+     */
+    private static void turned(Batch batch, Texture sheet, Scenery.Placed p, Vec3 d, double angle, double cut,
+                               double len, double ax, double az, float u0, float v0, float u1, float v1) {
+        double cos = Math.cos(angle), sin = Math.sin(angle);
+        double bx = p.x(), by = p.y() + cut, bz = p.z();
+        float[] out = new float[12];
+        // top-left, top-right, bottom-right, bottom-left: (-a, len), (+a, len), (+a, 0), (-a, 0)
+        double[][] corners = {{-1, len}, {1, len}, {1, 0}, {-1, 0}};
+        for (int i = 0; i < 4; i++) {
+            double wx = ax * corners[i][0], wz = az * corners[i][0], u = corners[i][1];
+            double wd = wx * d.x() + wz * d.z();
+            double kx = wx - wd * d.x(), kz = wz - wd * d.z();
+            double along = wd * cos + u * sin, rise = u * cos - wd * sin;
+            out[i * 3] = (float) (bx + kx + along * d.x());
+            out[i * 3 + 1] = (float) (by + rise);
+            out[i * 3 + 2] = (float) (bz + kz + along * d.z());
+        }
+        batch.quad(sheet, out[0], out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8], out[9], out[10],
+                out[11], u0, v0, u1, v1, 1, 1, 1, 1);
+    }
+
+    /**
      * A card standing on the ground at {@code (x, y, z)}, reaching {@code (dx,
      * dz)} either side of it, its top shifted by {@code lean} (or upright).
      */
@@ -309,5 +464,7 @@ public final class SceneryRenderer implements AutoCloseable {
     public void close() {
         for (Texture t : sheets.values()) t.close();
         sheets.clear();
+        if (plain != null) plain.close();
+        plain = null;
     }
 }

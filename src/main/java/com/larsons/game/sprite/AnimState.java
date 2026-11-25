@@ -219,7 +219,12 @@ public enum AnimState {
     // front flip - and the fall, looping, her legs treading and her arms out, off a ledge or
     // after the top of a jump
     DOUBLE_JUMP("double_jump", "Double jump", false, 20, Stance.ALL, 0, "jump"),
-    FALL("fall", "Fall", true, 20, Stance.ALL, 0, "jump");
+    FALL("fall", "Fall", true, 20, Stance.ALL, 0, "jump"),
+    // --- felling a tree, the battle axe in her hands (feminine_model_chop.py): a woodcutter's
+    // blow, the axe drawn back over her right shoulder and swung in nearly level into the trunk
+    // in front of her at hip height (frame 12: world/Felling.BITE_AT), a beat in the wood, a
+    // wrench to pull it free, and back to the ready - once for every blow (world/Fellings)
+    AXE_CHOP("axe_chop", "Axe, felling chop", false, 28, Stance.AXE, 0, "axe_attack");
 
     /**
      * The frames the roll shares with the dash (the push-off): the game

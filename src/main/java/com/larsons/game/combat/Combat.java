@@ -14,6 +14,7 @@ import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.Player;
 import com.larsons.game.world.Rarity;
+import com.larsons.game.world.Shields;
 import com.larsons.game.world.Terrain;
 import com.larsons.game.world.Tier;
 import com.larsons.game.world.World;
@@ -358,9 +359,15 @@ public final class Combat {
     /** A swing (or a shot) starts: pay for it, roll its dice. */
     private Swing begin(AnimState state, World world, List<Target> targets) {
         Item weapon = world.wielded();
+        Player p = world.player();
+        // the shield bash: the shield on her arm strikes, rolling its own dice (a clockwork one all round her)
+        Item shield = state == AnimState.SHIELD_BASH ? p.shield() : null;
+        if (shield != null) weapon = shield;
         Move move = Move.of(state, weapon);
         if (move == null) return null;
-        Player p = world.player();
+        if (shield != null && Shields.trait(shield) == Shields.Trait.CLOCKWORK) {
+            move = new Move(move.kind(), move.at(), move.reach(), 360, move.heavy());
+        }
         double at = move.at() * p.actionDuration();
 
         boolean plain = plainBlow(weapon, move);
@@ -420,14 +427,18 @@ public final class Combat {
                           boolean drained, boolean high, Target aimed, List<Note> notes) {
         Buffs buffs = world.buffs();
         Buffs.Only what = what(move);
-        Forged forged = plain || weapon == null ? null : weapon.forged();
+        // a shield's bash rolls its bash dice (a Tailor's shield's are its kind's: its own dice block)
+        boolean bash = Shields.is(weapon);
+        Forged forged = plain || weapon == null || bash ? null : weapon.forged();
         int n = plain ? tuning.wandHeavyDice
+                : bash ? Shields.bash(weapon)[0]
                 : (weapon == null ? tuning.unarmedDice : forged != null ? forged.dice() : tuning.dice(weapon.rarity()))
                 + (move.heavy() ? tuning.heavyExtra : 0);
         if (high) n += HIGH_DICE;
         int extra = (int) Math.round(buffs.plus(Buffs.Kind.EXTRA_DICE, what));
         n += extra;
-        int sides = forged != null ? forged.sides() : tuning.sides(weapon == null ? null : weapon.def());
+        int sides = bash ? Shields.bash(weapon)[1]
+                : forged != null ? forged.sides() : tuning.sides(weapon == null ? null : weapon.def());
         // hidden, and spotted by nobody, a blow is a sneak attack (or a card makes it one, wherever she is)
         boolean sneak = world.sneaky() || buffs.use(Buffs.Kind.SNEAK, what) > 0;
         double sneakTimes = Stealth.sneakDamage(world.player().gear());

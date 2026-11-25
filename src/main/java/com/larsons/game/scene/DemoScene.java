@@ -34,6 +34,8 @@ import com.larsons.game.ui.Theme;
 import com.larsons.game.ui.Ui;
 import com.larsons.game.world.Chest;
 import com.larsons.game.world.DayCycle;
+import com.larsons.game.world.Felling;
+import com.larsons.game.world.Fellings;
 import com.larsons.game.world.Inventory;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
@@ -775,6 +777,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         Player.Intent intent = scripted != null ? scripted : inventory.open() || told ? Player.Intent.NONE
                 : intent(in);
         intent = eatInstead(intent);
+        intent = chopInstead(intent, in.down(Action.USE) && !inventory.open() && !told && scripted == null);
         if (intent.heavy() && p.heavyWait() > 0 && p.stance().heavy() != null && world.time() - heavyToast > 1.5) {
             heavyToast = world.time();
             Sounds.play(SoundKeys.ui("error"), 0.6);
@@ -850,6 +853,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             case SHOP -> tips.offer("shop");
             case MOUNT, SADDLE -> tips.offer("horse");
             case DOOR -> tips.offer("door");
+            case TREE -> tips.offer("fell");
             default -> { }
         }
         Vec3 me = p.ground();
@@ -878,6 +882,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             if (world.spotted() > 0 && world.stealth().hidden()) tips.offer("spotted");
         }
         if (p.swimming()) tips.offer("swim");
+        if (played > 5 && p.shield() != null && p.stance() == com.larsons.game.sprite.Stance.SWORD) tips.offer("shield");
         if (p.climbing() != null) tips.offer("climb");
         double hour = world.clock().hour();
         if (inside == null && horde == null && world.sky().air().timeRuns() && (hour >= 20.5 || hour < 4.5)) {
@@ -1009,7 +1014,9 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
     private enum Use {
-        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, BED, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON
+        NOTHING, CHEST, STORE, SHOP, ITEM, BUSH, DOOR, PASSAGE, WARDROBE, BED, SADDLE, MOUNT, DISMOUNT, SPOT, PERSON,
+        /** A standing tree, an axe in her hands: a blow of the felling chop. */
+        TREE
     }
 
     /** A storage chest whose lid is up while what it holds is shown beside the inventory, or null. */
@@ -1048,7 +1055,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (g != null && dg <= db) return Use.ITEM;
         if (b != null) return Use.BUSH;
         if (story.person() != null) return Use.PERSON;
-        return world.reachableSpot() != null ? Use.SPOT : Use.NOTHING;
+        if (world.reachableSpot() != null) return Use.SPOT;
+        return treeToFell() != null ? Use.TREE : Use.NOTHING;
     }
 
     /**
@@ -1084,6 +1092,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 if (!world.dismount()) game.toast("No room to get down here", Theme.WARNING);
             }
             case SPOT -> useSpot(world.reachableSpot());
+            case TREE -> chopAt(treeToFell());
             case PERSON -> story.talk(story.person());
             default -> { }
         }
@@ -1499,6 +1508,103 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 intent.bash(), intent.emote(), intent.dodge(), intent.dodgeHeld());
     }
 
+    // --- felling a tree --------------------------------------------------------------------
+
+    /**
+     * The standing tree she could fell from where she is, or null: an axe in
+     * her hands, her feet on the ground, no foe near ({@link Felling#FOE_NEAR}:
+     * then her swing is a swing at the foe), a tree in reach ({@link
+     * World#choppable}).
+     */
+    private Scenery.Placed treeToFell() {
+        Player p = world.player();
+        if (!Felling.axe(world.wielded()) || p.riding() != Player.Riding.NO || p.swimming() || p.airborne()
+                || p.climbing() != null || horde != null) {
+            return null;
+        }
+        return foeNear() ? null : world.choppable();
+    }
+
+    /** Whether a foe (or anything to fight) is within {@link Felling#FOE_NEAR} of her: then a swing is at it. */
+    private boolean foeNear() {
+        Vec3 me = world.player().ground();
+        for (com.larsons.game.combat.Target t : world.targets()) {
+            if (t.alive() && t.position().horizontalDistance(me) < Felling.FOE_NEAR) return true;
+        }
+        return false;
+    }
+
+    /** A tree came down under this hold of the attack (or of E): the next waits for a fresh press, so she watches it fall. */
+    private boolean fellHeld;
+
+    /**
+     * With an axe in hand by a standing tree, the attack - or {@code use}, E
+     * held - swings the felling chop at it instead of at the air: blow after
+     * blow while it is held, each one as the last ends.
+     */
+    private Player.Intent chopInstead(Player.Intent intent, boolean use) {
+        if (!intent.attack() && !intent.attackHeld() && !use) {
+            fellHeld = false;
+            return intent;
+        }
+        if (intent.attack()) fellHeld = false;
+        if (fellHeld) {
+            // still held after the last tree came down: nothing, until it is pressed again (unless a foe comes)
+            return foeNear() || !Felling.axe(world.wielded()) ? intent : noAttack(intent);
+        }
+        Scenery.Placed tree = treeToFell();
+        if (tree == null) return intent;
+        Player p = world.player();
+        if (p.action() == null) chopAt(tree);
+        if (!intent.attack() && !intent.attackHeld()) return intent;
+        return noAttack(intent);
+    }
+
+    /** {@code intent} with no attack in it. */
+    private static Player.Intent noAttack(Player.Intent intent) {
+        return new Player.Intent(intent.moveX(), intent.moveZ(), intent.run(), intent.sprint(), intent.jump(),
+                false, false, intent.crouch(), intent.heavy(), intent.spin(), intent.parry(), intent.block(),
+                intent.bash(), intent.emote(), intent.dodge(), intent.dodgeHeld());
+    }
+
+    /**
+     * One blow of the felling chop at {@code tree}: she steps to it and swings,
+     * its stamina paid as she does (short of it, a weaker blow), and the bit
+     * strikes home at the bite ({@link World#chop}) - how far it has come
+     * said over the cut, "Timber!" as it goes.
+     */
+    private void chopAt(Scenery.Placed tree) {
+        if (tree == null) return;
+        Player p = world.player();
+        Item axe = world.wielded();
+        boolean[] tired = {false};
+        boolean started = p.chop(Felling.stand(tree, p.ground()), () -> {
+            Fellings.Blow b = world.chop(tree, axe, tired[0]);
+            if (b != null && b.felled()) fellHeld = true;
+            if (b == null || b.felled()) return;
+            String left = blowsLeft(tree).strip();
+            if (!left.isEmpty()) world.combat().say(left.substring(1, left.length() - 1), 0xE8D8A8,
+                    Felling.bite(tree, p.ground()), 0.6, true);
+        }, durations());
+        if (!started) return;
+        double cost = Felling.staminaCost(world.combat().tuning(), axe) * world.buffs().times(com.larsons.game.world.Buffs.Kind.STAMINA_COST);
+        tired[0] = !p.spendStamina(cost);
+        if (tired[0]) world.combat().say("Out of stamina", 0xC8A070, p.feet(), 2.0, true);
+    }
+
+    /** " (3 blows left)": how many more blows of the axe in her hands fell {@code tree} ("": never struck). */
+    private String blowsLeft(Scenery.Placed tree) {
+        Felling.Rule rule = Felling.rule(tree);
+        if (rule == null) return "";
+        Fellings.Tree t = world.felled(tree);
+        double struck = t == null ? 0 : t.struck();
+        int left = Felling.blows((int) Math.ceil(rule.chops() - struck - 1e-9), Felling.power(world.wielded()));
+        if (t == null || struck <= 0) {
+            return " (" + left + (left == 1 ? " blow)" : " blows)");
+        }
+        return " (" + left + (left == 1 ? " blow left)" : " blows left)");
+    }
+
     /** Eat one of what is in the selected hotbar slot. */
     private void eatHeld() {
         Player p = world.player();
@@ -1645,6 +1751,13 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             game.saveWardrobe();
             ItemDef d = g.def;
             Sounds.play(SoundKeys.item(d.id(), "pickup"));
+            if (com.larsons.game.world.Shields.is(g.item)) {
+                boolean on = com.larsons.game.world.Shields.carrying(world.player().wardrobe(), g.item);
+                game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
+                        + (on ? " — on your arm: hold block (right mouse) to raise it"
+                        : " — carry it from the inventory (I, right-click it)"), g.item.rarity().colour(1f));
+                return;
+            }
             if (d.isWearable()) {
                 game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
                         + " — wear it from the wardrobe (Esc)", g.item.rarity().colour(1f));
@@ -1859,6 +1972,11 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         } else if (use == Use.PERSON) {
             text = "   Talk to ";
             name = story.person().name();
+        } else if (use == Use.TREE) {
+            Scenery.Placed tree = treeToFell();
+            text = "   Fell the ";
+            name = Felling.called(tree) + blowsLeft(tree);
+            edge = nameColour = Theme.rgb(216, 180, 122, 1f);
         } else {
             return;
         }
@@ -2492,9 +2610,19 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "health" -> p.setHealth(Double.parseDouble(argument.trim()));
             // struck <damage> [head|torso|arms|legs|feet|all]: a blow on her there (all: every piece rolls),
-            // her armour rolling to block it over the hotbar
+            // her armour rolling to block it over the hotbar; struck <damage> front|side|back: a blow from
+            // there [and where it lands] (her shield, raised, rolling first against one from the front)
             case "struck" -> {
                 String[] a = argument.trim().split("\\s+");
+                if (a.length > 1 && List.of("front", "side", "back").contains(a[1])) {
+                    double turn = a[1].equals("front") ? 0 : a[1].equals("side") ? Math.PI / 2 : Math.PI;
+                    Vec3 from = p.ground().add(SpriteView.headingVector(p.heading() + turn).scale(2));
+                    com.larsons.game.world.Armour.Rules rules = p.armourRules();
+                    if (a.length > 2) rules = rules.only(com.larsons.game.world.Armour.Location.byKey(a[2]));
+                    double took = p.struck(Double.parseDouble(a[0]), from, false, rules);
+                    world.hurtSaid("", took, p.ground());
+                    return true;
+                }
                 com.larsons.game.world.Armour.Rules rules = p.armourRules();
                 if (a.length > 1) {
                     rules = a[1].equals("all") ? rules.everyPiece(true)
@@ -2632,6 +2760,46 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                     forage(b);
                 }
             }
+            // felling: fell goto [n] [sprite] (stand by the n-th nearest standing tree, of that kind if
+            // named, facing it), fell (one blow at the tree in reach), fell <n> (that many blows' worth at once)
+            case "fell" -> {
+                String a = argument.trim();
+                if (a.startsWith("goto")) {
+                    String[] w = a.split("\\s+");
+                    int n = w.length > 1 && w[1].matches("\\d+") ? Integer.parseInt(w[1]) - 1 : 0;
+                    String kind = w.length > 2 && !w[2].endsWith("side") && !w[2].equals("behind") ? w[2]
+                            : w.length > 1 && !w[1].matches("\\d+") && !w[1].endsWith("side")
+                            && !w[1].equals("behind") ? w[1] : null;
+                    Vec3 me = p.ground();
+                    List<Scenery.Placed> trees = new ArrayList<>();
+                    for (Scenery.Placed t : world.scenery().solids()) {
+                        if (Felling.rule(t) == null || !world.fellings().standing(t)) continue;
+                        if (kind == null || t.sprite().name().equals(kind)) trees.add(t);
+                    }
+                    trees.sort(java.util.Comparator.comparingDouble(t -> Math.hypot(t.x() - me.x(), t.z() - me.z())));
+                    if (n < 0 || n >= trees.size()) return false;
+                    Scenery.Placed t = trees.get(n);
+                    double[] st = Felling.stand(t, me);
+                    p.setPosition(new Vec3(st[0], 0, st[1]));
+                    p.snapHeading(st[2]);
+                    // side: the camera across the way it will fall, to see it come down
+                    if (a.endsWith("side")) {
+                        double across = a.endsWith("otherside") ? -Math.PI / 2 : Math.PI / 2;
+                        camera.setDesiredYaw(Felling.fallHeading(t, new Vec3(st[0], 0, st[1])) + across);
+                    } else if (a.endsWith("behind")) {
+                        camera.setDesiredYaw(st[2] + 0.7);         // (over her shoulder, a little to her left)
+                    }
+                    camera.snapTo(follow());
+                } else if (a.matches("\\d+(\\.\\d+)?")) {
+                    Scenery.Placed t = world.choppable();
+                    if (t == null) return false;
+                    world.fellings().chop(t, Double.parseDouble(a), p.ground(), world.time(), world.terrain());
+                } else {
+                    Scenery.Placed t = treeToFell();
+                    if (t == null) return false;
+                    chopAt(t);
+                }
+            }
             case "eat" -> {
                 if (argument.isBlank()) {
                     eatHeld();
@@ -2658,6 +2826,21 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             }
             case "style" -> p.wardrobe().setStyle(Wardrobe.Style.byKey(argument));
             case "hand" -> p.wardrobe().setHand(Wardrobe.Hand.byKey(argument));
+            // shield <id>: that shield on her arm (given her when she has none of it); shield off: put away
+            case "shield" -> {
+                String id = argument.trim();
+                if (id.isEmpty() || id.equals("off")) {
+                    com.larsons.game.world.Shields.carry(p.wardrobe(), null);
+                } else {
+                    ItemDef d = com.larsons.game.world.Shields.def(id);
+                    if (d == null) return false;
+                    Item it = null;
+                    for (Item i : p.inventory()) if (i != null && i.def() == d) it = i;
+                    if (it == null && !give(it = Item.of(d))) return false;
+                    com.larsons.game.world.Shields.carry(p.wardrobe(), it);
+                }
+                world.equipSelected();
+            }
             case "wear" -> {
                 // wear <slot> [item]: put an item on, or take the slot's off
                 String[] a = argument.trim().split("\\s+", 2);

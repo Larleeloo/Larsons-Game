@@ -326,6 +326,7 @@ public final class WorldRenderer implements AutoCloseable {
         Vec3 upright = uprightNormal(camera);
         scenery.bendAwayFrom(walkers(world));
         scenery.showBare(world::picked);
+        scenery.showFelled(world::felled, world.time());
         scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright);
         if (around) {
             // (out past the fog, the trees round the level are not drawn at all)
@@ -379,6 +380,12 @@ public final class WorldRenderer implements AutoCloseable {
                     (float) (a.alpha() * 0.45 / (1 + 0.6 * h)));
         }
         for (Scenery.Placed s : world.scenery().shadowed()) {
+            Fellings.Tree felled = world.felled(s);
+            if (felled != null && !felled.standing()) {
+                // felled: its crown no longer over the ground - the stump's own small shadow
+                groundShadow(s.position(), s.radius() * 1.8, 0.3f);
+                continue;
+            }
             if (castsOwn(s)) continue;
             groundShadow(s.position(), s.profile().shadowRadius() * s.scale(), 0.35f);
         }
@@ -436,8 +443,10 @@ public final class WorldRenderer implements AutoCloseable {
             pivot = steed.position().add(0, horse == null ? 1.05 : horse.profile().pivotHeight(), 0);
         }
         SpriteView view = SpriteView.of(eye, pivot, p.heading(), camera.yaw());
-        playerStack = inLooks(inTier(LayerStack.resolve(sprites, p.wardrobe(), p.state(), p.stateTime(), view,
-                p.memory(), p.handsEmpty(), p.stance()), world.wielded(), items), p.wardrobe(), p.inventory(), items,
+        // (a one-handed weapon with a shield on her arm is drawn in the sword's place: Player.looks)
+        Wardrobe looks = p.looks();
+        playerStack = inLooks(inTier(LayerStack.resolve(sprites, looks, p.state(), p.stateTime(), view,
+                p.memory(), p.handsEmpty(), p.stance()), world.wielded(), items), looks, p.inventory(), items,
                 sprites);
         LayerStack.Result stack = playerStack;
         Runnable her = () -> {
@@ -1431,8 +1440,8 @@ public final class WorldRenderer implements AutoCloseable {
      */
     public static int[] wornPalette(int[] palette, Slot slot, String item, String key, Wardrobe wardrobe,
                                     Inventory inventory, ItemSprites items, SpriteLibrary sprites) {
-        if (palette == null || item == null || slot == null || slot == Slot.BODY || slot.carried() || wardrobe == null
-                || items == null || sprites == null) {
+        if (palette == null || item == null || slot == null || slot == Slot.BODY || wardrobe == null
+                || items == null || sprites == null || slot.carried() && !Shields.isFolder(item)) {
             return palette;
         }
         String colour = wardrobe.colour(slot);

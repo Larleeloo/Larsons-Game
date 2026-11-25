@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "mirror_silver": [
+   0
+  ],
+  "mirror_gold": [
+   1
+  ]
+ },
+ "materials": [
+  "mirror_silver",
+  "mirror_gold"
+ ]
+}

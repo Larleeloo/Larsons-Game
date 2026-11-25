@@ -1,0 +1,15 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "aegis_crystal": [
+   0
+  ],
+  "aegis_silver": [
+   1
+  ]
+ },
+ "materials": [
+  "aegis_crystal",
+  "aegis_silver"
+ ]
+}

@@ -428,6 +428,24 @@ left-handed.
 
 - **Defending**: hold **B** to block (the shield up, or the weapon across),
   **Q** parries a blow just as it lands, **V** bashes with the shield.
+- **Shields** (`world/Shields`): twelve, carried on the off-hand arm with
+  any one-handed weapon - the sword, the mace, the wand or the dagger, which
+  then fight in the sword-and-shield moves; a two-handed weapon puts the
+  shield away while she holds it. Raised, a shield rolls its own **block
+  dice** against every blow **from the front** (within its arc), on top of
+  the block's half and before her armour rolls; a blow from the side or
+  behind gets past it. Each point it holds costs stamina, and out of stamina
+  the guard breaks. Its bash rolls its own **bash dice**. Past the round
+  shield, each has a gift: the wicker shield's blocks cost no stamina, the
+  buckler parries a blow met as it is raised, the targe's bash rolls more
+  dice, the heater halves the stamina, the kite shield stops shots from the
+  front whole, the spiked shield deals a blocked blow back, the tower shield
+  covers her sides too, the gear shield bashes all round her, the lantern
+  shield lights the dark round her (and shows her up when she sneaks), the
+  mirror shield sends shots and spells back, and the crystal aegis turns
+  half of what it blocks into mana. Right-click one in the inventory (pad X)
+  to carry it or put it away; the Knight starts with the round shield. The
+  Tailor makes shields of one's own (their dice, tiers, gifts, colours).
 - **Dodging**: a tap of the dodge key **dashes** 3.5 m; held, it becomes a
   **combat roll** of 4.7 m in which nothing can hurt her - she rolls through
   her foes.
@@ -502,6 +520,17 @@ nothing, she is knocked out and back at the start.
 <p align="center">
   <img src="docs/screenshots/dodge.png" width="49%" alt="The dash and the combat roll">
   <img src="docs/screenshots/forge-dice.png" width="49%" alt="A forged sword's three blue d8s over her head: Mystic and Venom under them">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/shields-wand-dagger-sword-with-shields.png" width="49%" alt="From the left: a wand with the kite shield, a dagger with the buckler, a sword with the tower shield raised">
+  <img src="docs/screenshots/shields-shield-up-then-armour.png" width="49%" alt="Shield up, then struck on the torso: the heater shield's two d8s and the steel chestplate's two d10s, fully blocked, 28 against 18">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/shields-twelve-shield-pickups.png" width="32%" alt="The twelve shields lying in the world as pickups">
+  <img src="docs/screenshots/shields-shield-tooltip.png" width="32%" alt="The heater shield in the inventory: rolls 2d8 to block a blow from the front, covers 60 degrees either side, bash 1d8, Steady">
+  <img src="docs/screenshots/shields-tailor-shield.png" width="32%" alt="The Tailor making an Epic forged kite shield, Dawn bulwark: 3d10 to block from the front">
 </p>
 
 <p align="center">
@@ -816,6 +845,24 @@ chooses which with *Follow*.
   longer moment and rarer fish.
 - **Foraging**: bushes of berries, sage, sunfruit and the crystal bloom, in
   their biomes, picked bare and growing back.
+- **Felling trees** (`world/Felling`, `world/Fellings`): with an axe in her
+  hands by a tree, attack (held) or E swings the felling chop at it, blow by
+  blow - five for an oak with a Basic axe, fewer with a better one (a Mythic
+  axe fells it in two). The last blow and it creaks, leans away from her and
+  crashes down, bounces, and breaks up in leaves and bark, leaving **timber**
+  along where it lay (pines resin too, the crystal tree raw crystal). Its
+  stump stays until it grows back, out of her sight. What each tree takes and
+  leaves is its kind's (`fell` in its profile) or its own: in Creative Mode a
+  tree's **Can be felled**, **Blows to fell**, **Grows back after** and
+  **Leaves when felled** loot pool (Start from its kind's copies its kind's in
+  to change) - and selecting several trees sets them all at once.
+
+<p align="center">
+  <img src="docs/screenshots/tree-felling-chop.png" width="32%" alt="The felling chop at an autumn tree: 4 blows left">
+  <img src="docs/screenshots/tree-felling-fall.png" width="32%" alt="The autumn tree down beside its stump">
+  <img src="docs/screenshots/tree-felling-editor.png" width="32%" alt="Creative Mode: a tree's blows to fell and what it leaves when felled">
+</p>
+
 - **Hunting**: game leaves meat, hides, pelts, wool, feathers and antlers.
 - **Locked doors and gates** say what opens them: a key (used up or kept) or
   a price.

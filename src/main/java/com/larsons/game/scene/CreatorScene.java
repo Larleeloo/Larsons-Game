@@ -256,7 +256,7 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
             case CLASS -> classes(ui, bx, by, cw, bh);
             case BEGIN -> begin(ui, bx, by, cw, bh);
         }
-        portrait.hold(heroClass.isEmpty() ? null : stanceOf(weaponOf(heroClass)));
+        portrait.hold(heroClass.isEmpty() ? null : stanceOf(heroClass));
         String who = (name.isBlank() ? "Nameless" : name.trim()) + ", " + people.label()
                 + (heroClass.isEmpty() ? "" : " " + CardBook.get().hero(heroClass).name());
         portrait.draw(ui, 0.016, bx + cw + 24, by, pw, bh, world.player().wardrobe(), size, SaveGame.TALLEST, who);
@@ -277,9 +277,15 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
         ui.end();
     }
 
-    /** The stance a class's weapon is held in: a sword alone is the blade's (no shield comes with it). */
-    private static Stance stanceOf(ItemDef weapon) {
-        return weapon == ItemDef.SWORD ? Stance.BLADE : weapon.stance();
+    /** The stance a class's weapon is held in: the knight's sword and shield; any other sword alone, the blade's. */
+    private static Stance stanceOf(String cls) {
+        ItemDef weapon = weaponOf(cls);
+        return shielded(cls) ? Stance.SWORD : weapon == ItemDef.SWORD ? Stance.BLADE : weapon.stance();
+    }
+
+    /** Whether class {@code cls} sets out with a shield on the arm: the knight, with the round shield. */
+    static boolean shielded(String cls) {
+        return "knight".equals(cls);
     }
 
     private void show(Page p) {
@@ -457,7 +463,8 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
         List<String> out = new ArrayList<>();
         if (!heroClass.isEmpty()) {
             ItemDef weapon = weaponOf(heroClass);
-            out.add("a " + weapon.name().toLowerCase(Locale.ROOT) + (weapon == ItemDef.SWORD ? "" : " and a sword"));
+            out.add("a " + weapon.name().toLowerCase(Locale.ROOT) + (weapon == ItemDef.SWORD ? "" : " and a sword")
+                    + (shielded(heroClass) ? ", and a round shield on your arm" : ""));
         }
         out.add("the clothes you stand in: a shirt, brown pants and boots");
         out.add("ammunition for your weapons, a reshuffle scroll and an upgrade ingot");
@@ -473,6 +480,13 @@ public final class CreatorScene implements Scene, Autopilot.Scriptable {
         ItemDef weapon = weaponOf(heroClass);
         inv.put(Item.of(weapon), 1, false);
         if (weapon != ItemDef.SWORD) inv.put(Item.of(ItemDef.SWORD), 1, false);
+        // the knight's round shield, on her arm; anyone else's arm is empty
+        com.larsons.game.world.Shields.carry(p.wardrobe(), null);
+        if (shielded(heroClass)) {
+            Item shield = Item.of(com.larsons.game.world.Shields.round());
+            inv.put(shield, 1, true);
+            com.larsons.game.world.Shields.carry(p.wardrobe(), shield);
+        }
         for (ItemDef a : Supplies.AMMO) inv.put(Item.of(a), 3, true);
         inv.put(Item.of(Supplies.RESHUFFLE_SCROLL), 1, true);
         inv.put(Item.of(Supplies.UPGRADE_INGOT), 1, true);

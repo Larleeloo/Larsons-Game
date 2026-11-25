@@ -226,6 +226,8 @@ public final class Wearables {
         outfits(out, Rarity.EPIC);
         outfits(out, Rarity.LEGENDARY);
         tailored(out);
+        // the shields, carried on the off-hand arm ({@link Shields}): each drops at its own rarity
+        out.addAll(Shields.defs());
         return List.copyOf(out);
     }
 
@@ -602,6 +604,8 @@ public final class Wearables {
         if (dye != null) return new Pickup(BOTTLE, "liquid", dyeRgb(dye, item.rarity().rgb()));
         String cut = TAILORED_COLOUR.get(d.id());
         if (cut != null) return new Pickup(HANGER, "cloth", DYE_RGB.getOrDefault(cut, item.rarity().rgb()));
+        // a shield: itself, turning, in its own colours
+        if (Shields.is(d)) return new Pickup(d.id(), null, item.rarity().rgb());
         return new Pickup(armour(d) ? SHIELD : HANGER, armour(d) ? "face" : "cloth", item.rarity().rgb());
     }
 

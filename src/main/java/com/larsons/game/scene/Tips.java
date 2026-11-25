@@ -40,6 +40,8 @@ final class Tips {
         TEXT.put("shop", "{USE} opens the shop beside your inventory. Click what you want to buy.");
         TEXT.put("horse", "A horse. With a saddle in your inventory {USE} saddles it; then {USE} rides it.");
         TEXT.put("door", "{USE} goes in and out at doors, and up and down stairs.");
+        TEXT.put("fell", "A tree, an axe in your hands: {ATTACK} (held) or {USE} fells it, blow by blow. It leaves "
+                + "timber where it falls; a better axe takes fewer blows.");
         TEXT.put("quest", "A new mission. {JOURNAL} opens your missions: follow up to four at once.");
         TEXT.put("hurt", "Badly hurt. Keep out of reach for a few seconds and your health comes back, or drink a "
                 + "health potion.");
@@ -55,6 +57,8 @@ final class Tips {
         TEXT.put("spotted", "You have been spotted: no sneak attacks until nobody can see you and no foe is after "
                 + "you.");
         TEXT.put("swim", "Swimming. {CROUCH} dives and {JUMP} comes up; come up before your breath runs out.");
+        TEXT.put("shield", "A shield on your arm. Hold {BLOCK} to raise it: it rolls its dice against blows from "
+                + "the front. {BASH} bashes with it.");
         TEXT.put("climb", "Climbing. Forward goes up and back goes down; it costs stamina. {JUMP} lets go.");
         TEXT.put("night", "Night falls, and people go home. Hold {TIME_LAPSE} to run time fast.");
         TEXT.put("storm", "A storm: people go indoors until it passes. The rain and the dark help you sneak.");

@@ -655,6 +655,14 @@ def _(k):
     return sweep(x, fc, 1.3) * bell(d, 0.5, 1.0) + 0.5 * sweep(x, fc * 0.4, 0.8, "lp") * bell(d, 0.5, 1.0)
 
 
+@sound("player/axe_chop", 0.5)
+def _(k):
+    # the felling axe drawn back over the shoulder and swung in level: a long low swish
+    d = 0.5
+    out = place(silence(d), whoosh(k, 0.12, 300, 700, 400, q=1.2, peak=0.5) * 0.25, 0.0)
+    return place(out, swing(k, 0.3, 220, 1200, 380, 1.3, body=0.9), 0.16)
+
+
 @sound("player/bow_draw", 0.35)
 def _(k):
     d = 0.6
@@ -904,6 +912,23 @@ def _(k):
 @sound("combat/parry", 0.55)
 def _(k):
     return metal(940, 0.8, 0.7, 0.8, k) + 0.5 * metal(1410, 0.8, 0.45, 0.0)
+
+
+@sound("combat/shield_block", 0.65)
+def _(k):
+    # a blow taken on a raised shield: the board's deep knock and its rim ringing after
+    d = 0.5
+    board = 1.2 * thump(k, d, 70, 0.5, 0.12, 0.9, 500) + 0.7 * wood(160, d, 0.18, k)
+    return board + 0.35 * metal(520, d, 0.35, 0.6, k) + 0.2 * metal(780, d, 0.25, 0.0)
+
+
+@sound("combat/guard_break", 0.6)
+def _(k):
+    # too tired to hold the shield up: it is knocked aside, a crack and a clatter
+    d = 0.55
+    out = 0.9 * thump(k, d, 60, 0.7, 0.1, 1.0, 400) + 0.8 * crunch(k, d, 240, 900, 5000, 0.09)
+    place(out, 0.5 * metal(430, 0.3, 0.2, 0.7, k), 0.12)
+    return out + 0.3 * osc(glide(d, [(0, 300), (1, 110)])) * env(d, 0.004, 0.25)
 
 
 @sound("combat/dodge", 0.4)
@@ -2474,6 +2499,38 @@ def _(k):
     for i in range(2):
         place(out, metal(1700 - 200 * i, 0.15, 0.1, 0.3, k) * 0.3, 0.42 + i * 0.2)
     return out
+
+
+@sound("gather/fell_chop", 0.5)
+def _(k):
+    # one blow of a felling axe into a standing trunk: a deep wooden thock, chips flying
+    d = 0.55
+    out = place(silence(d), wood(150, 0.22, 0.09, k) * 1.0, 0.0)
+    place(out, thump(k, 0.12, 110, 0.5, 0.07, 0.6, 600) * 0.6, 0.0)
+    return place(out, crunch(k, 0.14, rate=340, lo=900, hi=4200, decay=0.04) * 0.45, 0.006)
+
+
+@sound("gather/tree_creak", 0.45)
+def _(k):
+    # the last blow struck: fibres tearing, a long groaning creak as it leans and goes
+    d = 1.6
+    out = silence(d)
+    place(out, crunch(k, 0.35, rate=90, lo=500, hi=3000, decay=0.12) * 0.5, 0.0)
+    place(out, creak(k, 0.9, 110, 210, 0.55) * 0.75, 0.1)
+    return place(out, creak(k, 0.6, 160, 90, 0.6) * 0.6, 0.85)
+
+
+@sound("gather/tree_fall", 0.6)
+def _(k):
+    # the crown sweeping down through the air, the trunk crashing on the ground, branches snapping
+    d = 1.5
+    out = silence(d)
+    place(out, rustle(k, 0.45, 600, 5000, 0.35) * bell(0.45, 0.8, 1.4) * 0.5, 0.0)
+    place(out, thump(k, 0.6, 55, 0.7, 0.35, 0.7, 300) * 1.0, 0.4)
+    place(out, crunch(k, 0.5, rate=160, lo=400, hi=3500, decay=0.18) * 0.6, 0.42)
+    for i in range(3):
+        place(out, wood(300 + 80 * i, 0.12, 0.05, k) * 0.35, 0.5 + 0.13 * i)
+    return place(out, rustle(k, 0.6, 1000, 6000, 0.4) * env(0.6, 0.01, 0.4) * 0.35, 0.55)
 
 
 @sound("items/spyglass", 0.35)

@@ -295,6 +295,8 @@ public final class World {
     /** The foraging bushes standing in it, and when each one picked has its pickings again. */
     private List<Scenery.Placed> bushes = List.of();
     private final Map<Scenery.Placed, Double> picked = new IdentityHashMap<>();
+    /** The trees struck with an axe: chopped at, coming down, lying, stumps ({@link Felling}). */
+    private final Fellings fellings = new Fellings();
     /** Where the little creatures live round when nobody is playing (the editor's view); null: round her. */
     private Vec3 focus;
     /** The edges she is kept within (x from, x to, z from, z to), or null: none. */
@@ -334,6 +336,7 @@ public final class World {
         private final Vec3 spawnPoint;
         private final Scenery scenery;
         private final Map<Scenery.Placed, Double> picked;
+        private final Map<Scenery.Placed, Fellings.Tree> felled;
         private final GroundMap ground;
         private final WaterMap water;
         private final Sky sky;
@@ -360,6 +363,7 @@ public final class World {
             spawnPoint = w.spawnPoint;
             scenery = w.scenery;
             picked = new IdentityHashMap<>(w.picked);
+            felled = w.fellings.copy();
             ground = w.ground;
             water = w.water;
             sky = w.sky;
@@ -405,6 +409,7 @@ public final class World {
         setLife(life);
         setScenery(Scenery.NONE);
         picked.clear();
+        fellings.clear();
         setTerrain(Terrain.FLAT);
         setGround(GroundMap.NONE);
         setWater(WaterMap.NONE);
@@ -446,6 +451,7 @@ public final class World {
         setScenery(p.scenery);
         picked.clear();
         picked.putAll(p.picked);
+        fellings.restore(p.felled);
         setGround(p.ground);
         setWater(p.water);
         sky = p.sky;
@@ -926,8 +932,8 @@ public final class World {
                 hurtSaid("", e.damage(), at);
             }
             case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
+                blockedSaid(at);
+                shieldBack(f);
             }
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
@@ -1155,10 +1161,7 @@ public final class World {
             }
             case STRUCK -> hurtSaid("Bitten! ", player.armourRoll() != null && player.armourAge() < 0.05
                     ? player.armourRoll().taken() : sp.damage(), at);
-            case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
-            }
+            case BLOCKED -> blockedSaid(at);
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
                 combat.sound("combat/dodge", sp.position());
@@ -1195,14 +1198,67 @@ public final class World {
             return;
         }
         double dealt = her.blocking() ? Math.round(hit.damage() / 2) : hit.damage();
-        double took = player.struck(dealt);
+        // where it came from: whoever loosed it, else back along its flight
+        Vec3 from = hit.by() instanceof com.larsons.game.combat.Target t ? t.position()
+                : hit.shot().position().sub(hit.shot().velocity().scale(0.5));
+        double took = player.struck(dealt, from, true);
+        if (her.blocking()) shieldBack(hit.by() instanceof com.larsons.game.combat.Target t ? t : null);
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b != null && (b.parried() || b.broken())) {
+            blockedSaid(at);
+            if (b.parried()) return;
+        }
         if (took <= 0 && player.armourHeld()) {
             hurtSaid("", 0, at);
             return;
         }
-        combat.say((her.blocking() ? "Blocked -" : "-") + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at,
-                2.1, her.blocking());
-        combat.sound(her.blocking() ? "combat/block" : "combat/player_hurt", at);
+        String said = b != null && b.blocked() > 0 ? "Shield -" : her.blocking() ? "Blocked -" : "-";
+        combat.say(said + Combat.format(took), her.blocking() ? 0xC8D2DC : HURT_RGB, at, 2.1, her.blocking());
+        combat.sound(b != null && b.blocked() > 0 ? "combat/shield_block" : her.blocking() ? "combat/block"
+                : "combat/player_hurt", at);
+    }
+
+    /**
+     * What is said over her as a blow is blocked: "Parried!" for one her
+     * Quick shield turned as it came up, "Guard broken!" when her shield
+     * was up but she had no stamina to hold it, "Shield held!" when her
+     * shield took it all, else "Blocked" - and heard.
+     */
+    private void blockedSaid(Vec3 at) {
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b != null && b.parried()) {
+            combat.say("Parried!", 0xFFE08A, at, 2.1, true);
+            combat.sound("combat/parry", at);
+        } else if (b != null && b.broken()) {
+            combat.say("Guard broken!", 0xFFD27A, at, 2.1, true);
+            combat.sound("combat/guard_break", at);
+        } else if (b != null && b.blocked() > 0) {
+            combat.say(player.armourHeld() ? "Shield held!" : "Shield -" + Combat.format(b.blocked()), 0xC8D2DC, at,
+                    2.1, true);
+            combat.sound("combat/shield_block", at);
+        } else {
+            combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
+            combat.sound("combat/block", at);
+        }
+    }
+
+    /**
+     * Her shield's gift against whoever struck the blow it has just held off
+     * ({@link Player#lastShield}): a spiked shield deals a blow back to who
+     * struck it, a mirror shield sends a shot back at who loosed it - what
+     * it blocked, either way.
+     */
+    private void shieldBack(com.larsons.game.combat.Target by) {
+        Player.ShieldBlock b = player.shieldJustBlocked() ? player.lastShield() : null;
+        if (b == null || b.blocked() <= 0 || b.broken() || by == null || !by.alive()) return;
+        boolean thorns = b.trait() == Shields.Trait.THORNS && !b.shot();
+        boolean mirror = b.trait() == Shields.Trait.MIRROR && b.shot();
+        if (!thorns && !mirror) return;
+        double d = Math.round(b.blocked());
+        by.hurt(d, player.ground(), true);
+        combat.say((mirror ? "Reflected " : "Thorns ") + Combat.format(d), mirror ? 0xD8E4F4 : 0xC8D2DC,
+                by.position(), by.height() + 0.4, true);
+        if (!by.alive()) felled(by);
     }
 
     /**
@@ -1212,7 +1268,9 @@ public final class World {
      */
     public void hurtSaid(String what, double took, Vec3 at) {
         if (took <= 0 && player.armourRoll() != null && player.armourAge() < 0.05 && player.armourRoll().full()) {
-            combat.say(what + "Armour held!", ARMOUR_RGB, at, 2.1, false);
+            boolean shield = player.shieldJustBlocked() && player.lastShield().blocked() > 0
+                    && player.armourRoll().blocks().size() == 1;
+            combat.say(what + (shield ? "Shield held!" : "Armour held!"), ARMOUR_RGB, at, 2.1, false);
             combat.sound("combat/block", at);
             return;
         }
@@ -1262,7 +1320,7 @@ public final class World {
                 if (in == null) continue;
                 for (Scenery.Placed p : in) {
                     double r = p.radius() + TRUNK_SIGHT, dx = p.x() - x, dz = p.z() - z;
-                    if (dx * dx + dz * dz < r * r) top = Math.max(top, p.y() + sightHeight(p));
+                    if (dx * dx + dz * dz < r * r) top = Math.max(top, p.y() + sightHeight(p, fellings.of(p)));
                 }
             }
         }
@@ -1272,9 +1330,16 @@ public final class World {
     /** How far round a tree's or a rock's trunk it hides what is behind it from sight, metres (its leaves, its bulk). */
     public static final double TRUNK_SIGHT = 0.2;
 
-    /** How high a piece of solid scenery hides what is behind it: a tree all of its height, a rock about its girth. */
-    static double sightHeight(Scenery.Placed p) {
+    /**
+     * How high a piece of solid scenery hides what is behind it: a tree all
+     * of its height, a rock about its girth - and a tree as felling has left
+     * it ({@code felled}, null if never struck), once its last blow is
+     * struck, no more than its stump: foes see over the stump, and over the
+     * trunk coming down.
+     */
+    static double sightHeight(Scenery.Placed p, Fellings.Tree felled) {
         SceneryProfile pr = p.sprite().profile();
+        if (felled != null && !felled.standing()) return Felling.cut(p);
         if (pr.kind() == SceneryProfile.Kind.TREE) return pr.frameWorldHeight() * p.scale() * 0.85;
         return Math.max(0.5, Math.min(pr.frameWorldHeight() * p.scale() * 0.5, p.radius() * 2.2));
     }
@@ -1312,6 +1377,12 @@ public final class World {
         bushes = List.copyOf(b);
         // a bush picked stays picked while the scenery is only hidden (P), and is forgotten with it
         if (next != Scenery.NONE) picked.keySet().retainAll(new java.util.HashSet<>(bushes));
+        // (and a tree felled, the same)
+        if (next != Scenery.NONE) {
+            java.util.Set<Scenery.Placed> standing = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+            standing.addAll(next.placed());
+            fellings.keepOnly(standing);
+        }
     }
 
     /**
@@ -1468,6 +1539,7 @@ public final class World {
             }
         }
         regrowGathered();
+        fell();
         for (Store s : List.copyOf(stores)) {
             s.tick(dt);
             if (s.broken()) smash(s);
@@ -1773,6 +1845,9 @@ public final class World {
             public double hurt(double damage) { return player.struck(damage); }
 
             @Override
+            public double hurt(double damage, Vec3 from, boolean shot) { return player.struck(damage, from, shot); }
+
+            @Override
             public boolean down() { return player.health() <= 0; }
 
             @Override
@@ -1798,8 +1873,8 @@ public final class World {
                 hurtSaid(struck(a.kind()) + " ", e.damage(), at);
             }
             case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
+                blockedSaid(at);
+                shieldBack(a);
             }
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
@@ -1947,10 +2022,7 @@ public final class World {
             case WARNED -> combat.say("!", 0xFFD27A, f.position(), FlyingDummy.HEIGHT + 0.3, false);
             case STRUCK -> hurtSaid("Swooped! ", player.armourRoll() != null && player.armourAge() < 0.05
                     ? player.armourRoll().taken() : FlyingDummy.SWOOP_DAMAGE, at);
-            case BLOCKED -> {
-                combat.say("Blocked", 0xC8D2DC, at, 2.1, true);
-                combat.sound("combat/block", at);
-            }
+            case BLOCKED -> blockedSaid(at);
             case DODGED -> {
                 combat.say("Dodged!", 0x9CC4FF, at, 2.1, true);
                 combat.sound("combat/dodge", f.position());
@@ -2028,6 +2100,18 @@ public final class World {
                 }
                 case HURT -> combat.sound(SoundKeys.player(body, "hurt"), at);
                 case ARMOUR_HELD -> { }        // (said where the blow came from: hurtSaid)
+                case SHIELD_BLOCKED -> {
+                    // a crystal aegis: half of what it held off comes back as mana
+                    Player.ShieldBlock b = player.lastShield();
+                    if (b != null && b.trait() == Shields.Trait.AEGIS && e.amount() > 0) {
+                        double gain = Math.min(combat.maxMana() - combat.mana(), e.amount() * Shields.AEGIS_MANA);
+                        if (gain > 0) {
+                            combat.setMana(combat.mana() + gain);
+                            combat.say("+" + Combat.format(Math.round(gain)) + " mana", 0x7FB2FF, at, 2.5, true);
+                        }
+                    }
+                }
+                case SHIELD_PARRIED, GUARD_BROKEN -> { }   // (said where the blow came from: blockedSaid)
             }
         }
     }
@@ -2249,6 +2333,135 @@ public final class World {
         if (left > 0) spawn(item, player.ground(), left);
         picked.put(bush, time + f.regrow() * life().regrow());
         return got;
+    }
+
+    // --- felling trees ------------------------------------------------------------------
+
+    /** The trees struck with an axe ({@link Felling}). */
+    public Fellings fellings() { return fellings; }
+
+    /** {@code p} as felling has left it, or null - never struck (what the renderer asks). */
+    public Fellings.Tree felled(Scenery.Placed p) {
+        return fellings.of(p);
+    }
+
+    /**
+     * The standing tree she can swing her axe at from where she is: of those
+     * that can be felled, whose bark is within {@link Felling#REACH} of her,
+     * the nearest - those in front of her first; null: none.
+     */
+    public Scenery.Placed choppable() {
+        Vec3 at = player.ground();
+        // the tree she is at already, struck a moment ago: that one still, never the one beside it
+        if (lastChopped != null) {
+            Fellings.Tree t = fellings.of(lastChopped);
+            double gap = Math.hypot(lastChopped.x() - at.x(), lastChopped.z() - at.z()) - lastChopped.radius();
+            if (t != null && t.standing() && time - t.lastBlow() < STILL_AT && gap <= Felling.REACH
+                    && Math.abs(lastChopped.y() - at.y()) <= 1.5) {
+                return lastChopped;
+            }
+            lastChopped = null;
+        }
+        Vec3 f = com.larsons.game.sprite.SpriteView.headingVector(player.heading());
+        Scenery.Placed best = null;
+        double bestScore = Double.MAX_VALUE;
+        long cx = (long) Math.floor(at.x() / CELL), cz = (long) Math.floor(at.z() / CELL);
+        for (long i = cx - 1; i <= cx + 1; i++) {
+            for (long j = cz - 1; j <= cz + 1; j++) {
+                List<Scenery.Placed> in = solidCells.get((i << 32) ^ Math.floorMod(j, 1L << 32));
+                if (in == null) continue;
+                for (Scenery.Placed p : in) {
+                    if (p.kind() != com.larsons.game.sprite.SceneryProfile.Kind.TREE) continue;
+                    if (Math.abs(p.y() - at.y()) > 1.5) continue;
+                    double dx = p.x() - at.x(), dz = p.z() - at.z(), n = Math.hypot(dx, dz);
+                    double gap = n - p.radius();
+                    if (gap > Felling.REACH || !fellings.standing(p) || Felling.rule(p) == null) continue;
+                    double facing = n < 1e-6 ? 1 : (dx * f.x() + dz * f.z()) / n;
+                    double score = gap - 1.5 * facing;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = p;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * One blow of {@code axe} at {@code tree}, struck from where she stands
+     * ({@code tired}: out of breath, a weaker one): how far it has come, and
+     * whether that one felled it - or null when it cannot be felled.
+     */
+    public Fellings.Blow chop(Scenery.Placed tree, Item axe, boolean tired) {
+        double power = Felling.power(axe) * (tired ? Felling.TIRED : 1);
+        Fellings.Blow b = fellings.chop(tree, power, player.ground(), time, terrain);
+        if (b != null) lastChopped = b.felled() ? null : tree;
+        return b;
+    }
+
+    /** The tree she struck last, which she keeps at while it stands ({@link #choppable}), or null. */
+    private Scenery.Placed lastChopped;
+    /** How long after a blow she is still at that tree, seconds. */
+    static final double STILL_AT = 4;
+
+    /** The felled trees brought down, broken up and grown back - heard, seen, and what they leave laid out. */
+    private void fell() {
+        fellings.tick(time, player.ground(), random, loot);
+        for (Fellings.Event e : fellings.drainEvents()) {
+            Scenery.Placed p = e.tree().placed();
+            switch (e.kind()) {
+                case CHOPPED -> {
+                    combat.sound(SoundKeys.GATHER + "/fell_chop", e.at());
+                    shards.burst(e.at(), 0.05, 0.1, TreeColours.of(p).chips(), 7, 0.045, terrain);
+                }
+                case FELLED -> {
+                    combat.sound(SoundKeys.GATHER + "/tree_creak", p.position().add(0, Felling.height(p) * 0.5, 0));
+                    combat.say("Timber!", 0xE8C878, p.position(), Math.min(3.4, Math.max(2.2, Felling.height(p) * 0.6)),
+                            false);
+                }
+                case CRASHED -> {
+                    combat.sound(SoundKeys.GATHER + "/tree_fall", e.at());
+                    TreeColours c = TreeColours.of(p);
+                    for (int i = 0; i < 4; i++) {
+                        shards.burst(Fellings.crown(e.tree(), 0.35 + 0.18 * i), 0.5, 0.4, c.leaves(), 6, 0.08, terrain);
+                    }
+                }
+                case BROKE -> {
+                    TreeColours c = TreeColours.of(p);
+                    for (int i = 0; i < 5; i++) {
+                        Vec3 at = Fellings.crown(e.tree(), 0.2 + 0.17 * i);
+                        shards.burst(at, 0.6, 0.6, i < 2 ? c.chips() : c.leaves(), 9, 0.09, terrain);
+                    }
+                    combat.sound(SoundKeys.GATHER + "/chop", Fellings.crown(e.tree(), 0.4), 0.6);
+                    alongTrunk(e.tree(), e.drops());
+                }
+                default -> { }
+            }
+        }
+    }
+
+    /** {@code drops} laid along where {@code t} fell, from near its cut towards its crown. */
+    private void alongTrunk(Fellings.Tree t, List<Drops.Drop> drops) {
+        int n = 0;
+        for (Drops.Drop d : drops) n += Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+        Vec3 side = com.larsons.game.sprite.SpriteView.headingVector(t.heading() + Math.PI / 2);
+        int i = 0;
+        for (Drops.Drop d : drops) {
+            int heaps = Drops.heaps(d.item()) ? 1 : Math.min(12, d.amount());
+            for (int h = 0; h < heaps; h++, i++) {
+                double along = 0.18 + 0.6 * (i + 0.5) / Math.max(1, n);
+                double off = (i % 2 == 0 ? 1 : -1) * (0.25 + 0.1 * (i % 3));
+                Vec3 at = Fellings.crown(t, along).add(side.x() * off, 0, side.z() * off);
+                if (!lootFits(at.x(), at.z())) {
+                    Vec3 base = t.placed().position();
+                    Vec3 back = com.larsons.game.sprite.SpriteView.headingVector(t.heading());
+                    at = new Vec3(base.x() - back.x() * (t.placed().radius() + 0.4), 0,
+                            base.z() - back.z() * (t.placed().radius() + 0.4));
+                }
+                spawn(d.item(), new Vec3(at.x(), 0, at.z()), Drops.heaps(d.item()) ? d.amount() : 1);
+            }
+        }
     }
 
     /** What eating something gave back: health, stamina, mana (all 0: she had no need of it, and did not eat it). */
@@ -2533,8 +2746,9 @@ public final class World {
      * it lands in, and is drawn there while its slot is the selected one. A
      * wearable goes into no hand and changes nothing she holds: it goes into
      * the rest of the inventory first ({@link Inventory#stow}), out of the
-     * hotbar's way, and is not selected. Returns false (and leaves it lying)
-     * when every slot is full.
+     * hotbar's way, and is not selected - but a shield, when she carries
+     * none, goes onto her off-hand arm ({@link Shields#carry}). Returns false
+     * (and leaves it lying) when every slot is full.
      */
     public boolean pickUp(GroundItem item) {
         if (item.def == Supplies.COINS) {
@@ -2570,6 +2784,11 @@ public final class World {
             player.wardrobe().set(hand, item.def.id());
         }
         if (Inventory.isHotbar(slot) && !aside) select(slot);
+        // a shield, when she carries none: straight onto her off-hand arm
+        if (Shields.is(item.item) && Shields.carriedIn(player.wardrobe()) == null) {
+            Shields.carry(player.wardrobe(), item.item);
+            equipSelected();
+        }
         return true;
     }
 
@@ -2652,6 +2871,12 @@ public final class World {
                 if (player.wardrobe().wearing(hand, def.id())) player.wardrobe().clear(hand);
             }
         }
+        if (Shields.carrying(player.wardrobe(), item)) {
+            // the shield on her arm, when she has no other of it (a Tailor's own, the very one)
+            boolean other = false;
+            for (Item i : player.inventory()) other |= i != null && Shields.carrying(player.wardrobe(), i);
+            if (!other) Shields.carry(player.wardrobe(), null);
+        }
         Wearables.takeOff(player.wardrobe(), player.inventory(), def);
         equipSelected();
         spawnAhead(item, amount);
@@ -2677,6 +2902,12 @@ public final class World {
             ItemDef d = Wearables.wornAs(slot, folder, w.colour(slot));
             if (d == null || Wearables.owned(inv).contains(d)) continue;
             if (inv.stow(Item.of(d)) >= 0) added++;
+        }
+        // the shield on her arm: hers too (one the Tailor made is in her bag already, or is not hers)
+        Slot hand = Shields.carriedIn(w);
+        ItemDef shield = hand == null ? null : Shields.def(w.get(hand));
+        if (shield != null && Armour.forgedId(w.id(hand)) == null && !inv.contains(shield)) {
+            if (inv.stow(Item.of(shield)) >= 0) added++;
         }
         return added;
     }

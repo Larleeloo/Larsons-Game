@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "wicker_weave": [
+   0
+  ],
+  "wicker_rim": [
+   1
+  ],
+  "wicker_boss": [
+   2
+  ]
+ },
+ "materials": [
+  "wicker_weave",
+  "wicker_rim",
+  "wicker_boss"
+ ]
+}

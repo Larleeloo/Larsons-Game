@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "lantern_steel": [
+   0
+  ],
+  "lantern_brass": [
+   1
+  ],
+  "lantern_glass": [
+   2
+  ]
+ },
+ "materials": [
+  "lantern_steel",
+  "lantern_brass",
+  "lantern_glass"
+ ]
+}

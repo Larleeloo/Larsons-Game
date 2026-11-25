@@ -1,0 +1,19 @@
+{
+ "labelsPerMaterial": 6,
+ "parts": {
+  "tower_paint": [
+   0
+  ],
+  "tower_brass": [
+   1
+  ],
+  "tower_wood": [
+   2
+  ]
+ },
+ "materials": [
+  "tower_paint",
+  "tower_brass",
+  "tower_wood"
+ ]
+}
