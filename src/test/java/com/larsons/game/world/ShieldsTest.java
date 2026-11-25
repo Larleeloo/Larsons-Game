@@ -301,4 +301,24 @@ class ShieldsTest {
         world.dropSlot(at);
         assertNull(Shields.carriedFolder(world.player().wardrobe()));
     }
+
+    @Test
+    void itIsPutAwayWhileHerHandsAreEmptyOrHoldATwoHandedWeaponAndSaysWhy() {
+        Player p = carrying("heater_shield");
+        p.setStance(Stance.SWORD);
+        assertNull(Shields.awayBecause(p), "with the sword it is up to be used");
+        for (Stance one : List.of(Stance.MACE, Stance.WAND, Stance.DAGGER)) {
+            p.setStance(one);
+            assertNull(Shields.awayBecause(p), one.toString());
+        }
+        p.setStance(Stance.AXE);
+        assertEquals("the battle axe takes both hands", Shields.awayBecause(p));
+        p.setStance(Stance.BOW);
+        assertEquals("the bow takes both hands", Shields.awayBecause(p));
+        p.setStance(Stance.SWORD);
+        p.setHandsEmpty(true);
+        assertEquals("your hands are empty", Shields.awayBecause(p));
+        p.setHandsEmpty(false);
+        assertNull(Shields.awayBecause(carrying(null)), "no shield, nothing to say");
+    }
 }

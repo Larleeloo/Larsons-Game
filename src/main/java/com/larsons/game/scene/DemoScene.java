@@ -689,16 +689,15 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             if (inventory.hovered() >= 0) inventory.swapWithHotbar(inventory.hovered(), i);
             else select(i);
         }
-        if (in.pressed(Action.HOTBAR_PREV)) select(Math.floorMod(world.player().inventory().selected() - 1, Inventory.HOTBAR));
-        if (in.pressed(Action.HOTBAR_NEXT)) select(Math.floorMod(world.player().inventory().selected() + 1, Inventory.HOTBAR));
+        if (in.pressed(Action.HOTBAR_PREV)) select(stepped(-1));
+        if (in.pressed(Action.HOTBAR_NEXT)) select(stepped(1));
         boolean orbiting = !inventory.open()
                 && (in.mouseDown(GLFW_MOUSE_BUTTON_RIGHT) || in.mouseDown(GLFW_MOUSE_BUTTON_MIDDLE));
         // (a panel up - the workbench, the cauldron, someone talking, the inventory - scrolls with the wheel itself)
         boolean panelUp = story.modal() || inventory.open();
         if (in.scroll() != 0 && !orbiting && !panelUp) {
             // a wheel notch away from you moves the selection left, as in most games
-            int steps = (int) -Math.signum(in.scroll());
-            select(Math.floorMod(p.inventory().selected() + steps, Inventory.HOTBAR));
+            select(stepped((int) -Math.signum(in.scroll())));
             in.consumeScroll();
         }
 
@@ -1003,13 +1002,62 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                 : "Debug off", Theme.ACCENT);
     }
 
-    /** Select hotbar slot {@code i}: what is in it is taken up. */
+    /**
+     * Select hotbar slot {@code i}: what is in it is taken up - but a shield,
+     * which goes on her off-hand arm (or, the one she carries, is put away),
+     * the weapon in her hand kept there.
+     */
     private void select(int i) {
-        Inventory inv = world.player().inventory();
+        Player p = world.player();
+        Inventory inv = p.inventory();
+        Item there = inv.get(i);
+        if (com.larsons.game.world.Shields.is(there) && i != inv.selected()) {
+            var w = p.wardrobe();
+            if (com.larsons.game.world.Shields.carrying(w, there)) {
+                com.larsons.game.world.Shields.carry(w, null);
+                game.toast("Put the " + there.fullName().toLowerCase(java.util.Locale.ROOT) + " away", Theme.HINT);
+            } else {
+                com.larsons.game.world.Shields.carry(w, there);
+                world.equipSelected();
+                boolean away = com.larsons.game.world.Shields.awayBecause(p) != null;
+                game.toast(InventoryPanel.carrying(p, there, game.window().input()),
+                        away ? Theme.WARNING : Theme.ACCENT);
+            }
+            world.equipSelected();
+            Sounds.play(SoundKeys.ui("equip"));
+            game.saveWardrobe();
+            return;
+        }
         if (i == inv.selected()) return;
+        boolean before = com.larsons.game.world.Shields.awayBecause(p) == null;
         Item d = world.select(i);
         Sounds.play(SoundKeys.ui("hotbar_select"));
         if (d != null) Sounds.play(SoundKeys.item(d.id(), "equip"));
+        // a weapon that takes both hands puts her shield away: said the first time
+        String away = com.larsons.game.world.Shields.awayBecause(p);
+        if (before && away != null && d != null && !toldShieldAway) {
+            toldShieldAway = true;
+            game.toast("Your shield is put away: " + away + ". It comes out again with "
+                    + com.larsons.game.world.Shields.ONE_HANDED, Theme.HINT);
+        }
+    }
+
+    /** Whether she has been told her shield is put away while a two-handed weapon is in her hands. */
+    private boolean toldShieldAway;
+
+    /**
+     * The hotbar slot {@code dir} (1: right, -1: left) on from the one
+     * selected that is not a shield (a shield is put on, not taken up in the
+     * hand: its own key does that); the one selected when every other is.
+     */
+    private int stepped(int dir) {
+        Inventory inv = world.player().inventory();
+        int i = inv.selected();
+        for (int n = 1; n < Inventory.HOTBAR; n++) {
+            int at = Math.floorMod(inv.selected() + n * dir, Inventory.HOTBAR);
+            if (!com.larsons.game.world.Shields.is(inv.get(at))) return at;
+        }
+        return i;
     }
 
     /** What E does where she stands: the nearest of the chest, an item lying by her, a bush to pick, a door. */
@@ -1753,9 +1801,14 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
             Sounds.play(SoundKeys.item(d.id(), "pickup"));
             if (com.larsons.game.world.Shields.is(g.item)) {
                 boolean on = com.larsons.game.world.Shields.carrying(world.player().wardrobe(), g.item);
+                String away = com.larsons.game.world.Shields.awayBecause(world.player());
+                var in = game.window().input();
                 game.toast("Picked up " + g.item.fullName() + " (" + g.item.rarity().label() + ")"
-                        + (on ? " — on your arm: hold block (right mouse) to raise it"
-                        : " — carry it from the inventory (I, right-click it)"), g.item.rarity().colour(1f));
+                        + (!on ? " — put it on from the inventory (" + in.label(Action.INVENTORY)
+                        + ", then right-click it), the wardrobe (Esc) or its hotbar key"
+                        : away == null ? " — on your arm: hold " + in.label(Action.BLOCK) + " to raise it"
+                        : " — on your arm, put away for now: " + away + ". Take up "
+                        + com.larsons.game.world.Shields.ONE_HANDED + " to use it"), g.item.rarity().colour(1f));
                 return;
             }
             if (d.isWearable()) {

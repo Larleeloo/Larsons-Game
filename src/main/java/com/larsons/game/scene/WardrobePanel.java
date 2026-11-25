@@ -23,6 +23,7 @@ import com.larsons.game.world.Forged;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Shields;
 import com.larsons.game.world.Wearables;
 
 import java.util.ArrayList;
@@ -163,9 +164,19 @@ public final class WardrobePanel {
         };
     }
 
-    /** The rows of section {@code s} for whom it dresses now. */
+    /** The rows of section {@code s} for whom it dresses now: hers have her shield among the armour. */
     private List<Row> rowsNow(Section s) {
+        if (s == Section.ARMOUR && player != null) {
+            List<Row> out = new ArrayList<>(ARMOUR);
+            out.add(shieldRow());
+            return out;
+        }
         return s == Section.LOOKS && everything != null ? LOOKS_EVERYTHING : rows(s);
+    }
+
+    /** The shield's row: her off hand ({@link Shields#hand}, the right for a left-handed character). */
+    private Row shieldRow() {
+        return new Row(Shields.hand(wd), "Off hand", Kind.ALL);
     }
 
     /** What the button that closes it says ("Back"; the character creator's: "Next"). */
@@ -298,7 +309,7 @@ public final class WardrobePanel {
     static List<Option> options(SpriteLibrary lib, Slot slot, Player player) {
         List<Option> out = new ArrayList<>();
         out.add(new Option(null, null));
-        if (slot.carried()) return out;
+        if (slot.carried()) return shields(out, player);
         Wardrobe wardrobe = player.wardrobe();
         if (Wearables.free(slot)) {
             // the items drawn for the body worn (every body under the body itself)
@@ -330,6 +341,37 @@ public final class WardrobePanel {
         // what she wears and no longer owns stays on until it is taken off (the armour, and the clothes under it)
         addWorn(out, slot, wardrobe);
         return out;
+    }
+
+    /**
+     * The off hand's choices, after "nothing": the shields she owns ({@link
+     * Shields}) - each forged one as itself - and the one on her arm, owned
+     * or not. The sword in a left-handed character's other hand is the
+     * hotbar's, never offered.
+     */
+    static List<Option> shields(List<Option> out, Player player) {
+        for (Item i : player.inventory()) {
+            if (!Shields.is(i)) continue;
+            Option o = new Option(i.def().id(), i.def(), i.forged());
+            if (!out.contains(o)) out.add(o);
+        }
+        Wardrobe w = player.wardrobe();
+        Slot hand = Shields.carriedIn(w);
+        if (hand != null) {
+            String folder = w.get(hand), id = w.id(hand);
+            String forgedId = Armour.forgedId(id);
+            Forged f = forgedId == null ? null : Forged.byId(forgedId);
+            Option on = new Option(Wardrobe.Style.base(folder), Shields.def(folder), f);
+            boolean listed = false;
+            for (Option o : out) listed |= java.util.Objects.equals(o.item(), on.item()) && java.util.Objects.equals(o.id(), on.id());
+            if (!listed && on.wearable() != null) out.add(on);
+        }
+        return out;
+    }
+
+    /** Whether {@code row} is the off hand's: the shield on her arm, not a layer of what she wears. */
+    static boolean shieldRow(Row row) {
+        return row.slot().carried();
     }
 
     /** To {@code out}, what {@code wardrobe} wears in {@code slot} - its armour, its clothes - that none of it is. */
@@ -626,6 +668,12 @@ public final class WardrobePanel {
 
     /** Wear {@code o} by {@code row}: in its layer, the other layer left on (a necklace stays under a gorget). */
     static void chooseIn(Wardrobe wardrobe, Row row, Option o) {
+        if (shieldRow(row)) {
+            // a shield onto her off-hand arm (in whichever hand that is), or "nothing": it put away
+            Shields.carry(wardrobe, o.item() == null || o.wearable() == null ? null
+                    : new Item(o.wearable(), null, o.wearable().wearable().rarity(), null, o.forged()));
+            return;
+        }
         choose(wardrobe, row.slot(), row.layer(), o);
     }
 
@@ -658,6 +706,7 @@ public final class WardrobePanel {
 
     /** The colours of what is worn in {@code slot}: hers, each unlocked or not; or (the editor) every one. */
     private List<Wearables.Colour> cols(Slot slot, Boolean layer) {
+        if (slot.carried()) return List.of();           // (a shield's colours are the Tailor's)
         return player != null ? colours(game.sprites(), slot, player, layer) : everything.colours(slot, wd, null, layer);
     }
 
@@ -861,6 +910,27 @@ public final class WardrobePanel {
                 for (int i = 0; i < part.size(); i++) {
                     row(ui, m, part.get(i), x + gutter + i * (colW + gap), ly, colW, boxH, lib, body, style);
                 }
+                line++;
+            }
+            if (player != null) {
+                // her shield, on her off-hand arm: a band of its own, its dice rolled against blows from the front
+                float ly = ry + line * rowH;
+                ui.rect(x - 4, ly - 4, w + 8, rowH - 4, Theme.withAlpha(STEEL, line % 2 == 0 ? 0.42f : 0.26f));
+                ui.rect(x - 4, ly - 4, 3, rowH - 4, STEEL_LIGHT);
+                m.carved(m.heading, "Shield", x + 6, ly + 2, STEEL_TEXT);
+                Item carried = player.shield();
+                String guard = carried == null ? "none" : Shields.guardText(carried) + ", front";
+                ui.text(m.small, fit(m.small, guard, gutter - 12), x + 6, ly + 24, Theme.withAlpha(STEEL_TEXT, 0.8f));
+                row(ui, m, shieldRow(), x + gutter, ly, colW, boxH, lib, body, style);
+                // beside it: what it needs - one hand free - and why it is put away now, if it is
+                String away = Shields.awayBecause(player);
+                String note = carried == null ? "Carried with " + Shields.ONE_HANDED
+                        : away == null ? "On your arm: hold " + ui.input().label(com.larsons.game.input.Action.BLOCK)
+                        + " to raise it"
+                        : "Put away for now: " + away + ". Take up " + Shields.ONE_HANDED + " to use it";
+                float nx = x + gutter + colW + gap;
+                ui.text(m.small, fit(m.small, note, x + w - nx), nx, ly + 22,
+                        away != null ? Medieval.EMBER : Theme.withAlpha(STEEL_TEXT, 0.8f));
                 line++;
             }
             shelfY = ry + line * rowH + 2;
@@ -1245,6 +1315,7 @@ public final class WardrobePanel {
     }
 
     private void focusOn(Slot slot, Boolean layer) {
+        if (slot.carried()) return;                     // (the shield row has no colours to show)
         if (focus != slot || !java.util.Objects.equals(focusLayer, layer)) offered = null;
         focus = slot;
         focusLayer = layer;
