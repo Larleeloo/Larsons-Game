@@ -852,8 +852,8 @@ final class InventoryPanel {
         String name = shield.fullName().toLowerCase(java.util.Locale.ROOT);
         String away = com.larsons.game.world.Shields.awayBecause(p);
         if (away == null) return "Carrying the " + name + ": hold " + in.label(com.larsons.game.input.Action.BLOCK) + " to raise it";
-        return "Carrying the " + name + ", put away for now: " + away + ". Take up "
-                + com.larsons.game.world.Shields.ONE_HANDED + " to use it";
+        return "Carrying the " + name + ", put away for now: " + away + ". "
+                + com.larsons.game.world.Shields.USE_IT;
     }
 
     private void eat(int slot) {

@@ -924,10 +924,10 @@ public final class WardrobePanel {
                 row(ui, m, shieldRow(), x + gutter, ly, colW, boxH, lib, body, style);
                 // beside it: what it needs - one hand free - and why it is put away now, if it is
                 String away = Shields.awayBecause(player);
-                String note = carried == null ? "Carried with " + Shields.ONE_HANDED
+                String note = carried == null ? "Carried with " + Shields.ONE_HANDED + ", or empty hands"
                         : away == null ? "On your arm: hold " + ui.input().label(com.larsons.game.input.Action.BLOCK)
                         + " to raise it"
-                        : "Put away for now: " + away + ". Take up " + Shields.ONE_HANDED + " to use it";
+                        : "Put away for now: " + away + ". " + Shields.USE_IT;
                 float nx = x + gutter + colW + gap;
                 ui.text(m.small, fit(m.small, note, x + w - nx), nx, ly + 22,
                         away != null ? Medieval.EMBER : Theme.withAlpha(STEEL_TEXT, 0.8f));

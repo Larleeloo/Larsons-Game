@@ -268,19 +268,21 @@ public final class Shields {
         return id == null || id.equals(item.def().id());
     }
 
-    /** What takes up a shield's moves: the one-handed weapons. */
+    /** The weapons a shield is used with: the one-handed ones (or none: empty hands). */
     public static final String ONE_HANDED = "a sword, mace, wand or dagger";
+
+    /** What is said of a shield put away: how to have it out again. */
+    public static final String USE_IT = "Take up " + ONE_HANDED + ", or empty your hands, to use it";
 
     /**
      * Why the shield {@code p} carries is put away - not drawn, not to be
-     * raised - or null when it is up to be used, or she carries none: her
-     * hands are empty, or what is in them takes both hands (the battle axe,
-     * the staff, the bow, the crossbow). Said as the end of a sentence ("the
-     * battle axe takes both hands").
+     * raised - or null when it is up to be used (with a one-handed weapon,
+     * or nothing, in her hand), or she carries none: what is in her hands
+     * takes both (the battle axe, the staff, the bow, the crossbow). Said as
+     * the end of a sentence ("the battle axe takes both hands").
      */
     public static String awayBecause(Player p) {
         if (p == null || !Stance.carriesShield(p.wardrobe()) || p.stance() == Stance.SWORD) return null;
-        if (p.handsEmpty()) return "your hands are empty";
         return "the " + p.weaponStance().label().toLowerCase(Locale.ROOT) + " takes both hands";
     }
 

@@ -1038,7 +1038,7 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
         if (before && away != null && d != null && !toldShieldAway) {
             toldShieldAway = true;
             game.toast("Your shield is put away: " + away + ". It comes out again with "
-                    + com.larsons.game.world.Shields.ONE_HANDED, Theme.HINT);
+                    + com.larsons.game.world.Shields.ONE_HANDED + ", or with empty hands", Theme.HINT);
         }
     }
 
@@ -1807,8 +1807,8 @@ public final class DemoScene implements Scene, Autopilot.Scriptable {
                         + (!on ? " — put it on from the inventory (" + in.label(Action.INVENTORY)
                         + ", then right-click it), the wardrobe (Esc) or its hotbar key"
                         : away == null ? " — on your arm: hold " + in.label(Action.BLOCK) + " to raise it"
-                        : " — on your arm, put away for now: " + away + ". Take up "
-                        + com.larsons.game.world.Shields.ONE_HANDED + " to use it"), g.item.rarity().colour(1f));
+                        : " — on your arm, put away for now: " + away + ". "
+                        + com.larsons.game.world.Shields.USE_IT), g.item.rarity().colour(1f));
                 return;
             }
             if (d.isWearable()) {

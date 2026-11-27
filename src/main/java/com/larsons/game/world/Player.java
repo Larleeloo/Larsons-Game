@@ -1838,7 +1838,8 @@ public final class Player {
     public Stance stance() {
         // a one-handed weapon with a shield on her arm: the sword-and-shield moves, the weapon in the sword's place
         if (stance != Stance.SWORD) return stance.oneHanded() && Stance.carriesShield(wardrobe) ? Stance.SWORD : stance;
-        return handsEmpty ? Stance.BLADE : Stance.ofWardrobe(wardrobe);
+        // (her hands empty: the sword and shield's moves with a shield on her arm, the shield alone drawn)
+        return handsEmpty && !Stance.carriesShield(wardrobe) ? Stance.BLADE : Stance.ofWardrobe(wardrobe);
     }
 
     /**
