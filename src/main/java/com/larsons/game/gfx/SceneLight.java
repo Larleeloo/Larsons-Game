@@ -183,7 +183,7 @@ public final class SceneLight {
                 // nine looks round it, a pixel and a half of the map apart: the leaves' gaps soften into dapples
                 float t = uShadow.z * 1.5;
                 float lit = texture(uShadowMap, c) * 0.2;
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < 8 + uNoUnroll; i++) {
                     float a = float(i) * 0.785398;
                     lit += texture(uShadowMap, c + vec3(cos(a) * t, sin(a) * t, 0.0)) * 0.1;
                 }
@@ -195,8 +195,7 @@ public final class SceneLight {
             vec3 sceneLightShaded(vec3 p, float sh, float dark) {
                 vec3 l = uAmbient * mix(uSunTint, uShadeTint * (1.0 - dark), sh);
                 vec3 q = uLightTexel > 0.0 ? (floor(p / uLightTexel) + 0.5) * uLightTexel : p;
-                for (int i = 0; i < 16; i++) {
-                    if (i >= uLights) break;
+                for (int i = 0; i < min(uLights, 16); i++) {
                     float r = length(q - uLightPos[i].xyz) / uLightPos[i].w;
                     if (r >= 1.0) continue;
                     float f = (1.0 - r) * (1.0 - r);
@@ -223,7 +222,7 @@ public final class SceneLight {
                 float phase = 0.25 + 1.6 * pow(toward, 5.0);
                 float j = slHash(gl_FragCoord.xy + vec2(0.0, floor(uMist.z * 7.0))) ;
                 float lit = 0.0, shade = 0.0;
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 10 + uNoUnroll; i++) {
                     vec3 x = uCamera + rd * (t * (float(i) + j) / 10.0);
                     float air = exp(-max(x.y - uShadowCentre.y, 0.0) * 0.12);
                     float sun = 1.0 - sceneShadowAt(x, 0.0);

@@ -260,29 +260,33 @@ public final class WorldRenderer implements AutoCloseable {
      * (smaller on a low-end machine, then stretched to fill it).
      */
     public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
-        render(world, camera, fbWidth, fbHeight, true);
+        render(world, camera, fbWidth, fbHeight, null);
     }
 
     /**
-     * {@link #render(World, OrbitCamera, int, int)}; {@code scalable} false
-     * draws it at the framebuffer's own size whatever the quality - for a
-     * screen that draws over the world in its depth afterwards (the editor's
-     * marks).
+     * {@link #render(World, OrbitCamera, int, int)}, then {@code over} drawn
+     * over the world in its depth, at its resolution (the editor's marks),
+     * before it is stretched to fill the window. Every screen draws the world
+     * through the same smaller picture this way - on Apple's OpenGL a picture
+     * of another kind would have the driver build every shader of the world
+     * over again.
      */
-    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight, boolean scalable) {
+    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight, Runnable over) {
         com.larsons.game.gfx.Quality q = com.larsons.game.gfx.Quality.now;
         screenHeight = fbHeight;
-        if (scalable && q.scaled()) {
+        if (q.scaled()) {
             if (smaller == null) smaller = new com.larsons.game.gfx.RenderTarget();
             int w = (int) Math.max(1, Math.round(fbWidth * q.renderScale()));
             int h = (int) Math.max(1, Math.round(fbHeight * q.renderScale()));
             if (smaller.begin(w, h)) {
                 draw(world, camera, w, h);
+                if (over != null) over.run();
                 smaller.end(fbWidth, fbHeight);
                 return;
             }
         }
         draw(world, camera, fbWidth, fbHeight);
+        if (over != null) over.run();
     }
 
     /** The world drawn smaller than the window on a low-end machine ({@link #render}); made the first time. */

@@ -58,7 +58,23 @@ public final class Watchdog {
     public static void beat() {
         lastBeat = System.nanoTime();
         reported = false;
+        patience = 0;
+        patientWith = null;
     }
+
+    /**
+     * The frame now being drawn may take up to {@code seconds} without being
+     * a hang - it is {@code what} (a screen's first frame, while the graphics
+     * driver builds its shaders) - until the next {@link #beat}. Past that the
+     * report says what it was waiting on.
+     */
+    public static void patience(int seconds, String what) {
+        patientWith = what;
+        patience = Math.max(STALL_SECONDS, seconds);
+    }
+
+    private static volatile int patience;
+    private static volatile String patientWith;
 
     /** The main thread is waiting on the player on purpose (a file dialog): not a hang until {@code false}. */
     public static void hold(boolean on) {
@@ -76,9 +92,12 @@ public final class Watchdog {
                 return;
             }
             long quiet = (System.nanoTime() - lastBeat) / 1_000_000_000L;
-            if (quiet >= STALL_SECONDS && !reported && !held) {
+            int limit = patience > 0 ? patience : STALL_SECONDS;
+            if (quiet >= limit && !reported && !held) {
                 reported = true;
-                Path p = report("The game has drawn no frame for " + quiet + " seconds: it looks frozen. "
+                String waiting = patientWith;
+                Path p = report("The game has drawn no frame for " + quiet + " seconds: it looks frozen"
+                        + (waiting == null ? "" : " - it was drawing " + waiting) + ". "
                         + "Where every thread is now (the main thread draws):", null);
                 System.err.println("[watchdog] no frame for " + quiet + " s - what each thread is doing is in "
                         + (p == null ? "the console above" : p.toAbsolutePath()) + ". Please send that file.");

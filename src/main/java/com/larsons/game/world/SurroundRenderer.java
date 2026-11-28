@@ -380,7 +380,7 @@ public final class SurroundRenderer implements AutoCloseable {
         shader.set("uNight", (float) Math.max(0, Math.min(1, (0.55 - light.day()) / 0.4)));
         shader.set("uTime", (float) (time % 3600));
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+        shader.firstDraw(() -> glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0));
         com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
         glClear(GL_DEPTH_BUFFER_BIT);

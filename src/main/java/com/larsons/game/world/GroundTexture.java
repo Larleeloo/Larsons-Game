@@ -124,18 +124,19 @@ public final class GroundTexture implements AutoCloseable {
                 vec4 w1 = textureGrad(uGroundMaps, vec3(m, 1.0), mgx, mgy) * inside;
                 vec4 w2 = textureGrad(uGroundMaps, vec3(m, 2.0), mgx, mgy) * inside;
                 vec4 w3 = textureGrad(uGroundMaps, vec3(m, 3.0), mgx, mgy) * inside;
-                float w[16] = float[16](w0.x, w0.y, w0.z, w0.w, w1.x, w1.y, w1.z, w1.w, w2.x, w2.y, w2.z, w2.w,
-                                        w3.x, w3.y, w3.z, w3.w);
                 vec2 fw = fwidth(xz);
                 float far = clamp(max(fw.x, fw.y) / blockSize - 0.5, 0.0, 1.0);
                 float jag = (groundHash(ivec2(block)) - 0.5) * 0.22 * (1.0 - far);
                 float e = 0.02 + 0.2 * far;
                 // the biomes' ground, then the meadow, the forest floor, the gravel, the
-                // dirt, and the roads over them all: the paths run through everything
-                int order[16] = int[16](9, 8, 4, 5, 10, 7, 6, 11, 3, 1, 2, 0, 15, 14, 13, 12);
-                for (int i = 0; i < 16; i++) {
-                    int k = order[i];
-                    float wk = w[k] * uGroundHas[k];
+                // dirt, and the roads over them all: the paths run through everything - in this order:
+                // 9 8 4 5 10 7 6 11 3 1 2 0 15 14 13 12, a material to four bits (no arrays: a loop the
+                // driver keeps a loop, gfx/Shader)
+                for (int i = 0; i < 16 + uNoUnroll; i++) {
+                    uint order = i < 8 ? 0xb67a5489u : 0xcdef0213u;
+                    int k = int((order >> uint(4 * (i & 7))) & 15u);
+                    vec4 wl = k < 4 ? w0 : k < 8 ? w1 : k < 12 ? w2 : w3;
+                    float wk = wl[k & 3] * uGroundHas[k];
                     if (wk <= 0.001) continue;
                     float wave = groundNoise(at * 1.7 + vec2(37.0, 11.0) * float(k + 1)) - 0.5;
                     float t = smoothstep(0.5 - e, 0.5 + e, wk + 0.5 * wave + jag);

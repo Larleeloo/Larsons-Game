@@ -109,6 +109,10 @@ public final class Game implements AutoCloseable {
     private int bootRenders;
 
     private Scene scene;
+    /** Frames the screen has drawn since it opened: its first ones may wait on the driver's shaders (Watchdog). */
+    private int framesOfScene;
+    /** Seconds the watchdog waits on a screen's first frames before it calls it a hang. */
+    private static final int FIRST_FRAMES_PATIENCE = 60;
     private boolean quit;
     private Path pendingShot;
     /** Where dropped files go before the importer ({@link #setDropTarget}), or null. */
@@ -311,7 +315,8 @@ public final class Game implements AutoCloseable {
         boot.watch(Boot.Step.SCENE_SHEETS, r -> {
             // what the first frames draw asks for its sheets; done once they are all on the GPU
             if (bootRenders < 2) {
-                r.detail("seeing what the first frame shows");
+                // (on a Mac the graphics driver builds the world's shaders at this first frame: it can take a while)
+                r.detail("drawing the first frame - the graphics driver readies the world's shaders");
                 return false;
             }
             int resident = sprites.residentCount(), pending = sprites.pendingCount();
@@ -429,8 +434,10 @@ public final class Game implements AutoCloseable {
                 }
             }
         } else if (scene != null) {
-            sb.append("Screen: ").append(scene.name()).append('\n');
+            sb.append("Screen: ").append(scene.name()).append(" (frame ").append(framesOfScene + 1).append(")\n");
         }
+        String slow = com.larsons.game.gfx.Shader.slowBuilds();
+        if (!slow.isEmpty()) sb.append("Slow to build: ").append(slow).append('\n');
         return sb.toString();
     }
 
@@ -678,7 +685,13 @@ public final class Game implements AutoCloseable {
             pointers.clearHint();
             // under the settings the screen is drawn, but hears nothing
             in.setMuted(settingsMenu.open());
+            if (framesOfScene < 2) {
+                // (a screen's first frame: Apple's OpenGL builds the shaders it draws with now - slow, not stuck)
+                Watchdog.patience(FIRST_FRAMES_PATIENCE, "the first frame of " + scene.name()
+                        + " (the graphics driver builds the shaders a screen draws with at its first frame)");
+            }
             scene.render();
+            framesOfScene++;
             in.setMuted(false);
             if (!booting) applyGrade();
             if (booting) bootRenders++;
@@ -892,6 +905,7 @@ public final class Game implements AutoCloseable {
     public void switchTo(Scene next) {
         if (scene != null) scene.exit();
         scene = next;
+        framesOfScene = 0;
         scene.enter();
         window.setTitle(TITLE + " — " + scene.name());
     }
