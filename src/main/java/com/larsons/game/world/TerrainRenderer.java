@@ -77,8 +77,7 @@ public final class TerrainRenderer implements AutoCloseable {
             vec4 vines(vec3 p, vec3 n) {
                 float block = 4.0 * max(uGroundTexel, 0.01);
                 vec4 c = vec4(0.0);
-                for (int i = 0; i < 16; i++) {
-                    if (i >= uWalls) break;
+                for (int i = 0; i < min(uWalls, 16); i++) {
                     vec2 a = uWall[i].xy, b = uWall[i].zw, o = uWallOut[i].xy;
                     float len = max(length(b - a), 1e-4);
                     vec2 dir = (b - a) / len;
@@ -324,7 +323,7 @@ public final class TerrainRenderer implements AutoCloseable {
         light.bind(shader);
         ground.bind(shader, 0);
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+        shader.firstDraw(() -> glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0));
         com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
     }

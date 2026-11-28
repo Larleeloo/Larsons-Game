@@ -1484,6 +1484,18 @@ machine, the graphics, what was loading - when no frame has been drawn for 10
 seconds, and `logs/crash-<date>.txt` when the game crashes. That file is what
 to send Larson.
 
+**Shaders on a Mac.** Apple's OpenGL (on Metal) builds a shader for the GPU
+only when it first draws with it, and the world's biggest - the sky and the
+ground, `world/VoidRenderer` - once took an M1 over a minute: the menu's first
+frame stood still. The world's shaders now count their loops with `uNoUnroll`
+(a uniform every program gets from `gfx/Shader`, never set, so 0), which the
+driver cannot unroll, and draw the backdrops from one place: about a third of
+the work to build, the same picture to the pixel. Every screen draws the world
+through the same smaller picture on a Retina screen (the editor's marks too),
+so nothing is built twice; a screen's first frames may take up to a minute
+before the watchdog calls them a hang, and a shader slow at its first draw is
+named on the console and in the report.
+
 ### The loading screen
 
 The window opens at once on a screen that shows every step of loading -

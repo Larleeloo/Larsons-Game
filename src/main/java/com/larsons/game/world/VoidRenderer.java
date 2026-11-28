@@ -120,7 +120,7 @@ public final class VoidRenderer implements AutoCloseable {
 
             float skFbm(vec2 p) {
                 float a = 0.5, s = 0.0;
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 4 + uNoUnroll; i++) {
                     s += a * skNoise(p);
                     p = p * 2.03 + vec2(17.1, 9.3);
                     a *= 0.5;
@@ -131,9 +131,10 @@ public final class VoidRenderer implements AutoCloseable {
             // a 4 x 4 ordered dither, per pixel of the sky's art (cell), -0.5 .. 0.5
             float skBayer(vec2 cell) {
                 ivec2 c = ivec2(mod(cell, 4.0));
-                int i = c.x + c.y * 4;
-                int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-                return float(m[i]) / 16.0 - 0.47;
+                // (the matrix 0 8 2 10 / 12 4 14 6 / 3 11 1 9 / 15 7 13 5, from the bits of x ^ y and y)
+                int a = c.x ^ c.y, b = c.y;
+                int m = ((a & 1) << 3) | ((b & 1) << 2) | (a & 2) | ((b >> 1) & 1);
+                return float(m) / 16.0 - 0.47;
             }
 
             // a sky direction from its azimuth (degrees from north through east) and elevation
@@ -333,7 +334,7 @@ public final class VoidRenderer implements AutoCloseable {
                         : h * (0.07 * (1.0 - abs(2.0 * bdNoise(az, 97.0, seed + 11.0) - 1.0))
                         + 0.035 * (1.0 - abs(2.0 * bdNoise(az, 211.0, seed + 13.0) - 1.0)));
                 float ownP = 1e9, ownD = 0.0, ownW = 1.0;
-                for (int j = -2; j <= 2; j++) {
+                for (int j = -2; j <= 2 + uNoUnroll; j++) {
                     float i = mod(i0 + float(j), cells);
                     float p, w, d, top;
                     if (round) {
@@ -366,7 +367,7 @@ public final class VoidRenderer implements AutoCloseable {
             // whether azimuth az is on a tree's trunk in a tree line (its crowns' cells, as bdProfile has them)
             bool bdTrunk(float az, float seed) {
                 float cells = floor(360.0 / 1.2), cw = 360.0 / cells, i0 = floor(az / cw);
-                for (int j = -1; j <= 1; j++) {
+                for (int j = -1; j <= 1 + uNoUnroll; j++) {
                     float i = mod(i0 + float(j), cells);
                     float a = (i + 0.5 + 0.4 * (bdHash(i + seed * 41.0) - 0.5)) * cw;
                     if (abs(mod(az - a + 180.0, 360.0) - 180.0) < cw * 0.11) return true;
@@ -380,7 +381,7 @@ public final class VoidRenderer implements AutoCloseable {
                     float cells = floor(360.0 / 1.2), cw = 360.0 / cells, i0 = floor(az / cw);
                     float roll = 0.65 + 0.35 * bdNoise(az, 23.0, seed + 9.0);
                     float top = 0.4 * roll;
-                    for (int j = -1; j <= 1; j++) {
+                    for (int j = -1; j <= 1 + uNoUnroll; j++) {
                         float i = mod(i0 + float(j), cells);
                         float a = (i + 0.5 + 0.4 * (bdHash(i + seed * 41.0) - 0.5)) * cw;
                         float t = abs(mod(az - a + 180.0, 360.0) - 180.0) / (cw * (0.55 + 0.3 * bdHash(i + seed * 43.0)));
@@ -409,7 +410,7 @@ public final class VoidRenderer implements AutoCloseable {
                 return 0.0;
             }
 
-            vec4 backdropsAt(float az, float el, vec3 horizon, bool onEdge);
+            void backdropsAt(vec2 farAt, vec2 nearAt, bool nearToo, vec3 horizon, out vec4 far, out vec4 near);
 
             // whether the level has edges: then the backdrops stand round them
             bool edged() {
@@ -438,35 +439,24 @@ public final class VoidRenderer implements AutoCloseable {
                 return vec2(az, degrees(atan(max(at.y - 2.0, 0.0), halfSize)));
             }
 
-            // the backdrops over the sky (or the far ground) seen along dir; a = 0 where there are none
-            vec4 backdrops(vec3 dir, vec3 horizon, bool ground) {
-                vec4 c = vec4(0.0);
-                if (uBackdrops == 0) return c;
-                float az = degrees(atan(dir.x, -dir.z));
-                if (az < 0.0) az += 360.0;
-                float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
-                return backdropsAt(az, el, horizon, false);
-            }
-
-            // the backdrops standing round the level's edge, where dir crosses it at `at`; a = 0 where none is
-            vec4 backdropsOnEdge(vec3 at, vec3 horizon) {
-                if (uBackdrops == 0 || at.y < 0.0) return vec4(0.0);
-                vec2 v = edgeView(at);
-                return backdropsAt(v.x, v.y, horizon, true);
-            }
-
-            // the backdrops at azimuth az and elevation el (degrees) - those round the level's edge (onEdge), or
-            // those far off at the horizon (and any set on the edge of a level that has none); a = 0 where none is
-            vec4 backdropsAt(float az, float el, vec3 horizon, bool onEdge) {
-                vec4 c = vec4(0.0);
+            // the backdrops: far, those far off at the horizon (and any set on the edge of a level that has none)
+            // at farAt - azimuth and elevation, degrees; near, those round the level's edge at nearAt (a point on
+            // the edge as edgeView has it), when nearToo. a = 0 where none is. Both in the one loop: the shader is
+            // built far faster with this drawn once than with it copied in for each (gfx/Shader).
+            void backdropsAt(vec2 farAt, vec2 nearAt, bool nearToo, vec3 horizon, out vec4 far, out vec4 near) {
+                far = vec4(0.0);
+                near = vec4(0.0);
                 float px = max(uBdPixel, 0.02);
-                float qaz = (floor(az / px) + 0.5) * px, qel = (floor(el / px) + 0.5) * px;
-                if (qel < -1.5) return c;
-                for (int i = 0; i < 8; i++) {
-                    if (i >= uBackdrops) break;
+                vec2 qFar = (floor(farAt / px) + 0.5) * px, qNear = (floor(nearAt / px) + 0.5) * px;
+                bool edgy = edged();
+                for (int i = 0; i < min(uBackdrops, 8); i++) {
                     int kind = int(uBdA[i].x + 0.5);
                     if (kind == 4) continue;                 // the sea is drawn on the ground
-                    if ((uBdC[i].w > 0.5 && edged()) != onEdge) continue;
+                    bool onEdge = uBdC[i].w > 0.5 && edgy;
+                    if (onEdge && !nearToo) continue;
+                    vec2 q = onEdge ? qNear : qFar;
+                    float qaz = q.x, qel = q.y;
+                    if (qel < -1.5) continue;
                     float arc = bdArc(qaz, uBdC[i].x, uBdC[i].y);
                     if (arc <= 0.0) continue;
                     // where the arc tapers off at its ends, everything is lower by as much
@@ -509,9 +499,9 @@ public final class VoidRenderer implements AutoCloseable {
                     float foot = clamp(1.0 - qel / max(uBdA[i].y, 0.5), 0.0, 1.0);
                     float haze = clamp(uBdA[i].z + (1.0 - uBdA[i].z) * 0.35 * foot * foot, 0.0, 1.0);
                     haze = floor(haze * 8.0 + 0.5) / 8.0;
-                    c = vec4(mix(col, horizon, haze), 1.0);
+                    if (onEdge) near = vec4(mix(col, horizon, haze), 1.0);
+                    else far = vec4(mix(col, horizon, haze), 1.0);
                 }
-                return c;
             }
 
             // the sea, where it stands in for the ground at p (t metres out): a = 0 where there is none
@@ -519,8 +509,7 @@ public final class VoidRenderer implements AutoCloseable {
                 if (uBackdrops == 0) return vec4(0.0);
                 float az = degrees(atan(dir.x, -dir.z));
                 if (az < 0.0) az += 360.0;
-                for (int i = 0; i < 8; i++) {
-                    if (i >= uBackdrops) break;
+                for (int i = 0; i < min(uBackdrops, 8); i++) {
                     if (int(uBdA[i].x + 0.5) != 4) continue;
                     if (edged()) {
                         // its shore that far out past the level's edge, all round it (the arc round the middle)
@@ -591,13 +580,21 @@ public final class VoidRenderer implements AutoCloseable {
                 bool edges = edged() && uBackdrops > 0;
                 float te = edges ? edgeAlong(dir) : 1e9;
                 vec3 atEdge = uEye + dir * max(te, 0.0);
-                if (dir.y >= -1e-4 || uEye.y <= 0.0) {
-                    if (uPass == 2) discard;
+                bool skyward = dir.y >= -1e-4 || uEye.y <= 0.0;
+                if (uPass == 2 && (skyward || p.x < uInside.x || p.x > uInside.y || p.z < uInside.z || p.z > uInside.w)) {
+                    discard;
+                }
+                // the backdrops far off at the horizon, and those round the level's edge where the view crosses it
+                // (looking up, or out over the edge before the ground) - in front of them
+                float az = degrees(atan(dir.x, -dir.z));
+                if (az < 0.0) az += 360.0;
+                float el = degrees(asin(clamp(dir.y, -1.0, 1.0)));
+                bool nearToo = edges && te >= 0.0 && atEdge.y >= 0.0 && (skyward || (uPass != 1 && t > te));
+                vec4 far, near;
+                backdropsAt(vec2(az, el), nearToo ? edgeView(atEdge) : vec2(0.0), nearToo, uHorizon, far, near);
+                if (skyward) {
                     vec3 sky = skyColour(dir, max(uBdPixel, 0.02));
-                    // far off at the horizon, then - in front of them - those round the level's edge
-                    vec4 far = backdrops(dir, uHorizon, false);
                     vec3 col = mix(sky, far.rgb, far.a);
-                    vec4 near = edges && te >= 0.0 ? backdropsOnEdge(atEdge, uHorizon) : vec4(0.0);
                     if (near.a > 0.5) {
                         col = near.rgb;
                         vec4 clip = uViewProj * vec4(atEdge, 1.0);
@@ -608,20 +605,15 @@ public final class VoidRenderer implements AutoCloseable {
                 }
                 if (uPass == 1) {
                     // the sky only: below it, the far ground (drawn after, round the level) fades into the horizon
-                    vec4 foot = backdrops(dir, uHorizon, true);
-                    fragColor = vec4(mix(uHorizon, foot.rgb, foot.a), 1.0);
+                    fragColor = vec4(mix(uHorizon, far.rgb, far.a), 1.0);
                     return;
                 }
-                if (uPass == 2 && (p.x < uInside.x || p.x > uInside.y || p.z < uInside.z || p.z > uInside.w)) discard;
-                if (edges && t > te && te >= 0.0) {
-                    // out over the edge before the ground: a backdrop stands there, or beyond it the far plain
-                    vec4 far = backdropsOnEdge(atEdge, uHorizon);
-                    if (far.a > 0.5) {
-                        fragColor = vec4(far.rgb, 1.0);
-                        vec4 clip = uViewProj * vec4(atEdge, 1.0);
-                        gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
-                        return;
-                    }
+                if (near.a > 0.5) {
+                    // out over the edge before the ground: a backdrop stands there (else beyond it the far plain)
+                    fragColor = vec4(near.rgb, 1.0);
+                    vec4 clip = uViewProj * vec4(atEdge, 1.0);
+                    gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
+                    return;
                 }
                 vec3 c = uGroundTile > 0.0 ? grass : studioFloor(p);
                 c *= sceneLight(p);
@@ -634,7 +626,6 @@ public final class VoidRenderer implements AutoCloseable {
                 vec4 water = sea(dir, p, t, uHorizon);
                 c = mix(c, water.rgb, water.a);
                 // a far backdrop's foot, just under the horizon, over the ground faded into it
-                vec4 far = backdrops(dir, uHorizon, true);
                 c = mix(c, far.rgb, far.a * fog);
                 fragColor = vec4(c, 1.0);
 
@@ -782,7 +773,7 @@ public final class VoidRenderer implements AutoCloseable {
         ground.bind(shader, 0);
         bindHills(terrain, GroundTexture.UNITS);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        shader.firstDraw(() -> glDrawArrays(GL_TRIANGLES, 0, 3));
         com.larsons.game.core.Perf.drew(0);
         glBindVertexArray(0);
         glDepthFunc(GL_LEQUAL);
