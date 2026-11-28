@@ -160,6 +160,16 @@ public final class Autopilot {
                     waiting = 1e-6;
                     return;
                 }
+                // The right button clicked at a point: "rclick 640 360" (in the inventory: eat, carry a shield).
+                case "rclick" -> {
+                    String[] xy = arg.split("[ ,]+");
+                    var in = game.window().input();
+                    in.mouseMoved(Double.parseDouble(xy[0]), Double.parseDouble(xy[1]));
+                    in.mouseButtonEvent(1, true);
+                    releases.add(() -> in.mouseButtonEvent(1, false));
+                    waiting = 1e-6;
+                    return;
+                }
                 // The wheel turned where the pointer is: "scroll -5" (down five notches).
                 case "scroll" -> {
                     game.window().input().scrolled(Double.parseDouble(arg.trim()));

@@ -42,9 +42,14 @@ final class HowToPlay {
         List<String> out = new java.util.ArrayList<>(List.of(
                 "A shield goes on your off-hand arm - the left, or the right if you are left-handed - beside any "
                         + "one-handed weapon: the sword, the mace, the wand or the dagger, each then fought with in "
-                        + "the sword and shield's moves. Right-click it in the inventory to carry it, or to put it "
-                        + "away. The battle axe, the staff, the bow and the crossbow take both hands: the shield is "
-                        + "put away while you hold one.",
+                        + "the sword and shield's moves. It needs no weapon: with your hands empty you carry it "
+                        + "all the same, raise it and bash with it, and strike with your bare hand. Put one on, or away, in any of three ways: right-click it "
+                        + "in the inventory ({INVENTORY}; X on a gamepad), pick it under Shield in the Armour tab "
+                        + "of the pause menu's Wardrobe, or, on the keyboard, press its hotbar number - a shield on "
+                        + "the hotbar goes on your arm and the weapon you hold stays in your hand (the wheel and "
+                        + "the d-pad pass over it). A shield you pick up goes straight onto a "
+                        + "bare arm. The battle axe, the staff, the bow and the crossbow take both hands: the shield "
+                        + "is put away while you hold one.",
                 "Hold {BLOCK} to raise it. Blocking still halves every blow, and a blow from in front of you - "
                         + "within the shield's cover - also meets the shield's own dice, rolled above the hotbar "
                         + "before your armour's. A blow from the side or from behind gets past it. Each point it "

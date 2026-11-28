@@ -7,6 +7,7 @@ import com.larsons.game.sprite.Wardrobe;
 import com.larsons.game.world.Item;
 import com.larsons.game.world.ItemDef;
 import com.larsons.game.world.Player;
+import com.larsons.game.world.Shields;
 import com.larsons.game.world.Wearables;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -490,5 +491,58 @@ class WardrobePanelTest {
         if (steel > 0) assertNotEquals(steel, WardrobePanel.current(plates, Slot.NECKLACE, wr, true),
                 "the forged gorget is not taken for the steel one it is made from");
         assertFalse(WardrobePanel.colours(lib, Slot.NECKLACE, player, true).isEmpty(), "dyed like any other");
+    }
+
+    @Test
+    void theShieldRowOffersHerShieldsAndPutsTheOneChosenOnHerOffHandArm() {
+        Item heater = Item.of(Shields.def("heater_shield")), buckler = Item.of(Shields.def("buckler"));
+        player.inventory().add(heater);
+        player.inventory().add(buckler);
+        player.inventory().add(Item.of(w("hair_bob")));                 // (not a shield: not offered)
+        assertEquals(java.util.Arrays.asList(null, "heater_shield", "buckler"), items(Slot.CARRY_LEFT));
+        assertEquals(List.of("None", "Heater shield", "Buckler"), labels(Slot.CARRY_LEFT));
+        WardrobePanel.Row row = new WardrobePanel.Row(Slot.CARRY_LEFT, "Shield", WardrobePanel.Kind.ALL);
+        assertTrue(WardrobePanel.shieldRow(row));
+        List<WardrobePanel.Option> o = WardrobePanel.options(lib, Slot.CARRY_LEFT, player);
+        Wardrobe wr = player.wardrobe();
+        assertEquals(0, WardrobePanel.current(o, Slot.CARRY_LEFT, wr), "nothing on her arm");
+
+        WardrobePanel.chooseIn(wr, row, o.get(1));
+        assertTrue(Shields.carrying(wr, heater));
+        assertEquals(1, WardrobePanel.current(o, Slot.CARRY_LEFT, wr));
+        assertNotNull(player.shield());
+        // another in its place
+        WardrobePanel.chooseIn(wr, row, o.get(2));
+        assertTrue(Shields.carrying(wr, buckler));
+        assertFalse(Shields.carrying(wr, heater));
+        assertEquals(2, WardrobePanel.current(o, Slot.CARRY_LEFT, wr));
+        // "None" puts it away
+        WardrobePanel.chooseIn(wr, row, o.get(0));
+        assertNull(Shields.carriedFolder(wr));
+        assertEquals(0, WardrobePanel.current(o, Slot.CARRY_LEFT, wr));
+    }
+
+    @Test
+    void aLeftHandedCharactersShieldGoesOnHerRightArmFromTheWardrobe() {
+        Wardrobe wr = player.wardrobe();
+        wr.setHand(Wardrobe.Hand.LEFT);
+        wr.set(Slot.CARRY_LEFT, "sword");                               // (her sword: the hotbar's, never offered)
+        Item kite = Item.of(Shields.def("kite_shield"));
+        player.inventory().add(kite);
+        assertEquals(Slot.CARRY_RIGHT, Shields.hand(wr));
+        assertEquals(java.util.Arrays.asList(null, "kite_shield"), items(Slot.CARRY_RIGHT));
+        List<WardrobePanel.Option> o = WardrobePanel.options(lib, Slot.CARRY_RIGHT, player);
+        WardrobePanel.chooseIn(wr, new WardrobePanel.Row(Slot.CARRY_RIGHT, "Shield", WardrobePanel.Kind.ALL), o.get(1));
+        assertEquals("kite_shield", wr.get(Slot.CARRY_RIGHT));
+        assertEquals("sword", wr.get(Slot.CARRY_LEFT), "the sword left in her hand");
+        assertEquals(1, WardrobePanel.current(o, Slot.CARRY_RIGHT, wr));
+    }
+
+    @Test
+    void theShieldOnHerArmIsOfferedOwnedOrNotAndAShieldOfHerOwnAsItself() {
+        Wardrobe wr = player.wardrobe();
+        Shields.carry(wr, Item.of(Shields.def("tower_shield")));          // (an outfit saved with it on)
+        assertEquals(java.util.Arrays.asList(null, "tower_shield"), items(Slot.CARRY_LEFT));
+        assertEquals(1, WardrobePanel.current(WardrobePanel.options(lib, Slot.CARRY_LEFT, player), Slot.CARRY_LEFT, wr));
     }
 }

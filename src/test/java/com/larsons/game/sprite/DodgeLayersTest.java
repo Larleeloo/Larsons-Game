@@ -66,7 +66,10 @@ class DodgeLayersTest {
         assertEquals(List.of("hero", "round_shield", "sword"), drawn(w, null, false));
         assertEquals(List.of("hero", "battle_axe"), drawn(w, Stance.AXE, false),
                 "the axe in her hands, the sword and shield put away");
-        assertEquals(List.of("hero"), drawn(w, Stance.BLADE, true), "her hands empty: nothing in them");
+        assertEquals(List.of("hero", "round_shield"), drawn(w, Stance.SWORD, true),
+                "her hands empty: the sword not drawn, the shield on her arm still is");
+        w.clear(Slot.CARRY_LEFT);
+        assertEquals(List.of("hero"), drawn(w, Stance.BLADE, true), "her hands empty, no shield: nothing in them");
     }
 
     /** The items drawn for {@code w} dashing east holding {@code holding}, once every sheet is in. */

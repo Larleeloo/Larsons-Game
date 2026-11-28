@@ -196,12 +196,23 @@ public final class LayerStack {
     /**
      * {@link #resolve(SpriteLibrary, Wardrobe, AnimState, double, SpriteView, Memory)},
      * with the character's hands empty ({@code handsEmpty}): what the
-     * wardrobe carries - the sword, the shield - is not drawn (a weapon
-     * stance's own weapon still is).
+     * wardrobe carries in her hand - the sword - is not drawn, but a shield
+     * on her arm still is (a weapon stance's own weapon still is too).
      */
     public static Result resolve(SpriteLibrary lib, Wardrobe wardrobe, AnimState state,
                                  double time, SpriteView view, Memory memory, boolean handsEmpty) {
         return resolve(lib, wardrobe, state, time, view, memory, handsEmpty, null);
+    }
+
+    /**
+     * What is drawn in the hand {@code slot} of a character whose hands are
+     * empty: the shield on her arm, if it is that hand's ({@link
+     * com.larsons.game.world.Shields}) - she carries it with no weapon in
+     * her hand - else nothing.
+     */
+    private static String shieldOf(Slot slot, Wardrobe wardrobe) {
+        String item = wardrobe.get(slot);
+        return com.larsons.game.world.Shields.isFolder(item) ? item : null;
     }
 
     /**
@@ -229,7 +240,7 @@ public final class LayerStack {
         Slot[] order = drawOrder(left, elev, facing);
         for (Slot slot : order) {
             String item = !slot.carried() ? wardrobe.get(slot)
-                    : handsEmpty && !hands.weapon() ? null : hands.carried(slot, wardrobe);
+                    : handsEmpty && !hands.weapon() ? shieldOf(slot, wardrobe) : hands.carried(slot, wardrobe);
             if (item == null || wardrobe.hidden(slot)) continue;
             SpriteLibrary.Source src = lib.source(bodyItem, slot, item, wardrobe.style(), left);
             SpriteLibrary.Resolved file = lib.resolve(src, state, elev, facing);

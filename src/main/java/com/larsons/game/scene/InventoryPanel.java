@@ -614,7 +614,8 @@ final class InventoryPanel {
                 Item there = inv.get(hovered);
                 if (shop != null && there != null) sell(hovered);
                 else if (there != null && there.def().edible() && !shift) eat(hovered);
-                else if (held == null && !shift && com.larsons.game.world.Shields.is(there)) carryShield(there);
+                // (a shield is carried with a chest or a box open beside the inventory too)
+                else if (!shift && com.larsons.game.world.Shields.is(there)) carryShield(there, in);
                 else if (held == null && !shift && com.larsons.game.world.Upgrades.has(there)) {
                     // a weapon with tiers: them, beside the inventory
                     tiersOf = tiersOf == hovered ? -1 : hovered;
@@ -633,7 +634,10 @@ final class InventoryPanel {
             int pay = shop == null ? 0 : shop.offerFor(there);
             String hint = shop != null ? (pay > 0 ? "Right-click or Shift-click: sell one for " + coins(pay)
                     : shop.buys() ? "The shop will not take this" : "This shop buys nothing")
-                    : into != null ? (there.def().edible() ? "Right-click: eat one · " : "")
+                    : into != null ? (there.def().edible() ? "Right-click: eat one · "
+                    : com.larsons.game.world.Shields.is(there)
+                    ? (com.larsons.game.world.Shields.carrying(world.player().wardrobe(), there)
+                    ? "Right-click: put it away · " : "Right-click: carry it on your off-hand arm · ") : "")
                     + "Shift-click: put in " + into
                     : there.def().edible() ? "Right-click: eat one · Shift-click: move"
                     : com.larsons.game.world.Shields.is(there)
@@ -823,19 +827,33 @@ final class InventoryPanel {
      * one she carries - put it away. It is fought with in the sword-and-shield
      * moves whatever one-handed weapon she holds.
      */
-    private void carryShield(Item item) {
+    private void carryShield(Item item, com.larsons.game.input.Input in) {
         var w = world.player().wardrobe();
         if (com.larsons.game.world.Shields.carrying(w, item)) {
             com.larsons.game.world.Shields.carry(w, null);
             game.toast("Put the " + item.fullName().toLowerCase(java.util.Locale.ROOT) + " away", Theme.HINT);
         } else {
             com.larsons.game.world.Shields.carry(w, item);
-            game.toast("Carrying the " + item.fullName().toLowerCase(java.util.Locale.ROOT)
-                    + ": hold block (right mouse) to raise it", Theme.ACCENT);
+            world.equipSelected();
+            boolean away = com.larsons.game.world.Shields.awayBecause(world.player()) != null;
+            game.toast(carrying(world.player(), item, in), away ? Theme.WARNING : Theme.ACCENT);
         }
         world.equipSelected();
         Sounds.play(SoundKeys.ui("equip"));
         game.saveWardrobe();
+    }
+
+    /**
+     * What is said as she takes up {@code shield}: how to raise it - or, when
+     * it is put away ({@link com.larsons.game.world.Shields#awayBecause}: her
+     * hands empty, a weapon that takes both), why, and what to take up to use it.
+     */
+    static String carrying(com.larsons.game.world.Player p, Item shield, com.larsons.game.input.Input in) {
+        String name = shield.fullName().toLowerCase(java.util.Locale.ROOT);
+        String away = com.larsons.game.world.Shields.awayBecause(p);
+        if (away == null) return "Carrying the " + name + ": hold " + in.label(com.larsons.game.input.Action.BLOCK) + " to raise it";
+        return "Carrying the " + name + ", put away for now: " + away + ". "
+                + com.larsons.game.world.Shields.USE_IT;
     }
 
     private void eat(int slot) {

@@ -301,4 +301,46 @@ class ShieldsTest {
         world.dropSlot(at);
         assertNull(Shields.carriedFolder(world.player().wardrobe()));
     }
+
+    @Test
+    void itIsPutAwayWhileHerHandsHoldATwoHandedWeaponAndSaysWhy() {
+        Player p = carrying("heater_shield");
+        p.setStance(Stance.SWORD);
+        assertNull(Shields.awayBecause(p), "with the sword it is up to be used");
+        for (Stance one : List.of(Stance.MACE, Stance.WAND, Stance.DAGGER)) {
+            p.setStance(one);
+            assertNull(Shields.awayBecause(p), one.toString());
+        }
+        p.setStance(Stance.AXE);
+        assertEquals("the battle axe takes both hands", Shields.awayBecause(p));
+        p.setStance(Stance.BOW);
+        assertEquals("the bow takes both hands", Shields.awayBecause(p));
+        p.setStance(Stance.SWORD);
+        p.setHandsEmpty(true);
+        assertNull(Shields.awayBecause(p), "with empty hands it is up to be used too");
+        p.setHandsEmpty(false);
+        assertNull(Shields.awayBecause(carrying(null)), "no shield, nothing to say");
+    }
+
+    @Test
+    void itNeedsNoWeaponHerHandsEmptySheRaisesItAndBashesWithIt() {
+        Player p = carrying("kite_shield");
+        p.setStance(Stance.SWORD);
+        p.setHandsEmpty(true);
+        assertTrue(p.handsEmpty());
+        assertEquals(Stance.SWORD, p.stance(), "the sword and shield's moves, the shield alone in them");
+        raise(p, 20);
+        assertEquals(AnimState.SHIELD_READY, p.state());
+        assertTrue(p.shieldUp(), "raised with nothing in her hand");
+        double took = p.struck(12, FRAME_FRONT(p), false);
+        Player.ShieldBlock b = p.lastShield();
+        assertNotNull(b, "its dice rolled against the blow");
+        assertTrue(b.blocked() > 0);
+        assertEquals(Math.max(0, 12 - b.blocked()), took, 1e-9);
+        // and with no shield, empty hands are the lone blade's (nothing drawn in them)
+        Player bare = carrying(null);
+        bare.setStance(Stance.SWORD);
+        bare.setHandsEmpty(true);
+        assertEquals(Stance.BLADE, bare.stance());
+    }
 }

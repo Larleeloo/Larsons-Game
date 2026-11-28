@@ -210,7 +210,7 @@ class WearablesTest {
         world.player().inventory().swap(Inventory.HOTBAR, 0);
         assertEquals(Item.of(w("silver_necklace")), world.select(0));
         assertTrue(world.player().handsEmpty());
-        assertEquals(Stance.BLADE, world.player().stance());
+        assertEquals(Stance.SWORD, world.player().stance(), "(the shield on her arm needs no weapon)");
         assertNull(world.wielded());
 
         // with the axe in hand, a wearable picked up leaves it there

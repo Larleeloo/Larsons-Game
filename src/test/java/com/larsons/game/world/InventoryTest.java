@@ -112,8 +112,8 @@ class InventoryTest {
         w.select(0);
         assertEquals(Stance.AXE, p.stance());
         w.select(3);
-        assertTrue(p.handsEmpty(), "an empty slot: empty hands, not the wardrobe's sword and shield");
-        assertEquals(Stance.BLADE, p.stance());
+        assertTrue(p.handsEmpty(), "an empty slot: empty hands, not the wardrobe's sword");
+        assertEquals(Stance.SWORD, p.stance(), "the shield on her arm needs no weapon");
         assertNull(w.wielded());
     }
 

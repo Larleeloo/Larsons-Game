@@ -443,9 +443,15 @@ left-handed.
   covers her sides too, the gear shield bashes all round her, the lantern
   shield lights the dark round her (and shows her up when she sneaks), the
   mirror shield sends shots and spells back, and the crystal aegis turns
-  half of what it blocks into mana. Right-click one in the inventory (pad X)
-  to carry it or put it away; the Knight starts with the round shield. The
-  Tailor makes shields of one's own (their dice, tiers, gifts, colours).
+  half of what it blocks into mana. Put one on or away by right-clicking it
+  in the inventory (pad X), by picking it under **Shield** in the
+  wardrobe's Armour tab, or with its hotbar number (a shield on the hotbar
+  goes on her arm and the weapon stays in her hand; the wheel and the d-pad
+  pass over it). One picked up goes straight onto a bare arm, and the Knight
+  starts with the round shield. It needs no weapon: with her hands empty
+  she carries it all the same, raises it and bashes with it. A two-handed
+  weapon puts it away, and the game says so. The Tailor makes shields of
+  one's own (their dice, tiers, gifts, colours).
 - **Dodging**: a tap of the dodge key **dashes** 3.5 m; held, it becomes a
   **combat roll** of 4.7 m in which nothing can hurt her - she rolls through
   her foes.
