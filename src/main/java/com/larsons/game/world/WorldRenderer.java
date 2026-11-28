@@ -253,8 +253,44 @@ public final class WorldRenderer implements AutoCloseable {
     /** How many pieces of scenery were in view, the last frame drawn. */
     public int sceneryInView() { return scenery.drawn(); }
 
-    /** Draw {@code world} - its scenery as {@link World#scenery()} has it - from {@code camera}. */
+    /**
+     * Draw {@code world} - its scenery as {@link World#scenery()} has it - from
+     * {@code camera}, over a framebuffer of {@code fbWidth x fbHeight}: at the
+     * resolution {@link com.larsons.game.gfx.Quality#renderScale} asks for
+     * (smaller on a low-end machine, then stretched to fill it).
+     */
     public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
+        render(world, camera, fbWidth, fbHeight, true);
+    }
+
+    /**
+     * {@link #render(World, OrbitCamera, int, int)}; {@code scalable} false
+     * draws it at the framebuffer's own size whatever the quality - for a
+     * screen that draws over the world in its depth afterwards (the editor's
+     * marks).
+     */
+    public void render(World world, OrbitCamera camera, int fbWidth, int fbHeight, boolean scalable) {
+        com.larsons.game.gfx.Quality q = com.larsons.game.gfx.Quality.now;
+        screenHeight = fbHeight;
+        if (scalable && q.scaled()) {
+            if (smaller == null) smaller = new com.larsons.game.gfx.RenderTarget();
+            int w = (int) Math.max(1, Math.round(fbWidth * q.renderScale()));
+            int h = (int) Math.max(1, Math.round(fbHeight * q.renderScale()));
+            if (smaller.begin(w, h)) {
+                draw(world, camera, w, h);
+                smaller.end(fbWidth, fbHeight);
+                return;
+            }
+        }
+        draw(world, camera, fbWidth, fbHeight);
+    }
+
+    /** The world drawn smaller than the window on a low-end machine ({@link #render}); made the first time. */
+    private com.larsons.game.gfx.RenderTarget smaller;
+    /** The window's own height in pixels, this frame: what a backdrop's pixel is measured against. */
+    private int screenHeight = 1;
+
+    private void draw(World world, OrbitCamera camera, int fbWidth, int fbHeight) {
         glViewport(0, 0, fbWidth, fbHeight);
         double aspect = fbWidth / (double) Math.max(1, fbHeight);
         Mat4 viewProj = camera.viewProjection(aspect);
@@ -269,6 +305,10 @@ public final class WorldRenderer implements AutoCloseable {
         // (a building's dark is near; a hall's or a cave's as far as the level's fog says, a cave's nearer)
         float fogFar = world.indoors() ? INDOOR_FOG : indoors ? (float) (sky.fog() * (over == Sky.Cover.CAVE
                 ? CAVE_FOG : 0.8)) : (float) sky.fog();
+        // (a low-end machine sees less far out under the sky: the haze closes in, and what is past it is not drawn)
+        float levelFog = fogFar;
+        if (!indoors) fogFar = com.larsons.game.gfx.Quality.now.fogFar(fogFar);
+        boolean nearer = fogFar < levelFog;
         Vec3 eye = camera.eye();
         frustum = new com.larsons.game.math.Frustum(viewProj);
 
@@ -286,7 +326,7 @@ public final class WorldRenderer implements AutoCloseable {
             // (a building's floors are its own; a hall's or a cave's ground is the level's, under no sky)
             if (!world.indoors()) {
                 voidRenderer.useGround(world.ground());
-                float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+                float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, screenHeight) * 3;
                 Sky none = new Sky(Weathering.rgb(dark), Weathering.rgb(dark), fogFar, List.of(),
                         Atmosphere.STILL);
                 voidRenderer.draw(camera, aspect, fogFar, viewProj, ground, none, unlit(light, dark), sceneLight,
@@ -296,7 +336,7 @@ public final class WorldRenderer implements AutoCloseable {
         } else {
             voidRenderer.useGround(world.ground());
             // a backdrop's pixel: three of the screen's, as the sprites' pixels are about
-            float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, fbHeight) * 3;
+            float pixel = (float) Math.toDegrees(camera.fovY()) / Math.max(1, screenHeight) * 3;
             if (around) {
                 // the sky, the far ring over it, then the level's own ground within its edges (the backdrops far off)
                 voidRenderer.setEdges(null);
@@ -327,7 +367,9 @@ public final class WorldRenderer implements AutoCloseable {
         scenery.bendAwayFrom(walkers(world));
         scenery.showBare(world::picked);
         scenery.showFelled(world::felled, world.time());
-        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright);
+        // (with the view cut short, what stands well past the haze is left out: it could not be seen)
+        scenery.draw(batch, world.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera, upright,
+                nearer ? fogFar * 1.5 + 8 : 0);
         if (around) {
             // (out past the fog, the trees round the level are not drawn at all)
             scenery.draw(batch, surround.scenery(), viewProj, fog, fogFar, world.weatherNow().windClock(), camera,
@@ -1707,5 +1749,6 @@ public final class WorldRenderer implements AutoCloseable {
         if (surround != null) surround.close();
         if (shadowMap != null) shadowMap.close();
         if (lookFilter != null) lookFilter.close();
+        if (smaller != null) smaller.close();
     }
 }

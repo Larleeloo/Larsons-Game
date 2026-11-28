@@ -144,6 +144,27 @@ class BootTest {
     }
 
     @Test
+    void backgroundWorkThatNeverFinishesIsLetGoAfterALimitAndReported() {
+        Boot b = boot(Map.of(), null);
+        List<Boot.Status> late = new ArrayList<>();
+        b.onLate(late::add);
+        b.watch(Boot.Step.SCENE_SHEETS, r -> false);    // a sheet that never comes in
+        Boot.Status s = b.status(Boot.Step.SCENE_SHEETS);
+        clock.ms((Boot.LATE - 1) * 1000);
+        b.poll();
+        assertEquals(Boot.Phase.RUNNING, s.phase(), "a slow machine still gets its time");
+        assertEquals(List.of(), late);
+        clock.ms(2000);
+        b.poll();
+        assertEquals(Boot.Phase.DONE, s.phase(), "the game starts without it");
+        assertTrue(s.summary().startsWith("not finished after 45 s"), s.summary());
+        assertEquals(List.of(s), late, "the report of what it was doing is written once");
+        b.poll();
+        assertEquals(1, late.size());
+        assertEquals(0, Boot.Step.SCENE.limit(), "work on the main thread is waited for");
+    }
+
+    @Test
     void backgroundWorkThatBreaksIsLetGoNotFatal() {
         Boot b = boot(Map.of(), null);
         b.watch(Boot.Step.MUSIC, r -> {

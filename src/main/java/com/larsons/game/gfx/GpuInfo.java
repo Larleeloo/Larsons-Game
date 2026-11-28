@@ -34,11 +34,12 @@ public record GpuInfo(String vendor, String renderer, String version, int maxTex
         return isSoftware(renderer) || isSoftware(vendor);
     }
 
-    static boolean isSoftware(String name) {
+    public static boolean isSoftware(String name) {
         String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
         return n.contains("llvmpipe") || n.contains("softpipe") || n.contains("swrast")
                 || n.contains("software rasterizer") || n.contains("gdi generic")
-                || n.contains("basic render") || n.contains("lavapipe");
+                || n.contains("basic render") || n.contains("lavapipe") || n.contains("swiftshader")
+                || n.contains("apple software renderer");
     }
 
     /** One line for the console and the HUD. */

@@ -158,7 +158,9 @@ public final class Critters {
 
     /** How many of a kind belong round the player now (the last look round): for tests and the editor. */
     public double wanted(CritterKind kind, double day) {
-        return kind.cap() * life.density(kind) * kind.out(day) * Math.min(1.5, share.get(kind));
+        // (times how much of the little life a low-end machine is asked to show: Settings, Display)
+        return kind.cap() * life.density(kind) * kind.out(day) * Math.min(1.5, share.get(kind))
+                * com.larsons.game.gfx.Quality.now.life();
     }
 
     /**

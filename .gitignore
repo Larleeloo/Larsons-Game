@@ -40,6 +40,8 @@ bin/
 /config/
 # F12 screenshots.
 /screenshots/
+# Hang and crash reports (logs/hang-*.txt, logs/crash-*.txt) for the player to send.
+/logs/
 
 ### Python ###
 __pycache__/

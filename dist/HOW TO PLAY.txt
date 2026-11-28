@@ -156,6 +156,9 @@ SENDING FEEDBACK TO LARSON
   folder inside the Larsons-Game folder (the run before that one is
   "previous.log"). It has everything the game printed, which helps
   Larson find the problem.
+- If the game froze or crashed, the "logs" folder also has a
+  "hang-<date>.txt" or "crash-<date>.txt" file: it says exactly what
+  the game was doing at that moment. Send that one too.
 
 
 IF SOMETHING GOES WRONG
@@ -163,6 +166,21 @@ IF SOMETHING GOES WRONG
 "needs Java 21" even though you installed it:
     restart the computer and try again. If it still says so, uninstall
     any old Java versions or install Temurin 21 from step 1.
+
+The game is slow or choppy on a low-end machine (a MacBook Air, a
+laptop without a graphics card of its own, 8 GB of memory):
+    the game notices such a machine and starts with the Lite graphics
+    on its own: no shadows, no Vibrant visuals or light rays, a shorter
+    view, fewer critters, 60 frames a second. Settings > Display >
+    Graphics switches between Auto, Full and Lite, and every setting
+    under it can still be changed one by one. On a Mac with an M1, M2
+    or newer chip, use the Apple Silicon Java (Temurin 21 "aarch64"):
+    the Intel one runs much slower there, and "Play on Mac" says so.
+
+The game freezes (stops moving) while it is loading or playing:
+    leave it 10 seconds, then send Larson the newest "hang-....txt"
+    file from the "logs" folder. If a loading step takes too long, the
+    game now starts without waiting for it.
 
 The game is slow or choppy on a Windows laptop:
     many laptops have two graphics chips and give Java the slower one.

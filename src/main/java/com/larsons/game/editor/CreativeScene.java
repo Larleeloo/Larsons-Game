@@ -1551,7 +1551,8 @@ public final class CreativeScene implements Scene, Autopilot.Scriptable {
         for (LevelObject o : selection) if (ObjectTypes.builds(o.type())) lit.add(o.id());
         game.worldRenderer().highlightBuildings(lit);
         game.worldRenderer().setFoeSight(game.settings().foeSight);
-        game.worldRenderer().render(view.world(), camera, fw, fh);
+        // (at the window's own size: the marks drawn next are tested against the world's depth)
+        game.worldRenderer().render(view.world(), camera, fw, fh, false);
         game.worldRenderer().highlightBuildings(null);
         Mat4 vp = camera.viewProjection(fw / (double) Math.max(1, fh));
         marks(vp);

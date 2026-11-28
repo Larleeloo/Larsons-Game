@@ -16,7 +16,8 @@ import java.util.Map;
  *
  * <pre>
  *   -Dlarsons.gpu=required        warn loudly if the driver is a software rasteriser
- *   -Dlarsons.gpu.msaa=4          multisample anti-aliasing samples (0 = off)
+ *   -Dlarsons.gpu.msaa=4          multisample anti-aliasing samples (0 = off), for this run (else Settings → Display)
+ *   -Dlarsons.graphics=lite       Full or Lite graphics for this run, whatever the machine (else Settings → Display)
  *   -Dlarsons.gpu.vsync=on        wait for the display's refresh, for this run (else Pause → Settings → Vsync)
  *   -Dlarsons.fps=120             the frame rate to hold (0 = as fast as it goes; see FramePacer)
  *   -Dlarsons.fps.log=true        print the frame rate and frame times to the console twice a second
@@ -34,7 +35,14 @@ import java.util.Map;
 public final class Settings {
 
     public final boolean gpuRequired;
-    public final int msaa;
+    /**
+     * Multisampling, samples (0: off): the window is made with it, so a change
+     * shows at the next start. {@code -Dlarsons.gpu.msaa} sets it for one run;
+     * {@link #setMsaa} is the player's (or the graphics profile's) choice.
+     */
+    public int msaa;
+    private int savedMsaa = 4;
+    private final boolean msaaGiven;
     /**
      * Wait for the display's refresh ({@link FramePacer}). {@code
      * -Dlarsons.gpu.vsync} sets it for one run without changing what is
@@ -43,7 +51,10 @@ public final class Settings {
     public boolean vsync;
     private boolean savedVsync = true;
     private final boolean vsyncGiven;
-    public final long vramBytes;
+    /** Video memory the sprite cache may use: {@code -Dlarsons.sprites.vramMB}, else the graphics profile's. */
+    public long vramBytes;
+    /** Whether {@link #vramBytes} was given on the command line (a profile leaves it alone then). */
+    public final boolean vramGiven;
     public final Path assets;
     public final Path config;
     /** Where the sprites folders are: {@link #assets}, or the root of its sprite pack (found on first use). */
@@ -167,6 +178,81 @@ public final class Settings {
     /** With Vibrant visuals: shafts of light worked out from the sun and the shadows. */
     public boolean lightRays = true;
     private com.larsons.game.gfx.Visuals visuals;
+    /**
+     * The graphics ({@link GraphicsProfile}): "auto" - Lite on a low-end
+     * machine, Full otherwise ({@link Hardware#verdict}) - or "full" or "lite"
+     * whatever the machine. {@code -Dlarsons.graphics} sets it for one run.
+     */
+    public String graphics = "auto";
+    /** Set for this run only by {@code -Dlarsons.graphics} (not saved). */
+    private String graphicsGiven = "";
+    /**
+     * The profile "auto" last put into these settings ("full", "lite"; "" not
+     * yet): it is put in once for a machine, and the player's changes after
+     * that are kept - until the machine is found to be another kind.
+     */
+    public String graphicsApplied = "";
+    /** The world's resolution, as a share of the window's pixels ({@code gfx/Quality#renderScale}): 1, 0.75, 0.5. */
+    public double renderScale = 1;
+    /** How far the world is seen through the haze, as a share of the level's own (1, 0.7, 0.5). */
+    public double viewDistance = 1;
+    /** How many critters, wandering animals and raindrops there are, as a share of what the place has (1, 0.5, 0.25). */
+    public double wildlife = 1;
+    private com.larsons.game.gfx.Quality quality;
+
+    /** How much the machine is asked to draw, as Display has it. */
+    public com.larsons.game.gfx.Quality quality() {
+        if (quality == null || quality.renderScale() != clampScale(renderScale)
+                || quality.viewDistance() != viewDistance || quality.life() != wildlife) {
+            quality = new com.larsons.game.gfx.Quality(clampScale(renderScale), viewDistance, wildlife);
+        }
+        return quality;
+    }
+
+    private static double clampScale(double s) {
+        return Math.max(0.25, Math.min(1, s));
+    }
+
+    /** The graphics chosen ("auto", "full" or "lite"): this run's {@code -Dlarsons.graphics}, else the saved choice. */
+    public String graphicsChoice() {
+        return graphicsGiven.isEmpty() ? graphics : graphicsGiven;
+    }
+
+    /** The profile to draw with on a machine {@code detected} suits: the one chosen, else the machine's. */
+    public GraphicsProfile profile(GraphicsProfile detected) {
+        return GraphicsProfile.of(graphicsChoice(), detected);
+    }
+
+    /** Whether {@code -Dlarsons.graphics=full} or {@code lite} picked the graphics for this run. */
+    public boolean graphicsForced() {
+        return GraphicsProfile.of(graphicsGiven, null) != null;
+    }
+
+    /** Whether the graphics are left to the machine ({@link #graphics} "auto"). */
+    public boolean autoGraphics() {
+        return GraphicsProfile.of(graphicsChoice(), null) == null;
+    }
+
+    /** The frame rate saved (what the player or the profile chose), whatever this run's {@code -Dlarsons.fps}. */
+    public int savedFps() {
+        return savedFps;
+    }
+
+    /** The multisampling saved, whatever this run's {@code -Dlarsons.gpu.msaa}. */
+    public int savedMsaa() {
+        return savedMsaa;
+    }
+
+    /** The player (or a profile) picks multisampling: saved, and used from the next start (the window has its own). */
+    public void setMsaa(int samples) {
+        savedMsaa = Math.max(0, Math.min(16, samples));
+        if (!msaaGiven) msaa = savedMsaa;
+    }
+
+    /** Whether the multisampling was given on the command line for this run. */
+    public boolean msaaGiven() {
+        return msaaGiven;
+    }
 
     /** How the world looks, as Display has it. */
     public com.larsons.game.gfx.Visuals visuals() {
@@ -181,11 +267,17 @@ public final class Settings {
 
     private Settings() {
         gpuRequired = "required".equalsIgnoreCase(System.getProperty("larsons.gpu", ""));
-        msaa = intProperty("larsons.gpu.msaa", 4);
+        msaa = intProperty("larsons.gpu.msaa", -1);
+        msaaGiven = msaa >= 0;
+        if (!msaaGiven) msaa = savedMsaa;
         String v = System.getProperty("larsons.gpu.vsync");
         vsyncGiven = v != null && !v.isBlank();
         vsync = !vsyncGiven || !isOff(v);
-        vramBytes = (long) intProperty("larsons.sprites.vramMB", 1536) << 20;
+        int vramMB = intProperty("larsons.sprites.vramMB", -1);
+        vramGiven = vramMB > 0;
+        vramBytes = (long) (vramGiven ? vramMB : GraphicsProfile.FULL.vramMB) << 20;
+        String g = System.getProperty("larsons.graphics", "").trim().toLowerCase(java.util.Locale.ROOT);
+        graphicsGiven = g.equals("auto") || GraphicsProfile.of(g, null) != null ? g : "";
         assets = resolveAssets();
         config = Path.of("config");
         start = System.getProperty("larsons.start", "menu");
@@ -196,6 +288,11 @@ public final class Settings {
         fps = intProperty("larsons.fps", -1);
         logFrames = Boolean.getBoolean("larsons.fps.log");
         logPerf = Boolean.getBoolean("larsons.perf.log");
+    }
+
+    /** The settings a first start has, before any {@code settings.json} (the tests' own). */
+    static Settings defaults() {
+        return new Settings();
     }
 
     public static Settings load() {
@@ -247,6 +344,13 @@ public final class Settings {
                 s.vibrant = Json.bool(j, "vibrant", true);
                 s.vibrantStrength = Math.max(0, Math.min(1, Json.num(j, "vibrantStrength", s.vibrantStrength)));
                 s.lightRays = Json.bool(j, "lightRays", true);
+                s.savedMsaa = Math.max(0, Math.min(16, (int) Json.num(j, "msaa", 4)));
+                s.graphics = Json.str(j, "graphics", "auto");
+                if (!s.graphics.equals("auto") && GraphicsProfile.of(s.graphics, null) == null) s.graphics = "auto";
+                s.graphicsApplied = Json.str(j, "graphicsApplied", "");
+                s.renderScale = clampScale(Json.num(j, "renderScale", 1));
+                s.viewDistance = Math.max(0.3, Math.min(1, Json.num(j, "viewDistance", 1)));
+                s.wildlife = Math.max(0, Math.min(1, Json.num(j, "wildlife", 1)));
             } catch (IOException | RuntimeException e) {
                 System.err.println("[settings] ignoring " + file + ": " + e.getMessage());
             }
@@ -254,6 +358,7 @@ public final class Settings {
         if (s.spriteScale <= 0) s.spriteScale = 1.0;
         if (!fpsGiven) s.fps = s.savedFps;
         if (!s.vsyncGiven) s.vsync = s.savedVsync;
+        if (!s.msaaGiven) s.msaa = s.savedMsaa;
         String anim = System.getProperty("larsons.animations", "").trim().toLowerCase();
         if (anim.equals("classic") || anim.equals("v1")) s.classicAnimations = true;
         else if (anim.equals("new")) s.classicAnimations = false;
@@ -261,6 +366,17 @@ public final class Settings {
     }
 
     public void save() {
+        Map<String, Object> j = toJson();
+        try {
+            Files.createDirectories(config);
+            Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.err.println("[settings] cannot save: " + e.getMessage());
+        }
+    }
+
+    /** What {@link #save} writes. */
+    Map<String, Object> toJson() {
         Map<String, Object> j = new LinkedHashMap<>();
         j.put("spriteScale", spriteScale);
         j.put("fps", savedFps);
@@ -293,12 +409,56 @@ public final class Settings {
         j.put("vibrant", vibrant);
         j.put("vibrantStrength", vibrantStrength);
         j.put("lightRays", lightRays);
-        try {
-            Files.createDirectories(config);
-            Files.writeString(config.resolve("settings.json"), Json.stringify(j), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            System.err.println("[settings] cannot save: " + e.getMessage());
+        j.put("msaa", savedMsaa);
+        j.put("graphics", graphics);
+        j.put("graphicsApplied", graphicsApplied);
+        j.put("renderScale", renderScale);
+        j.put("viewDistance", viewDistance);
+        j.put("wildlife", wildlife);
+        if (unforced != null) {
+            // -Dlarsons.graphics was for this run: what it put in is saved as it was before (what the player
+            // changed since is theirs)
+            for (Map.Entry<String, Object> e : graphicsValues().entrySet()) {
+                if (java.util.Objects.equals(e.getValue(), forced.get(e.getKey()))) {
+                    j.put(e.getKey(), unforced.get(e.getKey()));
+                }
+            }
         }
+        return j;
+    }
+
+    /** The graphics settings before {@code -Dlarsons.graphics} put its profile's in, and what it put in. */
+    private Map<String, Object> unforced, forced;
+
+    /**
+     * Draw with {@code p}'s graphics for this run only ({@code
+     * -Dlarsons.graphics}): put in now, but not saved - the next start
+     * without it has the settings as they were.
+     */
+    public void force(GraphicsProfile p, double density) {
+        Map<String, Object> before = graphicsValues();
+        p.apply(this, density);
+        if (unforced == null) unforced = before;
+        forced = graphicsValues();
+    }
+
+    /** The player chose the graphics themselves (Settings, Display): saved from now on, whatever this run was given. */
+    public void keepGraphics() {
+        unforced = forced = null;
+    }
+
+    private Map<String, Object> graphicsValues() {
+        Map<String, Object> j = new LinkedHashMap<>();
+        j.put("shadows", shadows);
+        j.put("vibrant", vibrant);
+        j.put("vibrantStrength", vibrantStrength);
+        j.put("lightRays", lightRays);
+        j.put("fps", savedFps);
+        j.put("msaa", savedMsaa);
+        j.put("renderScale", renderScale);
+        j.put("viewDistance", viewDistance);
+        j.put("wildlife", wildlife);
+        return j;
     }
 
     /** The player picks a frame rate (0: uncapped): used now, and saved. */

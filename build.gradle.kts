@@ -1,4 +1,5 @@
 import java.io.File
+import java.lang.management.ManagementFactory
 import org.apache.tools.ant.filters.FixCrLfFilter
 
 plugins {
@@ -50,6 +51,12 @@ dependencies {
 val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
 val isLinux = System.getProperty("os.name", "").lowercase().contains("linux")
 val isWindows = System.getProperty("os.name", "").lowercase().contains("windows")
+// The machine's memory: one of 8 GB or less (a MacBook Air, which shares it with
+// the graphics) gets a smaller heap that hands back what it no longer needs
+// (same rule as core/Launcher.memoryFlags).
+val totalMemory: Long = (ManagementFactory.getOperatingSystemMXBean()
+        as? com.sun.management.OperatingSystemMXBean)?.totalMemorySize ?: 0L
+val lowMemory = totalMemory > 0 && totalMemory <= (9L shl 30)
 // ZGC runs on 64-bit x86 everywhere and on ARM64 Linux and macOS.
 val zgcSupported = System.getProperty("os.arch", "").lowercase().let { arch ->
     arch == "amd64" || arch == "x86_64" || (arch == "aarch64" && !isWindows)
@@ -64,7 +71,11 @@ application {
     // headless. A heap proportional to the machine, as in the engine, because
     // 512x512 sprite sheets are what memory is spent on.
     applicationDefaultJvmArgs = buildList {
-        add("-XX:MaxRAMPercentage=60")
+        add(if (lowMemory) "-XX:MaxRAMPercentage=50" else "-XX:MaxRAMPercentage=60")
+        if (lowMemory && zgcSupported) {
+            add("-XX:SoftMaxHeapSize=${totalMemory * 3 / 10 shr 20}m")
+            add("-XX:ZUncommitDelay=30")
+        }
         // A collector that never stops the game for more than a fraction of a
         // millisecond. The default (G1) paused the render thread for up to
         // ~50 ms while sprite sheets decoded - six frames at 120 fps.
@@ -126,18 +137,18 @@ fun discreteGpuEnvironment(): Map<String, String> {
 //   ./gradlew runGpu
 //
 // Same game, same classpath as `run`, plus: the discrete GPU requested where
-// the OS lets us ask, 4x MSAA on, and `larsons.gpu=required`, which
+// the OS lets us ask, and `larsons.gpu=required`, which
 // makes the game say so loudly (console and HUD) if the driver it got is a
 // software rasteriser rather than real GPU acceleration.
 tasks.register<JavaExec>("runGpu") {
     group = "application"
-    description = "Run the game with GPU acceleration on (discrete GPU preferred, MSAA)"
+    description = "Run the game with GPU acceleration on (discrete GPU preferred)"
     mainClass = "com.larsons.game.Main"
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs(application.applicationDefaultJvmArgs)
 
     systemProperty("larsons.gpu", System.getProperty("larsons.gpu") ?: "required")
-    systemProperty("larsons.gpu.msaa", System.getProperty("larsons.gpu.msaa") ?: "4")
+    // multisampling is the game's own setting (Settings > Display; Lite turns it off); -Dlarsons.gpu.msaa=4 for one run
     // vsync is the player's choice (Pause > Settings, saved); -Dlarsons.gpu.vsync=off sets it for one run
     environment(discreteGpuEnvironment())
 

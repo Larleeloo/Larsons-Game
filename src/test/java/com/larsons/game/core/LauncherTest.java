@@ -28,7 +28,8 @@ class LauncherTest {
         assertTrue(c.contains("-XX:+ZGenerational"), "generational ZGC is a flag on 21");
         assertTrue(c.contains("-Djava.awt.headless=true"));
         assertTrue(c.contains("-Dlarsons.gpu=required"));
-        assertTrue(c.contains("-Dlarsons.gpu.msaa=4"));
+        assertTrue(c.stream().noneMatch(a -> a.startsWith("-Dlarsons.gpu.msaa")),
+                "multisampling is the game's own setting (Lite turns it off)");
         assertTrue(c.contains("-D" + Launcher.CHILD_PROPERTY + "=true"));
         assertFalse(c.contains("-XstartOnFirstThread"), "only macOS");
         assertEquals(List.of("-cp", "larsons-game.jar", "com.larsons.game.Main", "x"), c.subList(c.size() - 4, c.size()));
@@ -54,9 +55,30 @@ class LauncherTest {
         assertFalse(c.contains("-XX:+UseZGC"));
         assertFalse(c.contains("-Dlarsons.gpu=required"));
         assertTrue(c.containsAll(List.of("-Xmx3g", "-XX:+UseG1GC", "-Dlarsons.gpu=off", "-Dlarsons.sprites.scale=0.5")));
-        assertTrue(c.contains("-Dlarsons.gpu.msaa=4"));
         assertTrue(c.stream().noneMatch(a -> a.startsWith("-agentlib:jdwp")), "a debugger stays with the first JVM");
         assertFalse(c.contains("-XstartOnFirstThread"), "not on Windows, even when given");
+    }
+
+    @Test
+    void aMachineWith8GbGetsASmallerHeapThatGivesMemoryBack() {
+        Launcher.Host air = new Launcher.Host("Mac OS X", "aarch64", 21, 8L << 30);
+        List<String> c = jarCommand(air, List.of(), true);
+        assertTrue(c.contains("-XX:MaxRAMPercentage=50"));
+        assertFalse(c.contains("-XX:MaxRAMPercentage=60"));
+        assertTrue(c.contains("-XX:SoftMaxHeapSize=" + (8L * 1024 * 3 / 10) + "m"), c.toString());
+        assertTrue(c.contains("-XX:ZUncommitDelay=30"));
+        assertTrue(c.contains("-XX:+UseZGC"));
+        // 16 GB: as before
+        List<String> big = jarCommand(new Launcher.Host("Mac OS X", "aarch64", 21, 16L << 30), List.of(), true);
+        assertTrue(big.contains("-XX:MaxRAMPercentage=60"));
+        assertTrue(big.stream().noneMatch(a -> a.startsWith("-XX:SoftMaxHeapSize")));
+        // a heap given on the command line wins
+        assertTrue(jarCommand(air, List.of("-Xmx3g"), true).stream().noneMatch(a -> a.startsWith("-XX:MaxRAM")
+                || a.startsWith("-XX:SoftMax")));
+        // without ZGC (Windows on ARM): only the smaller heap
+        List<String> arm = jarCommand(new Launcher.Host("Windows 11", "aarch64", 21, 8L << 30), List.of(), true);
+        assertTrue(arm.contains("-XX:MaxRAMPercentage=50"));
+        assertTrue(arm.stream().noneMatch(a -> a.startsWith("-XX:SoftMax")));
     }
 
     @Test

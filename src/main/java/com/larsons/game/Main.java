@@ -40,11 +40,31 @@ public final class Main {
         } catch (Boot.Failed e) {
             // the loading screen showed it until a key was pressed; the stack trace is on the console
             System.err.println("[boot] could not start: " + e.getMessage());
+            crashReport("The game could not start: " + e.getMessage(), e);
             System.exit(1);
             return;
+        } catch (RuntimeException | Error e) {
+            crashReport("The game could not start.", e);
+            throw e;
         }
         try (game) {
             game.run();
+        } catch (RuntimeException | Error e) {
+            crashReport("The game crashed.", e);
+            throw e;
+        }
+    }
+
+    /** What went wrong, and where every thread was, in logs/ - the file a player sends (core/Watchdog). */
+    private static void crashReport(String why, Throwable e) {
+        try {
+            java.nio.file.Path p = com.larsons.game.core.Watchdog.report(why, e);
+            if (p != null) {
+                System.err.println("[crash] " + why + " What happened is in " + p.toAbsolutePath()
+                        + " - please send that file.");
+            }
+        } catch (RuntimeException | Error ignored) {
+            // the report is a courtesy; the error itself is what matters
         }
     }
 }

@@ -180,8 +180,9 @@ public final class SettingsMenu {
         ui.text(ui.body, label, x, y + 7, Theme.ITEM);
     }
 
-    private static void note(Ui ui, String text, float x, float y, float w) {
-        ui.paragraph(ui.small, text, x, y, w, Theme.ITEM_DISABLED);
+    /** A note under a setting; the height it took. */
+    private static float note(Ui ui, String text, float x, float y, float w) {
+        return ui.paragraph(ui.small, text, x, y, w, Theme.ITEM_DISABLED);
     }
 
     // --- Display -----------------------------------------------------------------------
@@ -202,6 +203,30 @@ public final class SettingsMenu {
                 + (Window.Mode.of(s.fullscreenKind, Window.Mode.BORDERLESS) == Window.Mode.FULLSCREEN
                 ? "exclusive" : "borderless") + " full screen anywhere.", x, y, w);
         y += 56;
+
+        // --- the graphics: Full, or Lite for a low-end machine (core/GraphicsProfile, core/Hardware) ---
+        var verdict = game.verdict();
+        com.larsons.game.core.GraphicsProfile detected = verdict.profile();
+        com.larsons.game.core.GraphicsProfile active = s.profile(detected);
+        double density = window.scale();
+        name(ui, "Graphics", x, y);
+        int gi = s.autoGraphics() ? 0 : active == com.larsons.game.core.GraphicsProfile.FULL ? 1 : 2;
+        int gp = choices(ui, new String[]{"Auto (" + detected.label + ")", "Full", "Lite"}, gi, c, y, 150);
+        if (gp == 0) game.useGraphics(detected, true);
+        else if (gp == 1) game.useGraphics(com.larsons.game.core.GraphicsProfile.FULL, false);
+        else if (gp == 2) game.useGraphics(com.larsons.game.core.GraphicsProfile.LITE, false);
+        if (!active.matches(s, density)) {
+            ui.text(ui.small, "Changed by hand below", c + 3 * 158 + 8, y + 9, Theme.ACCENT);
+        }
+        y += 42;
+        y += note(ui, "This machine: " + game.hardware().describe() + ". " + (verdict.lite()
+                ? "Lite suits it (" + String.join("; ", verdict.reasons()) + ")."
+                : "It can take the full graphics.")
+                + "\nLite is for low-end machines - a MacBook Air, a laptop's built-in graphics, 8 GB of memory: no "
+                + "shadows, Vibrant visuals or light rays, the world drawn at one pixel per point on a Retina screen, "
+                + "a shorter view, half the critters and rain, 60 frames a second and no multisampling. Every "
+                + "setting below can still be changed one by one.", x, y, w);
+        y += 16;
 
         var pacer = game.pacer();
         name(ui, "Frame rate", x, y);
@@ -268,6 +293,54 @@ public final class SettingsMenu {
         ui.text(ui.small, raysOk ? "Worked out from the sun and the shadows: strongest at dawn, dusk and in mist"
                 : "Needs Vibrant visuals and shadows", c + 124, y + 9, Theme.ITEM_DISABLED);
         y += 50;
+
+        name(ui, "World resolution", x, y);
+        double[] rs = {1.0, 0.75, 0.5};
+        int ra = -1;
+        for (int i = 0; i < rs.length; i++) if (Math.abs(s.renderScale - rs[i]) < 1e-3) ra = i;
+        int rp = choices(ui, new String[]{"Full", "3/4", "Half"}, ra, c, y, 110);
+        if (rp >= 0) s.renderScale = rs[rp];
+        y += 42;
+        y += note(ui, String.format("The world is drawn at %d x %d pixels and stretched to the window's %d x %d; the "
+                        + "menus stay sharp. Half on a Retina screen is one pixel per point: a quarter of the "
+                        + "drawing, and the pixel art looks the same.",
+                Math.round(window.framebufferWidth() * s.renderScale),
+                Math.round(window.framebufferHeight() * s.renderScale),
+                window.framebufferWidth(), window.framebufferHeight()), x, y, w);
+        y += 16;
+        name(ui, "View distance", x, y);
+        double[] vd = {1.0, 0.7, 0.5};
+        int va = -1;
+        for (int i = 0; i < vd.length; i++) if (Math.abs(s.viewDistance - vd[i]) < 1e-3) va = i;
+        int vp = choices(ui, new String[]{"Far", "Medium", "Near"}, va, c, y, 110);
+        if (vp >= 0) s.viewDistance = vd[vp];
+        y += 42;
+        y += note(ui, "How far you see under the open sky before the haze closes in; what stands past it is not "
+                + "drawn at all.", x, y, w);
+        y += 16;
+        name(ui, "Wildlife and weather", x, y);
+        double[] wl = {1.0, 0.5, 0.25};
+        int wa = -1;
+        for (int i = 0; i < wl.length; i++) if (Math.abs(s.wildlife - wl[i]) < 1e-3) wa = i;
+        int wp = choices(ui, new String[]{"Lots", "Some", "Few"}, wa, c, y, 110);
+        if (wp >= 0) s.wildlife = wl[wp];
+        y += 42;
+        y += note(ui, "How many critters, animals wandering by, raindrops and snowflakes there are.", x, y, w);
+        y += 16;
+        name(ui, "Anti-aliasing", x, y);
+        int ma = choices(ui, new String[]{"On", "Off"}, s.savedMsaa() > 0 ? 0 : 1, c, y, 110);
+        if (ma >= 0) {
+            s.setMsaa(ma == 0 ? 4 : 0);
+            game.useMultisampling();
+        }
+        boolean later = s.savedMsaa() > 0 && window.gpu().samples() == 0;
+        y += 42;
+        if (later) {
+            y += ui.paragraph(ui.small, "From the next start (the window is made with it).", x, y, w, Theme.ACCENT);
+        } else {
+            y += note(ui, "Multisampling (4x): smoother edges on the buildings and the hills.", x, y, w);
+        }
+        y += 16;
 
         var lib = game.sprites();
         name(ui, "Sprite resolution", x, y);

@@ -23,9 +23,13 @@ import java.util.Map;
  * <ul>
  *   <li>the build's JVM flags: a heap of 60 % of the machine, the ZGC collector,
  *       headless AWT and, on macOS, {@code -XstartOnFirstThread} (GLFW must
- *       have the process's first thread there, and a manifest cannot ask for it);</li>
- *   <li>{@code runGpu}'s settings: {@code larsons.gpu=required}, 4x MSAA, and on
- *       Linux the hint for the discrete GPU;</li>
+ *       have the process's first thread there, and a manifest cannot ask for it);
+ *       on a machine with 8 GB of memory or less (a MacBook Air, which shares
+ *       it with the graphics) a heap of half of it, kept to under a third
+ *       while the game does not need more ({@link #memoryFlags});</li>
+ *   <li>{@code runGpu}'s settings: {@code larsons.gpu=required}, and on
+ *       Linux the hint for the discrete GPU (multisampling is the game's own
+ *       setting: Settings, Display);</li>
  *   <li>the jar's own folder as the working directory, so {@code assets/},
  *       {@code config/} and {@code screenshots/} are the ones beside it,
  *       wherever it was started from;</li>
@@ -54,12 +58,24 @@ public final class Launcher {
 
     private Launcher() {}
 
-    /** What the child JVM is started for: this machine, or a test's. */
-    record Host(String os, String arch, int javaFeature) {
+    /** Bytes of memory at or under which the heap is kept smaller: 8 GB, with room for what the system keeps. */
+    static final long LOW_MEMORY = Hardware.LOW_MEMORY;
+
+    /** What the child JVM is started for: this machine, or a test's ({@code memory} bytes; 0: unknown). */
+    record Host(String os, String arch, int javaFeature, long memory) {
+
+        Host(String os, String arch, int javaFeature) {
+            this(os, arch, javaFeature, 0);
+        }
 
         static Host current() {
             return new Host(System.getProperty("os.name", ""), System.getProperty("os.arch", ""),
-                    Runtime.version().feature());
+                    Runtime.version().feature(), Hardware.totalMemory());
+        }
+
+        /** Whether the machine has 8 GB of memory or less. */
+        boolean lowMemory() {
+            return memory > 0 && memory <= LOW_MEMORY;
         }
 
         boolean mac() { return os.toLowerCase(Locale.ROOT).contains("mac"); }
@@ -131,18 +147,17 @@ public final class Launcher {
         c.add("-Djava.awt.headless=true");
         c.add("-D" + CHILD_PROPERTY + "=true");
         if (fromJar) {
-            if (tuned && given.stream().noneMatch(a -> a.startsWith("-Xmx") || a.startsWith("-XX:MaxRAM"))) {
-                c.add("-XX:MaxRAMPercentage=60");
-            }
+            boolean heapGiven = given.stream().anyMatch(a -> a.startsWith("-Xmx") || a.startsWith("-XX:MaxRAM"));
             // A collector that never stops the game for more than a fraction of a
             // millisecond (see build.gradle.kts); generational ZGC is a flag on 21-22.
-            if (tuned && host.zgc() && given.stream().noneMatch(a -> a.matches("-XX:\\+Use\\w*GC"))) {
+            boolean zgc = tuned && host.zgc() && given.stream().noneMatch(a -> a.matches("-XX:\\+Use\\w*GC"));
+            if (tuned && !heapGiven) c.addAll(memoryFlags(host, zgc));
+            if (zgc) {
                 c.add("-XX:+UseZGC");
                 if (host.javaFeature() < 23) c.add("-XX:+ZGenerational");
             }
             Map<String, String> defaults = new LinkedHashMap<>();
             defaults.put("larsons.gpu", "required");
-            defaults.put("larsons.gpu.msaa", "4");
             defaults.forEach((k, v) -> {
                 if (given.stream().noneMatch(a -> a.startsWith("-D" + k + "="))) c.add("-D" + k + "=" + v);
             });
@@ -158,6 +173,24 @@ public final class Launcher {
         c.add(com.larsons.game.Main.class.getName());
         c.addAll(List.of(args));
         return c;
+    }
+
+    /**
+     * The heap's flags for {@code host}: 60 % of the machine's memory; on one
+     * of 8 GB or less, half of it - and with ZGC (which otherwise keeps what it
+     * has once used) kept to under a third, handing back what it no longer
+     * needs after half a minute, so the graphics, which share that memory on a
+     * MacBook, are left room. Same rule as build.gradle.kts.
+     */
+    static List<String> memoryFlags(Host host, boolean zgc) {
+        if (!host.lowMemory()) return List.of("-XX:MaxRAMPercentage=60");
+        List<String> f = new ArrayList<>();
+        f.add("-XX:MaxRAMPercentage=50");
+        if (zgc) {
+            f.add("-XX:SoftMaxHeapSize=" + (host.memory() * 3 / 10 >> 20) + "m");
+            f.add("-XX:ZUncommitDelay=30");
+        }
+        return f;
     }
 
     /**
