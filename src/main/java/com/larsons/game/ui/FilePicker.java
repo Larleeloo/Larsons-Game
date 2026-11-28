@@ -49,7 +49,14 @@ public final class FilePicker {
             for (String p : patterns) filters.put(stack.UTF8(p));
             filters.flip();
             String from = start == null ? null : start.toAbsolutePath() + File.separator;
-            String chosen = TinyFileDialogs.tinyfd_openFileDialog(title, from, filters, description, false);
+            // (the game waits while the dialog is up: not a hang)
+            com.larsons.game.core.Watchdog.hold(true);
+            String chosen;
+            try {
+                chosen = TinyFileDialogs.tinyfd_openFileDialog(title, from, filters, description, false);
+            } finally {
+                com.larsons.game.core.Watchdog.hold(false);
+            }
             return chosen == null || chosen.isBlank() ? null : Path.of(chosen);
         } catch (Throwable e) {          // no native library, no display: no dialog
             System.err.println("[files] no file dialog: " + e);

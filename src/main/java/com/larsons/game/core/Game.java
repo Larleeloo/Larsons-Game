@@ -66,6 +66,11 @@ public final class Game implements AutoCloseable {
     public static final String TITLE = "Larson's Game";
 
     private final Settings settings;
+    /** What the game is running on, and which graphics suit it ({@link Hardware#verdict}). */
+    private final Hardware hardware;
+    private final Hardware.Verdict verdict;
+    /** Said once the loading screen is gone: the Lite graphics were just chosen for this machine. */
+    private String graphicsNote;
     private final Window window;
     private final Batch batch;
     private final Ui ui;
@@ -120,11 +125,34 @@ public final class Game implements AutoCloseable {
         // (a colour of one's own - any skin, any dye - is shaded in the art's 128 colours)
         com.larsons.game.sprite.Variants.setPalette(com.larsons.game.sprite.PixelPalette.load(settings.spritesDir()));
         long t0 = System.nanoTime();
+        // What this machine is: a low-end one gets the Lite graphics (core/Hardware, GraphicsProfile). Before the
+        // window, from the processor and the graphics it had last time - enough to make the window without
+        // multisampling on a MacBook Air; after it, from the graphics chip the driver names.
+        // a frame not drawn for ten seconds - or a step the loading screen gives up on - writes a report to logs/
+        // (from before the window is made: on a Mac that is where a start can stop too)
+        Watchdog.start(Path.of("logs"), this::aboutForReport);
+        Hardware machine = Hardware.detect(settings.config);
+        GraphicsProfile early = settings.profile(machine.verdict().profile());
+        if (settings.graphicsForced()) {
+            if (!settings.msaaGiven()) settings.msaa = early.msaa;     // (this run's, not saved)
+        } else if (settings.autoGraphics() && !early.key().equals(settings.graphicsApplied)
+                && !(early == GraphicsProfile.FULL && settings.graphicsApplied.isEmpty())) {
+            settings.setMsaa(early.msaa);
+        }
         window = new Window(TITLE, 1280, 720, settings.msaa, settings.vsync);
+        GpuInfo gpu = window.gpu();
+        hardware = machine.withGpu(gpu);
+        verdict = hardware.verdict();
+        chooseGraphics();
         pacer = new FramePacer(window, settings.fps, settings.vsync);
         pacer.setLog(settings.logFrames);
-        GpuInfo gpu = window.gpu();
         System.out.println("[gpu] " + gpu.describe().replace('—', '-'));
+        System.out.println("[gpu] machine: " + hardware.describe() + " - " + verdict.describe());
+        System.out.println("[gpu] graphics: " + graphicsLine());
+        if (hardware.rosetta()) {
+            System.out.println("[gpu] Java here is the Intel version, running translated by Rosetta on an Apple "
+                    + "Silicon Mac: install the Apple Silicon (aarch64) Java 21 for a much faster game");
+        }
         System.out.println("[gpu] frame pacing: " + pacer.describe());
         if (pacer.advice() != null) System.out.println("[gpu] " + pacer.advice());
         if (gpu.software()) {
@@ -148,6 +176,11 @@ public final class Game implements AutoCloseable {
 
         // From here on the loading screen is up, showing each step as it runs.
         boot = new Boot(Boot.load(bootFile()));
+        boot.onLate(step -> {
+            Path report = Watchdog.report("The loading screen stopped waiting for \"" + step.title()
+                    + "\" after " + Math.round(Boot.LATE) + " seconds and started the game without it.", null);
+            if (report != null) System.err.println("[boot] what each thread was doing: " + report.toAbsolutePath());
+        });
         boot.done(Boot.Step.WINDOW, windowNs, gpu.renderer().split(" \\(")[0] + ", OpenGL "
                 + gpu.version().split(" ")[0] + (gpu.software() ? " (software)" : ""));
         boot.done(Boot.Step.INTERFACE, uiNs, String.format("4 fonts at %.2gx", ui.scale()));
@@ -266,7 +299,9 @@ public final class Game implements AutoCloseable {
         });
         autopilot = new Autopilot(settings.script);
 
-        glEnable(GL_MULTISAMPLE);
+        // (multisampling only where the window has it and the graphics want it: Lite draws without)
+        if (gpu.samples() > 0 && settings.msaa > 0) glEnable(GL_MULTISAMPLE);
+        else glDisable(GL_MULTISAMPLE);
         boot.run(Boot.Step.SCENE, r -> {
             switchTo(settings.start);
             r.summary(scene.loaded());
@@ -294,6 +329,109 @@ public final class Game implements AutoCloseable {
         });
         // the game's own pace from here: the frame pacer's vsync and frame rate
         pacer.recheck();
+    }
+
+    /**
+     * The graphics for this machine: with "auto", the profile it suits is put
+     * into the settings the first time it is found to be that kind of machine
+     * (on a machine already set up with the full graphics, nothing is
+     * changed); then the sprites' video memory as the profile has it.
+     */
+    private void chooseGraphics() {
+        GraphicsProfile profile = settings.profile(verdict.profile());
+        if (settings.graphicsForced()) {
+            settings.force(profile, window.scale());        // -Dlarsons.graphics=full or lite: this run only
+        } else if (settings.autoGraphics() && !profile.key().equals(settings.graphicsApplied)) {
+            boolean first = settings.graphicsApplied.isEmpty();
+            // (a machine that has been playing with the full graphics keeps its own settings as they are)
+            if (!(first && profile == GraphicsProfile.FULL)) {
+                profile.apply(settings, window.scale());
+                if (profile == GraphicsProfile.LITE) {
+                    graphicsNote = "Lite graphics for this machine (" + String.join("; ", verdict.reasons())
+                            + "). Settings, Display to change them.";
+                }
+            }
+            settings.graphicsApplied = profile.key();
+            settings.save();
+        }
+        if (!settings.vramGiven) settings.vramBytes = profile.vramBytes();
+        hardware.remember(settings.config);
+    }
+
+    /** "Lite (auto) - world at 50 %, ...": the graphics in one line, for the console and a report. */
+    public String graphicsLine() {
+        GraphicsProfile p = settings.profile(verdict.profile());
+        boolean custom = !p.matches(settings, window.scale());
+        return p.label + (settings.autoGraphics() ? " (auto)" : "") + (custom ? ", changed by hand" : "")
+                + String.format(java.util.Locale.ROOT, " - world at %d%%, view %d%%, wildlife %d%%, shadows %s, "
+                        + "vibrant %s, light rays %s, %s fps, MSAA %dx, sprite memory %d MB",
+                Math.round(settings.renderScale * 100), Math.round(settings.viewDistance * 100),
+                Math.round(settings.wildlife * 100), settings.shadows.toLowerCase(java.util.Locale.ROOT),
+                settings.vibrant ? "on" : "off", settings.lightRays && settings.vibrant ? "on" : "off",
+                settings.fps == 0 ? "uncapped" : String.valueOf(settings.fps), settings.msaa,
+                settings.vramBytes >> 20);
+    }
+
+    /**
+     * Draw with {@code p}'s graphics from now on (Settings, Display): its
+     * settings put in, the frame rate and the sprites' memory passed on, and
+     * saved. {@code auto}: the machine's own profile, left to "auto".
+     */
+    public void useGraphics(GraphicsProfile p, boolean auto) {
+        GraphicsProfile profile = auto ? verdict.profile() : p;
+        settings.graphics = auto ? "auto" : profile.key();
+        settings.keepGraphics();
+        profile.apply(settings, window.scale());
+        if (auto) settings.graphicsApplied = profile.key();
+        pacer.setTarget(settings.fps);
+        if (!settings.vramGiven) sprites.setBudgetBytes(settings.vramBytes);
+        useMultisampling();
+        settings.save();
+        System.out.println("[gpu] graphics: " + graphicsLine());
+    }
+
+    /** Multisampling on or off as the settings have it - where the window was made with it (else from the next start). */
+    public void useMultisampling() {
+        if (window.gpu().samples() > 0 && settings.msaa > 0) glEnable(GL_MULTISAMPLE);
+        else glDisable(GL_MULTISAMPLE);
+    }
+
+    /** What the game runs on. */
+    public Hardware hardware() { return hardware; }
+
+    /** Which graphics suit this machine, and why. */
+    public Hardware.Verdict verdict() { return verdict; }
+
+    /** What a hang or crash report says the game is: the machine, its graphics, what was loading, the screen. */
+    private String aboutForReport() {
+        StringBuilder sb = new StringBuilder();
+        if (window == null || hardware == null || verdict == null) {
+            // (still making the window)
+            sb.append("Machine: ").append(Hardware.detect(settings.config).describe()).append('\n');
+            sb.append("Opening the window and OpenGL").append('\n');
+            return sb.toString();
+        }
+        sb.append("Machine: ").append(hardware.describe()).append('\n');
+        sb.append("Graphics: ").append(window.gpu().describe().replace('—', '-')).append(", OpenGL ")
+                .append(window.gpu().version()).append('\n');
+        sb.append("Suits: ").append(verdict.describe()).append('\n');
+        sb.append("Drawing with: ").append(graphicsLine()).append('\n');
+        sb.append(String.format("Window: %dx%d points, %dx%d pixels%n", window.width(), window.height(),
+                window.framebufferWidth(), window.framebufferHeight()));
+        if (boot != null && !booted) {
+            Boot.Status at = boot.current();
+            sb.append("Loading: ").append(at == null ? "(between steps)" : at.step.group.label + " - " + at.title()
+                    + String.format(" (%.1f s)", at.seconds())).append('\n');
+            for (Boot.Status st : boot.steps()) {
+                if (st.phase() == Boot.Phase.RUNNING) {
+                    sb.append("  still going: ").append(st.title()).append(String.format(" (%.1f s) ", st.seconds()))
+                            .append(st.detail().replace('\n', ' ')).append('\n');
+                }
+            }
+        } else if (scene != null) {
+            sb.append("Screen: ").append(scene.name()).append('\n');
+        }
+        return sb.toString();
     }
 
     /** The voids, the hills and the world renderer that draws on them, made together. */
@@ -440,6 +578,7 @@ public final class Game implements AutoCloseable {
 
         @Override
         public void frame() {
+            Watchdog.beat();
             Input in = window.input();
             window.pollEvents();
             if (window.shouldClose()) throw new Boot.Closed();
@@ -454,6 +593,7 @@ public final class Game implements AutoCloseable {
             Input in = window.input();
             in.endFrame();
             while (!window.shouldClose()) {
+                Watchdog.beat();
                 window.pollEvents();
                 if (in.anyPressed()) break;
                 boot.poll();   // what was already going on in the background still finishes on screen
@@ -483,6 +623,7 @@ public final class Game implements AutoCloseable {
     /** The loop. Returns when the window closes or a scene quits. */
     public void run() {
         while (!window.shouldClose() && !quit) {
+            Watchdog.beat();
             window.pollEvents();
             double dt = pacer.beginFrame();
 
@@ -533,6 +674,7 @@ public final class Game implements AutoCloseable {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             graded = false;
             com.larsons.game.gfx.Visuals.now = settings.visuals();
+            com.larsons.game.gfx.Quality.now = settings.quality();
             pointers.clearHint();
             // under the settings the screen is drawn, but hears nothing
             in.setMuted(settingsMenu.open());
@@ -568,6 +710,10 @@ public final class Game implements AutoCloseable {
             booted = true;
             System.out.println("[boot] " + boot.report());
             Boot.save(bootFile(), boot.timings());
+            if (graphicsNote != null) {
+                toast(graphicsNote, Theme.HINT);
+                graphicsNote = null;
+            }
         }
         if (booted) fade -= dt / BOOT_FADE;
         if (fade <= 0) {

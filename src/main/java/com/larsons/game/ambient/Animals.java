@@ -300,7 +300,9 @@ public final class Animals {
 
     /** How many of a kind that come by belong round the player now (the last look round). */
     public double wanted(AnimalKind kind, double day) {
-        return kind.cap() * life.density(kind) * kind.out(day) * Math.min(1.5, share.get(kind));
+        // (fewer wander by on a low-end machine - never less than half, as they are hunted)
+        double machine = 0.5 + 0.5 * com.larsons.game.gfx.Quality.now.life();
+        return kind.cap() * life.density(kind) * kind.out(day) * Math.min(1.5, share.get(kind)) * machine;
     }
 
     /** Take {@code a} out of the world at once (a card turned it into something else). */

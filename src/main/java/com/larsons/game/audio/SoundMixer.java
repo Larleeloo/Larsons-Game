@@ -31,6 +31,15 @@ import java.util.List;
  * server, a container — the mixer disables itself silently at first use and
  * every {@code play} is a no-op that still returns a handle, so game code
  * never has to ask whether sound exists.
+ *
+ * <p><b>Never on the game's thread.</b> The audio device is opened by the
+ * mixer's own thread, not by whoever asks for the first sound - which is the
+ * main thread, the one that draws (the menu's song, as the game starts). On
+ * macOS that thread is also the one the system's own events run on, and
+ * opening a CoreAudio device there could hang the game for good on the
+ * loading screen. Sounds asked for while the device is opening wait for it
+ * (only the loops and the last moment's one-shots are kept); a device that
+ * never answers leaves the game silent, not frozen.
  */
 public final class SoundMixer {
 
@@ -61,6 +70,8 @@ public final class SoundMixer {
         private final int group;
         private volatile boolean stopping;
         private double fade = 1.0;    // multiplier ramped to 0 when stopping
+        /** When it was asked for (System.nanoTime): a one-shot asked for long before the device opened is dropped. */
+        private long asked;
 
         Voice(PcmClip clip, double rate, double volume, double pan, boolean loop, int group) {
             this.clip = clip;
@@ -111,6 +122,17 @@ public final class SoundMixer {
     private Thread pump;
     private boolean initialized;
     private boolean available;
+    /** The mixer's thread is still opening the device (sounds asked for meanwhile wait for it). */
+    private boolean opening;
+    /** When the device began opening (System.nanoTime), to say so once it is slow. */
+    private long openingSince;
+    private boolean slowReported;
+    /** Bumped by {@link #dispose}: a thread still opening the device for an older start lets it go. */
+    private int generation;
+    /** One-shots older than this when the device opens are dropped: the moment for them has gone. */
+    private static final long STALE_NS = 400_000_000L;
+    /** How long the device may take to open before the console says the game plays on in silence. */
+    static final long SLOW_OPEN_NS = 8_000_000_000L;
     private volatile boolean running;
     private volatile double masterVolume = 1.0;
     private final float[] groupGain = new float[GROUPS];
@@ -138,9 +160,14 @@ public final class SoundMixer {
         return group <= 0 || group >= GROUPS ? 1 : groupGain[group];
     }
 
-    /** Whether an audio device was found (false on a headless machine). */
+    /** Whether an audio device was found and is open (false on a headless machine, and while it opens). */
     public synchronized boolean isAvailable() {
         return initialized && available;
+    }
+
+    /** Whether the device is still being opened by the mixer's thread. */
+    public synchronized boolean opening() {
+        return opening;
     }
 
     /**
@@ -172,6 +199,7 @@ public final class SoundMixer {
         if (!ensureStarted()) return NONE;
         double rate = clip.sampleRate() / (double) SAMPLE_RATE * Math.max(0.01, pitch);
         Voice v = new Voice(clip, rate, volume, pan, loop, group);
+        v.asked = System.nanoTime();
         v.position = Math.max(0, Math.min(clip.frames() - 1, startSeconds * clip.sampleRate()));
         synchronized (voices) {
             if (voices.size() >= MAX_VOICES) {
@@ -224,26 +252,76 @@ public final class SoundMixer {
             }
         }
         available = false;
+        opening = false;
         initialized = false;
+        generation++;
     }
 
+    /**
+     * Start the mixer's thread, which opens the device and then mixes, the
+     * first time a sound is asked for; true while sounds can still be heard
+     * (the device open, or opening). Never waits for the device itself.
+     */
     private synchronized boolean ensureStarted() {
-        if (initialized) return available;
-        initialized = true;
-        try {
-            line = AudioSystem.getSourceDataLine(FORMAT);
-            line.open(FORMAT, BLOCK_FRAMES * 8);
-            line.start();
-            available = true;
-            running = true;
-            pump = new Thread(this::pump, "sound-mixer");
-            pump.setDaemon(true);
-            pump.start();
-        } catch (Exception | LinkageError e) {
-            available = false; // headless / no sound device: stay silent
-            line = null;
+        if (initialized) {
+            if (opening && !slowReported && System.nanoTime() - openingSince > SLOW_OPEN_NS) {
+                slowReported = true;
+                System.err.println("[sound] the sound device has not opened in " + SLOW_OPEN_NS / 1_000_000_000L
+                        + " s; the game plays on, silent until it does");
+            }
+            return available || opening;
         }
-        return available;
+        initialized = true;
+        opening = true;
+        openingSince = System.nanoTime();
+        running = true;
+        int gen = generation;
+        pump = new Thread(() -> openAndPump(gen), "sound-mixer");
+        pump.setDaemon(true);
+        pump.start();
+        return true;
+    }
+
+    /** The mixer's thread: open the device here, off the game's thread, then mix until disposed. */
+    private void openAndPump(int gen) {
+        SourceDataLine l;
+        try {
+            l = AudioSystem.getSourceDataLine(FORMAT);
+            l.open(FORMAT, BLOCK_FRAMES * 8);
+            l.start();
+        } catch (Exception | LinkageError e) {
+            synchronized (this) {
+                if (gen != generation) return;  // disposed (and maybe started again) while it opened
+                available = false; // headless / no sound device: stay silent
+                opening = false;
+                running = false;
+                line = null;
+            }
+            synchronized (voices) {
+                voices.clear();
+            }
+            return;
+        }
+        synchronized (this) {
+            if (gen != generation) {  // disposed (and maybe started again: that start's state is its own) while it opened
+                try {
+                    l.close();
+                } catch (RuntimeException ignored) {
+                    // going anyway
+                }
+                return;
+            }
+            line = l;
+            available = true;
+            opening = false;
+            if (slowReported) System.err.println("[sound] the sound device is open after all");
+        }
+        // what was asked for while it opened: the loops (a song) play; one-shots whose moment has passed do not
+        long now = System.nanoTime();
+        synchronized (voices) {
+            voices.removeIf(v -> !v.loop && now - v.asked > STALE_NS);
+        }
+        pump();
     }
 
     /**

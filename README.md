@@ -35,7 +35,7 @@ which the game's real places are made.
 - [Colours](#colours)
 - [Creative Mode](#creative-mode)
 - [The art](#the-art): the sprite stack and where it comes from
-- [Under the hood](#under-the-hood): rendering, loading, options, layout, tests
+- [Under the hood](#under-the-hood): rendering, low-end machines (Lite), loading, options, layout, tests
 
 ---
 
@@ -115,9 +115,11 @@ code changed.
 | `assets/` | the assets, with the two million sprite PNGs in one `sprites.pack` (in 1 GB parts the game joins the first time it starts), read in place |
 
 The jar sets itself up (`core/Launcher`): started by a double-click it
-relaunches itself with what `runGpu` gives it - a heap of 60 % of the machine,
-ZGC, macOS's first thread, 4x MSAA - and writes `logs/latest.log` beside
-itself, the file to ask for with a bug report.
+relaunches itself with what `runGpu` gives it - a heap of 60 % of the machine
+(50 % on one with 8 GB or less, given back to the system when it is not
+needed), ZGC, macOS's first thread - and writes `logs/latest.log` beside
+itself, the file to ask for with a bug report (with any `hang-` or `crash-`
+report beside it).
 
 ---
 
@@ -305,9 +307,12 @@ menu, the game, the map, the character creator, the editors - with **F10**
 or the **Settings** button, and saves as it changes (`config/settings.json`):
 
 - **Display**: windowed, borderless full screen or exclusive full screen (at
-  the monitor's fastest refresh), the frame rate (30, 60, 120, 144 or
-  uncapped), vsync, sprite resolution, the performance overlay, and what the
-  renderer is.
+  the monitor's fastest refresh), the **Graphics** - **Auto** (Lite on a
+  low-end machine, Full otherwise), **Full** or **Lite**, [below](#low-end-machines-the-lite-graphics) -
+  the frame rate (30, 60, 120, 144 or uncapped), vsync, the world's resolution
+  (Full, 3/4, Half), the view distance (Far, Medium, Near), wildlife and
+  weather (Lots, Some, Few), anti-aliasing, sprite resolution, the performance
+  overlay, and what the renderer is.
 - **Game**: the HUD and the missions on it, tutorial tips, picking up by
   walking over (and how near), the camera's height, walls indoors and out,
   scenery and animations.
@@ -1437,24 +1442,72 @@ uploads spread over frames, and generational ZGC. **F8** shows the
 performance overlay in the game and the editors. On a software renderer it
 still runs, and says so in red.
 
+### Low-end machines: the Lite graphics
+
+A MacBook Air or a laptop with the graphics built into its processor cannot
+draw the full look at 60 frames a second, so the game checks what it is
+running on (`core/Hardware`) and starts such a machine with the **Lite**
+graphics (`core/GraphicsProfile`). Low-end is any of:
+
+- graphics built into the processor, by the name the driver gives: the plain
+  **Apple M1, M2, M3, M4** (the Pro, Max and Ultra are not), Intel HD, UHD,
+  Iris and Arc-in-the-processor, AMD Radeon Graphics, Vega and 680M-kind,
+  a phone's or a Raspberry Pi's - or an entry-level card (GeForce MX, GT 1030);
+- graphics drawn in software (no driver);
+- **8 GB of memory** or less (on a Mac the game and the graphics share it);
+- four processor threads or fewer;
+- an Intel Java translated by Rosetta on an Apple Silicon Mac (Play on Mac
+  picks the Apple Silicon Java first, and says so when there is only the
+  Intel one).
+
+| | Full | Lite |
+|---|---|---|
+| Shadows | Medium | Off (the soft blob under each thing) |
+| Vibrant visuals, light rays | On | Off (the flat pixel look) |
+| The world's resolution | the window's | one pixel per point on a Retina screen (half; the menus stay sharp) |
+| View distance | the level's | 70 % (past the haze nothing is drawn) |
+| Critters, animals, rain and snow | all | half |
+| Frame rate | 120 | 60 |
+| Multisampling | 4x | off |
+| Sprite video memory | 1536 MB | 768 MB |
+
+The choice is made once for the machine and kept (`config/hardware.json`
+remembers the graphics chip so the next start knows it before the window
+opens); after that, the player's own changes stay. **Settings → Display →
+Graphics** switches between Auto, Full and Lite, and says what the machine is
+and why it got what it got. The jar also gives a machine with 8 GB or less a
+smaller heap that hands memory back to the system.
+
+**When something freezes**, the game says where: a watchdog
+(`core/Watchdog`) writes `logs/hang-<date>.txt` - every thread's stack, the
+machine, the graphics, what was loading - when no frame has been drawn for 10
+seconds, and `logs/crash-<date>.txt` when the game crashes. That file is what
+to send Larson.
+
 ### The loading screen
 
 The window opens at once on a screen that shows every step of loading -
 graphics, the sprite index (some two million sheets), the world, the sounds,
 the menu - with what each found and how long it took, a bar weighted by last
 time's timings (`config/boot.json`), and a step that fails held on screen in
-red.
+red. Work that loads in the background (the music, the sound effects, the
+menu's sprite sheets) is waited for at most 45 seconds: past that the game
+starts without it, it goes on loading behind the game, and a report of what
+it was stuck on is written to `logs/`. The sound device itself is opened on a
+thread of its own, never on the thread that draws (on a Mac that thread is
+also the one the system talks to the window on).
 
 ### Launch options
 
 | Option | Default | |
 |---|---|---|
 | `-Dlarsons.start=…` | menu | `demo`, `play:<level>`, `edit:<level>`, `creative`, `newgame`, `mapedit`, `horde:<map>`, `hordeedit:<map>` |
-| `-Dlarsons.gpu.msaa=4` | 4 | multisampling (0: off) |
+| `-Dlarsons.graphics=lite` | saved (auto) | `full` or `lite` for this run, whatever the machine |
+| `-Dlarsons.gpu.msaa=4` | saved (4, Lite 0) | multisampling for this run (0: off) |
 | `-Dlarsons.gpu.vsync=on` | saved | vsync for this run |
 | `-Dlarsons.fps=120` | saved | the frame rate for this run (0: uncapped) |
 | `-Dlarsons.sprites.scale=1` | 1 | shrink sprite frames as they load |
-| `-Dlarsons.sprites.vramMB=1536` | 1536 | the sprites' video-memory budget |
+| `-Dlarsons.sprites.vramMB=1536` | 1536 (Lite 768) | the sprites' video-memory budget |
 | `-Dlarsons.inventory.slots=25` | 25 | inventory slots, the hotbar's five included |
 | `-Dlarsons.perf.log=true` | off | print the performance overlay once a second |
 | `-Dlarsons.script=…` | - | a scripted run (below) |

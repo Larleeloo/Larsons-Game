@@ -475,14 +475,109 @@ public final class SpriteLibrary implements AutoCloseable {
 
     private Entry scanItem(Slot slot, Path dir, Path classicDir) {
         SpriteProfile profile = SpriteProfile.load(dir, SpriteProfile.defaults());
-        Map<String, Path> sheets = new TreeMap<>();
+        Map<String, String> sheets = new TreeMap<>();
         List<String> skipped = new ArrayList<>();
         scanSheets(dir, sheets, skipped);
-        Map<String, Path> classic = new TreeMap<>();
+        Map<String, String> classic = new TreeMap<>();
         if (classicDir != null && Files.isDirectory(classicDir)) scanSheets(classicDir, classic, new ArrayList<>());
         return new Entry(slot, dir.getFileName().toString(), dir, profile,
-                Collections.unmodifiableMap(sheets), List.copyOf(skipped), Variants.load(dir),
-                Collections.unmodifiableMap(classic));
+                SheetMap.of(dir, sheets), List.copyOf(skipped), Variants.load(dir),
+                classic.isEmpty() ? Map.of() : SheetMap.of(classicDir, classic));
+    }
+
+    /**
+     * An item folder's sheets by key, kept small: the keys and each file's
+     * name within the folder, as two arrays of strings that are, for nearly
+     * every sheet, the same few hundred strings shared by every folder (the
+     * canonical names) - its path made when it is asked for. The index holds
+     * two to three million sheets; a {@code TreeMap} of {@code Path}s spent
+     * some 280 bytes on each (about 800 MB of the heap, more read from the
+     * sprite pack), which a machine with 8 GB shared with its graphics (a
+     * MacBook Air) cannot spare. Read-only.
+     */
+    static final class SheetMap extends java.util.AbstractMap<String, Path> {
+        private final Path folder;
+        private final String[] keys, names;
+
+        private SheetMap(Path folder, String[] keys, String[] names) {
+            this.folder = folder;
+            this.keys = keys;
+            this.names = names;
+        }
+
+        /** {@code sheets} (key to the name of a file in {@code folder}, or below it), kept small. */
+        static Map<String, Path> of(Path folder, Map<String, String> sheets) {
+            if (sheets.isEmpty()) return Map.of();
+            java.util.TreeMap<String, String> sorted = new java.util.TreeMap<>(sheets);
+            String[] k = new String[sorted.size()], n = new String[sorted.size()];
+            int i = 0;
+            for (Map.Entry<String, String> e : sorted.entrySet()) {
+                k[i] = shared(e.getKey());
+                n[i] = shared(e.getValue());
+                i++;
+            }
+            return new SheetMap(folder, k, n);
+        }
+
+        @Override
+        public Path get(Object key) {
+            if (!(key instanceof String k)) return null;
+            int at = java.util.Arrays.binarySearch(keys, k);
+            return at < 0 ? null : folder.resolve(names[at]);
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return key instanceof String k && java.util.Arrays.binarySearch(keys, k) >= 0;
+        }
+
+        @Override
+        public int size() {
+            return keys.length;
+        }
+
+        @Override
+        public java.util.Set<Map.Entry<String, Path>> entrySet() {
+            return new java.util.AbstractSet<>() {
+                @Override
+                public java.util.Iterator<Map.Entry<String, Path>> iterator() {
+                    return new java.util.Iterator<>() {
+                        private int i;
+
+                        @Override
+                        public boolean hasNext() {
+                            return i < keys.length;
+                        }
+
+                        @Override
+                        public Map.Entry<String, Path> next() {
+                            if (i >= keys.length) throw new java.util.NoSuchElementException();
+                            Map.Entry<String, Path> e = Map.entry(keys[i], folder.resolve(names[i]));
+                            i++;
+                            return e;
+                        }
+                    };
+                }
+
+                @Override
+                public int size() {
+                    return keys.length;
+                }
+            };
+        }
+    }
+
+    /** One copy of each key and file name ("walk_side_e", "walk_side_e.png") however many folders have it. */
+    private static final Map<String, String> SHARED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String shared(String s) {
+        // (the canonical names are few; an odd one - a folder inside the item's - is kept as it is)
+        if (SHARED.size() > 20_000) {
+            String known = SHARED.get(s);
+            return known == null ? s : known;
+        }
+        String was = SHARED.putIfAbsent(s, s);
+        return was == null ? s : was;
     }
 
     /** The key of every canonical sheet name ({@code walk_middle_ne.png}), read without the parser. */
@@ -499,7 +594,7 @@ public final class SpriteLibrary implements AutoCloseable {
     }
 
     /**
-     * The sheets in an item folder (and in its folders, four deep), by key.
+     * The sheets in an item folder (and in its folders, four deep), by key: the name of each within the folder.
      * A folder holds thousands of them and there are hundreds of folders, so
      * this is the start's longest wait (the loading screen shows it): the
      * names are listed without asking the disk about each file (a {@code
@@ -508,7 +603,7 @@ public final class SpriteLibrary implements AutoCloseable {
      * same sheets come out as from walking the folder and parsing every name:
      * the files in path order, the first of a key kept.
      */
-    static void scanSheets(Path dir, Map<String, Path> sheets, List<String> skipped) {
+    static void scanSheets(Path dir, Map<String, String> sheets, List<String> skipped) {
         List<Path> files = new ArrayList<>();
         try {
             listPngs(dir, 4, files);
@@ -521,7 +616,7 @@ public final class SpriteLibrary implements AutoCloseable {
             String rel = dir.relativize(f).toString();
             String known = CANONICAL.get(rel);
             if (known != null) {
-                sheets.putIfAbsent(known, f);
+                sheets.putIfAbsent(known, rel);
                 continue;
             }
             SpriteNames.Parsed p = SpriteNames.parse(rel);
@@ -529,7 +624,7 @@ public final class SpriteLibrary implements AutoCloseable {
                 skipped.add(rel);
                 continue;
             }
-            sheets.putIfAbsent(key(p.state(), p.elevation(), p.facing()), f);
+            sheets.putIfAbsent(key(p.state(), p.elevation(), p.facing()), rel);
         }
     }
 

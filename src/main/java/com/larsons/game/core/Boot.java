@@ -93,7 +93,26 @@ public final class Boot {
             this.guess = guess;
             this.background = background;
         }
+
+        /**
+         * Seconds the loading screen waits for this background step before
+         * it lets the game start without it ({@link #LATE}): the work goes on
+         * behind the game (a song starts when it is decoded, a sheet shows
+         * when it is in). 0 for a step on the main thread, which is waited for.
+         */
+        public double limit() {
+            return background ? LATE : 0;
+        }
     }
+
+    /**
+     * Seconds, at most, the loading screen waits for any one background step.
+     * A slow machine still gets there; one where something never finishes -
+     * a sound device that does not answer, a thread stuck - starts anyway,
+     * with the step said to be late, instead of staying on the loading screen
+     * for ever.
+     */
+    public static final double LATE = 45;
 
     /** Where a step is. */
     public enum Phase { WAITING, RUNNING, DONE, FAILED }
@@ -245,6 +264,8 @@ public final class Boot {
     private final long startNs;
     private final Deque<String> log = new ArrayDeque<>();
     private Display display;
+    /** Told of a background step the boot stopped waiting for ({@link #LATE}), or null. */
+    private java.util.function.Consumer<Status> late;
     private Status running;
     private long lastFrame = Long.MIN_VALUE / 2;
     private long finishedNs;
@@ -265,6 +286,11 @@ public final class Boot {
     /** Draw on {@code display} from now on. */
     public void setDisplay(Display display) {
         this.display = display;
+    }
+
+    /** Tell {@code late} of each background step the boot stops waiting for (a report is written then). */
+    public void onLate(java.util.function.Consumer<Status> late) {
+        this.late = late;
     }
 
     /** Call a step something else this time ("Opening the demo"). */
@@ -345,6 +371,21 @@ public final class Boot {
             // background work that cannot say how it is doing is not worth stopping the game for
             s.error = message(e);
             log(s.title + ": " + s.error);
+            done = true;
+        }
+        if (!done && s.step.limit() > 0 && s.seconds() > s.step.limit()) {
+            // never finished: the game starts without it, and says so
+            s.summary = String.format("not finished after %.0f s - the game starts without waiting", s.step.limit());
+            log(s.title + ": still going after " + Math.round(s.step.limit()) + " s; starting without it");
+            System.err.println("[boot] " + s.title + ": still going after " + Math.round(s.step.limit())
+                    + " s; starting without it");
+            if (late != null) {
+                try {
+                    late.accept(s);
+                } catch (RuntimeException e) {
+                    System.err.println("[boot] " + message(e));
+                }
+            }
             done = true;
         }
         if (done) {

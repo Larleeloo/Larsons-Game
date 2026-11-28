@@ -41,23 +41,25 @@ final class WeatherRenderer {
         float lit = (float) Math.min(1.2, 0.35 + 0.75 * (a[0] + a[1] + a[2]) / 3 + now.flash() * 0.6);
         batch.begin(viewProj, fog, 0, fogFar);
         Vec3 wind = Scenery.WIND;
+        // (a low-end machine draws fewer drops and flakes: the weather is still there, thinner)
+        double many = level * Math.max(0.3, com.larsons.game.gfx.Quality.now.life());
         switch (kind) {
             case RAIN, THUNDERSTORM -> {
                 boolean storm = kind == Weather.Kind.THUNDERSTORM;
                 Vec3 v = new Vec3(wind.x() * (storm ? 4.5 : 2.2), -12, wind.z() * (storm ? 4.5 : 2.2));
-                int n = (int) (RAIN * level * (storm ? 1.2 : 1));
+                int n = (int) (RAIN * many * (storm ? 1.2 : 1));
                 streaks(batch, n, 0, v, storm ? 0.65 : 0.5, 0.032, target, eye, time,
                         0.72f * lit, 0.8f * lit, 0.92f * lit, (float) (0.38 + 0.27 * level));
             }
-            case SNOW -> flakes(batch, (int) (SNOW * level), target, eye, camera, time, lit);
+            case SNOW -> flakes(batch, (int) (SNOW * many), target, eye, camera, time, lit);
             case SANDSTORM -> {
                 Vec3 v = new Vec3(wind.x() * 11, -0.8, wind.z() * 11);
-                streaks(batch, (int) (SAND * level), 7, v, 0.45, 0.04, target, eye, time,
+                streaks(batch, (int) (SAND * many), 7, v, 0.45, 0.04, target, eye, time,
                         0.86f * lit, 0.7f * lit, 0.46f * lit, (float) (0.3 + 0.3 * level));
             }
             case WIND -> {
                 Vec3 v = new Vec3(wind.x() * 7, -0.2, wind.z() * 7);
-                streaks(batch, (int) (DUST * level), 13, v, 0.16, 0.07, target, eye, time,
+                streaks(batch, (int) (DUST * many), 13, v, 0.16, 0.07, target, eye, time,
                         0.62f * lit, 0.6f * lit, 0.38f * lit, 0.85f);
             }
             default -> { }

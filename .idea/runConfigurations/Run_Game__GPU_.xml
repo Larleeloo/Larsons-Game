@@ -8,12 +8,15 @@
       - asks for the discrete GPU on hybrid Linux laptops (DRI_PRIME / NVIDIA
         PRIME offload); on Windows set java.exe to "High performance" in
         Settings > System > Display > Graphics once, macOS switches by itself
-      - 4x MSAA (vsync: the saved choice, Pause > Settings)
+      - multisampling, vsync and the rest of the graphics are the game's own
+        settings (Settings > Display): Full, or Lite on a low-end machine
+        (a MacBook Air, built-in graphics, 8 GB of memory), picked by itself
       - larsons.gpu=required: if the driver turns out to be a software
         rasteriser the console and the in-game HUD say so in red
 
-    Tweak without editing this file: add e.g. -Dlarsons.gpu.msaa=8 or
-    -Dlarsons.sprites.scale=0.5 to "Run" > "Edit Configurations" > arguments.
+    Tweak without editing this file: add e.g. -Dlarsons.graphics=lite,
+    -Dlarsons.gpu.msaa=8 or -Dlarsons.sprites.scale=0.5 to "Run" >
+    "Edit Configurations" > arguments.
   -->
   <configuration default="false" name="Run Game (GPU)" type="GradleRunConfiguration" factoryName="Gradle">
     <ExternalSystemSettings>
